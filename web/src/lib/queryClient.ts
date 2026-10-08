@@ -1,5 +1,5 @@
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient, type Query } from '@tanstack/react-query'
 import { removeOldestQuery } from '@tanstack/react-query-persist-client'
 import { AniListError } from './anilist.ts'
 
@@ -45,6 +45,13 @@ export const persistOptions = {
     retry: removeOldestQuery,
   }),
   maxAge: DAY,
+  dehydrateOptions: {
+    // By default TanStack saves only queries whose last fetch succeeded, so a failed
+    // refresh would erase the saved list. Save every result we still have unless it is
+    // over a day old (maxAge only checks when the whole cache was last saved).
+    shouldDehydrateQuery: (query: Query) =>
+      query.state.data !== undefined && Date.now() - query.state.dataUpdatedAt < DAY,
+  },
   // Change this when a query's fields change, so old saved results are discarded.
   buster: 'v1',
 }
