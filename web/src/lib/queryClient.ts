@@ -53,6 +53,8 @@ export const persistOptions = {
     shouldDehydrateQuery: (query: Query) =>
       query.state.data !== undefined && Date.now() - query.state.dataUpdatedAt < DAY,
   },
-  // Change this when a query's fields change, so old saved results are discarded.
-  buster: 'v1',
+  // Cache keys include each query's text and variables (see queries.ts), so editing a
+  // query never reuses old saved results. Change this only if the code that reshapes
+  // results changes. (v2: keys switched to that format.)
+  buster: 'v2',
 }

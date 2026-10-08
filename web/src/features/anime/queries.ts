@@ -41,26 +41,20 @@ export const ERAS: Era[] = [
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
 
-const fetchMedia = (query: string, variables: Variables, signal: AbortSignal) =>
-  anilist<{ Page: { media: Media[] } }>(query, variables, signal).then((data) => data.Page.media)
-
-export const trendingQuery = () =>
+// The cache key is the exact request (query text and variables), so editing a query
+// or an era's dates never shows results saved under the old version.
+const mediaQuery = (query: string, variables: Variables, staleTime: number) =>
   queryOptions({
-    queryKey: ['trending'],
-    queryFn: ({ signal }) => fetchMedia(QUERIES.trending, {}, signal),
-    staleTime: 30 * MINUTE,
+    queryKey: ['anilist', query, variables],
+    queryFn: ({ signal }) =>
+      anilist<{ Page: { media: Media[] } }>(query, variables, signal).then(
+        (data) => data.Page.media,
+      ),
+    staleTime,
   })
 
-export const eraQuery = (era: Era) =>
-  queryOptions({
-    queryKey: ['era', era.id],
-    queryFn: ({ signal }) => fetchMedia(QUERIES.era, era.variables, signal),
-    staleTime: 6 * HOUR,
-  })
+export const trendingQuery = () => mediaQuery(QUERIES.trending, {}, 30 * MINUTE)
 
-export const searchQuery = (term: string) =>
-  queryOptions({
-    queryKey: ['search', term],
-    queryFn: ({ signal }) => fetchMedia(QUERIES.search, { search: term }, signal),
-    staleTime: 6 * HOUR,
-  })
+export const eraQuery = (era: Era) => mediaQuery(QUERIES.era, era.variables, 6 * HOUR)
+
+export const searchQuery = (term: string) => mediaQuery(QUERIES.search, { search: term }, 6 * HOUR)

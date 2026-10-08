@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { ERAS, QUERIES, searchQuery } from './queries.ts'
+import { ERAS, eraQuery, QUERIES, searchQuery, trendingQuery } from './queries.ts'
 
 test('every media query excludes adult titles', () => {
   for (const [name, query] of Object.entries(QUERIES)) {
@@ -49,4 +49,21 @@ test('the search term is sent as a variable, never written into the query', asyn
 
 test('each search term gets its own cache entry', () => {
   assert.notDeepEqual(searchQuery('naruto').queryKey, searchQuery('frieren').queryKey)
+})
+
+test('every era has its own cache entry', () => {
+  const keys = ERAS.map((era) => JSON.stringify(eraQuery(era).queryKey))
+  assert.equal(new Set(keys).size, ERAS.length)
+})
+
+test('changing the dates of an era gives it a new cache key, so old saved results are not reused', () => {
+  const eighties = ERAS.find((era) => era.id === '1980s')!
+  const moved = { ...eighties, variables: { ...eighties.variables, from: 19800101 } }
+  assert.notDeepEqual(eraQuery(moved).queryKey, eraQuery(eighties).queryKey)
+})
+
+test('cache keys include the query text, so editing a query discards its saved results', () => {
+  assert.ok(trendingQuery().queryKey.includes(QUERIES.trending))
+  assert.ok(eraQuery(ERAS[0]).queryKey.includes(QUERIES.era))
+  assert.ok(searchQuery('x').queryKey.includes(QUERIES.search))
 })
