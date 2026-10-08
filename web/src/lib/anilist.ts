@@ -18,10 +18,15 @@ export class AniListError extends Error {
   }
 }
 
-/** When requests may resume: X-RateLimit-Reset (Unix seconds), or one minute from now if absent. */
+/**
+ * When requests may resume. AniList's timeout lasts one minute, so X-RateLimit-Reset
+ * (Unix seconds, from AniList's clock) is trusted only if it falls within the next
+ * minute on this computer's clock. Otherwise the header is missing or the two clocks
+ * disagree, and waiting the full minute is always enough.
+ */
 export function retryAt(headers: Headers, now: number): number {
-  const reset = Number(headers.get('X-RateLimit-Reset'))
-  return reset > 0 ? reset * 1000 : now + 60_000
+  const reset = Number(headers.get('X-RateLimit-Reset')) * 1000
+  return reset > now && reset <= now + 60_000 ? reset : now + 60_000
 }
 
 // Shared by every request: after a 429, or when no requests remain in this
@@ -33,8 +38,10 @@ export async function anilist<T>(
   variables: Variables = {},
   signal?: AbortSignal,
 ): Promise<T> {
-  const wait = pausedUntil - Date.now()
-  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait))
+  // Check again after every wait: a response that arrived meanwhile may have extended the pause.
+  while (pausedUntil > Date.now()) {
+    await new Promise((resolve) => setTimeout(resolve, pausedUntil - Date.now()))
+  }
 
   const res = await fetch(ENDPOINT, {
     method: 'POST',
