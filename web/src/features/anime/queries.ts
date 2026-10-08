@@ -1,0 +1,66 @@
+import { queryOptions } from '@tanstack/react-query'
+import { anilist, type Variables } from '../../lib/anilist.ts'
+
+/** The fields a title card needs. AniList leaves many of them null. */
+export type Media = {
+  id: number
+  title: { romaji: string; english: string | null }
+  coverImage: { large: string; color: string | null }
+  format: string | null
+  seasonYear: number | null
+  averageScore: number | null
+}
+
+// Every media query must keep SAFE, which keeps adult titles out (the gacha
+// shows random picks to anyone). queries.test.ts fails if a query drops it.
+const SAFE = 'isAdult: false, genre_not_in: ["Hentai"]'
+const CARD = 'id title { romaji english } coverImage { large color } format seasonYear averageScore'
+
+export const QUERIES = {
+  trending: `query { Page(perPage: 20) { media(type: ANIME, sort: TRENDING_DESC, countryOfOrigin: "JP", ${SAFE}) { ${CARD} } } }`,
+  era: `query ($from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus) { Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: "JP", startDate_greater: $from, startDate_lesser: $to, status: $status, ${SAFE}) { ${CARD} } } }`,
+  search: `query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, ${SAFE}) { ${CARD} } } }`,
+}
+
+export type Era = { id: string; label: string; variables: Variables }
+
+// AniList dates are FuzzyDateInt numbers (YYYYMMDD; a year-only date is YYYY0000)
+// and both bounds are exclusive, so the 1980s are "after 1979-99-99, before 1990-00-00".
+const decade = (year: number): Era => ({
+  id: `${year}s`,
+  label: `${year}s`,
+  variables: { from: year * 10000 - 1, to: (year + 10) * 10000 },
+})
+
+export const ERAS: Era[] = [
+  { id: 'pre-1970', label: 'Pre-1970', variables: { from: 10000000, to: 19700000 } },
+  ...[1970, 1980, 1990, 2000, 2010, 2020].map(decade),
+  { id: 'upcoming', label: 'Upcoming', variables: { status: 'NOT_YET_RELEASED' } },
+]
+
+const MINUTE = 60_000
+const HOUR = 60 * MINUTE
+
+const fetchMedia = (query: string, variables: Variables, signal: AbortSignal) =>
+  anilist<{ Page: { media: Media[] } }>(query, variables, signal).then((data) => data.Page.media)
+
+export const trendingQuery = () =>
+  queryOptions({
+    queryKey: ['trending'],
+    queryFn: ({ signal }) => fetchMedia(QUERIES.trending, {}, signal),
+    staleTime: 30 * MINUTE,
+  })
+
+export const eraQuery = (era: Era) =>
+  queryOptions({
+    queryKey: ['era', era.id],
+    queryFn: ({ signal }) => fetchMedia(QUERIES.era, era.variables, signal),
+    staleTime: 6 * HOUR,
+  })
+
+export const searchQuery = (term: string) =>
+  queryOptions({
+    queryKey: ['search', term],
+    queryFn: ({ signal }) => fetchMedia(QUERIES.search, { search: term }, signal),
+    staleTime: 6 * HOUR,
+  })
