@@ -67,3 +67,20 @@ test('cache keys include the query text, so editing a query discards its saved r
   assert.ok(eraQuery(ERAS[0]).queryKey.includes(QUERIES.era))
   assert.ok(searchQuery('x').queryKey.includes(QUERIES.search))
 })
+
+test('searches ignore capitals and extra spaces, so they share one request', async (t) => {
+  const sent: { variables: Record<string, unknown> }[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    sent.push(JSON.parse(init.body as string))
+    return new Response(JSON.stringify({ data: { Page: { media: [] } } }))
+  })
+  assert.deepEqual(
+    searchQuery('  Frieren   Beyond ').queryKey,
+    searchQuery('frieren beyond').queryKey,
+  )
+  // The cast stands in for the context TanStack Query passes; only the signal is used.
+  await searchQuery('  Frieren   Beyond ').queryFn!({
+    signal: new AbortController().signal,
+  } as never)
+  assert.deepEqual(sent[0].variables, { search: 'frieren beyond' })
+})

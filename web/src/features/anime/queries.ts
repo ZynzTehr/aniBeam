@@ -57,4 +57,7 @@ export const trendingQuery = () => mediaQuery(QUERIES.trending, {}, 30 * MINUTE)
 
 export const eraQuery = (era: Era) => mediaQuery(QUERIES.era, era.variables, 6 * HOUR)
 
-export const searchQuery = (term: string) => mediaQuery(QUERIES.search, { search: term }, 6 * HOUR)
+// AniList search ignores capitals and extra spaces, so "Frieren " and "frieren"
+// share one request and one cache entry.
+export const searchQuery = (term: string) =>
+  mediaQuery(QUERIES.search, { search: term.trim().replace(/\s+/g, ' ').toLowerCase() }, 6 * HOUR)
