@@ -29,8 +29,8 @@ export function retryAt(headers: Headers, now: number): number {
   return reset > now && reset <= now + 60_000 ? reset : now + 60_000
 }
 
-// Shared by every request: after a 429, or when no requests remain in this
-// minute, wait until the limit resets instead of collecting more 429s.
+// Shared by every request: after a 429, a failed connection, or when no requests
+// remain in this minute, wait until the limit resets instead of collecting more 429s.
 let pausedUntil = 0
 
 export async function anilist<T>(
@@ -43,12 +43,21 @@ export async function anilist<T>(
     await new Promise((resolve) => setTimeout(resolve, pausedUntil - Date.now()))
   }
 
-  const res = await fetch(ENDPOINT, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-    body: JSON.stringify({ query, variables }),
-    signal,
-  })
+  let res: Response
+  try {
+    res = await fetch(ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ query, variables }),
+      signal,
+    })
+  } catch (error) {
+    // AniList's burst limiter can answer 429 without CORS headers, which the browser
+    // reports only as a failed connection, so wait the full minute in case it was one.
+    // A request we cancelled ourselves pauses nothing.
+    if (!signal?.aborted) pausedUntil = Date.now() + 60_000
+    throw error
+  }
   if (res.status === 429 || res.headers.get('X-RateLimit-Remaining') === '0') {
     pausedUntil = retryAt(res.headers, Date.now())
   }

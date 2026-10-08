@@ -151,3 +151,39 @@ test('a waiting request keeps waiting when the pause gets longer', async (t) => 
   await c
   assert.deepEqual(sentAt, [start, start, start + 65_000])
 })
+
+test('a failed connection pauses later requests for a minute', async (t) => {
+  // AniList's burst limiter can answer 429 without CORS headers. The browser then
+  // reports only a network failure (TypeError), so it is treated like a rate limit.
+  const start = fakeClock(t)
+  const sentAt: number[] = []
+  t.mock.method(globalThis, 'fetch', async () => {
+    sentAt.push(Date.now())
+    if (sentAt.length === 1) throw new TypeError('Failed to fetch')
+    return new Response(JSON.stringify({ data: { ok: true } }))
+  })
+  await assert.rejects(anilist('query { x }'), TypeError)
+
+  const next = anilist('query { x }')
+  t.mock.timers.tick(59_999)
+  await settle()
+  assert.equal(sentAt.length, 1, 'the second request went out before the minute was up')
+
+  t.mock.timers.tick(1)
+  await next
+  assert.deepEqual(sentAt, [start, start + 60_000])
+})
+
+test('a cancelled request does not pause the next one', async (t) => {
+  // Typing more cancels the previous search; that must never freeze the app.
+  const start = fakeClock(t)
+  const sentAt: number[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    sentAt.push(Date.now())
+    if (init.signal?.aborted) throw new DOMException('This operation was aborted', 'AbortError')
+    return new Response(JSON.stringify({ data: { ok: true } }))
+  })
+  await assert.rejects(anilist('query { x }', {}, AbortSignal.abort()), { name: 'AbortError' })
+  assert.deepEqual(await anilist('query { x }'), { ok: true })
+  assert.deepEqual(sentAt, [start, start])
+})

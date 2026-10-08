@@ -5,10 +5,11 @@ import { AniListError } from './anilist.ts'
 
 const DAY = 24 * 60 * 60 * 1000
 
-// Up to 3 retries. Retrying a bad request (4xx) only burns the 30/minute budget.
-// A 429 is worth retrying: anilist() waits for the rate limit to reset first.
+// Every retry of a rate limit or a failed connection first waits out anilist()'s
+// one-minute pause, so a failed connection is retried once and AniList errors up
+// to 3 times. Retrying a bad request (4xx other than 429) only burns the budget.
 export const shouldRetry = (failures: number, error: Error) =>
-  failures < 3 &&
+  failures < (error instanceof AniListError ? 3 : 1) &&
   !(
     error instanceof AniListError &&
     error.status >= 400 &&
