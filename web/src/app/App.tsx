@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { ERAS, eraQuery, searchQuery, trendingQuery } from '../features/anime/queries.ts'
-import { AniListError } from '../lib/anilist.ts'
+import { isRateLimited } from '../lib/anilist.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
+import { statusText } from './status.ts'
 
 // Phase 1 debug page: proves the AniList client and saved cache work.
 // Deliberately plain; the visual design is decided in Phase 2.
@@ -11,21 +12,20 @@ export default function App() {
   const [search, setSearch] = useState('')
   const term = useDebounced(search.trim(), 300)
 
+  // Arrowing through the picker changes it once per option; wait like search does.
+  const list = useDebounced(listId, 300)
+
   const searching = term.length >= 2
-  const era = ERAS.find((e) => e.id === listId)
-  const { data, error, failureReason, isPending, isFetching, dataUpdatedAt } = useQuery(
+  const era = ERAS.find((e) => e.id === list)
+  const { data, error, failureReason, isFetching, isPaused, dataUpdatedAt } = useQuery(
     searching ? searchQuery(term) : era ? eraQuery(era) : trendingQuery(),
   )
 
   const showing = searching ? `Search: "${term}"` : (era?.label ?? 'Trending now')
-  const rateLimited = failureReason instanceof AniListError && failureReason.status === 429
-  const status = error
-    ? `Error: ${error.message}`
-    : rateLimited
-      ? 'AniList rate limit reached; retrying automatically when it resets.'
-      : isPending
-        ? 'Loading…'
-        : `${data.length} titles, fetched at ${new Date(dataUpdatedAt).toLocaleTimeString()}${isFetching ? ' (refreshing…)' : ''}`
+  const status = statusText(
+    { data, error, failureReason, isFetching, isPaused, dataUpdatedAt },
+    isRateLimited(),
+  )
 
   return (
     <main className="mx-auto max-w-3xl space-y-6 p-6">
@@ -68,7 +68,7 @@ export default function App() {
           {showing}
         </h2>
         <p role="status" className="text-neutral-400">
-          {data?.length === 0 ? 'No titles found.' : status}
+          {status}
         </p>
         <ol className="list-decimal space-y-1 pl-6">
           {data?.map((media) => (
