@@ -1,3 +1,4 @@
+import { readdirSync, readFileSync } from 'node:fs'
 import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
@@ -150,4 +151,45 @@ test('while rate-limited, a request still waiting is dropped when the list chang
   unsubscribe()
 
   assert.deepEqual(sent, ['trending', '19899999'], 'only the list still on screen was sent')
+})
+
+test('every media query anywhere in the source uses SAFE', () => {
+  // Also catches a query written outside QUERIES, such as one inline in a future feature.
+  const src = new URL('../../', import.meta.url)
+  const files = readdirSync(src, { recursive: true, encoding: 'utf8' }).filter(
+    (file) => /\.tsx?$/.test(file) && !file.includes('.test.'),
+  )
+  let calls = 0
+  for (const file of files) {
+    // Comments may mention media(...) without being queries.
+    const code = readFileSync(new URL(file, src), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '')
+    for (const [, args] of code.matchAll(/\bmedia\s*\(([^)]*)\)/gi)) {
+      calls++
+      assert.match(args, /\$\{SAFE\}/, `${file}: media(${args}) is missing SAFE`)
+    }
+  }
+  assert.ok(calls >= 3, `found only ${calls} media queries`)
+})
+
+test('every variable a query sends is declared by that query', async (t) => {
+  // GraphQL ignores undeclared variables, so a renamed one would silently stop filtering.
+  const sent: { query: string; variables: Record<string, unknown> }[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    sent.push(JSON.parse(init.body as string))
+    return new Response(JSON.stringify({ data: { Page: { media: [] } } }))
+  })
+  for (const options of [
+    trendingQuery(),
+    ...ERAS.map((era) => eraQuery(era)),
+    searchQuery('frieren'),
+  ]) {
+    // The cast stands in for the context TanStack Query passes; only the signal is used.
+    await options.queryFn!({ signal: new AbortController().signal } as never)
+  }
+  assert.equal(sent.length, ERAS.length + 2)
+  for (const { query, variables } of sent) {
+    for (const name of Object.keys(variables)) {
+      assert.ok(query.includes(`$${name}:`), `sends $${name}, which its query doesn't declare`)
+    }
+  }
 })

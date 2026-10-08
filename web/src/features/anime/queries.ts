@@ -12,7 +12,10 @@ export type Media = {
 }
 
 // Every media query must keep SAFE, which keeps adult titles out (the gacha
-// shows random picks to anyone). queries.test.ts fails if a query drops it.
+// shows random picks to anyone). queries.test.ts fails if any media(...) call in
+// the source drops it. SAFE only works on top-level media(...) calls: titles
+// reached through relations or recommendations (Phase 3) can't take it, so those
+// must request isAdult and drop flagged titles in code.
 const SAFE = 'isAdult: false, genre_not_in: ["Hentai"]'
 const CARD = 'id title { romaji english } coverImage { large color } format seasonYear averageScore'
 
