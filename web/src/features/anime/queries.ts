@@ -1,5 +1,5 @@
 import { queryOptions } from '@tanstack/react-query'
-import { anilist, type Variables } from '../../lib/anilist.ts'
+import { anilist, isRateLimited, type Variables } from '../../lib/anilist.ts'
 
 /** The fields a title card needs. AniList leaves many of them null. */
 export type Media = {
@@ -48,13 +48,20 @@ const HOUR = 60 * MINUTE
 
 // The cache key is the exact request (query text and variables), so editing a query
 // or an era's dates never shows results saved under the old version.
+//
+// TanStack cancels a query the user moves away from only if its queryFn read the
+// abort signal. The signal is read only while requests are held for a rate limit:
+// then a stale request is dropped before it is sent. Otherwise a request AniList
+// has already counted finishes and its result is cached for later.
 const mediaQuery = (query: string, variables: Variables, staleTime: number) =>
   queryOptions({
     queryKey: ['anilist', query, variables],
-    queryFn: ({ signal }) =>
-      anilist<{ Page: { media: Media[] } }>(query, variables, signal).then(
-        (data) => data.Page.media,
-      ),
+    queryFn: (context) =>
+      anilist<{ Page: { media: Media[] } }>(
+        query,
+        variables,
+        isRateLimited() ? context.signal : undefined,
+      ).then((data) => data.Page.media),
     staleTime,
   })
 

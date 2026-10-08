@@ -1,3 +1,4 @@
+import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { ERAS, eraQuery, QUERIES, searchQuery, trendingQuery } from './queries.ts'
@@ -99,4 +100,54 @@ test('Upcoming lists only unreleased titles, and the other eras leave them out',
       `${era.id} includes unreleased titles`,
     )
   }
+})
+
+const decades = (...ids: string[]) => ids.map((id) => ERAS.find((era) => era.id === id)!)
+
+test('switching lists keeps a request that was already sent, so its result is cached', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => {
+    return new Response(JSON.stringify({ data: { Page: { media: [{ id: 1 }] } } }))
+  })
+  const client = new QueryClient()
+  t.after(() => client.clear())
+  const [eighties, nineties] = decades('1980s', '1990s')
+
+  const observer = new QueryObserver(client, eraQuery(eighties))
+  const unsubscribe = observer.subscribe(() => {})
+  observer.setOptions(eraQuery(nineties)) // the user picks another decade before the reply arrives
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  unsubscribe()
+
+  assert.deepEqual(client.getQueryData(eraQuery(eighties).queryKey), [{ id: 1 }])
+})
+
+test('while rate-limited, a request still waiting is dropped when the list changes', async (t) => {
+  // A fake clock in the past, so the pause this test starts has long expired for later tests.
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2000, 0, 1) })
+  const sent: string[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    if (init.signal?.aborted) throw new DOMException('This operation was aborted', 'AbortError')
+    sent.push(String(JSON.parse(init.body as string).variables.from ?? 'trending'))
+    return sent.length === 1
+      ? new Response(
+          JSON.stringify({ data: null, errors: [{ message: 'Too Many Requests.', status: 429 }] }),
+          { status: 429 },
+        )
+      : new Response(JSON.stringify({ data: { Page: { media: [] } } }))
+  })
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  t.after(() => client.clear())
+  await client.query(trendingQuery()).catch(() => {}) // the 429 starts a one-minute pause
+  const [eighties, nineties] = decades('1980s', '1990s')
+
+  const observer = new QueryObserver(client, eraQuery(eighties)) // waits for the pause
+  const unsubscribe = observer.subscribe(() => {})
+  observer.setOptions(eraQuery(nineties)) // the user moves on; the 1990s wait too
+  for (let second = 0; second <= 60; second++) {
+    await new Promise((resolve) => setImmediate(resolve))
+    t.mock.timers.tick(1000)
+  }
+  unsubscribe()
+
+  assert.deepEqual(sent, ['trending', '19899999'], 'only the list still on screen was sent')
 })

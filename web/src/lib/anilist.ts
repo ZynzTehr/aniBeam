@@ -33,6 +33,9 @@ export function retryAt(headers: Headers, now: number): number {
 // remain in this minute, wait until the limit resets instead of collecting more 429s.
 let pausedUntil = 0
 
+/** True while requests are being held back for a rate limit. */
+export const isRateLimited = () => pausedUntil > Date.now()
+
 export async function anilist<T>(
   query: string,
   variables: Variables = {},
