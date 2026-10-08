@@ -1,0 +1,20 @@
+@import 'tailwindcss';
+
+/*
+ * Layer order (Tailwind v4 uses native CSS cascade layers):
+ *   theme → base → components → utilities → unlayered CSS
+ * Later layers win regardless of selector specificity. Put custom component
+ * styles in @layer components so utility classes (e.g. p-4) can still
+ * override them. CSS written outside any layer beats every utility.
+ */
+
+/* Neutral defaults only. Design tokens (@theme) are defined in Phase 2. */
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-neutral-950 text-neutral-100 antialiased;
+  }
+}

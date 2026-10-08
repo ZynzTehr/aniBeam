@@ -1,0 +1,30 @@
+# Private project notes (kept local on purpose)
+PROJECT_SPEC.md
+prompt-log.md
+.prompt-log.flock
+
+# Environment variables: commit only the .env.example templates
+.env
+.env.*
+!.env.example
+# Firebase service-account keys (server)
+*service-account*.json
+
+# Dependencies and build output
+node_modules/
+dist/
+dist-ssr/
+*.tsbuildinfo
+coverage/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# OS and editor files
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.sw?
