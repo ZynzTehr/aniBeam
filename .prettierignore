@@ -3,3 +3,4 @@ dist
 package-lock.json
 PROJECT_SPEC.md
 prompt-log.md
+.claude/settings.local.json

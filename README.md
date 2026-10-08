@@ -2,11 +2,11 @@
 
 An anime discovery app with cinematic, color-adaptive theming, mood-based exploration, a gacha roll for random picks, and live episode chat. Anime data comes from the [AniList GraphQL API](https://docs.anilist.co/) (unofficial; not affiliated with AniList).
 
-> **Status:** Phase 0, project scaffold. The app shows a placeholder page.
+> The project is in Phase 1. The app is a plain debug page that lists trending titles, titles by decade, and search results from AniList. Results are saved in the browser, so a reload shows them without new API requests.
 
 ## Prerequisites
 
-- Node.js 22 or newer (`node -v`)
+- Node.js 22.18 or newer (`node -v`). The tests run TypeScript files directly, which older versions can't do.
 - npm 10 or newer
 
 ## Setup
@@ -28,6 +28,7 @@ The `.env.example` files list every variable with a comment explaining it. Real 
 | `npm run build`      | Type-checks and builds every workspace                          |
 | `npm run typecheck`  | Type-checks every workspace                                     |
 | `npm run lint`       | Lints the web app with oxlint                                   |
+| `npm test`           | Runs the unit tests with Node's built-in test runner            |
 | `npm run format`     | Formats the repo with Prettier                                  |
 
 ## Project structure
@@ -68,6 +69,16 @@ AniBeam/
 Empty folders hold a `.gitkeep` file so git tracks them; each one is removed once real code lands in that folder. Tests live next to the code they test (`*.test.ts`).
 
 ## Notes
+
+### AniList requests
+
+The browser calls AniList directly, so each visitor's IP address gets its own limit of 30 requests a minute. `web/src/lib/anilist.ts` holds every request back for up to a minute after a 429, after a failed connection, or when AniList reports no requests left. Failed connections wait too, because a rate-limit reply without CORS headers reaches the browser as a plain network error.
+
+TanStack Query saves results in `localStorage` for up to a day (`web/src/lib/queryClient.ts`). When a refresh fails, the last good list stays saved. It caches each result under its exact query text and variables, so editing a query never shows results saved for the old version. Change `buster` in `queryClient.ts` only if the code that reshapes results changes.
+
+Every `media(...)` query in the source must include the `SAFE` filter, which excludes adult titles, and `npm test` fails if one doesn't. `SAFE` only works on top-level queries. Titles nested inside other results, such as relations or recommendations, need a filter in code.
+
+Saved results and the rate-limit pause belong to one browser tab. With several tabs open, the last tab to save wins.
 
 ### Tailwind CSS v4 and custom CSS
 
