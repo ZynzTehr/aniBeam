@@ -17,7 +17,11 @@ test('every media query excludes adult titles', () => {
 
 test('the 1980s cover 1980-01-01 through 1989-12-31, including year-only dates', () => {
   const eighties = ERAS.find((era) => era.id === '1980s')
-  assert.deepEqual(eighties?.variables, { from: 19799999, to: 19900000 })
+  assert.deepEqual(eighties?.variables, {
+    from: 19799999,
+    to: 19900000,
+    notStatus: 'NOT_YET_RELEASED',
+  })
 })
 
 test('eras run from pre-1970 to upcoming without gaps', () => {
@@ -83,4 +87,16 @@ test('searches ignore capitals and extra spaces, so they share one request', asy
     signal: new AbortController().signal,
   } as never)
   assert.deepEqual(sent[0].variables, { search: 'frieren beyond' })
+})
+
+test('Upcoming lists only unreleased titles, and the other eras leave them out', () => {
+  const upcoming = ERAS.find((era) => era.id === 'upcoming')
+  assert.deepEqual(upcoming?.variables, { status: 'NOT_YET_RELEASED' })
+  for (const era of ERAS.filter((e) => e.id !== 'upcoming')) {
+    assert.equal(
+      era.variables.notStatus,
+      'NOT_YET_RELEASED',
+      `${era.id} includes unreleased titles`,
+    )
+  }
 })
