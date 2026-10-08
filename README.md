@@ -72,11 +72,13 @@ Empty folders hold a `.gitkeep` file so git tracks them; each one is removed onc
 
 ### AniList requests
 
-The browser calls AniList directly, so each visitor's IP address gets its own limit of 30 requests a minute. When AniList answers with a 429 or reports no requests left, `web/src/lib/anilist.ts` holds every request until the limit resets.
+The browser calls AniList directly, so each visitor's IP address gets its own limit of 30 requests a minute. `web/src/lib/anilist.ts` holds every request back for up to a minute after a 429, after a failed connection, or when AniList reports no requests left. Failed connections wait too, because a rate-limit reply without CORS headers reaches the browser as a plain network error.
 
-TanStack Query saves results in `localStorage` for 24 hours (`web/src/lib/queryClient.ts`). After changing the fields a query asks for, change `buster` in that file so browsers drop results saved in the old shape.
+TanStack Query saves results in `localStorage` for up to a day (`web/src/lib/queryClient.ts`). When a refresh fails, the last good list stays saved. It caches each result under its exact query text and variables, so editing a query never shows results saved for the old version. Change `buster` in `queryClient.ts` only if the code that reshapes results changes.
 
-Every query in `web/src/features/anime/queries.ts` must include the `SAFE` filter, which excludes adult titles. `npm test` fails if one doesn't.
+Every `media(...)` query in the source must include the `SAFE` filter, which excludes adult titles, and `npm test` fails if one doesn't. `SAFE` only works on top-level queries. Titles nested inside other results, such as relations or recommendations, need a filter in code.
+
+Saved results and the rate-limit pause belong to one browser tab. With several tabs open, the last tab to save wins.
 
 ### Tailwind CSS v4 and custom CSS
 
