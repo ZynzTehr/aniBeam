@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { ERAS, QUERIES } from './queries.ts'
+import { ERAS, QUERIES, searchQuery } from './queries.ts'
 
 test('every media query excludes adult titles', () => {
   for (const [name, query] of Object.entries(QUERIES)) {
-    const mediaArguments = [...query.matchAll(/\bmedia\(([^)]*)\)/gi)].map((match) => match[1])
+    // Checks top-level media(...) calls. Media reached through connections (relations,
+    // recommendations) can't take these filters and must be filtered in code instead.
+    const mediaArguments = [...query.matchAll(/\bmedia\s*\(([^)]*)\)/gi)].map((match) => match[1])
     assert.ok(mediaArguments.length > 0, `${name} has no media query`)
     for (const args of mediaArguments) {
       assert.match(args, /isAdult: false/, `${name} is missing isAdult: false`)
@@ -31,4 +33,20 @@ test('eras run from pre-1970 to upcoming without gaps', () => {
       `${ERAS[i].id} does not start where ${ERAS[i - 1].id} ends`,
     )
   }
+})
+
+test('the search term is sent as a variable, never written into the query', async (t) => {
+  const sent: unknown[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    sent.push(JSON.parse(init.body as string))
+    return new Response(JSON.stringify({ data: { Page: { media: [] } } }))
+  })
+  const term = '") { id } #'
+  // The cast stands in for the context TanStack Query passes; only the signal is used.
+  await searchQuery(term).queryFn!({ signal: new AbortController().signal } as never)
+  assert.deepEqual(sent, [{ query: QUERIES.search, variables: { search: term } }])
+})
+
+test('each search term gets its own cache entry', () => {
+  assert.notDeepEqual(searchQuery('naruto').queryKey, searchQuery('frieren').queryKey)
 })

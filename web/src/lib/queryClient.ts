@@ -5,21 +5,23 @@ import { AniListError } from './anilist.ts'
 
 const DAY = 24 * 60 * 60 * 1000
 
+// Up to 3 retries. Retrying a bad request (4xx) only burns the 30/minute budget.
+// A 429 is worth retrying: anilist() waits for the rate limit to reset first.
+export const shouldRetry = (failures: number, error: Error) =>
+  failures < 3 &&
+  !(
+    error instanceof AniListError &&
+    error.status >= 400 &&
+    error.status < 500 &&
+    error.status !== 429
+  )
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       // Must be at least the persisted maxAge, or saved results are dropped early.
       gcTime: DAY,
-      // Retrying a bad request (4xx) only burns the 30/minute budget. A 429 is
-      // worth retrying: anilist() waits for the rate limit to reset first.
-      retry: (failures, error) =>
-        failures < 3 &&
-        !(
-          error instanceof AniListError &&
-          error.status >= 400 &&
-          error.status < 500 &&
-          error.status !== 429
-        ),
+      retry: shouldRetry,
     },
   },
 })
