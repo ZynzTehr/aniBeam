@@ -2,10 +2,19 @@
 // a gacha machine drawn in the same ink-and-paper style, and B's cinematic motion when a title
 // opens. Interaction question: does opening a title feel right with mouse, keyboard, touch and
 // reduced motion, and does the ink-style pull still feel like a gacha?
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
+import {
+  Fragment,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from 'react'
 import {
   accent,
   formatOf,
+  hasSmallCover,
   MOODS,
   nextEpisode,
   seasonOf,
@@ -33,11 +42,26 @@ export default function VariantD({ shows, classics }: VariantProps) {
   const pool = useMemo(() => [...shows, ...classics], [shows, classics])
   const open: OpenTitle = (show, from) => setOpened({ show, from: from.getBoundingClientRect() })
 
+  // The intro fills the screen under the header. The header is one row on desktop and three on
+  // phones, so its height is measured (and re-measured when it changes) rather than guessed.
+  const root = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const page = root.current
+    const header = page?.querySelector('header')
+    if (!page || !header) return
+    const observer = new ResizeObserver(() =>
+      page.style.setProperty('--top-h', `${header.offsetHeight}px`),
+    )
+    observer.observe(header)
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <div className="va vd">
+    <div ref={root} className="va vd">
       <MangaHeader variant="D" />
       <main>
-        <TrendingPage shows={shows} onOpen={open} />
+        <Intro shows={shows} />
+        <TrendingPage shows={shows} onOpen={open} level="h2" />
         <PullMachine pool={pool} onOpen={open} />
         <ThrowbackStrip classics={classics} onOpen={open} />
       </main>
@@ -51,6 +75,52 @@ export default function VariantD({ shows, classics }: VariantProps) {
         />
       )}
     </div>
+  )
+}
+
+// The first screen says what AniBeam is before anything else: a place for anime fans to keep
+// up with what's hot and new, and to talk about it.
+function Intro({ shows }: { shows: Show[] }) {
+  // Three real covers say "anime" at a glance. Small covers are skipped so none look blurry.
+  const covers = shows.filter((show) => !hasSmallCover(show)).slice(0, 3)
+  return (
+    <section className="vd-intro" aria-labelledby="vd-intro-title">
+      <div className="vd-intro-art" aria-hidden="true">
+        {covers.map((show, i) => (
+          <img
+            key={show.id}
+            src={show.coverImage.extraLarge}
+            alt=""
+            style={vars({ '--i': i, '--accent': accent(show.coverImage.color, 'vivid') })}
+          />
+        ))}
+      </div>
+      <p className="vd-intro-kicker">For anime fans · powered by AniList</p>
+      <h1 id="vd-intro-title" className="vd-intro-title">
+        <span>
+          What&rsquo;s hot.
+          <span className="vd-intro-sfx" aria-hidden="true">
+            キラーン
+          </span>
+        </span>{' '}
+        <span>What&rsquo;s new.</span> <span>Talk about it.</span>
+      </h1>
+      <p className="vd-intro-lede">
+        See what&rsquo;s trending this week, pull a random pick for your mood, or dig through past
+        decades. Then chat with other fans about the shows, movies and OVAs you love.
+      </p>
+      <nav className="vd-intro-actions" aria-label="Ways to find a title">
+        <a className="vd-btn vd-btn-ink" href="#va-trending">
+          See what&rsquo;s trending
+        </a>
+        <a className="vd-btn" href="#pull">
+          Pull a random title
+        </a>
+        <a className="vd-btn" href="#va-throwback">
+          Browse the &rsquo;90s
+        </a>
+      </nav>
+    </section>
   )
 }
 

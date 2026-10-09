@@ -41,6 +41,13 @@ export type VariantProps = { shows: Show[]; classics: Show[] }
 
 export const titleOf = (show: Show) => show.title.english ?? show.title.romaji
 
+/**
+ * Some titles only have a small cover (230px wide): AniList then points "extraLarge" at the
+ * medium-size folder. The intro leaves these out of its cover fan, where they'd look blurry.
+ */
+export const hasSmallCover = (show: Show) =>
+  /\/cover\/(medium|small)\//.test(show.coverImage.extraLarge)
+
 const SEASONS: Record<string, string> = {
   WINTER: 'Winter',
   SPRING: 'Spring',

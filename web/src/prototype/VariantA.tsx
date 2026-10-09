@@ -1,7 +1,7 @@
 // PROTOTYPE ONLY. Variant A, "Manga Page": the home screen is a manga page.
 // Panel size shows trending rank; ink gutters, screentone and speed lines carry the identity.
 // Variant D (the chosen direction) reuses these pieces.
-import type { CSSProperties, MouseEvent } from 'react'
+import { useLayoutEffect, useRef, useState, type CSSProperties, type MouseEvent } from 'react'
 import { accent, formatOf, seasonOf, titleOf, type Show, type VariantProps } from './data.ts'
 import './variant-a.css'
 
@@ -60,21 +60,61 @@ export function MangaHeader({ variant }: { variant: string }) {
         <a href={`?variant=${variant}#pull`}>Pull</a>
         <a href={`?variant=${variant}#list`}>My List</a>
       </nav>
-      <label className="va-search">
-        <span className="sr-only">Search titles</span>
-        <input type="search" placeholder="Search a title…" />
-      </label>
+      <SearchBubble />
     </header>
   )
 }
 
-export function TrendingPage({ shows, onOpen }: { shows: Show[]; onOpen?: OpenTitle }) {
+// A manga speech bubble: snug around "Search titles" at rest, popping out to fit what's typed.
+// A hidden copy of the text, in the same font, is watched for size changes (each keystroke, and
+// the web font finishing loading); its width goes to CSS, which animates the bubble to match.
+function SearchBubble() {
+  const [text, setText] = useState('')
+  const field = useRef<HTMLLabelElement>(null)
+  const mirror = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const label = field.current
+    const copy = mirror.current
+    if (!label || !copy) return
+    const observer = new ResizeObserver(() =>
+      label.style.setProperty('--text-w', `${copy.offsetWidth}px`),
+    )
+    observer.observe(copy)
+    return () => observer.disconnect()
+  }, [])
+  return (
+    <label ref={field} className="va-search">
+      <span className="sr-only">Search titles</span>
+      <span className="va-bubble-field">
+        <input
+          type="search"
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          placeholder="Search titles"
+        />
+      </span>
+      <span ref={mirror} className="va-search-mirror" aria-hidden="true">
+        {text || 'Search titles'}
+      </span>
+    </label>
+  )
+}
+
+export function TrendingPage({
+  shows,
+  onOpen,
+  level: Heading = 'h1',
+}: {
+  shows: Show[]
+  onOpen?: OpenTitle
+  level?: 'h1' | 'h2'
+}) {
   return (
     <section className="va-page" aria-labelledby="va-trending">
-      <h1 id="va-trending" className="va-sfx">
+      <Heading id="va-trending" className="va-sfx">
         Trending now
         <span aria-hidden="true">ドン!</span>
-      </h1>
+      </Heading>
       <ol className="va-grid">
         {shows.slice(0, LAYOUT.length).map((show, i) => (
           <Panel key={show.id} show={show} rank={i + 1} span={LAYOUT[i]} onOpen={onOpen} />

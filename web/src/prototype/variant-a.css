@@ -538,3 +538,109 @@
     font-size: 14px;
   }
 }
+
+/* ---------- Search: a manga speech bubble that pops out as you type ---------- */
+.va-search {
+  position: relative;
+  margin-left: auto;
+}
+
+/* At rest the bubble is just wide enough for "Search titles". --text-w is the measured width
+   of the text (or of the placeholder while it's empty). The extra 66px covers the padding, the
+   border, and the space Chrome keeps for its clear button even while the button is hidden. */
+.va-bubble-field {
+  position: relative;
+  display: inline-flex;
+  width: calc(var(--text-w, 104px) + 66px);
+  max-width: 100%;
+  vertical-align: top;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  filter: drop-shadow(3px 3px 0 var(--ink));
+  transition:
+    width 0.35s var(--spring),
+    filter 0.25s var(--spring),
+    transform 0.25s var(--spring);
+}
+
+/* Focused, or holding a query: it pops out and grows to fit the text, with the same 66px. */
+.va-bubble-field:focus-within,
+.va-bubble-field:has(input:not(:placeholder-shown)) {
+  width: clamp(196px, calc(var(--text-w, 120px) + 66px), min(566px, calc(100vw - 634px)));
+}
+
+/* The lift onto a deeper ink shadow replaces the browser's focus ring. */
+.va-bubble-field:focus-within {
+  filter: drop-shadow(6px 6px 0 var(--ink));
+  transform: translate(-3px, -3px);
+}
+
+/* The tail: an ink triangle with a smaller white one on top, so it keeps the outline. */
+.va-bubble-field::before,
+.va-bubble-field::after {
+  position: absolute;
+  content: '';
+  clip-path: polygon(0 0, 100% 0, 8% 100%);
+}
+
+.va-bubble-field::before {
+  bottom: -14px;
+  left: 24px;
+  width: 20px;
+  height: 15px;
+  background: var(--ink);
+}
+
+.va-bubble-field::after {
+  bottom: -8px;
+  left: 28px;
+  width: 13px;
+  height: 9px;
+  background: #fff;
+}
+
+.va-search input,
+.va-search input:focus-visible {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 999px;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  font: 800 15px var(--body);
+}
+
+.va-search input::placeholder {
+  color: #33302b;
+  opacity: 1;
+}
+
+/* Measures the text in the input's font; never visible. */
+.va-search-mirror {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font: 800 15px var(--body);
+  pointer-events: none;
+  visibility: hidden;
+  white-space: pre;
+}
+
+/* Phones: it pops out to the full width of its row. */
+@media (max-width: 899px) {
+  .va-bubble-field:focus-within,
+  .va-bubble-field:has(input:not(:placeholder-shown)) {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .va-bubble-field {
+    transition: none;
+  }
+}

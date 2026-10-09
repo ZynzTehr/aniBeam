@@ -447,11 +447,14 @@ body:has(.vd-card[open]) {
   transform: rotate(-2deg);
 }
 
+/* The Japanese title, written vertically behind the cover. At most two columns: a long title is
+   cut off there instead of wrapping into more columns that spread past the card. */
 .vd-native {
   position: absolute;
   z-index: -1;
   top: -6%;
   left: -6%;
+  max-width: 2em;
   max-height: 112%;
   margin: 0;
   overflow: hidden;
@@ -736,4 +739,217 @@ body:has(.vd-card[open]) {
 .vd section[id],
 .vd section[aria-labelledby] {
   scroll-margin-top: 96px;
+}
+
+/* ---------- Intro: the first screen says what AniBeam is ---------- */
+/* It fills the screen under the header (--top-h is the header's measured height), so the
+   trending page starts below the fold instead of peeking in. */
+.vd-intro {
+  position: relative;
+  display: grid;
+  min-height: calc(100svh - var(--top-h, 80px));
+  align-content: center;
+  align-items: center;
+  column-gap: clamp(24px, 4vw, 64px);
+  padding: clamp(24px, 4vw, 56px) clamp(16px, 4vw, 48px);
+  isolation: isolate;
+  overflow-x: clip;
+  grid-template-areas:
+    'kicker art'
+    'title art'
+    'lede art'
+    'actions art';
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+}
+
+.vd-intro::before {
+  position: absolute;
+  z-index: -1;
+  top: -14%;
+  left: -8%;
+  width: min(780px, 95vw);
+  aspect-ratio: 1;
+  background: repeating-conic-gradient(
+    from 0deg at 50% 50%,
+    transparent 0deg 7deg,
+    rgb(255 45 85 / 0.13) 7deg 9deg
+  );
+  content: '';
+  mask-image: radial-gradient(circle, #000 0%, transparent 68%);
+  pointer-events: none;
+}
+
+.vd-intro-kicker {
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  grid-area: kicker;
+}
+
+/* Three beats, one per line: what's trending, what's new, and the chat. */
+.vd-intro-title {
+  margin: 0;
+  font: 400 clamp(42px, 6.2vw, 92px) / 0.95 var(--display);
+  grid-area: title;
+}
+
+.vd-intro-title > span {
+  display: block;
+  white-space: nowrap;
+}
+
+/* The sound effect hangs off the end of the first line, so it never pushes the lines around. */
+.vd-intro-title > span:first-child {
+  position: relative;
+  width: fit-content;
+}
+
+.vd-intro-sfx {
+  position: absolute;
+  bottom: 0.55em;
+  left: 100%;
+  margin-left: 0.2em;
+  color: var(--hot);
+  font-size: 0.42em;
+  -webkit-text-stroke: 2px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 3px 3px 0 var(--ink);
+  transform: rotate(-8deg);
+}
+
+.vd-intro-lede {
+  max-width: 56ch;
+  margin: 22px 0 0;
+  font-size: clamp(16px, 1.4vw, 19px);
+  font-weight: 700;
+  line-height: 1.55;
+  grid-area: lede;
+}
+
+.vd-intro-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+  grid-area: actions;
+}
+
+.vd-intro-art {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
+  grid-area: art;
+}
+
+.vd-intro-art img {
+  --cover-w: clamp(130px, 14vw, 210px);
+  width: var(--cover-w);
+  aspect-ratio: 2 / 3;
+  margin-inline: calc(var(--cover-w) * -0.18);
+  object-fit: cover;
+  border: var(--border) solid var(--ink);
+  box-shadow: 7px 7px 0 var(--accent);
+  transform: rotate(calc((var(--i) - 1) * 9deg))
+    translateY(calc((var(--i) - 1) * (var(--i) - 1) * 14px));
+}
+
+.vd-intro-art img:nth-child(2) {
+  z-index: 1;
+}
+
+/* Links in the intro and header land below the sticky header. */
+.vd h1[id],
+.vd h2[id] {
+  scroll-margin-top: 96px;
+}
+
+@media (max-width: 820px) {
+  .vd-intro {
+    grid-template-areas:
+      'art'
+      'kicker'
+      'title'
+      'lede'
+      'actions';
+    grid-template-columns: 1fr;
+  }
+
+  /* Tighter, so "For anime fans · powered by AniList" stays on one line on 360px phones. */
+  .vd-intro-kicker {
+    font-size: 13px;
+    letter-spacing: 0.08em;
+  }
+
+  .vd-intro-title {
+    font-size: clamp(34px, 10.8vw, 60px);
+  }
+
+  /* The tilted side covers hang about 27px below their box, so the bottom padding clears them. */
+  .vd-intro-art {
+    justify-content: flex-start;
+    padding: 4px 0 42px 26px;
+  }
+
+  .vd-intro-art img {
+    --cover-w: 92px;
+  }
+
+  .vd-intro-actions {
+    gap: 8px;
+  }
+
+  .vd-intro-actions .vd-btn {
+    min-height: 44px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+}
+
+/* The lines land one beat after another, then the sound effect pops. */
+@media (prefers-reduced-motion: no-preference) {
+  .vd-intro-kicker,
+  .vd-intro-title > span,
+  .vd-intro-lede,
+  .vd-intro-actions {
+    animation: vd-rise 0.7s var(--spring) both;
+  }
+
+  .vd-intro-title > span:nth-child(1) {
+    animation-delay: 0.05s;
+  }
+
+  .vd-intro-title > span:nth-child(2) {
+    animation-delay: 0.17s;
+  }
+
+  .vd-intro-title > span:nth-child(3) {
+    animation-delay: 0.29s;
+  }
+
+  .vd-intro-lede {
+    animation-delay: 0.4s;
+  }
+
+  .vd-intro-actions {
+    animation-delay: 0.5s;
+  }
+
+  .vd-intro-sfx {
+    animation: va-boom 0.7s var(--spring) both 0.6s;
+  }
+
+  .vd-intro-art img {
+    animation: vd-deal 0.8s var(--spring) both;
+    animation-delay: calc(0.2s + var(--i) * 90ms);
+  }
+}
+
+@keyframes vd-deal {
+  from {
+    opacity: 0;
+    transform: translateY(40px) rotate(-30deg) scale(0.7);
+  }
 }
