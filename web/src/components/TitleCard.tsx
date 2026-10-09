@@ -111,6 +111,12 @@ export function TitleCard({
             >
               Open on AniList
             </a>
+            <button type="button" className="ab-soon" disabled>
+              Save to My List <small>Soon</small>
+            </button>
+            <button type="button" className="ab-soon" disabled>
+              Chat about it <small>Soon</small>
+            </button>
           </div>
         </div>
       </article>
