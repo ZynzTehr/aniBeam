@@ -31,7 +31,7 @@ export default function App() {
     <main className="mx-auto max-w-3xl space-y-6 p-6">
       <header className="space-y-1">
         <h1 className="text-2xl font-bold">AniBeam: AniList debug page</h1>
-        <p className="text-neutral-400">
+        <p className="text-ink/70">
           Phase 1 check of the API client and saved cache. The real design comes in Phase 2.
         </p>
       </header>
@@ -43,7 +43,7 @@ export default function App() {
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="border border-neutral-600 bg-neutral-900 px-2 py-2"
+            className="border-2 border-ink bg-white px-2 py-2"
           />
         </label>
         <label className="flex flex-col gap-1">
@@ -51,7 +51,7 @@ export default function App() {
           <select
             value={listId}
             onChange={(e) => setListId(e.target.value)}
-            className="border border-neutral-600 bg-neutral-900 px-2 py-2"
+            className="border-2 border-ink bg-white px-2 py-2"
           >
             <option value="trending">Trending now</option>
             {ERAS.map((e) => (
@@ -67,7 +67,7 @@ export default function App() {
         <h2 id="results-heading" className="text-lg font-semibold">
           {showing}
         </h2>
-        <p role="status" className="text-neutral-400">
+        <p role="status" className="text-ink/70">
           {status}
         </p>
         <ol className="list-decimal space-y-1 pl-6">
@@ -79,7 +79,7 @@ export default function App() {
                 style={{ backgroundColor: media.coverImage.color ?? 'transparent' }}
               />
               {media.title.english ?? media.title.romaji}
-              <span className="text-neutral-400">
+              <span className="text-ink/70">
                 {' '}
                 · {media.seasonYear ?? 'year unknown'} · {media.format ?? 'format unknown'} · score{' '}
                 {media.averageScore ?? 'none'}

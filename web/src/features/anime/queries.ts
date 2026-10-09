@@ -1,14 +1,21 @@
 import { queryOptions } from '@tanstack/react-query'
 import { anilist, isRateLimited, type Variables } from '../../lib/anilist.ts'
 
-/** The fields a title card needs. AniList leaves many of them null. */
+/** The fields the panels, title card and pull need. AniList leaves many of them null. */
 export type Media = {
   id: number
-  title: { romaji: string; english: string | null }
-  coverImage: { large: string; color: string | null }
-  format: string | null
-  seasonYear: number | null
+  title: { romaji: string; english: string | null; native: string | null }
+  coverImage: { extraLarge: string; large: string; color: string | null }
+  bannerImage: string | null
+  genres: string[]
   averageScore: number | null
+  format: string | null
+  episodes: number | null
+  season: string | null
+  seasonYear: number | null
+  studios: { nodes: { name: string }[] }
+  /** airingAt is a Unix time in seconds, so a cached result never shows a stale countdown. */
+  nextAiringEpisode: { episode: number; airingAt: number } | null
 }
 
 // Every media query must keep SAFE, which keeps adult titles out (the gacha
@@ -16,8 +23,10 @@ export type Media = {
 // the source drops it. SAFE only works on top-level media(...) calls: titles
 // reached through relations or recommendations (Phase 3) can't take it, so those
 // must request isAdult and drop flagged titles in code.
-const SAFE = 'isAdult: false, genre_not_in: ["Hentai"]'
-const CARD = 'id title { romaji english } coverImage { large color } format seasonYear averageScore'
+export const SAFE = 'isAdult: false, genre_not_in: ["Hentai"]'
+const CARD = `id title { romaji english native } coverImage { extraLarge large color } bannerImage
+  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }
+  nextAiringEpisode { episode airingAt }`
 
 export const QUERIES = {
   trending: `query { Page(perPage: 20) { media(type: ANIME, sort: TRENDING_DESC, countryOfOrigin: "JP", ${SAFE}) { ${CARD} } } }`,

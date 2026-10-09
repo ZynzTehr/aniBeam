@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '../components/components.css' layer(components);
 
 /*
  * Layer order (Tailwind v4 uses native CSS cascade layers):
@@ -8,13 +9,96 @@
  * override them. CSS written outside any layer beats every utility.
  */
 
-/* Neutral defaults only. Design tokens (@theme) are defined in Phase 2. */
-@layer base {
-  :root {
-    color-scheme: dark;
-  }
+/*
+ * Fonts, self-hosted so visitors never contact Google. Each file is a subset
+ * (Latin, kana and ★, about 100 KB for all three); kanji fall back to a system
+ * font. Licenses: public/fonts/OFL.txt.
+ */
+@font-face {
+  font-family: 'Dela Gothic One';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/dela-gothic-one-400.woff2') format('woff2');
+}
 
+@font-face {
+  font-family: 'M PLUS Rounded 1c';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/m-plus-rounded-1c-700.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'M PLUS Rounded 1c';
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url('/fonts/m-plus-rounded-1c-800.woff2') format('woff2');
+}
+
+/*
+ * Design tokens. The plain custom properties are the source of truth, so
+ * component CSS reads them directly (var(--ink)). @theme inline exposes the
+ * same values to Tailwind utilities (bg-paper, text-ink, font-display, ...).
+ */
+:root {
+  color-scheme: light;
+
+  /* Color */
+  --paper: #f6f1e6;
+  --ink: #141414;
+  --hot: #ff2d55; /* brand accent; also every focus ring */
+  --hot-text: #c9003a; /* brand hot, dark enough for text on paper */
+  --hot-deep: #d6002a;
+  --sun: #ffd400; /* sound-effect yellow */
+
+  /* A title's own colors, from deriveAccent(); brand hot until a title sets them. */
+  --anime-accent: var(--hot);
+  --anime-accent-text: var(--hot-text);
+
+  /* Type */
+  --display: 'Dela Gothic One', 'Hiragino Sans', system-ui, sans-serif;
+  --body: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', system-ui, sans-serif;
+  --text-hero: clamp(42px, 6.2vw, 92px);
+  --text-section: clamp(38px, 6.5vw, 84px);
+  --text-section-small: clamp(28px, 4.5vw, 52px);
+  --text-lede: clamp(16px, 1.4vw, 19px);
+  --text-label: 15px;
+  --text-kicker: 14px;
+
+  /* Ink and layout */
+  --border: 4px; /* ink outline weight */
+  --gutter: 12px; /* space between manga panels */
+  --cut: 48px; /* the diagonal cut between two panels */
+  --page-x: clamp(16px, 4vw, 48px); /* page side padding */
+
+  /* Motion */
+  --spring: cubic-bezier(0.2, 1.5, 0.35, 1);
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-hot: var(--hot);
+  --color-sun: var(--sun);
+  --color-accent: var(--anime-accent);
+  --color-accent-text: var(--anime-accent-text);
+  --font-display: var(--display);
+  --font-body: var(--body);
+  --ease-spring: var(--spring);
+}
+
+@layer base {
+  /* Paper with a faint screentone dot, as in the design. */
   body {
-    @apply bg-neutral-950 text-neutral-100 antialiased;
+    min-height: 100svh;
+    background-color: var(--paper);
+    background-image: radial-gradient(rgb(0 0 0 / 0.07) 1px, transparent 1.3px);
+    background-size: 6px 6px;
+    color: var(--ink);
+    font-family: var(--body);
+    -webkit-font-smoothing: antialiased;
   }
 }
