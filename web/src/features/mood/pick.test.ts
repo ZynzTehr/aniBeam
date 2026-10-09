@@ -50,3 +50,14 @@ test('a vibe with no matches falls back to the whole pool', () => {
 test('an empty pool gives nothing to pull', () => {
   assert.equal(pickTitle([], ['Action'], new Set(), Math.random), null)
 })
+
+// Spec §3G: Ecchi stays out of the gacha (browse and search still show it).
+test('a pull never hands out an Ecchi title, whatever the vibe', () => {
+  const pool = [title(2, ['Comedy']), title(9, ['Comedy', 'Ecchi'])]
+  // 0.99 lands on the last candidate, which is the Ecchi title whenever it is allowed.
+  assert.equal(pickTitle(pool, ['Comedy'], new Set(), sequence(0.99))?.id, 2)
+  assert.equal(pickTitle(pool, [], new Set(), sequence(0.99))?.id, 2)
+  assert.equal(pickTitle(pool, ['Mecha'], new Set(), sequence(0.99))?.id, 2) // no match: fallback
+  assert.equal(pickTitle(pool, ['Comedy'], new Set([2]), sequence(0.99))?.id, 2) // repeats skip it too
+  assert.equal(pickTitle([title(9, ['Ecchi'])], [], new Set(), sequence(0)), null)
+})
