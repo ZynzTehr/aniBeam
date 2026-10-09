@@ -29,6 +29,8 @@ export function MangaPage({
   onOpen,
   level = 'h2',
   note = null,
+  loading = false,
+  onRetry,
 }: {
   id: string
   heading: string
@@ -38,6 +40,10 @@ export function MangaPage({
   level?: 'h1' | 'h2'
   /** A status line (loading, error, rate limit), or null when there's nothing to say. */
   note?: string | null
+  /** Show empty panels while the first load runs. */
+  loading?: boolean
+  /** Shown as a Try again button after a failed load. */
+  onRetry?: () => void
 }) {
   return (
     <section className="ab-page" aria-labelledby={id}>
@@ -47,6 +53,11 @@ export function MangaPage({
       <p role="status" className="ab-note">
         {note}
       </p>
+      {onRetry && (
+        <button type="button" className="ab-btn ab-retry" onClick={onRetry}>
+          Try again
+        </button>
+      )}
       {titles.length ? (
         <ol className="ab-grid">
           {titles.slice(0, LAYOUT.length).map((media, i) => (
@@ -55,17 +66,19 @@ export function MangaPage({
         </ol>
       ) : (
         // Empty panels hold the page's shape until the titles arrive.
-        <ol className="ab-grid" aria-hidden="true">
-          {LAYOUT.map((span, i) => (
-            <li
-              key={i}
-              className="ab-panel ab-skeleton"
-              style={cssVars({ '--c': span[0], '--r': span[1] })}
-            >
-              <span className="ab-skeleton-fill" />
-            </li>
-          ))}
-        </ol>
+        loading && (
+          <ol className="ab-grid" aria-hidden="true">
+            {LAYOUT.map((span, i) => (
+              <li
+                key={i}
+                className="ab-panel ab-skeleton"
+                style={cssVars({ '--c': span[0], '--r': span[1] })}
+              >
+                <span className="ab-skeleton-fill" />
+              </li>
+            ))}
+          </ol>
+        )
       )}
     </section>
   )

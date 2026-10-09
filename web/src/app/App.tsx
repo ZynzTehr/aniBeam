@@ -1,4 +1,9 @@
-import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useQuery,
+  useQueryClient,
+  type UseQueryResult,
+} from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { IntroHero } from '../components/IntroHero.tsx'
 import { MangaPage } from '../components/MangaPage.tsx'
@@ -21,6 +26,15 @@ const note = (query: UseQueryResult<Media[]>) => noteFor(query, isRateLimited())
 
 /** AniBeam's page: the intro, this week's trending titles, the pull, and titles by decade. */
 export default function App() {
+  // A Try again button when a section's last attempt failed. One press retries every failed
+  // section. The button hides while retries run, which may first wait out anilist()'s
+  // one-minute pause; the status line says so meanwhile.
+  const queryClient = useQueryClient()
+  const retryFailed = () =>
+    void queryClient.refetchQueries({ predicate: (query) => query.state.status === 'error' })
+  const retry = (query: UseQueryResult<Media[]>) =>
+    query.isError && !query.isFetching ? retryFailed : undefined
+
   const [opened, setOpened] = useState<{ media: Media; from: DOMRect } | null>(null)
   const open: OpenTitle = (media, from) => setOpened({ media, from: from.getBoundingClientRect() })
 
@@ -79,6 +93,7 @@ export default function App() {
               titles={results.data ?? []}
               note={note(results)}
               loading={results.isPending}
+              onRetry={retry(results)}
               onOpen={open}
               grid
             />
@@ -99,6 +114,8 @@ export default function App() {
           sfx="ドン!"
           titles={trending.data ?? []}
           note={note(trending)}
+          loading={trending.isPending}
+          onRetry={retry(trending)}
           onOpen={open}
         />
         <PullMachine pool={pool} onOpen={open} />
@@ -109,6 +126,7 @@ export default function App() {
           titles={decade.data ?? []}
           note={note(decade)}
           loading={decade.isPending}
+          onRetry={retry(decade)}
           onOpen={open}
         >
           <fieldset className="ab-eras">
