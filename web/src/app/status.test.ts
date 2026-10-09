@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { AniListError } from '../lib/anilist.ts'
-import { noteFor, statusText, type QueryStatus } from './status.ts'
+import { noteFor, searchStatus, statusText, type QueryStatus } from './status.ts'
 
 const idle: QueryStatus = {
   data: undefined,
@@ -118,5 +118,40 @@ test('placeholder titles from the previous list never read as this list’s answ
       false,
     ),
     'Loading…',
+  )
+})
+
+// What a screen reader hears about a search. The term is in every message, so two searches
+// with the same outcome still change the text, and each one gets announced.
+test('search announcements name the search and what it found', () => {
+  const one = [{ id: 1 }]
+  assert.equal(
+    searchStatus({ ...idle, isFetching: true }, 'frieren', false),
+    'Searching for “frieren”…',
+  )
+  assert.equal(
+    searchStatus(
+      { ...idle, data: twoTitles, isFetching: true, isPlaceholderData: true },
+      'frieren b',
+      false,
+    ),
+    'Searching for “frieren b”…',
+  )
+  assert.equal(
+    searchStatus({ ...idle, data: twoTitles }, 'frieren', false),
+    '2 titles found for “frieren”',
+  )
+  assert.equal(
+    searchStatus({ ...idle, data: one }, 'mushishi', false),
+    '1 title found for “mushishi”',
+  )
+  assert.equal(searchStatus({ ...idle, data: [] }, 'zzz', false), 'No titles found for “zzz”')
+  assert.equal(
+    searchStatus({ ...idle, isPaused: true }, 'zzz', false),
+    'Offline: waiting for a connection.',
+  )
+  assert.match(
+    searchStatus({ ...idle, error: noConnection }, 'zzz', false),
+    /isn’t responding right now/,
   )
 })

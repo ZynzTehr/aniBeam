@@ -21,7 +21,7 @@ import {
 import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { isRateLimited } from '../lib/anilist.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
-import { noteFor } from './status.ts'
+import { noteFor, searchStatus } from './status.ts'
 
 const note = (query: UseQueryResult<Media[]>) => noteFor(query, isRateLimited())
 // A Try again button when a section's last attempt failed (see App's retryFailed).
@@ -41,6 +41,8 @@ export default function App() {
   const open: OpenTitle = (media, from) => setOpened({ media, from: from.getBoundingClientRect() })
 
   const [search, setSearch] = useState('')
+  // Screen readers hear search outcomes from one line that is always on the page.
+  const [announcement, setAnnouncement] = useState('')
   const term = useDebounced(search.trim(), 300)
   const searching = term.length >= 2
 
@@ -81,8 +83,16 @@ export default function App() {
         onSearch={setSearch}
       />
       <main id="main">
+        <p role="status" className="sr-only">
+          {announcement}
+        </p>
         {searching ? (
-          <SearchResults term={term} onOpen={open} retryFailed={retryFailed} />
+          <SearchResults
+            term={term}
+            onOpen={open}
+            retryFailed={retryFailed}
+            onStatus={setAnnouncement}
+          />
         ) : (
           <IntroHero
             titles={trending.data ?? []}
@@ -155,10 +165,13 @@ function SearchResults({
   term,
   onOpen,
   retryFailed,
+  onStatus,
 }: {
   term: string
   onOpen: OpenTitle
   retryFailed: () => void
+  /** Receives the screen-reader announcement for this search ('' once it is gone). */
+  onStatus: (text: string) => void
 }) {
   const results = useQuery({
     ...searchQuery(term),
@@ -167,6 +180,9 @@ function SearchResults({
       return isRefinement(before ?? '', term) ? previous : undefined
     },
   })
+  const status = searchStatus(results, term, isRateLimited())
+  useEffect(() => onStatus(status), [status, onStatus])
+  useEffect(() => () => onStatus(''), [onStatus])
   return (
     <div className="ab-results">
       <Strip
@@ -178,6 +194,7 @@ function SearchResults({
         loading={results.isPending || results.isPlaceholderData}
         onRetry={retryFor(results, retryFailed)}
         onOpen={onOpen}
+        live={false}
         grid
       />
     </div>

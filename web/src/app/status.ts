@@ -51,3 +51,17 @@ export function noteFor(q: QueryStatus, rateLimited: boolean): string | null {
   const fine = q.data !== undefined && q.data.length > 0 && !q.error && !q.isPaused && !held
   return fine ? null : statusText(q, rateLimited)
 }
+
+/**
+ * What a screen reader hears about a search, from one status line that is always on the page.
+ * The term is in every message, so two searches with the same outcome still change the text
+ * and each one gets announced. Offline, waiting and failure read as in the section's own line.
+ */
+export function searchStatus(q: QueryStatus, term: string, rateLimited: boolean): string {
+  const held = q.isFetching && (rateLimited || q.failureReason !== null)
+  if (q.isPaused || q.error || held) return statusText(q, rateLimited)
+  if (!q.data || q.isPlaceholderData) return `Searching for “${term}”…`
+  const found = q.data.length
+  if (found === 0) return `No titles found for “${term}”`
+  return `${found} ${found === 1 ? 'title' : 'titles'} found for “${term}”`
+}

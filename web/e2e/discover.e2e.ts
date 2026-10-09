@@ -187,6 +187,39 @@ describe('desktop (1440x900)', () => {
     await browser.search('')
   })
 
+  test('screen readers hear each search’s outcome from one status line that is always there', async () => {
+    const region = `document.querySelector('main > [role="status"]')`
+    // The previous check clears its search; the line empties once that settles (300 ms).
+    assert.ok(
+      await browser.waitFor(`${region}?.textContent === ''`, 5_000),
+      'no empty announcement line at rest',
+    )
+    await browser.search('frieren')
+    assert.ok(
+      await browser.waitFor(`/^\\d+ titles? found for “frieren”$/.test(${region}?.textContent)`),
+      'results not announced',
+    )
+    await browser.search('zzqqxx')
+    assert.ok(
+      await browser.waitFor(`${region}?.textContent === 'No titles found for “zzqqxx”'`),
+      'no-match not announced',
+    )
+    await browser.search('zzqqxxy')
+    assert.ok(
+      await browser.waitFor(`${region}?.textContent === 'No titles found for “zzqqxxy”'`),
+      'a second no-match read as no change',
+    )
+    const notes = await browser.evaluate<number>(
+      `document.querySelectorAll('.ab-results [role="status"]').length`,
+    )
+    assert.equal(notes, 0, 'the results’ visible note is a second live region')
+    await browser.search('')
+    assert.ok(
+      await browser.waitFor(`${region}?.textContent === ''`, 5_000),
+      'the announcement outlived the search',
+    )
+  })
+
   test('the lever pulls a real title from the page', async () => {
     await browser.evaluate(
       `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').click(); true`,

@@ -16,6 +16,7 @@ export function Strip({
   note = null,
   loading = false,
   onRetry,
+  live = true,
   grid = false,
   children,
 }: {
@@ -30,6 +31,8 @@ export function Strip({
   loading?: boolean
   /** Shown as a Try again button after a failed load. */
   onRetry?: () => void
+  /** Announce the note to screen readers (off where another line announces it). */
+  live?: boolean
   /** Wrap into rows instead of scrolling sideways (search results). */
   grid?: boolean
   /** Controls shown between the heading and the row, such as the decade chips. */
@@ -42,7 +45,7 @@ export function Strip({
         {heading}
       </SfxHeading>
       {children}
-      <p role="status" className="ab-note">
+      <p role={live ? 'status' : undefined} className="ab-note">
         {note}
       </p>
       {onRetry && (
