@@ -2,6 +2,7 @@
 // Slow on purpose: after a failed connection the AniList client waits a minute before retrying.
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { Browser } from './browser.ts'
 
 let browser: Browser
@@ -13,6 +14,25 @@ before(async () => {
 after(() => browser?.close())
 
 const notes = `[...document.querySelectorAll('.ab-note')].map((note) => note.textContent)`
+
+// Where the headline sits inside the intro: it must not move when the covers arrive.
+const headline = `document.querySelector('.ab-intro-title').getBoundingClientRect().top - document.querySelector('.ab-intro').getBoundingClientRect().top`
+const asPhone = async (phone: boolean) => {
+  await browser.send(
+    'Emulation.setDeviceMetricsOverride',
+    phone
+      ? { width: 390, height: 844, deviceScaleFactor: 2, mobile: true }
+      : { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false },
+  )
+  await sleep(400)
+}
+let headlineWithoutCovers = 0
+
+test('on a phone, the intro holds a place for its covers before they load', async () => {
+  await asPhone(true)
+  headlineWithoutCovers = await browser.evaluate<number>(headline)
+  await asPhone(false)
+})
 
 test('while it retries, each section says AniList is not responding and that it is not the visitor', async () => {
   assert.ok(
@@ -52,4 +72,12 @@ test('when AniList is back, one press of Try again brings every section back', a
   assert.ok(await browser.titlesShown(120_000), 'the titles did not come back')
   assert.deepEqual(await browser.evaluate(notes), ['', ''])
   assert.equal(await browser.evaluate('document.querySelector(".ab-lever").disabled'), false)
+})
+
+test('on a phone, the headline stays put when the covers arrive', async () => {
+  await asPhone(true)
+  const withCovers = await browser.evaluate<number>(headline)
+  const moved = Math.round(withCovers - headlineWithoutCovers)
+  assert.ok(Math.abs(moved) <= 2, `the headline moved ${moved}px when the covers arrived`)
+  await asPhone(false)
 })
