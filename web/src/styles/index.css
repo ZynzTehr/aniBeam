@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@import '../components/components.css' layer(components);
 
 /*
  * Layer order (Tailwind v4 uses native CSS cascade layers):

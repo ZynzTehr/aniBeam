@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { contrast, toOklch } from '../../lib/color.ts'
-import { deriveAccent } from './deriveAccent.ts'
+import { accentVars, deriveAccent } from './deriveAccent.ts'
 
 // The backgrounds as literals, so a wrong constant in the code can't hide here too.
 const INK = '#141414'
@@ -122,4 +122,11 @@ test('pure colors, black and white come out like this', () => {
   ]
   for (const [color, accent, text] of cases)
     assert.deepEqual(deriveAccent(color), { accent, text }, color)
+})
+
+test('accentVars hands both colors to CSS under the token names', () => {
+  assert.deepEqual(accentVars(null), {
+    '--anime-accent': '#ff2d55',
+    '--anime-accent-text': '#c9003a',
+  })
 })

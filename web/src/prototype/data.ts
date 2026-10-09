@@ -16,12 +16,12 @@ export type Show = {
   season: string | null
   seasonYear: number | null
   studios: { nodes: { name: string }[] }
-  nextAiringEpisode: { episode: number; timeUntilAiring: number } | null
+  nextAiringEpisode: { episode: number; timeUntilAiring: number; airingAt: number } | null
 }
 
 const FIELDS = `id title { romaji english native } coverImage { extraLarge large color } bannerImage genres
   averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }
-  nextAiringEpisode { episode timeUntilAiring }`
+  nextAiringEpisode { episode timeUntilAiring airingAt }`
 
 const TRENDING = `query { Page(perPage: 24) { media(type: ANIME, sort: TRENDING_DESC, countryOfOrigin: "JP", ${SAFE}) { ${FIELDS} } } }`
 const NINETIES = `query { Page(perPage: 16) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: "JP", startDate_greater: 19899999, startDate_lesser: 20000000, status_not: NOT_YET_RELEASED, ${SAFE}) { ${FIELDS} } } }`
@@ -40,13 +40,6 @@ export const ninetiesShows = () => list(NINETIES)
 export type VariantProps = { shows: Show[]; classics: Show[] }
 
 export const titleOf = (show: Show) => show.title.english ?? show.title.romaji
-
-/**
- * Some titles only have a small cover (230px wide): AniList then points "extraLarge" at the
- * medium-size folder. The intro leaves these out of its cover fan, where they'd look blurry.
- */
-export const hasSmallCover = (show: Show) =>
-  /\/cover\/(medium|small)\//.test(show.coverImage.extraLarge)
 
 const SEASONS: Record<string, string> = {
   WINTER: 'Winter',

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react'
 import { contrast, toHex, toOklch, type Oklch } from '../../lib/color.ts'
 
 /** Ink, the paper theme's outline and text color (the --ink token). */
@@ -56,4 +57,13 @@ function shift(color: Oklch, goal: 0 | 1, passes: (hex: string) => boolean) {
     else fail = mid
   }
   return toHex({ ...color, l: pass })
+}
+
+/**
+ * The CSS custom properties that tint an element, and everything inside it, in a title's
+ * colors. Use it as a React style: style={accentVars(media.coverImage.color)}.
+ */
+export function accentVars(color: string | null) {
+  const { accent, text } = deriveAccent(color)
+  return { '--anime-accent': accent, '--anime-accent-text': text } as CSSProperties
 }
