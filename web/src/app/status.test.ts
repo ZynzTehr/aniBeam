@@ -9,6 +9,7 @@ const idle: QueryStatus = {
   failureReason: null,
   isFetching: false,
   isPaused: false,
+  isPlaceholderData: false,
   dataUpdatedAt: 0,
 }
 const tooMany = new AniListError('Too Many Requests.', 429)
@@ -92,5 +93,30 @@ test('note: speaks while loading, empty, failed, offline or held for a rate limi
   assert.equal(
     noteFor({ ...idle, data: twoTitles, isFetching: true, failureReason: tooMany }, true),
     'AniList is busy right now. It’s not something you did. Trying again within a minute.',
+  )
+})
+
+// While a new decade or search loads, keepPreviousData shows the previous list as a
+// placeholder (with dataUpdatedAt 0). It is not this query's answer.
+test('placeholder titles from the previous list never read as this list’s answer', () => {
+  // The previous search found nothing: the new one is loading, not "No titles found."
+  assert.equal(
+    noteFor({ ...idle, data: [], isFetching: true, isPlaceholderData: true }, false),
+    'Loading…',
+  )
+  // A retry behind the previous decade's titles: not "20 titles, fetched at <1970>".
+  const serverError = new AniListError('Internal Server Error', 500)
+  assert.equal(
+    statusText(
+      {
+        ...idle,
+        data: twoTitles,
+        isFetching: true,
+        isPlaceholderData: true,
+        failureReason: serverError,
+      },
+      false,
+    ),
+    'Loading…',
   )
 })

@@ -29,6 +29,8 @@ export class Browser {
   #nextId = 0
   #pending = new Map<number, (message: Message) => void>()
   #blocking = false
+  #holdMs = 0
+  #held = new Set<string>()
   /** Uncaught exceptions and console errors or warnings, for the "clean console" check. */
   problems: string[] = []
 
@@ -58,11 +60,18 @@ export class Browser {
           `console.${message.params.type}: ` +
             message.params.args.map((arg: any) => arg.value ?? arg.description ?? '').join(' '),
         )
-      if (this.#blocking && message.method === 'Fetch.requestPaused')
-        void this.send('Fetch.failRequest', {
-          requestId: message.params.requestId,
-          errorReason: 'ConnectionRefused',
-        }).catch(() => {})
+      if (message.method === 'Fetch.requestPaused') {
+        const { requestId } = message.params
+        if (this.#blocking)
+          void this.send('Fetch.failRequest', {
+            requestId,
+            errorReason: 'ConnectionRefused',
+          }).catch(() => {})
+        else {
+          this.#held.add(requestId)
+          setTimeout(() => void this.#release(requestId), this.#holdMs)
+        }
+      }
     })
   }
 
@@ -203,7 +212,24 @@ export class Browser {
   /** Makes every request to AniList fail, as if it were down (`false` undoes it). */
   async blockAniList(blocked = true) {
     this.#blocking = blocked
-    if (!blocked) return this.send('Fetch.disable')
+    return this.#intercept(blocked || this.#holdMs > 0)
+  }
+
+  /** Delays every AniList answer by `ms`, to look at loading states (0 undoes it). */
+  async holdAniList(ms: number) {
+    this.#holdMs = ms
+    // Requests still on hold go through now: switching interception off would drop them.
+    if (ms === 0) await Promise.all([...this.#held].map((id) => this.#release(id)))
+    return this.#intercept(this.#blocking || ms > 0)
+  }
+
+  async #release(requestId: string) {
+    if (!this.#held.delete(requestId)) return
+    await this.send('Fetch.continueRequest', { requestId }).catch(() => {})
+  }
+
+  #intercept(on: boolean) {
+    if (!on) return this.send('Fetch.disable')
     return this.send('Fetch.enable', { patterns: [{ urlPattern: 'https://graphql.anilist.co/*' }] })
   }
 

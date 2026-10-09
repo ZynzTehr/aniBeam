@@ -162,6 +162,31 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('a new search never shows the previous search’s titles while it loads', async () => {
+    const titles = `[...document.querySelectorAll('.ab-results .ab-strip-panel[href] .ab-strip-title')].map((t) => t.textContent).join(' | ')`
+    await browser.search('frieren')
+    assert.ok(await browser.waitFor(`/Frieren/i.test(${titles})`), 'no Frieren results')
+    await browser.search('')
+    await browser.holdAniList(3_000)
+    await browser.search('mushishi')
+    assert.ok(
+      await browser.waitFor(
+        `document.querySelector('#results')?.textContent.includes('mushishi')`,
+        5_000,
+      ),
+      'the results heading never switched to the new search',
+    )
+    const whileLoading = await browser.evaluate<string>(titles)
+    await browser.holdAniList(0)
+    assert.doesNotMatch(
+      whileLoading,
+      /Frieren/i,
+      'the cleared search’s titles came back under the new heading',
+    )
+    assert.ok(await browser.waitFor(`/mushi-?shi/i.test(${titles})`), 'no Mushishi results') // English title: MUSHI-SHI
+    await browser.search('')
+  })
+
   test('the lever pulls a real title from the page', async () => {
     await browser.evaluate(
       `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').click(); true`,
