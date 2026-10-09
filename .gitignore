@@ -1,6 +1,7 @@
 # Private project notes (kept local on purpose)
 PROJECT_SPEC.md
 DESIGN.md
+design-research/
 prompt-log.md
 .prompt-log.flock
 
