@@ -2,7 +2,7 @@
 
 AniBeam is an anime discovery app drawn like a manga page. It shows what's trending, lets you search and browse by decade, and pulls a random title from a gacha machine. Each title tints the page in its own cover color. Live chat about episodes is planned for a later phase. Anime data comes from the [AniList GraphQL API](https://docs.anilist.co/). AniBeam is not affiliated with AniList.
 
-> The project is in Phase 2, the design phase. The design system is in place: design tokens, self-hosted fonts, a tested color function, and the components the pages will use. The pages themselves come in Phase 3. Until then the app at `/` is the plain Phase 1 debug page. Run `npm run dev` and add `?variant=D` to the URL to see the chosen design built from the real components.
+> The project is in Phase 3. The app is one Discover page: an intro, this week's trending titles as a manga page, a random pull, titles by decade, and search. Each title opens in a full-screen title card. My List, mood sliders, live chat and sync come after the course presentation.
 
 ## Prerequisites
 
@@ -30,6 +30,12 @@ The `.env.example` files list every variable with a comment explaining it. Real 
 | `npm run lint`       | Lints the web app with oxlint                                   |
 | `npm test`           | Runs the unit tests with Node's built-in test runner            |
 | `npm run format`     | Formats the repo with Prettier                                  |
+
+## Deploying
+
+The site deploys on [Vercel](https://vercel.com), and `vercel.json` holds the settings. Vercel installs the workspaces from the root with `npm ci`, builds only the web app with `npm run build --workspace web`, and serves `web/dist`. No environment variables are needed yet.
+
+To set it up, sign in to Vercel with GitHub, import this repository, and deploy. After that, every pull request gets a preview link, and merging into `main` updates the live site.
 
 ## Project structure
 
