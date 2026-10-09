@@ -17,7 +17,7 @@ const KEYS = Object.keys(VARIANTS) as Key[]
 
 // Google Fonts for the comparison only; the chosen faces get self-hosted later.
 const FONTS =
-  'https://fonts.googleapis.com/css2?family=Anton&family=Dela+Gothic+One&family=M+PLUS+Rounded+1c:wght@400;700;800&family=Mochiy+Pop+One&family=Unbounded:wght@500;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap'
+  'https://fonts.googleapis.com/css2?family=Anton&family=Mochiy+Pop+One&family=Unbounded:wght@500;700;900&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap'
 
 function variantFromUrl(): Key {
   const value = new URLSearchParams(location.search).get('variant')?.toUpperCase()
