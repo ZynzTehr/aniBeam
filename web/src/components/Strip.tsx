@@ -15,6 +15,7 @@ export function Strip({
   onOpen,
   note = null,
   loading = false,
+  onRetry,
   grid = false,
   children,
 }: {
@@ -27,6 +28,8 @@ export function Strip({
   note?: string | null
   /** Show empty cards while the first load runs. */
   loading?: boolean
+  /** Shown as a Try again button after a failed load. */
+  onRetry?: () => void
   /** Wrap into rows instead of scrolling sideways (search results). */
   grid?: boolean
   /** Controls shown between the heading and the row, such as the decade chips. */
@@ -42,6 +45,11 @@ export function Strip({
       <p role="status" className="ab-note">
         {note}
       </p>
+      {onRetry && (
+        <button type="button" className="ab-btn ab-retry" onClick={onRetry}>
+          Try again
+        </button>
+      )}
       {!titles.length && loading && (
         <ol className={row} aria-hidden="true">
           {Array.from({ length: 8 }, (_, i) => (

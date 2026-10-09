@@ -135,6 +135,11 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
                 </>
               )}
             </div>
+          ) : !pool.length ? (
+            <p className="ab-hint">
+              The machine fills up with titles once AniList answers. It&rsquo;s not something you
+              did.
+            </p>
           ) : (
             <p className="ab-hint">
               Pick a vibe, then pull. Every capsule holds a real anime from what&rsquo;s on this

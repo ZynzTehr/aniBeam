@@ -1693,3 +1693,8 @@ body:has(.ab-card[open]) {
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
+
+/* After a failed load: the Try again button sits under the status line. */
+.ab-retry {
+  margin: 0 0 20px;
+}
