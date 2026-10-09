@@ -41,7 +41,14 @@ test('once retrying fails, every section offers Try again and stops showing load
 
 test('when AniList is back, one press of Try again brings every section back', async () => {
   await browser.blockAniList(false)
-  await browser.evaluate(`document.querySelector('.ab-page .ab-retry').click(); true`)
+  // Press it from the keyboard: the button disappears while retrying, so focus must land
+  // somewhere useful (the section's heading), not fall back to the top of the page.
+  await browser.evaluate(`document.querySelector('.ab-page .ab-retry').focus(); true`)
+  await browser.press('Enter')
+  const focus = await browser.evaluate<string>(
+    `document.activeElement.id || document.activeElement.tagName`,
+  )
+  assert.equal(focus, 'ab-trending', 'focus fell off the pressed Try again button')
   assert.ok(await browser.titlesShown(120_000), 'the titles did not come back')
   assert.deepEqual(await browser.evaluate(notes), ['', ''])
   assert.equal(await browser.evaluate('document.querySelector(".ab-lever").disabled'), false)

@@ -1698,3 +1698,9 @@ body:has(.ab-card[open]) {
 .ab-retry {
   margin: 0 0 20px;
 }
+
+/* Section headings take focus after Try again (RetryButton); show it like every other focus. */
+.ab-sfx:focus-visible {
+  outline: 4px solid var(--hot);
+  outline-offset: 4px;
+}

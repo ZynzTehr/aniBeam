@@ -196,7 +196,9 @@ export class Browser {
   async press(key: 'Tab' | 'Enter' | 'Escape' | 'Backspace' | 'ArrowRight', shift = false) {
     const code = { Tab: 9, Enter: 13, Escape: 27, Backspace: 8, ArrowRight: 39 }[key]
     const base = { key, code: key, windowsVirtualKeyCode: code, modifiers: shift ? 8 : 0 }
-    await this.send('Input.dispatchKeyEvent', { type: 'keyDown', ...base })
+    // A real Enter also types "\r": buttons activate on that character, links on the key alone.
+    const text = key === 'Enter' ? { text: '\r' } : {}
+    await this.send('Input.dispatchKeyEvent', { type: 'keyDown', ...base, ...text })
     await this.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base })
   }
 

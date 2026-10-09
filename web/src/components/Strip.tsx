@@ -3,6 +3,7 @@ import { seasonOf, titleOf } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { cssVars } from './cssVars.ts'
 import { opener } from './opener.ts'
+import { RetryButton } from './RetryButton.tsx'
 import { SfxHeading } from './SfxHeading.tsx'
 import type { OpenTitle } from './TitleCard.tsx'
 
@@ -48,11 +49,7 @@ export function Strip({
       <p role={live ? 'status' : undefined} className="ab-note">
         {note}
       </p>
-      {onRetry && (
-        <button type="button" className="ab-btn ab-retry" onClick={onRetry}>
-          Try again
-        </button>
-      )}
+      {onRetry && <RetryButton headingId={id} onRetry={onRetry} />}
       {!titles.length && loading && (
         <ol className={row} aria-hidden="true">
           {Array.from({ length: 8 }, (_, i) => (
