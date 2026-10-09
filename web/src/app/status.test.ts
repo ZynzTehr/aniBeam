@@ -23,37 +23,37 @@ const cases: [string, Partial<QueryStatus>, boolean, string | RegExp][] = [
     'retrying after a 429',
     { isFetching: true, failureReason: tooMany },
     true,
-    'AniList rate limit reached; retrying automatically when it resets.',
+    'AniList is busy right now. It’s not something you did. Trying again within a minute.',
   ],
   [
     'retrying a 429 for a list that was empty',
     { data: [], isFetching: true, failureReason: tooMany },
     true,
-    'AniList rate limit reached; retrying automatically when it resets.',
+    'AniList is busy right now. It’s not something you did. Trying again within a minute.',
   ],
   [
     'retrying after a failed connection',
     { isFetching: true, failureReason: noConnection },
     true,
-    "Can't reach AniList right now; retrying automatically in a minute.",
+    'AniList isn’t responding right now. It’s not something you did. Trying again in a minute.',
   ],
   [
     'waiting behind a pause another request started',
     { isFetching: true },
     true,
-    'Waiting a minute before contacting AniList again.',
+    'Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.',
   ],
   [
     'a failed first load',
     { error: tooMany, failureReason: tooMany },
     false,
-    'Error: Too Many Requests.',
+    'AniList, where AniBeam gets its anime, isn’t responding right now. It’s not something you did. Try again in a minute.',
   ],
   [
     'a failed refresh with an earlier list on screen',
     { data: twoTitles, error: noConnection, failureReason: noConnection },
     false,
-    'Error: Failed to fetch (showing earlier results)',
+    'AniList isn’t responding right now, so these titles may be out of date. It’s not something you did.',
   ],
   ['an empty result', { data: [] }, false, 'No titles found.'],
   [
@@ -83,7 +83,7 @@ test('note: speaks while loading, empty, failed, offline or held for a rate limi
   assert.equal(noteFor({ ...idle, data: [] }, false), 'No titles found.')
   assert.equal(
     noteFor({ ...idle, data: twoTitles, error: noConnection, failureReason: noConnection }, false),
-    'Error: Failed to fetch (showing earlier results)',
+    'AniList isn’t responding right now, so these titles may be out of date. It’s not something you did.',
   )
   assert.equal(
     noteFor({ ...idle, data: twoTitles, isFetching: true, isPaused: true }, false),
@@ -91,6 +91,6 @@ test('note: speaks while loading, empty, failed, offline or held for a rate limi
   )
   assert.equal(
     noteFor({ ...idle, data: twoTitles, isFetching: true, failureReason: tooMany }, true),
-    'AniList rate limit reached; retrying automatically when it resets.',
+    'AniList is busy right now. It’s not something you did. Trying again within a minute.',
   )
 })
