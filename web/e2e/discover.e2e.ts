@@ -220,6 +220,19 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('a very long search never makes the page scroll sideways', async () => {
+    await browser.search(
+      'a very long search that keeps going and going past the width of the bubble and the screen '.repeat(
+        2,
+      ),
+    )
+    assert.ok(await browser.waitFor(`document.querySelector('.ab-results')`, 5_000))
+    await sleep(800)
+    const wide = await browser.evaluate<number>('document.documentElement.scrollWidth - innerWidth')
+    assert.ok(wide <= 0, `the page is ${wide}px wider than the screen`)
+    await browser.search('')
+  })
+
   test('the lever pulls a real title from the page', async () => {
     await browser.evaluate(
       `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').click(); true`,
@@ -280,6 +293,14 @@ describe('phone (390x844)', () => {
     })`)
     assert.ok(menu.right <= 374, `the menu ends at ${menu.right}px`)
     assert.ok(menu.soonHeight <= 50, `the coming-soon pill is ${menu.soonHeight}px tall`)
+  })
+
+  test('a long search never pushes the page wider than the phone', async () => {
+    await browser.search('The Laid-Off Cheat-Granting Mage Enjoys a Second Lease on Life')
+    assert.ok(await browser.waitFor(`document.querySelector('.ab-results')`, 5_000))
+    await sleep(800)
+    assert.ok(await browser.evaluate<boolean>(fits), 'the page is wider than the phone')
+    await browser.search('')
   })
 
   test('search results show in a grid without sideways overflow', async () => {

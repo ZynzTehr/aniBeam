@@ -82,6 +82,7 @@
 .ab-sfx {
   display: flex;
   flex-wrap: wrap;
+  overflow-wrap: anywhere; /* a search heading can hold one very long word */
   align-items: baseline;
   gap: 0.25em 0.4em;
   margin: 0 0 20px;
@@ -614,11 +615,12 @@
   opacity: 1;
 }
 
-/* Measures the text in the input's font; never visible. */
+/* Measures the text in the input's font; never visible. It hangs off the right edge, so a
+   long query runs off the left of the page, where it can't make the page scroll sideways. */
 .ab-search-mirror {
   position: absolute;
   top: 0;
-  left: 0;
+  right: 0;
   font: 800 15px var(--body);
   pointer-events: none;
   visibility: hidden;
