@@ -1,6 +1,7 @@
 // PROTOTYPE ONLY. Variant A, "Manga Page": the home screen is a manga page.
 // Panel size shows trending rank; ink gutters, screentone and speed lines carry the identity.
-import type { CSSProperties } from 'react'
+// Variant D (the chosen direction) reuses these pieces.
+import type { CSSProperties, MouseEvent } from 'react'
 import { accent, formatOf, seasonOf, titleOf, type Show, type VariantProps } from './data.ts'
 import './variant-a.css'
 
@@ -19,74 +20,111 @@ const LAYOUT: [number, number][] = [
 
 const vars = (values: Record<string, string | number>) => values as CSSProperties
 
+/** Called with the title and the element it was opened from (for the opening animation). */
+export type OpenTitle = (show: Show, from: HTMLElement) => void
+
+// Without onOpen a panel is a plain link; with it, the click opens the title card instead.
+const opener = (show: Show, onOpen?: OpenTitle) =>
+  onOpen
+    ? (event: MouseEvent<HTMLAnchorElement>) => {
+        event.preventDefault()
+        onOpen(show, event.currentTarget)
+      }
+    : undefined
+
 export default function VariantA({ shows, classics }: VariantProps) {
-  const page = shows.slice(0, LAYOUT.length)
   return (
     <div className="va">
-      <header className="va-top">
-        <a className="va-logo" href="?variant=A">
-          <ruby>
-            AniBeam<rt>アニビーム</rt>
-          </ruby>
-        </a>
-        <nav className="va-nav" aria-label="Sections">
-          <a href="?variant=A" aria-current="page">
-            Discover
-          </a>
-          <a href="?variant=A#mood">Mood</a>
-          <a href="?variant=A#list">My List</a>
-        </nav>
-        <label className="va-search">
-          <span className="sr-only">Search titles</span>
-          <input type="search" placeholder="Search a title…" />
-        </label>
-      </header>
-
+      <MangaHeader variant="A" />
       <main>
-        <section className="va-page" aria-labelledby="va-trending">
-          <h1 id="va-trending" className="va-sfx">
-            Trending now
-            <span aria-hidden="true">ドン!</span>
-          </h1>
-          <ol className="va-grid">
-            {page.map((show, i) => (
-              <Panel key={show.id} show={show} rank={i + 1} span={LAYOUT[i]} />
-            ))}
-          </ol>
-        </section>
-
-        <section className="va-strip" aria-labelledby="va-throwback">
-          <h2 id="va-throwback" className="va-sfx va-sfx-small">
-            Throwback: the &rsquo;90s
-            <span aria-hidden="true">バーン</span>
-          </h2>
-          <ol className="va-strip-row">
-            {classics.map((show, i) => (
-              <li key={show.id} className="va-strip-item" style={vars({ '--i': i })}>
-                <a
-                  className="va-strip-panel"
-                  href={`#show-${show.id}`}
-                  style={vars({ '--accent': accent(show.coverImage.color, 'vivid') })}
-                >
-                  <img src={show.coverImage.large} alt="" loading="lazy" />
-                  <span className="va-chapter" aria-hidden="true">
-                    Ch.{i + 1}
-                  </span>
-                  <span className="va-strip-title">{titleOf(show)}</span>
-                  <span className="sr-only">, {seasonOf(show)}</span>
-                </a>
-              </li>
-            ))}
-          </ol>
-        </section>
+        <TrendingPage shows={shows} />
+        <ThrowbackStrip classics={classics} />
       </main>
-
       <footer className="va-foot">Data from AniList · Prototype A</footer>
     </div>
   )
 }
 
-function Panel({ show, rank, span }: { show: Show; rank: number; span: [number, number] }) {
+export function MangaHeader({ variant }: { variant: string }) {
+  return (
+    <header className="va-top">
+      <a className="va-logo" href={`?variant=${variant}`}>
+        <ruby>
+          AniBeam<rt>アニビーム</rt>
+        </ruby>
+      </a>
+      <nav className="va-nav" aria-label="Sections">
+        <a href={`?variant=${variant}`} aria-current="page">
+          Discover
+        </a>
+        <a href={`?variant=${variant}#pull`}>Pull</a>
+        <a href={`?variant=${variant}#list`}>My List</a>
+      </nav>
+      <label className="va-search">
+        <span className="sr-only">Search titles</span>
+        <input type="search" placeholder="Search a title…" />
+      </label>
+    </header>
+  )
+}
+
+export function TrendingPage({ shows, onOpen }: { shows: Show[]; onOpen?: OpenTitle }) {
+  return (
+    <section className="va-page" aria-labelledby="va-trending">
+      <h1 id="va-trending" className="va-sfx">
+        Trending now
+        <span aria-hidden="true">ドン!</span>
+      </h1>
+      <ol className="va-grid">
+        {shows.slice(0, LAYOUT.length).map((show, i) => (
+          <Panel key={show.id} show={show} rank={i + 1} span={LAYOUT[i]} onOpen={onOpen} />
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+export function ThrowbackStrip({ classics, onOpen }: { classics: Show[]; onOpen?: OpenTitle }) {
+  return (
+    <section className="va-strip" aria-labelledby="va-throwback">
+      <h2 id="va-throwback" className="va-sfx va-sfx-small">
+        Throwback: the &rsquo;90s
+        <span aria-hidden="true">バーン</span>
+      </h2>
+      <ol className="va-strip-row">
+        {classics.map((show, i) => (
+          <li key={show.id} className="va-strip-item" style={vars({ '--i': i })}>
+            <a
+              className="va-strip-panel"
+              href={`#show-${show.id}`}
+              onClick={opener(show, onOpen)}
+              style={vars({ '--accent': accent(show.coverImage.color, 'vivid') })}
+            >
+              <img src={show.coverImage.large} alt="" loading="lazy" />
+              <span className="va-chapter" aria-hidden="true">
+                Ch.{i + 1}
+              </span>
+              <span className="va-strip-title">{titleOf(show)}</span>
+              <span className="sr-only">, {seasonOf(show)}</span>
+            </a>
+          </li>
+        ))}
+      </ol>
+    </section>
+  )
+}
+
+function Panel({
+  show,
+  rank,
+  span,
+  onOpen,
+}: {
+  show: Show
+  rank: number
+  span: [number, number]
+  onOpen?: OpenTitle
+}) {
   const splash = rank === 1
   const meta = [seasonOf(show), formatOf(show), show.episodes && `${show.episodes} eps`]
     .filter(Boolean)
@@ -102,7 +140,7 @@ function Panel({ show, rank, span }: { show: Show; rank: number; span: [number, 
         '--accent': accent(show.coverImage.color, 'vivid'),
       })}
     >
-      <a className="va-link" href={`#show-${show.id}`}>
+      <a className="va-link" href={`#show-${show.id}`} onClick={opener(show, onOpen)}>
         <span className="va-img">
           <picture>
             {splash && show.bannerImage && (

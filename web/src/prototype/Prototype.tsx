@@ -1,5 +1,5 @@
 // PROTOTYPE ONLY. Question: which organizing idea should AniBeam's screens be built on?
-// Three anime-pop variants of the home screen, switchable with ?variant=A|B|C, using
+// Anime-pop variants of the home screen, switchable with ?variant=A|B|C|D, using
 // real AniList data. Development only (see main.tsx); never in a production build.
 import { useQuery } from '@tanstack/react-query'
 import { lazy, Suspense, useState, type KeyboardEvent } from 'react'
@@ -10,6 +10,7 @@ const VARIANTS = {
   A: { name: 'Manga Page', Component: lazy(() => import('./VariantA.tsx')) },
   B: { name: 'Opening Sequence', Component: lazy(() => import('./VariantB.tsx')) },
   C: { name: 'Gacha Board', Component: lazy(() => import('./VariantC.tsx')) },
+  D: { name: 'Chosen mix', Component: lazy(() => import('./VariantD.tsx')) },
 }
 type Key = keyof typeof VARIANTS
 const KEYS = Object.keys(VARIANTS) as Key[]
