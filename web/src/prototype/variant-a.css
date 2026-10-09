@@ -1,0 +1,540 @@
+/* PROTOTYPE ONLY. Variant A, "Manga Page". Every selector is scoped under .va. */
+.va {
+  --paper: #f6f1e6;
+  --ink: #141414;
+  --hot: #ff2d55;
+  --gutter: 12px;
+  --border: 4px;
+  --cut: 48px;
+  --display: 'Dela Gothic One', 'Hiragino Sans', system-ui, sans-serif;
+  --body: 'M PLUS Rounded 1c', 'Hiragino Maru Gothic ProN', system-ui, sans-serif;
+  --spring: cubic-bezier(0.2, 1.5, 0.35, 1);
+  min-height: 100svh;
+  background-color: var(--paper);
+  background-image: radial-gradient(rgb(0 0 0 / 0.07) 1px, transparent 1.3px);
+  background-size: 6px 6px;
+  color: var(--ink);
+  font-family: var(--body);
+}
+
+/* ---------- Header ---------- */
+.va-top {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  padding: 12px clamp(16px, 4vw, 48px);
+  border-bottom: var(--border) solid var(--ink);
+  background: var(--paper);
+}
+
+.va-logo {
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: clamp(24px, 3vw, 32px);
+  line-height: 1;
+  text-decoration: none;
+}
+
+.va-logo rt {
+  font-family: var(--body);
+  font-size: 0.38em;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.va-nav {
+  display: flex;
+  gap: 6px;
+}
+
+.va-nav a,
+.va-search input {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 16px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font: 800 15px var(--body);
+  text-decoration: none;
+}
+
+.va-nav a[aria-current='page'] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.va-search {
+  margin-left: auto;
+}
+
+.va-search input {
+  width: clamp(180px, 24vw, 300px);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.va a:focus-visible,
+.va input:focus-visible {
+  outline: 4px solid var(--hot);
+  outline-offset: 3px;
+}
+
+/* ---------- Trending page ---------- */
+.va-page {
+  padding: clamp(16px, 4vw, 48px) clamp(16px, 4vw, 48px) 24px;
+}
+
+.va-sfx {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25em 0.4em;
+  margin: 0 0 20px;
+  font-family: var(--display);
+  font-size: clamp(38px, 6.5vw, 84px);
+  font-weight: 400;
+  line-height: 0.95;
+}
+
+.va-sfx span {
+  display: inline-block;
+  color: #ffd400;
+  font-size: 0.72em;
+  -webkit-text-stroke: 2px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 4px 4px 0 var(--ink);
+  transform: rotate(-9deg);
+}
+
+.va-sfx-small {
+  font-size: clamp(28px, 4.5vw, 52px);
+}
+
+.va-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gutter);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.va-panel {
+  position: relative;
+  min-height: 0;
+  aspect-ratio: 3 / 4;
+  padding: var(--border);
+  background: var(--ink);
+}
+
+.va-panel:first-child {
+  grid-column: span 2;
+  aspect-ratio: 4 / 5;
+}
+
+.va-panel:nth-child(3n + 4) {
+  grid-column: span 2;
+  aspect-ratio: 16 / 10;
+}
+
+@media (min-width: 900px) {
+  .va-grid {
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-auto-rows: 104px;
+  }
+
+  .va-panel,
+  .va-panel:first-child,
+  .va-panel:nth-child(3n + 4) {
+    grid-column: span var(--c);
+    grid-row: span var(--r);
+    aspect-ratio: auto;
+  }
+
+  /* One diagonal gutter between panels 4 and 5, like a manga action page. */
+  .va-cut-right {
+    margin-right: calc(var(--cut) * -1);
+    clip-path: polygon(0 0, 100% 0, calc(100% - var(--cut)) 100%, 0 100%);
+  }
+
+  .va-cut-right .va-link {
+    clip-path: polygon(0 0, 100% 0, calc(100% - var(--cut) + 2px) 100%, 0 100%);
+  }
+
+  .va-cut-left {
+    clip-path: polygon(var(--cut) 0, 100% 0, 100% 100%, 0 100%);
+  }
+
+  .va-cut-left .va-link {
+    clip-path: polygon(calc(var(--cut) - 2px) 0, 100% 0, 100% 100%, 0 100%);
+  }
+
+  .va-cut-left .va-caption {
+    left: 24px;
+  }
+}
+
+.va-link {
+  position: relative;
+  display: block;
+  height: 100%;
+  overflow: hidden;
+  background: #ddd;
+  color: inherit;
+  text-decoration: none;
+}
+
+.va-img,
+.va-img picture,
+.va-img img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.va-img img {
+  object-fit: cover;
+  object-position: 50% 22%;
+  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.va-link:hover .va-img img,
+.va-link:focus-visible .va-img img {
+  transform: scale(1.1);
+}
+
+/* Screentone in the title's own color, densest behind the caption. */
+.va-tone {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(var(--accent) 1.4px, transparent 1.7px);
+  background-size: 7px 7px;
+  mix-blend-mode: multiply;
+  mask-image: linear-gradient(to top, #000 0%, transparent 58%);
+  pointer-events: none;
+}
+
+/* Speed lines burst in on hover and keyboard focus. */
+.va-speed {
+  position: absolute;
+  inset: -25%;
+  background: repeating-conic-gradient(
+    from 0deg at 50% 50%,
+    transparent 0deg 3deg,
+    rgb(255 255 255 / 0.95) 3deg 3.5deg
+  );
+  mask-image: radial-gradient(circle at 50% 50%, transparent 26%, #000 64%);
+  opacity: 0;
+  transform: scale(1.35);
+  transition:
+    opacity 0.2s,
+    transform 0.55s var(--spring);
+  pointer-events: none;
+}
+
+.va-link:hover .va-speed,
+.va-link:focus-visible .va-speed {
+  opacity: 0.9;
+  transform: scale(1);
+}
+
+.va-rank {
+  position: absolute;
+  top: 6px;
+  left: 12px;
+  color: var(--accent);
+  font-family: var(--display);
+  font-size: clamp(42px, 5vw, 80px);
+  line-height: 1;
+  -webkit-text-stroke: 3px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 4px 4px 0 var(--ink);
+}
+
+.va-bubble {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 10px 14px 8px;
+  border: 3px solid var(--ink);
+  border-radius: 50% / 58% 58% 42% 42%;
+  background: #fff;
+  font-family: var(--display);
+  font-size: 17px;
+  line-height: 1;
+}
+
+.va-bubble::after {
+  position: absolute;
+  bottom: -14px;
+  left: 16px;
+  border: 7px solid transparent;
+  border-top: 12px solid var(--ink);
+  border-bottom-width: 0;
+  content: '';
+  transform: skewX(-20deg);
+}
+
+.va-caption {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  display: grid;
+  max-width: calc(100% - 24px);
+  gap: 3px;
+  padding: 8px 11px 9px;
+  border: 3px solid var(--ink);
+  background: #fff;
+  box-shadow: 4px 4px 0 var(--ink);
+  transform: rotate(-1.2deg);
+  transition:
+    transform 0.4s var(--spring),
+    box-shadow 0.4s var(--spring);
+}
+
+.va-caption b {
+  display: -webkit-box;
+  overflow: hidden;
+  font-family: var(--display);
+  font-size: clamp(15px, 1.35vw, 19px);
+  font-weight: 400;
+  line-height: 1.15;
+  text-wrap: balance;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+
+.va-splash .va-caption b {
+  font-size: clamp(24px, 3.3vw, 48px);
+}
+
+.va-caption small {
+  color: #3d3d3d;
+  font-size: 12.5px;
+  font-weight: 800;
+}
+
+.va-link:hover .va-caption,
+.va-link:focus-visible .va-caption {
+  box-shadow: 8px 8px 0 var(--accent);
+  transform: rotate(-1.2deg) translate(-3px, -5px);
+}
+
+/* ---------- Throwback strip ---------- */
+.va-strip {
+  padding: 24px clamp(16px, 4vw, 48px) 96px;
+}
+
+.va-strip-row {
+  display: grid;
+  grid-auto-columns: clamp(150px, 17vw, 210px);
+  grid-auto-flow: column;
+  gap: var(--gutter);
+  margin: 0;
+  padding: 0 0 14px;
+  overflow-x: auto;
+  list-style: none;
+  scroll-snap-type: x mandatory;
+}
+
+.va-strip-item {
+  scroll-snap-align: start;
+}
+
+.va-strip-panel {
+  position: relative;
+  display: block;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border: var(--border) solid var(--ink);
+  background: #ddd;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.va-strip-panel img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.1);
+  transition: filter 0.4s;
+}
+
+.va-strip-panel:hover img,
+.va-strip-panel:focus-visible img {
+  filter: none;
+}
+
+.va-chapter {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 3px 8px;
+  background: var(--ink);
+  color: #fff;
+  font-family: var(--display);
+  font-size: 13px;
+}
+
+.va-strip-title {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  display: -webkit-box;
+  overflow: hidden;
+  padding: 6px 8px;
+  border: 2px solid var(--ink);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.va-foot {
+  padding: 0 clamp(16px, 4vw, 48px) 96px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* ---------- Motion (only when the visitor allows it) ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  /* An ink block wipes off each panel, one after another. */
+  .va-panel::after {
+    position: absolute;
+    z-index: 3;
+    inset: 0;
+    background: var(--ink);
+    content: '';
+    pointer-events: none;
+    transform-origin: 100% 50%;
+    animation: va-ink 0.7s cubic-bezier(0.75, 0, 0.2, 1) both;
+    animation-delay: calc(var(--i) * 90ms);
+  }
+
+  .va-img img {
+    animation: va-settle 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    animation-delay: calc(var(--i) * 90ms + 150ms);
+  }
+
+  .va-caption {
+    animation: va-pop 0.6s var(--spring) both;
+    animation-delay: calc(var(--i) * 90ms + 450ms);
+  }
+
+  .va-sfx span {
+    animation: va-boom 0.7s var(--spring) both 0.2s;
+  }
+
+  .va-strip-item {
+    animation: va-pop 0.6s var(--spring) both;
+    animation-delay: calc(var(--i) * 60ms);
+  }
+
+  /* The splash panel drifts as it scrolls away (Chrome and Safari 26+). */
+  @supports (animation-timeline: view()) {
+    .va-splash .va-img {
+      animation: va-parallax linear both;
+      animation-range: exit;
+      animation-timeline: view();
+    }
+  }
+}
+
+@keyframes va-ink {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+@keyframes va-settle {
+  from {
+    transform: scale(1.3);
+  }
+}
+
+@keyframes va-pop {
+  from {
+    opacity: 0;
+    transform: rotate(-6deg) scale(0.6);
+  }
+}
+
+@keyframes va-boom {
+  from {
+    opacity: 0;
+    transform: rotate(-30deg) scale(2.4);
+  }
+}
+
+@keyframes va-parallax {
+  to {
+    transform: translateY(18%) scale(1.12);
+  }
+}
+
+/* ---------- Review fixes ---------- */
+@media (min-width: 900px) {
+  .va-splash .va-caption {
+    max-width: min(64%, 760px);
+  }
+}
+
+.va-splash .va-caption b {
+  font-size: clamp(24px, 2.9vw, 42px);
+}
+
+.va-caption b,
+.va-strip-title {
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 900px) {
+  .va-cut-left .va-rank {
+    left: calc(var(--cut) + 6px);
+  }
+}
+
+@media (max-width: 899px) {
+  .va-top {
+    position: static;
+  }
+
+  .va-search {
+    flex: 1 1 100%;
+  }
+
+  .va-search input {
+    width: 100%;
+  }
+
+  /* Half-width phone panels: a shorter caption so the art stays visible. */
+  .va-panel:not(:first-child):not(:nth-child(3n + 4)) .va-caption {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    padding: 6px 8px;
+  }
+
+  .va-panel:not(:first-child):not(:nth-child(3n + 4)) .va-caption b {
+    font-size: 14px;
+    -webkit-line-clamp: 2;
+  }
+
+  .va-panel:not(:first-child):not(:nth-child(3n + 4)) .va-caption small {
+    display: none;
+  }
+
+  .va-bubble {
+    padding: 7px 10px 6px;
+    font-size: 14px;
+  }
+}
