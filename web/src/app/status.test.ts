@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { AniListError } from '../lib/anilist.ts'
-import { statusText, type QueryStatus } from './status.ts'
+import { noteFor, statusText, type QueryStatus } from './status.ts'
 
 const idle: QueryStatus = {
   data: undefined,
@@ -71,3 +71,26 @@ for (const [situation, state, rateLimited, expected] of cases) {
     else assert.equal(text, expected)
   })
 }
+
+// The page shows a section's status line only when there is something to say.
+test('note: quiet while the titles are on screen, even during a normal refresh', () => {
+  assert.equal(noteFor({ ...idle, data: twoTitles }, false), null)
+  assert.equal(noteFor({ ...idle, data: twoTitles, isFetching: true }, false), null)
+})
+
+test('note: speaks while loading, empty, failed, offline or held for a rate limit', () => {
+  assert.equal(noteFor({ ...idle, isFetching: true }, false), 'Loading…')
+  assert.equal(noteFor({ ...idle, data: [] }, false), 'No titles found.')
+  assert.equal(
+    noteFor({ ...idle, data: twoTitles, error: noConnection, failureReason: noConnection }, false),
+    'Error: Failed to fetch (showing earlier results)',
+  )
+  assert.equal(
+    noteFor({ ...idle, data: twoTitles, isFetching: true, isPaused: true }, false),
+    'Offline: waiting for a connection.',
+  )
+  assert.equal(
+    noteFor({ ...idle, data: twoTitles, isFetching: true, failureReason: tooMany }, true),
+    'AniList rate limit reached; retrying automatically when it resets.',
+  )
+})
