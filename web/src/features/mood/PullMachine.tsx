@@ -6,6 +6,7 @@ import { formatOf, seasonOf, studioOf, titleOf } from '../anime/format.ts'
 import type { Media } from '../anime/queries.ts'
 import { accentVars } from '../theming/deriveAccent.ts'
 import { MOODS, type Mood } from './moods.ts'
+import { pickTitle } from './pick.ts'
 
 const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -18,8 +19,8 @@ function rarityOf(score: number | null) {
 
 /**
  * The gacha machine, drawn in ink: pick a vibe, pull the lever, and a capsule drops with a
- * random title from `pool` (titles already loaded, so a pull costs no API request). Titles
- * already pulled this visit are skipped until every match has come up once.
+ * random title from `pool` (titles already loaded, so a pull costs no API request). See
+ * pickTitle for which titles can come up.
  */
 export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle }) {
   const [mood, setMood] = useState<Mood>('any')
@@ -31,14 +32,8 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
   useEffect(() => () => clearTimeout(timer.current), [])
 
   function pull() {
-    const wanted = MOODS[mood].genres
-    const matches = pool.filter(
-      (media) =>
-        (wanted.length === 0 || media.genres.some((genre) => wanted.includes(genre))) &&
-        !seen.current.has(media.id),
-    )
-    const from = matches.length ? matches : pool
-    const choice = from[Math.floor(Math.random() * from.length)]
+    const choice = pickTitle(pool, MOODS[mood].genres, seen.current, Math.random)
+    if (!choice) return
     seen.current.add(choice.id)
     clearTimeout(timer.current)
     setPulled(choice)
@@ -143,7 +138,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
           ) : (
             <p className="ab-hint">
               Pick a vibe, then pull. Every capsule holds a real anime from what&rsquo;s on this
-              page.
+              page. Coming soon: mood sliders for finer picks.
             </p>
           )}
         </div>

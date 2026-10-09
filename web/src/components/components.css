@@ -36,6 +36,7 @@
 
 .ab-nav {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -375,14 +376,19 @@
   right: 8px;
   bottom: 8px;
   left: 8px;
-  display: -webkit-box;
-  overflow: hidden;
   padding: 6px 8px;
   border: 2px solid var(--ink);
   background: #fff;
   font-size: 13px;
   font-weight: 800;
   line-height: 1.2;
+}
+
+/* The clamp sits on an inner span: on the padded box itself, a third line would peek
+   through the bottom padding. */
+.ab-strip-title > span {
+  display: -webkit-box;
+  overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -1586,4 +1592,104 @@ body:has(.ab-card[open]) {
     opacity: 0;
     transform: translateY(40px) rotate(-30deg) scale(0.7);
   }
+}
+
+/* ---------- Page states, decades and search results ---------- */
+.ab-note {
+  margin: -8px 0 16px;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.ab-note:empty {
+  margin: 0;
+}
+
+/* Empty panels and cards hold the layout while titles load. */
+.ab-skeleton-fill {
+  display: block;
+  height: 100%;
+  background-color: #e7e1d6;
+  background-image: radial-gradient(rgb(0 0 0 / 0.1) 1.2px, transparent 1.5px);
+  background-size: 7px 7px;
+}
+
+.ab-strip-grid {
+  grid-auto-flow: row;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  overflow: visible;
+  scroll-snap-type: none;
+}
+
+.ab-strip-grid .ab-strip-panel img {
+  filter: none;
+}
+
+.ab-eras {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 18px;
+  padding: 0;
+  border: 0;
+}
+
+/* On paper a white ring would vanish, so the decade chips use the brand ring. */
+.ab-eras .ab-chip input:focus-visible + span {
+  outline-color: var(--hot);
+}
+
+.ab-results {
+  min-height: calc(100svh - var(--top-h, 80px));
+}
+
+.ab-results .ab-strip {
+  padding-top: clamp(24px, 4vw, 48px);
+}
+
+/* Hidden until focused: lets keyboard users jump past the header to the page. */
+.ab-skip {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 50;
+  padding: 10px 16px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--sun);
+  color: var(--ink);
+  font-weight: 800;
+  text-decoration: none;
+  transform: translateY(-200%);
+}
+
+.ab-skip:focus-visible {
+  transform: none;
+}
+
+/* Features from later phases: visible, clearly not usable yet. */
+.ab-soon {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: 3px dashed var(--ink);
+  border-radius: 999px;
+  background: transparent;
+  color: rgb(20 20 20 / 0.7);
+  font: 800 15px var(--body);
+  white-space: nowrap;
+  cursor: not-allowed;
+}
+
+.ab-soon small {
+  padding: 2px 7px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--sun);
+  color: var(--ink);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }

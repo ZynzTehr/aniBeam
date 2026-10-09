@@ -31,3 +31,13 @@ export function statusText(q: QueryStatus, rateLimited: boolean): string {
   const fetchedAt = new Date(q.dataUpdatedAt).toLocaleTimeString()
   return `${q.data.length} titles, fetched at ${fetchedAt}${q.isFetching ? ' (refreshing…)' : ''}`
 }
+
+/**
+ * The status line a page section shows, or null while its titles are on screen and nothing is
+ * wrong (a normal background refresh stays quiet).
+ */
+export function noteFor(q: QueryStatus, rateLimited: boolean): string | null {
+  const held = q.isFetching && (rateLimited || q.failureReason !== null)
+  const fine = q.data !== undefined && q.data.length > 0 && !q.error && !q.isPaused && !held
+  return fine ? null : statusText(q, rateLimited)
+}

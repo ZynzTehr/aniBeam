@@ -1,93 +1,144 @@
-import { useQuery } from '@tanstack/react-query'
-import { useState } from 'react'
-import { ERAS, eraQuery, searchQuery, trendingQuery } from '../features/anime/queries.ts'
+import { keepPreviousData, useQuery, type UseQueryResult } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+import { IntroHero } from '../components/IntroHero.tsx'
+import { MangaPage } from '../components/MangaPage.tsx'
+import { SiteHeader } from '../components/SiteHeader.tsx'
+import { Strip } from '../components/Strip.tsx'
+import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
+import {
+  ERAS,
+  eraQuery,
+  searchQuery,
+  trendingQuery,
+  type Media,
+} from '../features/anime/queries.ts'
+import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { isRateLimited } from '../lib/anilist.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
-import { statusText } from './status.ts'
+import { noteFor } from './status.ts'
 
-// Phase 1 debug page: proves the AniList client and saved cache work.
-// Deliberately plain; the visual design is decided in Phase 2.
+const note = (query: UseQueryResult<Media[]>) => noteFor(query, isRateLimited())
+
+/** AniBeam's page: the intro, this week's trending titles, the pull, and titles by decade. */
 export default function App() {
-  const [listId, setListId] = useState('trending')
+  const [opened, setOpened] = useState<{ media: Media; from: DOMRect } | null>(null)
+  const open: OpenTitle = (media, from) => setOpened({ media, from: from.getBoundingClientRect() })
+
   const [search, setSearch] = useState('')
   const term = useDebounced(search.trim(), 300)
-
-  // Arrowing through the picker changes it once per option; wait like search does.
-  const list = useDebounced(listId, 300)
-
   const searching = term.length >= 2
-  const era = ERAS.find((e) => e.id === list)
-  const { data, error, failureReason, isFetching, isPaused, dataUpdatedAt } = useQuery(
-    searching ? searchQuery(term) : era ? eraQuery(era) : trendingQuery(),
-  )
 
-  const showing = searching ? `Search: "${term}"` : (era?.label ?? 'Trending now')
-  const status = statusText(
-    { data, error, failureReason, isFetching, isPaused, dataUpdatedAt },
-    isRateLimited(),
-  )
+  // Arrowing through the decade chips changes the choice once per chip; wait like search does.
+  const [eraId, setEraId] = useState('1990s')
+  const shownEraId = useDebounced(eraId, 300)
+  const era = ERAS.find((e) => e.id === shownEraId) ?? ERAS[0]
+
+  const trending = useQuery(trendingQuery())
+  // While a new decade or search loads, the previous titles stay on screen instead of
+  // flashing to empty cards.
+  const decade = useQuery({ ...eraQuery(era), placeholderData: keepPreviousData })
+  const results = useQuery({
+    ...searchQuery(term),
+    enabled: searching,
+    placeholderData: keepPreviousData,
+  })
+
+  // Pulls draw from titles already on the page, so a pull costs no request.
+  const pool = useMemo(() => {
+    const all = [...(trending.data ?? []), ...(decade.data ?? [])]
+    return all.filter((media, i) => all.findIndex((other) => other.id === media.id) === i)
+  }, [trending.data, decade.data])
+
+  // Search results take the intro's place at the top of the page; bring them into view.
+  useEffect(() => {
+    if (searching) window.scrollTo({ top: 0 })
+  }, [searching])
 
   return (
-    <main className="mx-auto max-w-3xl space-y-6 p-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-bold">AniBeam: AniList debug page</h1>
-        <p className="text-ink/70">
-          Phase 1 check of the API client and saved cache. The real design comes in Phase 2.
-        </p>
-      </header>
-
-      <div className="flex flex-wrap gap-4">
-        <label className="flex flex-col gap-1">
-          Search titles (2+ characters)
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="border-2 border-ink bg-white px-2 py-2"
+    <div className="ab-app">
+      <a className="ab-skip" href="#main">
+        Skip to content
+      </a>
+      <SiteHeader
+        links={[
+          { href: '#ab-trending', label: 'Trending' },
+          { href: '#pull', label: 'Pull' },
+          { href: '#decades', label: 'Decades' },
+          { href: '#my-list', label: 'My List', soon: true },
+        ]}
+        search={search}
+        onSearch={setSearch}
+      />
+      <main id="main">
+        {searching ? (
+          <div className="ab-results">
+            <Strip
+              id="results"
+              heading={`Results for “${term}”`}
+              sfx="サーチ!"
+              titles={results.data ?? []}
+              note={note(results)}
+              loading={results.isPending}
+              onOpen={open}
+              grid
+            />
+          </div>
+        ) : (
+          <IntroHero
+            titles={trending.data ?? []}
+            actions={[
+              { href: '#ab-trending', label: 'See what’s trending', primary: true },
+              { href: '#pull', label: 'Pull a random title' },
+              { href: '#decades', label: 'Browse by decade' },
+            ]}
           />
-        </label>
-        <label className="flex flex-col gap-1">
-          List (when not searching)
-          <select
-            value={listId}
-            onChange={(e) => setListId(e.target.value)}
-            className="border-2 border-ink bg-white px-2 py-2"
-          >
-            <option value="trending">Trending now</option>
+        )}
+        <MangaPage
+          id="ab-trending"
+          heading="Trending now"
+          sfx="ドン!"
+          titles={trending.data ?? []}
+          note={note(trending)}
+          onOpen={open}
+        />
+        <PullMachine pool={pool} onOpen={open} />
+        <Strip
+          id="decades"
+          heading="Browse by decade"
+          sfx="バーン"
+          titles={decade.data ?? []}
+          note={note(decade)}
+          loading={decade.isPending}
+          onOpen={open}
+        >
+          <fieldset className="ab-eras">
+            <legend className="sr-only">Decade</legend>
             {ERAS.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.label}
-              </option>
+              <label key={e.id} className="ab-chip">
+                <input
+                  type="radio"
+                  name="era"
+                  value={e.id}
+                  checked={eraId === e.id}
+                  onChange={() => setEraId(e.id)}
+                />
+                <span>{e.label}</span>
+              </label>
             ))}
-          </select>
-        </label>
-      </div>
-
-      <section aria-labelledby="results-heading" className="space-y-2">
-        <h2 id="results-heading" className="text-lg font-semibold">
-          {showing}
-        </h2>
-        <p role="status" className="text-ink/70">
-          {status}
-        </p>
-        <ol className="list-decimal space-y-1 pl-6">
-          {data?.map((media) => (
-            <li key={media.id}>
-              <span
-                aria-hidden="true"
-                className="mr-2 inline-block size-3 rounded-full align-middle"
-                style={{ backgroundColor: media.coverImage.color ?? 'transparent' }}
-              />
-              {media.title.english ?? media.title.romaji}
-              <span className="text-ink/70">
-                {' '}
-                · {media.seasonYear ?? 'year unknown'} · {media.format ?? 'format unknown'} · score{' '}
-                {media.averageScore ?? 'none'}
-              </span>
-            </li>
-          ))}
-        </ol>
-      </section>
-    </main>
+          </fieldset>
+        </Strip>
+      </main>
+      <footer className="ab-foot">
+        Data from AniList. AniBeam is not affiliated with AniList.
+      </footer>
+      {opened && (
+        <TitleCard
+          key={opened.media.id}
+          media={opened.media}
+          from={opened.from}
+          onClose={() => setOpened(null)}
+        />
+      )}
+    </div>
   )
 }

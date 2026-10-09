@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { seasonOf, titleOf } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { cssVars } from './cssVars.ts'
@@ -12,19 +13,45 @@ export function Strip({
   sfx,
   titles,
   onOpen,
+  note = null,
+  loading = false,
+  grid = false,
+  children,
 }: {
   id: string
   heading: string
   sfx: string
   titles: Media[]
   onOpen?: OpenTitle
+  /** A status line (loading, error, rate limit), or null when there's nothing to say. */
+  note?: string | null
+  /** Show empty cards while the first load runs. */
+  loading?: boolean
+  /** Wrap into rows instead of scrolling sideways (search results). */
+  grid?: boolean
+  /** Controls shown between the heading and the row, such as the decade chips. */
+  children?: ReactNode
 }) {
+  const row = grid ? 'ab-strip-row ab-strip-grid' : 'ab-strip-row'
   return (
     <section className="ab-strip" aria-labelledby={id}>
       <SfxHeading id={id} sfx={sfx} small>
         {heading}
       </SfxHeading>
-      <ol className="ab-strip-row">
+      {children}
+      <p role="status" className="ab-note">
+        {note}
+      </p>
+      {!titles.length && loading && (
+        <ol className={row} aria-hidden="true">
+          {Array.from({ length: 8 }, (_, i) => (
+            <li key={i} className="ab-strip-item">
+              <span className="ab-strip-panel ab-skeleton-fill" />
+            </li>
+          ))}
+        </ol>
+      )}
+      <ol className={row}>
         {titles.map((media, i) => (
           <li key={media.id} className="ab-strip-item" style={cssVars({ '--i': i })}>
             <a
@@ -33,10 +60,14 @@ export function Strip({
               onClick={opener(media, onOpen)}
             >
               <img src={media.coverImage.large} alt="" loading="lazy" />
-              <span className="ab-chapter" aria-hidden="true">
-                Ch.{i + 1}
+              {!grid && (
+                <span className="ab-chapter" aria-hidden="true">
+                  Ch.{i + 1}
+                </span>
+              )}
+              <span className="ab-strip-title">
+                <span>{titleOf(media)}</span>
               </span>
-              <span className="ab-strip-title">{titleOf(media)}</span>
               <span className="sr-only">, {seasonOf(media)}</span>
             </a>
           </li>

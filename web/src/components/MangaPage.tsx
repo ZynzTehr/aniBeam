@@ -28,6 +28,7 @@ export function MangaPage({
   titles,
   onOpen,
   level = 'h2',
+  note = null,
 }: {
   id: string
   heading: string
@@ -35,17 +36,37 @@ export function MangaPage({
   titles: Media[]
   onOpen?: OpenTitle
   level?: 'h1' | 'h2'
+  /** A status line (loading, error, rate limit), or null when there's nothing to say. */
+  note?: string | null
 }) {
   return (
     <section className="ab-page" aria-labelledby={id}>
       <SfxHeading as={level} id={id} sfx={sfx}>
         {heading}
       </SfxHeading>
-      <ol className="ab-grid">
-        {titles.slice(0, LAYOUT.length).map((media, i) => (
-          <Panel key={media.id} media={media} rank={i + 1} span={LAYOUT[i]} onOpen={onOpen} />
-        ))}
-      </ol>
+      <p role="status" className="ab-note">
+        {note}
+      </p>
+      {titles.length ? (
+        <ol className="ab-grid">
+          {titles.slice(0, LAYOUT.length).map((media, i) => (
+            <Panel key={media.id} media={media} rank={i + 1} span={LAYOUT[i]} onOpen={onOpen} />
+          ))}
+        </ol>
+      ) : (
+        // Empty panels hold the page's shape until the titles arrive.
+        <ol className="ab-grid" aria-hidden="true">
+          {LAYOUT.map((span, i) => (
+            <li
+              key={i}
+              className="ab-panel ab-skeleton"
+              style={cssVars({ '--c': span[0], '--r': span[1] })}
+            >
+              <span className="ab-skeleton-fill" />
+            </li>
+          ))}
+        </ol>
+      )}
     </section>
   )
 }

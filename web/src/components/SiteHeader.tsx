@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from 'react'
 
-export type NavLink = { href: string; label: string; current?: boolean }
+/** A section link. `soon` marks a feature from a later phase: shown with a tag, not a link. */
+export type NavLink = { href: string; label: string; current?: boolean; soon?: boolean }
 
 /**
  * The logo, the section links and the title search. It publishes its own height as --top-h
@@ -41,11 +42,17 @@ export function SiteHeader({
         </ruby>
       </a>
       <nav className="ab-nav" aria-label="Sections">
-        {links.map((link) => (
-          <a key={link.href} href={link.href} aria-current={link.current ? 'page' : undefined}>
-            {link.label}
-          </a>
-        ))}
+        {links.map((link) =>
+          link.soon ? (
+            <span key={link.href} className="ab-soon" aria-disabled="true">
+              {link.label} <small>Soon</small>
+            </span>
+          ) : (
+            <a key={link.href} href={link.href} aria-current={link.current ? 'page' : undefined}>
+              {link.label}
+            </a>
+          ),
+        )}
       </nav>
       <SearchBubble value={search} onChange={onSearch} />
     </header>
