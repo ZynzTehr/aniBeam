@@ -33,9 +33,9 @@ The `.env.example` files list every variable with a comment explaining it. Real 
 
 ## Deploying
 
-The site deploys on [Vercel](https://vercel.com), and `vercel.json` holds the settings. Vercel installs the workspaces from the root with `npm ci`, builds only the web app with `npm run build --workspace web`, and serves `web/dist`. No environment variables are needed yet.
+The site deploys on [Vercel](https://vercel.com). Sign in with GitHub and import this repository. Vercel finds two apps, `web` and the Fastify chat server, so import only `web`. Vercel then uses its Vite settings with `web` as the root directory. It installs the workspaces, runs `npm run build`, and serves `dist`. No environment variables are needed yet.
 
-To set it up, sign in to Vercel with GitHub, import this repository, and deploy. After that, every pull request gets a preview link, and merging into `main` updates the live site.
+After that, every pull request gets a preview link, and merging into `main` updates the live site. The chat server will need a host that keeps WebSocket connections open, which is planned for Phase 6.
 
 ## Project structure
 
