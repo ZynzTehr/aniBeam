@@ -564,6 +564,44 @@ describe('tablet (834x1112, iPad Pro 11" portrait) and up', () => {
     assert.ok(result.wide <= 0, `the page is ${result.wide}px wider than the screen`)
   })
 
+  test('a pulled title’s long words never break mid-word, from tablet to desktop', async () => {
+    await pull()
+    await browser.animationsDone()
+    // Long words from real titles (isekai titles are full of "Reincarnated").
+    const words =
+      'Bakemonogatari Assassination Entertainment Reincarnation Reincarnated Experiments Edgerunners Brotherhood Apothecary Cardcaptor'
+    const broken: string[] = []
+    for (const width of [834, 1001, 1024, 1060, 1100, 1170, 1180, 1280, 1440]) {
+      await browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 1112,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+      const split = await browser.evaluate<string[]>(`(() => {
+        const h3 = document.querySelector('.ab-result h3'), text = ${JSON.stringify(words)}, split = []
+        h3.textContent = text
+        let at = 0
+        for (const word of text.split(' ')) {
+          const start = text.indexOf(word, at), range = document.createRange()
+          at = start + word.length
+          range.setStart(h3.firstChild, start)
+          range.setEnd(h3.firstChild, at)
+          if (new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size > 1) split.push(word)
+        }
+        return split
+      })()`)
+      if (split.length) broken.push(`${width}px: ${split.join(', ')}`)
+    }
+    await browser.send('Emulation.setDeviceMetricsOverride', {
+      width: 834,
+      height: 1112,
+      deviceScaleFactor: 1,
+      mobile: false,
+    })
+    assert.deepEqual(broken, [], 'words split across lines')
+  })
+
   test('the rarity sticker never makes the page scroll sideways as it pops in', async () => {
     const wider: string[] = []
     for (const [width, phone] of [

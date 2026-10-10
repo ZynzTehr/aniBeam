@@ -1202,13 +1202,14 @@ body:has(.ab-card[open]) {
   }
 }
 
-/* Beside the machine on 821-1000px screens (an iPad Pro 11" in portrait is 834px), the reveal
-   is too narrow for the poster and its text side by side, so they stack as on phones. */
+/* Beside the machine on screens up to about 1170px wide (an iPad Pro 11" in portrait is 834px),
+   the reveal is too narrow for the poster and its text side by side: long title words such as
+   "Reincarnated" or "Bakemonogatari" would break mid-word. They stack as on phones. */
 .ab-reveal {
   container-type: inline-size;
 }
 
-@container (max-width: 480px) {
+@container (max-width: 630px) {
   .ab-result {
     justify-items: center;
     grid-template-columns: 1fr;
