@@ -49,5 +49,4 @@ export function nextEpisode(media: Media, now = Date.now()) {
  * Some titles only have a small cover (230px wide): AniList then points "extraLarge" at the
  * medium-size folder. The intro leaves these out of its cover fan, where they'd look blurry.
  */
-export const hasSmallCover = (media: Media) =>
-  /\/cover\/(medium|small)\//.test(media.coverImage.extraLarge)
+export const hasSmallCover = (media: Media) => /\/cover\/medium\//.test(media.coverImage.extraLarge)
