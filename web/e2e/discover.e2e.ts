@@ -716,19 +716,35 @@ describe('desktop (1440x900)', () => {
     assert.ok(pill.ringGap >= 2, `a focused chip's ring comes within ${pill.ringGap}px of the pill`)
   })
 
-  test('with motion allowed, hovering a panel still zooms its cover', async () => {
+  test('with motion allowed, hovering a panel eases its cover into a zoom and its caption up', async () => {
     await browser.animationsDone() // each cover settles in from 1.3 times its size
     await browser.evaluate(`document.querySelector('#ab-trending').scrollIntoView(); true`)
+    const panel = `document.querySelectorAll('.ab-grid .ab-link')[1]`
+    const cover = `getComputedStyle(${panel}.querySelector('.ab-img img')).transform`
+    // Notes the cover and the caption as a transform transition starts on each. While their
+    // finished entrances still held the transform, the zoom and the lift jumped there at once.
+    await browser.evaluate(`(() => {
+      window.__eased = new Set()
+      for (const el of [${panel}.querySelector('.ab-img img'), ${panel}.querySelector('.ab-caption')])
+        el.addEventListener('transitionrun', (event) => {
+          if (event.target === el && event.propertyName === 'transform') window.__eased.add(el.className || el.tagName)
+        })
+      return true
+    })()`)
     const at = await browser.evaluate<{ x: number; y: number }>(
-      `(() => { const r = document.querySelectorAll('.ab-grid .ab-link')[1].getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
+      `(() => { const r = ${panel}.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
     )
     await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
-    await sleep(700) // longer than the zoom's 0.6s transition
-    const cover = await browser.evaluate<string>(
-      `getComputedStyle(document.querySelectorAll('.ab-grid .ab-link')[1].querySelector('.ab-img img')).transform`,
-    )
+    await browser.waitFor(`${cover} === 'matrix(1.1, 0, 0, 1.1, 0, 0)'`, 3_000) // the zoom takes 0.6s
+    const zoom = await browser.evaluate<string>(cover)
+    const eased = await browser.evaluate<string[]>(`[...window.__eased].sort()`)
     await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
-    assert.equal(cover, 'matrix(1.1, 0, 0, 1.1, 0, 0)', 'the hovered cover did not zoom')
+    assert.equal(zoom, 'matrix(1.1, 0, 0, 1.1, 0, 0)', 'the hovered cover did not zoom')
+    assert.deepEqual(
+      eased,
+      ['IMG', 'ab-caption'],
+      'the zoom or the caption lift jumped instead of easing',
+    )
   })
 
   test('tabbing along the decade strip, both ways, keeps each focused panel in view, with its whole ring', async () => {
