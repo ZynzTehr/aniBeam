@@ -14,6 +14,7 @@ const idle: QueryStatus = {
 }
 const tooMany = new AniListError('Too Many Requests.', 429)
 const noConnection = new TypeError('Failed to fetch')
+const serverError = new AniListError('Internal Server Error', 500)
 // An error as the saved cache brings it back on a later visit: a plain object, not an Error.
 const savedError = JSON.parse(JSON.stringify(new AniListError('API disabled', 403)))
 const twoTitles = [{ id: 1 }, { id: 2 }]
@@ -97,6 +98,33 @@ const cases: [string, Partial<QueryStatus>, boolean, string][] = [
     true,
     'Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.',
   ],
+  // A server error is retried after 1, 2 and 4 seconds, with or without titles on screen. Its
+  // line says why the list is held up, so it also wins over "Trying AniList again…". If requests
+  // are held, the retry waits that out first.
+  [
+    'retrying a server error with an earlier list on screen',
+    { data: twoTitles, isFetching: true, failureReason: serverError },
+    false,
+    'AniList had a problem. It’s not something you did. Trying again in a few seconds.',
+  ],
+  [
+    'retrying a server error on a first load',
+    { isFetching: true, failureReason: serverError },
+    false,
+    'AniList had a problem. It’s not something you did. Trying again in a few seconds.',
+  ],
+  [
+    'Try again meeting a server error',
+    { data: twoTitles, error: noConnection, isFetching: true, failureReason: serverError },
+    false,
+    'AniList had a problem. It’s not something you did. Trying again in a few seconds.',
+  ],
+  [
+    'a server error retry waiting out a pause first',
+    { data: twoTitles, isFetching: true, failureReason: serverError },
+    true,
+    'Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.',
+  ],
   ['an empty result', { data: [] }, false, 'No titles found.'],
   // Right after a list's last try, anilist() is still holding requests back, but nothing retries.
   [
@@ -146,6 +174,11 @@ test('note: says why a list is held up, with or without titles on screen', () =>
     noteFor({ ...idle, data: twoTitles, isFetching: true, failureReason: noConnection }, false),
     'AniList isn’t responding right now. It’s not something you did. Trying again in a minute.',
   )
+  // The retries after a server error, a few seconds apart.
+  assert.equal(
+    noteFor({ ...idle, data: twoTitles, isFetching: true, failureReason: serverError }, false),
+    'AniList had a problem. It’s not something you did. Trying again in a few seconds.',
+  )
 })
 
 test('note: speaks while loading, empty, failed, offline or held for a rate limit', () => {
@@ -179,7 +212,6 @@ test('placeholder titles from the previous list never read as this list’s answ
     'Loading…',
   )
   // A retry behind the previous decade's titles: not "20 titles, fetched at <1970>".
-  const serverError = new AniListError('Internal Server Error', 500)
   assert.equal(
     statusText(
       {
@@ -191,7 +223,7 @@ test('placeholder titles from the previous list never read as this list’s answ
       },
       false,
     ),
-    'Loading…',
+    'AniList had a problem. It’s not something you did. Trying again in a few seconds.',
   )
 })
 
