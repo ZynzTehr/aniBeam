@@ -703,6 +703,27 @@ describe('reduced motion', () => {
     assert.equal(onPress, 0, 'pressing the lever started a moving transition')
     assert.equal(lever, 'none', 'the held lever turned')
   })
+
+  test('hovering the lever still shows it can be pulled, without moving it', async () => {
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    const at = await browser.evaluate<{ x: number; y: number }>(
+      `(() => { const r = document.querySelector('.ab-lever').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
+    )
+    type Look = { shadow: string; fill: string; transform: string }
+    const look = `(() => { const s = getComputedStyle(document.querySelector('.ab-lever')); return { shadow: s.boxShadow, fill: s.backgroundColor, transform: s.transform } })()`
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.x - 200, y: at.y })
+    await sleep(300)
+    const resting = await browser.evaluate<Look>(look)
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
+    await sleep(300) // longer than the 0.15s shadow transition
+    const hovered = await browser.evaluate<Look>(look)
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: at.x - 200, y: at.y })
+    assert.ok(
+      hovered.shadow !== resting.shadow || hovered.fill !== resting.fill,
+      'hovering the lever changed nothing',
+    )
+    assert.equal(hovered.transform, 'none', 'the hovered lever moved')
+  })
 })
 
 describe('phone (390x844)', () => {

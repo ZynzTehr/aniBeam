@@ -768,7 +768,13 @@ body:has(.ab-card[open]) {
   transition: box-shadow 0.15s;
 }
 
-.ab-lever:active {
+/* Hover raises the lever on a deeper shadow (and tilts it, when motion is allowed); a press
+   sinks it. */
+.ab-lever:enabled:hover {
+  box-shadow: 0 11px 0 var(--ink);
+}
+
+.ab-lever:enabled:active {
   box-shadow: 0 2px 0 var(--ink);
 }
 
