@@ -92,6 +92,20 @@ for (const [situation, state, rateLimited, expected] of cases) {
 test('note: quiet while the titles are on screen, even during a normal refresh', () => {
   assert.equal(noteFor({ ...idle, data: twoTitles }, false), null)
   assert.equal(noteFor({ ...idle, data: twoTitles, isFetching: true }, false), null)
+  // Another request's pause holds requests back, but this list isn't waiting on it.
+  assert.equal(noteFor({ ...idle, data: twoTitles }, true), null)
+})
+
+test('note: says why a list is held up, with or without titles on screen', () => {
+  const shortBreak =
+    'Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.'
+  assert.equal(noteFor({ ...idle, data: twoTitles, isFetching: true }, true), shortBreak)
+  assert.equal(noteFor({ ...idle, isFetching: true }, true), shortBreak)
+  // The retry after a failed connection, still running once the one-minute pause is over.
+  assert.equal(
+    noteFor({ ...idle, data: twoTitles, isFetching: true, failureReason: noConnection }, false),
+    'AniList isn’t responding right now. It’s not something you did. Trying again in a minute.',
+  )
 })
 
 test('note: speaks while loading, empty, failed, offline or held for a rate limit', () => {
