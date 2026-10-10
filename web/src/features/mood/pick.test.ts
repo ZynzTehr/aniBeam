@@ -25,13 +25,18 @@ test('a pull only picks titles with one of the vibe genres', () => {
 })
 
 test('no title repeats until every match has come up once', () => {
-  const seen = new Set<number>()
-  for (let i = 0; i < pool.length; i++) {
-    const pick = pickTitle(pool, [], seen, Math.random)!
-    assert.ok(!seen.has(pick.id), `title ${pick.id} came up twice`)
-    seen.add(pick.id)
+  // This holds whatever the draw, so fixed draws make a broken pickTitle fail every run, not
+  // just by chance. 0 always takes the first unseen title and 0.99 the last, so a title at
+  // either end that never counts as seen comes up twice.
+  for (const draw of [0, 0.99]) {
+    const seen = new Set<number>()
+    for (let i = 0; i < pool.length; i++) {
+      const pick = pickTitle(pool, [], seen, () => draw)!
+      assert.ok(!seen.has(pick.id), `title ${pick.id} came up twice (draw ${draw})`)
+      seen.add(pick.id)
+    }
+    assert.equal(seen.size, pool.length)
   }
-  assert.equal(seen.size, pool.length)
 })
 
 test('after every match has come up, pulls repeat matches instead of leaving the vibe', () => {
