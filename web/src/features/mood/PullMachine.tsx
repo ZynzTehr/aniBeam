@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { cssVars } from '../../components/cssVars.ts'
 import { opener } from '../../components/opener.ts'
 import type { OpenTitle } from '../../components/TitleCard.tsx'
@@ -6,7 +6,7 @@ import { formatOf, seasonOf, studioOf, titleOf } from '../anime/format.ts'
 import type { Media } from '../anime/queries.ts'
 import { accentVars } from '../theming/deriveAccent.ts'
 import { MOODS, type Mood } from './moods.ts'
-import { pickTitle } from './pick.ts'
+import { pickTitle, pullable } from './pick.ts'
 
 const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches
 
@@ -20,7 +20,7 @@ function rarityOf(score: number | null) {
 /**
  * The gacha machine, drawn in ink: pick a vibe, pull the lever, and a capsule drops with a
  * random title from `pool` (titles already loaded, so a pull costs no API request). See
- * pickTitle for which titles can come up.
+ * pullable and pickTitle for which titles can come up.
  */
 export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle }) {
   const [mood, setMood] = useState<Mood>('any')
@@ -30,9 +30,11 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
   const seen = useRef(new Set<number>())
   const timer = useRef<number | undefined>(undefined)
   useEffect(() => () => clearTimeout(timer.current), [])
+  // What can come out: the dome shows these, and with none the lever is off.
+  const titles = useMemo(() => pullable(pool), [pool])
 
   function pull() {
-    const choice = pickTitle(pool, MOODS[mood].genres, seen.current, Math.random)
+    const choice = pickTitle(titles, MOODS[mood].genres, seen.current, Math.random)
     if (!choice) return
     seen.current.add(choice.id)
     clearTimeout(timer.current)
@@ -52,7 +54,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
       <div className="ab-pull-row">
         <div className="ab-machine">
           <div className="ab-dome" aria-hidden="true">
-            {pool.slice(0, 9).map((media, i) => (
+            {titles.slice(0, 9).map((media, i) => (
               <span
                 key={media.id}
                 className="ab-capsule"
@@ -76,7 +78,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
                 </label>
               ))}
             </fieldset>
-            <button type="button" className="ab-lever" onClick={pull} disabled={!pool.length}>
+            <button type="button" className="ab-lever" onClick={pull} disabled={!titles.length}>
               <span>{pulls ? 'Again!' : 'Pull!'}</span>
             </button>
             <p className="ab-count">
@@ -139,6 +141,10 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
             <p className="ab-hint">
               The machine fills up with titles once AniList answers. It&rsquo;s not something you
               did.
+            </p>
+          ) : !titles.length ? (
+            <p className="ab-hint">
+              None of the titles on this page can come out of the machine. Try another decade below.
             </p>
           ) : (
             <p className="ab-hint">
