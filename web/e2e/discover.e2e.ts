@@ -302,6 +302,59 @@ describe('desktop (1440x900)', () => {
     await browser.search('')
   })
 
+  test('a refinement typed from below the results brings them back into view', async () => {
+    // Both searches were made by the check above, so this one sends no request.
+    // Where the results heading is, and the part of the view below the header.
+    const heading = () =>
+      browser.evaluate<{ top: number; below: number; bottom: number }>(`({
+        top: document.getElementById('results').getBoundingClientRect().top,
+        below: document.querySelector('.ab-top').getBoundingClientRect().bottom,
+        bottom: innerHeight,
+      })`)
+    // Wait for this search's own heading: the check above has just cleared “mushishi zoku”,
+    // whose results show until the box has been still for 300 ms.
+    await browser.search('mushishi')
+    assert.ok(
+      await browser.waitFor(`${resultsFor('mushishi')} && /mushi-?shi/i.test(${resultTitles})`),
+      'no Mushishi results',
+    )
+    // Where the header's Trending link lands, the results end behind the header.
+    await browser.evaluate(`document.getElementById('ab-trending').scrollIntoView(); true`)
+    const end = await browser.evaluate<number>(
+      `document.querySelector('.ab-results').getBoundingClientRect().bottom`,
+    )
+    await browser.search('mushishi zoku') // letters added
+    assert.ok(
+      await browser.waitFor(resultsFor('mushishi zoku'), 5_000),
+      'the heading never switched',
+    )
+    const added = await heading()
+    // Far below the results, at the pull.
+    await browser.evaluate(`document.getElementById('pull').scrollIntoView(); true`)
+    await browser.search('mushishi') // letters removed
+    assert.ok(await browser.waitFor(resultsFor('mushishi'), 5_000), 'the heading never switched')
+    const removed = await heading()
+    await browser.search('')
+    assert.ok(
+      end > 0 && end <= added.below,
+      `where the Trending link lands, the results end at ${Math.round(end)}px, not behind the header (0 to ${Math.round(added.below)}px)`,
+    )
+    const outOfView = [
+      { typed: '“mushishi zoku” typed where the Trending link lands', ...added },
+      { typed: '“mushishi” typed at the pull', ...removed },
+    ]
+      .filter((at) => at.top < at.below || at.top >= at.bottom)
+      .map(
+        (at) =>
+          `${at.typed}: heading at ${Math.round(at.top)}px, view ${Math.round(at.below)}px to ${at.bottom}px`,
+      )
+    assert.deepEqual(
+      outOfView,
+      [],
+      'a refinement typed from below the results left them out of view',
+    )
+  })
+
   test('a typed space restarts the search’s pause, so two words typed at an easy pace search once', async () => {
     // Both searches were made by the check above, so this one sends no request.
     await browser.search('')

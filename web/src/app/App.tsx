@@ -200,15 +200,21 @@ function SearchResults({
 
   // A different search starts from the top of the page, where its heading and loading state
   // show. On wide screens the header stays put, so the box can be typed in from far down the
-  // results. Refining a search keeps the visitor's place. Before paint, so no frame shows the
-  // old place.
+  // results. Refining a search keeps the visitor's place while some of the results are in view;
+  // typed from below them, the refined titles would change out of sight, so it starts from the
+  // top too. Before paint, so no frame shows the old place.
   const lastTerm = useRef(term)
+  const box = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
-    if (!isRefinement(lastTerm.current, term)) window.scrollTo({ top: 0 })
+    // In view: the results end below the header, or below the top of the screen once a phone's
+    // header has scrolled away.
+    const header = document.querySelector('.ab-top')?.getBoundingClientRect().bottom ?? 0
+    const inView = (box.current?.getBoundingClientRect().bottom ?? 0) > Math.max(0, header)
+    if (!inView || !isRefinement(lastTerm.current, term)) window.scrollTo({ top: 0 })
     lastTerm.current = term
   }, [term])
   return (
-    <div className="ab-results">
+    <div ref={box} className="ab-results">
       <Strip
         id="results"
         heading={`Results for “${term}”`}
