@@ -1,4 +1,4 @@
-import type { FocusEvent, ReactNode } from 'react'
+import { useLayoutEffect, useRef, type FocusEvent, type ReactNode } from 'react'
 import { seasonOf, titleOf } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { cssVars } from './cssVars.ts'
@@ -43,6 +43,15 @@ export function Strip({
   children?: ReactNode
 }) {
   const row = grid ? 'ab-strip-row ab-strip-grid' : 'ab-strip-row'
+  // A new list starts at Ch.1. React keeps this row for the next list, which would otherwise
+  // open wherever the last one was scrolled. Keyed on the titles' ids, it runs when a new list's
+  // titles arrive (not while the last list stands in for them) and never when the same list
+  // renders again. Before paint, so no frame shows the new titles at the old place.
+  const titlesRow = useRef<HTMLOListElement>(null)
+  const ids = titles.map((media) => media.id).join()
+  useLayoutEffect(() => {
+    titlesRow.current?.scrollTo({ left: 0, behavior: 'instant' })
+  }, [ids])
   return (
     <section className="ab-strip" aria-labelledby={id}>
       <SfxHeading as={level} id={id} sfx={sfx} small>
@@ -62,7 +71,7 @@ export function Strip({
           ))}
         </ol>
       )}
-      <ol className={row} onFocus={grid ? undefined : revealFocused}>
+      <ol ref={titlesRow} className={row} onFocus={grid ? undefined : revealFocused}>
         {titles.map((media, i) => (
           <li key={media.id} className="ab-strip-item" style={cssVars({ '--i': i })}>
             <a

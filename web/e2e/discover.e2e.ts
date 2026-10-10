@@ -1061,6 +1061,81 @@ describe('reduced motion', () => {
     assert.deepEqual(unopened, [], 'pulls that never opened')
     assert.deepEqual(repeats, [], 'pulls that showed the title already on screen')
   })
+
+  test('picking another decade opens it at Ch.1, wherever the last one was scrolled', async () => {
+    // The page keeps the decade row for the next decade's titles, so a new decade used to open
+    // wherever the visitor had scrolled the last one. With reduced motion nothing pops in, so
+    // where the row is when the new titles go in is what the visitor sees.
+    const first = `${decadeRow}?.querySelector('.ab-strip-title')?.textContent`
+    const nineties = await browser.evaluate<string>(first)
+    await browser.evaluate(`document.querySelector('.ab-eras input[value="1980s"]').click(); true`)
+    assert.ok(
+      await browser.waitFor(`${first} && ${first} !== ${JSON.stringify(nineties)}`),
+      'the strip kept the 1990s titles',
+    )
+    await browser.evaluate(
+      `${decadeRow}.scrollTo({ left: ${decadeRow}.scrollWidth, behavior: 'instant' }); true`,
+    )
+    await rowSettled()
+    const scrolled = await browser.evaluate<number>(`${decadeRow}.scrollLeft`)
+    // Back to the 1990s, which the page loaded first, so they come from the cache. That switch
+    // shows whether the reset waits for paint: React draws cached titles in an update whose
+    // effects can run after paint, while a fetched list arrives in one whose effects all run
+    // first. The row's place is read as soon as the first title changes, before the browser
+    // paints.
+    const atSwap = await browser.evaluate<number | null>(`new Promise((resolve) => {
+      const section = document.querySelector('[aria-labelledby="decades"]')
+      const row = () => section.querySelector('.ab-strip-row:not([aria-hidden])')
+      const before = row().querySelector('.ab-strip-title').textContent
+      const watch = new MutationObserver(() => {
+        if (row()?.querySelector('.ab-strip-title')?.textContent === before) return
+        watch.disconnect()
+        resolve(row().scrollLeft)
+      })
+      watch.observe(section, { childList: true, subtree: true })
+      setTimeout(() => resolve(null), 5000)
+      document.querySelector('.ab-eras input[value="1990s"]').click()
+    })`)
+    await rowSettled()
+    const atRest = await browser.evaluate<number>(`${decadeRow}.scrollLeft`)
+    assert.ok(scrolled > 0, 'the 1980s row did not scroll')
+    assert.notEqual(atSwap, null, 'the 1990s titles never replaced the 1980s')
+    assert.deepEqual(
+      { atSwap, atRest },
+      { atSwap: 0, atRest: 0 },
+      'the 1990s did not open at Ch.1 (the row’s scrollLeft when their titles went in, and at rest)',
+    )
+  })
+
+  test('opening a title card elsewhere leaves the decade row where the visitor left it', async () => {
+    // Only a new list starts at Ch.1. The page draws the strip again, with the same titles,
+    // whenever anything on it changes, such as a title card opening or closing; the visitor's
+    // place must stay.
+    await browser.evaluate(`(() => {
+      const row = ${decadeRow}
+      row.scrollTo({ left: row.children[5].offsetLeft - parseFloat(getComputedStyle(row).scrollPaddingLeft), behavior: 'instant' })
+      return true
+    })()`)
+    await rowSettled()
+    const before = await browser.evaluate<number>(`${decadeRow}.scrollLeft`)
+    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
+    assert.ok(
+      await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+      'the title card did not open',
+    )
+    await browser.press('Escape')
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000),
+      'the title card did not close',
+    )
+    await rowSettled()
+    assert.ok(before > 0, 'the decade row did not scroll')
+    assert.equal(
+      await browser.evaluate<number>(`${decadeRow}.scrollLeft`),
+      before,
+      'opening and closing a title card moved the decade row',
+    )
+  })
 })
 
 describe('phone (390x844)', () => {
