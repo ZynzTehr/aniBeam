@@ -1483,7 +1483,9 @@ body:has(.ab-card[open]) {
   grid-area: kicker;
 }
 
-/* Three beats, one per line: what's trending, what's new, and the chat. */
+/* Three beats, one per line: what's trending, what's new, and the chat. Each fits on one line at
+   every width, so nothing holds it there: with a reader's wider letter spacing (WCAG 1.4.12), a
+   line wraps instead of running off the screen. */
 .ab-intro-title {
   margin: 0;
   font: 400 clamp(42px, 6.2vw, 92px) / 0.95 var(--display);
@@ -1492,7 +1494,6 @@ body:has(.ab-card[open]) {
 
 .ab-intro-title > span {
   display: block;
-  white-space: nowrap;
 }
 
 /* The sound effect hangs off the end of the first line, so it never pushes the lines around. */
@@ -1501,6 +1502,8 @@ body:has(.ab-card[open]) {
   width: fit-content;
 }
 
+/* The sound effect sits past the line's end (left: 100%), so it has no width of its own to wrap
+   into: without nowrap it would stack one katakana per line. */
 .ab-intro-sfx {
   position: absolute;
   bottom: 0.55em;
@@ -1512,6 +1515,7 @@ body:has(.ab-card[open]) {
   paint-order: stroke fill;
   text-shadow: 3px 3px 0 var(--ink);
   transform: rotate(-8deg);
+  white-space: nowrap;
 }
 
 .ab-intro-lede {

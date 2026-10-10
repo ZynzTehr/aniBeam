@@ -1404,6 +1404,75 @@ describe('phone (390x844)', () => {
     assert.ok(withLines === withoutLines, 'the intro’s speed lines paint over the header')
   })
 
+  test('with WCAG text spacing, no word in the intro is cut off or pushed out of its box', async () => {
+    // Some readers widen the spacing of letters, words and lines to read more easily, and WCAG
+    // 1.4.12 asks that no text is lost when they do. With its test spacing on, at two phone
+    // widths and a desktop one, this lists each word of the intro that ends up past the intro's
+    // padding, where the intro cuts it off, or outside its own box (on desktop, under the
+    // covers). The sound effect is decoration (aria-hidden), so it is left out.
+    await browser.animationsDone() // the lines rise into place; measure them once they have landed
+    await browser.evaluate(`(() => {
+      const style = document.head.appendChild(document.createElement('style'))
+      style.id = 'text-spacing'
+      style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+      return true
+    })()`)
+    const lost: string[] = []
+    // All at this describe's 2x density. At 1x, decade covers that come within lazy-loading
+    // range of the shorter desktop page would load their 1x file and keep it on the phone,
+    // where the 2x cover check below would find them blurry.
+    for (const [width, height, mobile] of [
+      [390, 844, true],
+      [320, 568, true],
+      [1024, 768, false],
+    ] as const) {
+      await browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height,
+        deviceScaleFactor: 2,
+        mobile,
+      })
+      const words = await browser.evaluate<string[]>(`(() => {
+        const intro = document.querySelector('.ab-intro'), box = intro.getBoundingClientRect(), style = getComputedStyle(intro)
+        const left = box.left + parseFloat(style.paddingLeft), right = box.right - parseFloat(style.paddingRight)
+        const lost = []
+        for (const block of intro.querySelectorAll('.ab-intro-kicker, .ab-intro-title, .ab-intro-lede, .ab-intro-actions a')) {
+          const own = block.getBoundingClientRect(), text = document.createTreeWalker(block, NodeFilter.SHOW_TEXT)
+          for (let node; (node = text.nextNode()); ) {
+            if (node.parentElement.closest('[aria-hidden="true"]')) continue
+            for (const word of node.data.matchAll(/\\S+/g)) {
+              const range = document.createRange()
+              range.setStart(node, word.index)
+              range.setEnd(node, word.index + word[0].length)
+              for (const r of range.getClientRects())
+                if (r.left < Math.max(left, own.left) - 0.5 || r.right > Math.min(right, own.right) + 0.5) lost.push(word[0])
+            }
+          }
+        }
+        return lost
+      })()`)
+      lost.push(...words.map((word) => `${width}px: ${word}`))
+    }
+    // Back to the normal view on this describe's phone before anything is asserted, so the
+    // checks after this one see the screen they expect.
+    await browser.evaluate(`document.getElementById('text-spacing').remove(); true`)
+    await browser.send('Emulation.setDeviceMetricsOverride', {
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 2,
+      mobile: true,
+    })
+    // The sound effect hangs off the end of the first line, with no width of its own, so it
+    // must not wrap one katakana per line.
+    const effectLines = await browser.evaluate<number>(`(() => {
+      const range = document.createRange()
+      range.selectNodeContents(document.querySelector('.ab-intro-sfx'))
+      return new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size
+    })()`)
+    assert.deepEqual(lost, [], 'words in the intro cut off or pushed out of their box')
+    assert.equal(effectLines, 1, 'the intro’s sound effect wraps onto more than one line')
+  })
+
   test('every menu item fits on screen without squeezing', async () => {
     const menu = await browser.evaluate<{ right: number; soonHeight: number }>(`({
       right: Math.max(...[...document.querySelectorAll('.ab-nav > *')].map((n) => n.getBoundingClientRect().right)),
