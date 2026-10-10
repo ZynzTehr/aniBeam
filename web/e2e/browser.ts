@@ -7,6 +7,7 @@
 // The checks use the real AniList API, which allows 30 requests a minute per IP address.
 // One browser profile is kept for a whole test file, so its saved cache spares requests.
 import { spawn, type ChildProcess } from 'node:child_process'
+import { once } from 'node:events'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -100,26 +101,44 @@ export class Browser {
       ],
       { stdio: 'ignore' },
     )
-    const portFile = join(profile, 'DevToolsActivePort')
-    for (let i = 0; i < 200 && !existsSync(portFile); i++) await sleep(100)
-    const port = readFileSync(portFile, 'utf8').split('\n')[0]
-    let target: { type: string; webSocketDebuggerUrl: string } | undefined
-    for (let i = 0; i < 100 && !target; i++) {
-      target = await fetch(`http://127.0.0.1:${port}/json/list`)
-        .then((response) => response.json())
-        .then((targets: { type: string; webSocketDebuggerUrl: string }[]) =>
-          targets.find((t) => t.type === 'page'),
-        )
-        .catch(() => undefined)
-      if (!target) await sleep(100)
+    let failedToRun: Error | undefined
+    chrome.once('error', (error) => (failedToRun = error))
+    // Whatever goes wrong from here, Chrome and its profile go too.
+    try {
+      const portFile = join(profile, 'DevToolsActivePort')
+      for (let i = 0; i < 200 && !existsSync(portFile); i++) {
+        if (failedToRun) throw failedToRun
+        if (exited(chrome)) throw new Error('Chrome exited before it was ready.')
+        await sleep(100)
+      }
+      if (!existsSync(portFile)) throw new Error('Chrome opened no debugging port in 20 seconds.')
+      const port = readFileSync(portFile, 'utf8').split('\n')[0]
+      let target: { type: string; webSocketDebuggerUrl: string } | undefined
+      for (let i = 0; i < 100 && !target; i++) {
+        target = await fetch(`http://127.0.0.1:${port}/json/list`)
+          .then((response) => response.json())
+          .then((targets: { type: string; webSocketDebuggerUrl: string }[]) =>
+            targets.find((t) => t.type === 'page'),
+          )
+          .catch(() => undefined)
+        if (!target) await sleep(100)
+      }
+      if (!target) throw new Error('Chrome started but exposed no page to control.')
+      const socket = new WebSocket(target.webSocketDebuggerUrl)
+      await new Promise((resolve, reject) => {
+        socket.addEventListener('open', resolve, { once: true })
+        socket.addEventListener('error', () => reject(new Error('Could not connect to Chrome.')), {
+          once: true,
+        })
+      })
+      const browser = new Browser(chrome, profile, socket)
+      await browser.send('Page.enable')
+      await browser.send('Runtime.enable')
+      return browser
+    } catch (error) {
+      await stop(chrome, profile)
+      throw error
     }
-    if (!target) throw new Error('Chrome started but exposed no page to control.')
-    const socket = new WebSocket(target.webSocketDebuggerUrl)
-    await new Promise((resolve) => socket.addEventListener('open', resolve, { once: true }))
-    const browser = new Browser(chrome, profile, socket)
-    await browser.send('Page.enable')
-    await browser.send('Runtime.enable')
-    return browser
   }
 
   send(method: string, params: object = {}): Promise<any> {
@@ -250,10 +269,18 @@ export class Browser {
 
   async close() {
     this.#socket.close()
-    this.#chrome.kill()
-    await new Promise((resolve) =>
-      this.#chrome.exitCode !== null ? resolve(null) : this.#chrome.once('exit', resolve),
-    )
-    rmSync(this.#profile, { recursive: true, force: true })
+    await stop(this.#chrome, this.#profile)
   }
+}
+
+const exited = (chrome: ChildProcess) => chrome.exitCode !== null || chrome.signalCode !== null
+
+/** Ends Chrome, waits until it has gone, and deletes its throwaway profile. */
+async function stop(chrome: ChildProcess, profile: string) {
+  // With no pid, Chrome never ran, and there may never be an exit event to wait for.
+  if (chrome.pid !== undefined && !exited(chrome)) {
+    chrome.kill()
+    await once(chrome, 'exit')
+  }
+  rmSync(profile, { recursive: true, force: true })
 }
