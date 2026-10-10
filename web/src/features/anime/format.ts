@@ -31,7 +31,10 @@ export const formatOf = (media: Media) =>
 
 export const studioOf = (media: Media) => media.studios.nodes[0]?.name ?? null
 
-/** "Ep 9 in 2d 4h", or null when nothing is scheduled or it has aired since the data was cached. */
+/**
+ * "Ep 9 in 2d 4h", to the nearest hour (at least 1h), or null when nothing is scheduled or it has
+ * aired since the data was cached.
+ */
 export function nextEpisode(media: Media, now = Date.now()) {
   const next = media.nextAiringEpisode
   if (!next) return null

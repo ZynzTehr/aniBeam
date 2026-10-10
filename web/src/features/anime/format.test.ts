@@ -48,11 +48,12 @@ test('studioOf gives the main studio, or null', () => {
   assert.equal(studioOf(media({ studios: { nodes: [] } })), null)
 })
 
+const now = Date.UTC(2026, 9, 8, 12) // 2026-10-08 12:00 UTC
+const at = (hoursFromNow: number) => ({
+  nextAiringEpisode: { episode: 9, airingAt: now / 1000 + hoursFromNow * 3600 },
+})
+
 test('nextEpisode counts down from the airing time, so cached results stay right', () => {
-  const now = Date.UTC(2026, 9, 8, 12) // 2026-10-08 12:00 UTC
-  const at = (hoursFromNow: number) => ({
-    nextAiringEpisode: { episode: 9, airingAt: now / 1000 + hoursFromNow * 3600 },
-  })
   assert.equal(nextEpisode(media(at(52)), now), 'Ep 9 in 2d 4h')
   assert.equal(nextEpisode(media(at(24)), now), 'Ep 9 in 1d 0h')
   assert.equal(nextEpisode(media(at(60)), now), 'Ep 9 in 2d 12h') // 2.5 days: whole days, then the hours left
@@ -60,6 +61,13 @@ test('nextEpisode counts down from the airing time, so cached results stay right
   assert.equal(nextEpisode(media(at(0.1)), now), 'Ep 9 in 1h')
   assert.equal(nextEpisode(media(at(-1)), now), null) // aired since the result was cached
   assert.equal(nextEpisode(media(), now), null)
+})
+
+// The countdown is to the nearest hour, so it is never more than 30 minutes off, except in its
+// last half hour, which reads 1h.
+test('nextEpisode rounds the countdown to the nearest hour', () => {
+  assert.equal(nextEpisode(media(at(4.6)), now), 'Ep 9 in 5h') // 4h 36m
+  assert.equal(nextEpisode(media(at(4.4)), now), 'Ep 9 in 4h') // 4h 24m
 })
 
 test('hasSmallCover spots AniList pointing extraLarge at the 230px folder', () => {
