@@ -533,17 +533,27 @@ describe('desktop (1440x900)', () => {
   })
 })
 
-describe('tablet (834x1112, iPad Pro 11" portrait)', () => {
-  test('a pulled title stacks under its poster, and nothing overflows once it has landed', async () => {
+/** Pulls the lever and waits for the new result to open. Each pull renders a fresh result. */
+async function pull() {
+  await browser.evaluate(
+    `document.querySelector('.ab-result')?.setAttribute('data-old', ''); document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').click(); true`,
+  )
+  assert.ok(
+    await browser.waitFor(
+      `document.querySelector('.ab-result.is-open:not([data-old]) .ab-sfx-tier')`,
+    ),
+    'nothing was pulled',
+  )
+}
+
+describe('tablet (834x1112, iPad Pro 11" portrait) and up', () => {
+  before(async () => {
     await browser.load({ width: 834, height: 1112 })
     assert.ok(await browser.titlesShown())
-    await browser.evaluate(
-      `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').click(); true`,
-    )
-    assert.ok(
-      await browser.waitFor(`document.querySelector('.ab-result.is-open .ab-result-copy')`, 5_000),
-      'nothing was pulled',
-    )
+  })
+
+  test('a pulled title stacks under its poster, and nothing overflows once it has landed', async () => {
+    await pull()
     await browser.animationsDone() // the rarity sticker pops in from 2.4 times its size
     const result = await browser.evaluate<{ columns: string; wide: number }>(`({
       columns: getComputedStyle(document.querySelector('.ab-result')).gridTemplateColumns,
@@ -552,6 +562,49 @@ describe('tablet (834x1112, iPad Pro 11" portrait)', () => {
     // Beside the poster, the text got a column about 56px wide (review finding F2).
     assert.equal(result.columns.split(' ').length, 1, `the result has columns ${result.columns}`)
     assert.ok(result.wide <= 0, `the page is ${result.wide}px wider than the screen`)
+  })
+
+  test('the rarity sticker never makes the page scroll sideways as it pops in', async () => {
+    const wider: string[] = []
+    for (const [width, phone] of [
+      [821, false],
+      [390, true],
+    ] as const) {
+      await browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 844,
+        deviceScaleFactor: phone ? 2 : 1,
+        mobile: phone,
+      })
+      await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+      // Pulls, gives the sticker the widest label (SSR!!) as it appears, and measures the page
+      // every frame until the pop has settled. Phones widen the page to fit what overflows.
+      const wide = await browser.evaluate<number>(`new Promise((resolve) => {
+        const label = new MutationObserver(() => {
+          const sticker = document.querySelector('.ab-result:not([data-old]) .ab-sfx-tier')
+          if (sticker && sticker.textContent !== 'SSR!!') sticker.textContent = 'SSR!!'
+        })
+        label.observe(document.querySelector('.ab-reveal'), { childList: true, subtree: true })
+        document.querySelector('.ab-result')?.setAttribute('data-old', '')
+        document.querySelector('.ab-lever').click()
+        const start = performance.now()
+        let widest = 0
+        const frame = () => {
+          widest = Math.max(widest, document.documentElement.scrollWidth, innerWidth)
+          if (performance.now() - start < 2600) requestAnimationFrame(frame)
+          else (label.disconnect(), resolve(widest - ${width}))
+        }
+        requestAnimationFrame(frame)
+      })`)
+      if (wide > 0) wider.push(`${width}px: ${wide}px wider`)
+    }
+    await browser.send('Emulation.setDeviceMetricsOverride', {
+      width: 834,
+      height: 1112,
+      deviceScaleFactor: 1,
+      mobile: false,
+    })
+    assert.deepEqual(wider, [], 'the page grew wider than the screen')
   })
 })
 

@@ -632,6 +632,9 @@ body:has(.ab-card[open]) {
 /* ---------- Pull machine, drawn in ink ---------- */
 .ab-pull {
   padding: 24px clamp(16px, 4vw, 48px);
+  /* The rarity sticker pops in from 2.4 times its size and springs past it; near the screen's
+     edge it would briefly make the page scroll sideways. */
+  overflow-x: clip;
 }
 
 .ab-pull-row {
