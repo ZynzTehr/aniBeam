@@ -58,3 +58,9 @@ export const persistOptions = {
   // results changes. (v2: keys switched to that format.)
   buster: 'v2',
 }
+
+// Try again refetches the failed lists on the page. Lists the visitor has left (other decades,
+// earlier searches) are fetched again only when they're shown again: refetching them now would
+// spend AniList's rate limit on answers nobody is looking at.
+export const refetchFailed = (client: QueryClient) =>
+  client.refetchQueries({ type: 'active', predicate: (query) => query.state.status === 'error' })

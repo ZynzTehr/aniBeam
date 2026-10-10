@@ -20,6 +20,7 @@ import {
 } from '../features/anime/queries.ts'
 import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { isRateLimited } from '../lib/anilist.ts'
+import { refetchFailed } from '../lib/queryClient.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
 import { noteFor, searchStatus } from './status.ts'
 
@@ -31,11 +32,10 @@ const retryFor = (query: UseQueryResult<Media[]>, retryFailed: () => void) =>
 /** AniBeam's page: the intro, this week's trending titles, the pull, and titles by decade. */
 export default function App() {
   // A Try again button when a section's last attempt failed. One press retries every failed
-  // section. The button hides while retries run, which may first wait out anilist()'s
-  // one-minute pause; the status line says so meanwhile.
+  // section on the page (see refetchFailed). The button hides while retries run, which may
+  // first wait out anilist()'s one-minute pause; the status line says so meanwhile.
   const queryClient = useQueryClient()
-  const retryFailed = () =>
-    void queryClient.refetchQueries({ predicate: (query) => query.state.status === 'error' })
+  const retryFailed = () => void refetchFailed(queryClient)
 
   const [opened, setOpened] = useState<{ media: Media; from: DOMRect } | null>(null)
   const open: OpenTitle = (media, from) => setOpened({ media, from: from.getBoundingClientRect() })

@@ -1,9 +1,9 @@
-import { dehydrate, QueryClient } from '@tanstack/react-query'
+import { dehydrate, QueryClient, QueryObserver } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { AniListError } from './anilist.ts'
-import { trendingQuery } from '../features/anime/queries.ts'
-import { persistOptions, queryClient, shouldRetry } from './queryClient.ts'
+import { searchQuery, trendingQuery } from '../features/anime/queries.ts'
+import { persistOptions, queryClient, refetchFailed, shouldRetry } from './queryClient.ts'
 
 const DAY = 24 * 60 * 60 * 1000
 
@@ -66,4 +66,39 @@ test('results older than a day are not saved again', () => {
   client.setQueryData(['fresh'], [{ id: 1 }])
   client.setQueryData(['old'], [{ id: 2 }], { updatedAt: Date.now() - DAY - 1 })
   assert.deepEqual(saved(client), [[['fresh'], [{ id: 1 }]]])
+})
+
+test('Try again refetches every failed list on the page, and none the visitor has left', async (t) => {
+  // The real app client and queries; only AniList (fetch) and the clock are fake. The clock
+  // starts after the pause the rate-limit test above leaves in anilist(), which lasts until
+  // 2030-01-01 00:01: on the real clock, every request would wait it out.
+  t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2031, 0, 1) })
+  t.after(() => queryClient.clear())
+  const sent: string[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    sent.push(JSON.parse(String(init.body)).variables.search ?? 'trending')
+    // "API disabled": a 403 is not retried and starts no pause, so each try fails at once.
+    return new Response(
+      JSON.stringify({ data: null, errors: [{ message: 'API disabled', status: 403 }] }),
+      { status: 403 },
+    )
+  })
+  // Two sections, as on the page: trending, and search results that move from search to search.
+  const trending = new QueryObserver(queryClient, trendingQuery())
+  const results = new QueryObserver(queryClient, searchQuery('naruto'))
+  t.after(trending.subscribe(() => {}))
+  t.after(results.subscribe(() => {}))
+  // Lets AniList's answers arrive until both sections show their failure.
+  const failed = async () => {
+    while (!trending.getCurrentResult().isError || !results.getCurrentResult().isError)
+      await new Promise((resolve) => setImmediate(resolve))
+  }
+  await failed()
+  results.setOptions(searchQuery('frieren')) // the visitor searches again
+  await failed()
+
+  // One press. The failed naruto search has left the page, so it isn't sent again.
+  sent.length = 0
+  await refetchFailed(queryClient)
+  assert.deepEqual(sent.sort(), ['frieren', 'trending'])
 })
