@@ -191,12 +191,6 @@
 .ab-img img {
   object-fit: cover;
   object-position: 50% 22%;
-  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.ab-link:hover .ab-img img,
-.ab-link:focus-visible .ab-img img {
-  transform: scale(1.1);
 }
 
 /* Screentone in the title's own color, densest behind the caption. */
@@ -221,17 +215,13 @@
   );
   mask-image: radial-gradient(circle at 50% 50%, transparent 26%, #000 64%);
   opacity: 0;
-  transform: scale(1.35);
-  transition:
-    opacity 0.2s,
-    transform 0.55s var(--spring);
+  transition: opacity 0.2s;
   pointer-events: none;
 }
 
 .ab-link:hover .ab-speed,
 .ab-link:focus-visible .ab-speed {
   opacity: 0.9;
-  transform: scale(1);
 }
 
 .ab-rank {
@@ -283,9 +273,7 @@
   background: #fff;
   box-shadow: 4px 4px 0 var(--ink);
   transform: rotate(-1.2deg);
-  transition:
-    transform 0.4s var(--spring),
-    box-shadow 0.4s var(--spring);
+  transition: box-shadow 0.15s;
 }
 
 .ab-caption b {
@@ -313,7 +301,6 @@
 .ab-link:hover .ab-caption,
 .ab-link:focus-visible .ab-caption {
   box-shadow: 8px 8px 0 var(--anime-accent);
-  transform: rotate(-1.2deg) translate(-3px, -5px);
 }
 
 /* ---------- Throwback strip ---------- */
@@ -553,10 +540,6 @@
   border-radius: 999px;
   background: #fff;
   filter: drop-shadow(3px 3px 0 var(--ink));
-  transition:
-    width 0.35s var(--spring),
-    filter 0.25s var(--spring),
-    transform 0.25s var(--spring);
 }
 
 /* Focused, or holding a query: it pops out and grows to fit the text, with the same 66px. */
@@ -632,12 +615,6 @@
   .ab-bubble-field:focus-within,
   .ab-bubble-field:has(input:not(:placeholder-shown)) {
     width: 100%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .ab-bubble-field {
-    transition: none;
   }
 }
 
@@ -751,7 +728,6 @@ body:has(.ab-card[open]) {
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.25s var(--spring);
 }
 
 .ab-chip input:checked + span {
@@ -778,18 +754,11 @@ body:has(.ab-card[open]) {
   color: var(--ink);
   font: 400 26px var(--display);
   cursor: pointer;
-  transition:
-    transform 0.25s var(--spring),
-    box-shadow 0.2s;
-}
-
-.ab-lever:hover {
-  transform: rotate(-10deg);
+  transition: box-shadow 0.15s;
 }
 
 .ab-lever:active {
   box-shadow: 0 2px 0 var(--ink);
-  transform: translateY(6px) rotate(80deg);
 }
 
 .ab-count {
@@ -975,14 +944,11 @@ body:has(.ab-card[open]) {
   font: 800 15px var(--body);
   text-decoration: none;
   cursor: pointer;
-  transition:
-    transform 0.2s var(--spring),
-    box-shadow 0.2s;
+  transition: box-shadow 0.15s;
 }
 
 .ab-btn:hover {
   box-shadow: 6px 6px 0 var(--ink);
-  transform: translate(-3px, -3px);
 }
 
 .ab-btn-ink {
@@ -1742,4 +1708,76 @@ body:has(.ab-card[open]) {
 .ab-sfx:focus-visible {
   outline: 4px solid var(--hot);
   outline-offset: 4px;
+}
+
+/* ---------- Movement on hover, focus and press (only when the visitor allows motion) ----------
+   The base styles above change only color, shadow and opacity, which is what visitors who
+   ask for reduced motion get (spec §3J). Everything that slides, zooms or swings is here. */
+@media (prefers-reduced-motion: no-preference) {
+  .ab-img img {
+    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .ab-link:hover .ab-img img,
+  .ab-link:focus-visible .ab-img img {
+    transform: scale(1.1);
+  }
+
+  .ab-speed {
+    transform: scale(1.35);
+    transition:
+      opacity 0.2s,
+      transform 0.55s var(--spring);
+  }
+
+  .ab-link:hover .ab-speed,
+  .ab-link:focus-visible .ab-speed {
+    transform: scale(1);
+  }
+
+  .ab-caption {
+    transition:
+      transform 0.4s var(--spring),
+      box-shadow 0.4s var(--spring);
+  }
+
+  .ab-link:hover .ab-caption,
+  .ab-link:focus-visible .ab-caption {
+    transform: rotate(-1.2deg) translate(-3px, -5px);
+  }
+
+  .ab-bubble-field {
+    transition:
+      width 0.35s var(--spring),
+      filter 0.25s var(--spring),
+      transform 0.25s var(--spring);
+  }
+
+  .ab-chip span {
+    transition: transform 0.25s var(--spring);
+  }
+
+  .ab-lever {
+    transition:
+      transform 0.25s var(--spring),
+      box-shadow 0.2s;
+  }
+
+  .ab-lever:hover {
+    transform: rotate(-10deg);
+  }
+
+  .ab-lever:active {
+    transform: translateY(6px) rotate(80deg);
+  }
+
+  .ab-btn {
+    transition:
+      transform 0.2s var(--spring),
+      box-shadow 0.2s;
+  }
+
+  .ab-btn:hover {
+    transform: translate(-3px, -3px);
+  }
 }

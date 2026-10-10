@@ -261,6 +261,20 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('with motion allowed, hovering a panel still zooms its cover', async () => {
+    await browser.evaluate(`document.querySelector('#ab-trending').scrollIntoView(); true`)
+    const at = await browser.evaluate<{ x: number; y: number }>(
+      `(() => { const r = document.querySelectorAll('.ab-grid .ab-link')[1].getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
+    )
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
+    await sleep(120)
+    const zooming = await browser.evaluate<number>(
+      `document.getAnimations().filter((a) => a.transitionProperty === 'transform').length`,
+    )
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
+    assert.ok(zooming > 0, 'hovering a panel started no movement at all')
+  })
+
   test('the lever pulls a real title from the page', async () => {
     await browser.evaluate(
       `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').click(); true`,
@@ -306,6 +320,44 @@ describe('reduced motion', () => {
       `({ opacity: getComputedStyle(document.querySelector('.ab-sheet')).opacity, wipe: getComputedStyle(document.querySelector('.ab-wipe')).animationName })`,
     )
     assert.deepEqual(card, { opacity: '1', wipe: 'none' })
+  })
+
+  test('hovering a panel or holding the lever moves nothing', async () => {
+    await browser.evaluate(`document.querySelector('dialog.ab-card')?.close(); true`)
+    await sleep(300)
+    const centerOf = (selector: string) =>
+      browser.evaluate<{ x: number; y: number }>(
+        `(() => { const r = document.querySelector('${selector}').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
+      )
+    const movingTransitions = `document.getAnimations().filter((a) => /transform|width/.test(a.transitionProperty ?? '')).length`
+    await browser.evaluate(`document.querySelector('#ab-trending').scrollIntoView(); true`)
+    let at = await centerOf('.ab-grid .ab-link')
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
+    await sleep(120)
+    const onHover = await browser.evaluate<number>(movingTransitions)
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    at = await centerOf('.ab-lever')
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
+    await browser.send('Input.dispatchMouseEvent', {
+      type: 'mousePressed',
+      ...at,
+      button: 'left',
+      clickCount: 1,
+    })
+    await sleep(120)
+    const lever = await browser.evaluate<string>(
+      `getComputedStyle(document.querySelector('.ab-lever')).transform`,
+    )
+    const onPress = await browser.evaluate<number>(movingTransitions)
+    await browser.send('Input.dispatchMouseEvent', {
+      type: 'mouseReleased',
+      ...at,
+      button: 'left',
+      clickCount: 1,
+    })
+    assert.equal(onHover, 0, 'hovering a panel started a moving transition')
+    assert.equal(onPress, 0, 'pressing the lever started a moving transition')
+    assert.equal(lever, 'none', 'the held lever turned')
   })
 })
 
