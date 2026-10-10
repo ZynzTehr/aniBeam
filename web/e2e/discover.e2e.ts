@@ -589,6 +589,26 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('with motion allowed, hovering the lever still tilts it', async () => {
+    // The other half of pull.e2e.ts's check that the off lever stays still: a working one still
+    // tilts. It only hovers, so it pulls nothing.
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    const at = await browser.evaluate<{ x: number; y: number }>(
+      `(() => { const r = document.querySelector('.ab-lever').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
+    )
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
+    await sleep(400) // longer than the lever's 0.25s turn
+    const lever = await browser.evaluate<string>(
+      `getComputedStyle(document.querySelector('.ab-lever')).transform`,
+    )
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
+    assert.equal(
+      lever,
+      'matrix(0.984808, -0.173648, 0.173648, 0.984808, 0, 0)', // rotate(-10deg)
+      'the hovered lever did not tilt',
+    )
+  })
+
   test('the console stays free of errors and warnings', () => {
     assert.deepEqual(browser.problems, [])
   })

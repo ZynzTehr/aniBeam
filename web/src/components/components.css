@@ -768,14 +768,25 @@ body:has(.ab-card[open]) {
   transition: box-shadow 0.15s;
 }
 
-/* Hover raises the lever on a deeper shadow (and tilts it, when motion is allowed); a press
-   sinks it. */
+/* While the lever works, hover raises it on a deeper shadow (and tilts it, when motion is
+   allowed), and a press sinks it. :hover and :active match a disabled button too, so each of
+   these rules says :enabled, and the off lever stays still. */
 .ab-lever:enabled:hover {
   box-shadow: 0 11px 0 var(--ink);
 }
 
 .ab-lever:enabled:active {
   box-shadow: 0 2px 0 var(--ink);
+}
+
+/* The off lever, while nothing can come out (AniList hasn't answered, or nothing on the page
+   may be pulled): flat and pale, so it doesn't invite a press that does nothing. The speech
+   bubble beside it says why. Its label, 70% ink on white, reads at 6.84:1. */
+.ab-lever:disabled {
+  background: #fff;
+  box-shadow: none;
+  color: rgb(20 20 20 / 0.7);
+  cursor: not-allowed;
 }
 
 .ab-count {
@@ -1812,11 +1823,11 @@ body:has(.ab-card[open]) {
       box-shadow 0.2s;
   }
 
-  .ab-lever:hover {
+  .ab-lever:enabled:hover {
     transform: rotate(-10deg);
   }
 
-  .ab-lever:active {
+  .ab-lever:enabled:active {
     transform: translateY(6px) rotate(80deg);
   }
 
