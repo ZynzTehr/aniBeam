@@ -165,6 +165,13 @@
     clip-path: polygon(calc(var(--cut) - 2px) 0, 100% 0, 100% 100%, 0 100%);
   }
 
+  /* These clip-paths cut away the link's focus ring, which sits outside it, so on these two
+     panels the 4px ink frame turns brand hot instead, the diagonal included. */
+  .ab-cut-right:has(> .ab-link:focus-visible),
+  .ab-cut-left:has(> .ab-link:focus-visible) {
+    background: var(--hot);
+  }
+
   .ab-cut-left .ab-caption {
     left: 24px;
   }

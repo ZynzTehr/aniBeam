@@ -781,6 +781,87 @@ describe('desktop (1440x900)', () => {
     assert.ok(drifting, `the splash cover stayed put with half its panel scrolled away: ${halfOut}`)
   })
 
+  test('every trending panel shows a brand-hot focus ring when tabbed to', async () => {
+    // A panel's ring is its link's outline: 4px of brand hot, 3px out. Panels 4 and 5 share the
+    // diagonal cut, whose clip-paths cut that ring away, so tabbing to them showed nothing; their
+    // 4px ink frame turns brand hot instead. getComputedStyle still reports the cut-away outline,
+    // so this counts brand-hot pixels in a screenshot of each panel, within 4px of its box, inside
+    // or out: at least 4,400 for a whole ring or frame here, and 0 for none. The boxes of panels 4
+    // and 5 overlap along the cut, where the other panel's cover shows (or its color, brand hot
+    // itself for a title without one), so pixels inside another panel's box don't count.
+    await browser.animationsDone() // each panel's ink wipe covers its frame until it has gone
+    const panels = `document.querySelectorAll('.ab-grid .ab-link')`
+    const seen: { reached: number; focusVisible: boolean; hot: number }[] = []
+    for (let k = 0; k < 9; k++) {
+      // Tab from the stop before the panel: the trending heading, or the panel before it.
+      const before = k ? `${panels}[${k - 1}]` : `document.getElementById('ab-trending')`
+      await browser.evaluate(`${before}.focus({ preventScroll: true }); true`)
+      await browser.press('Tab')
+      // Centers the panel and waits two frames, so it is painted there. The clip is its box with
+      // 8px to spare, in whole pixels from the top left of the page.
+      const { reached, focusVisible, clip } = await browser.evaluate<{
+        reached: number
+        focusVisible: boolean
+        clip: { x: number; y: number; width: number; height: number }
+      }>(`(async () => {
+        const link = ${panels}[${k}]
+        link.parentElement.scrollIntoView({ block: 'center' })
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        const r = link.parentElement.getBoundingClientRect()
+        const x = Math.floor(r.left + scrollX) - 8, y = Math.floor(r.top + scrollY) - 8
+        const width = Math.ceil(r.right + scrollX) + 8 - x, height = Math.ceil(r.bottom + scrollY) + 8 - y
+        return {
+          reached: [...${panels}].indexOf(document.activeElement) + 1,
+          focusVisible: link.matches(':focus-visible'),
+          clip: { x, y, width, height },
+        }
+      })()`)
+      const png = await browser.screenshot(clip)
+      // Decoded in the page. A pixel within 60 of #ff2d55 counts as brand hot.
+      const hot = await browser.evaluate<number>(`(async () => {
+        const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+        const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+        const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+        context.drawImage(image, 0, 0)
+        const { data } = context.getImageData(0, 0, image.width, image.height)
+        // Boxes in the screenshot's pixels.
+        const box = (el) => {
+          const r = el.getBoundingClientRect(), x = scrollX - ${clip.x}, y = scrollY - ${clip.y}
+          return { left: r.left + x, top: r.top + y, right: r.right + x, bottom: r.bottom + y }
+        }
+        const li = ${panels}[${k}].parentElement, own = box(li)
+        const others = [...li.parentElement.children].filter((el) => el !== li).map(box)
+        const within = (b, x, y, grow) => x >= b.left - grow && x < b.right + grow && y >= b.top - grow && y < b.bottom + grow
+        // Within 4px of the panel's box, inside or out, and in no other panel's box.
+        const atEdge = (x, y) => within(own, x, y, 4) && !within(own, x, y, -4) && !others.some((b) => within(b, x, y, 0))
+        let hot = 0
+        for (let y = 0; y < image.height; y++)
+          for (let x = 0; x < image.width; x++) {
+            const i = (y * image.width + x) * 4
+            if (atEdge(x + 0.5, y + 0.5) && Math.hypot(data[i] - 255, data[i + 1] - 45, data[i + 2] - 85) < 60) hot++
+          }
+        return hot
+      })()`)
+      seen.push({ reached, focusVisible, hot })
+    }
+    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+    assert.deepEqual(
+      seen.map((s) => s.reached),
+      [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      'Tab did not go from panel to panel in order',
+    )
+    assert.deepEqual(
+      seen
+        .filter((s) => !s.focusVisible || s.hot < 1000)
+        .map(
+          (s) =>
+            `panel ${s.reached}: ${s.hot} brand-hot pixels${s.focusVisible ? '' : ', not :focus-visible'}`,
+        ),
+      [],
+      'panels that show no brand-hot focus ring when tabbed to',
+    )
+  })
+
   test('tabbing along the decade strip, both ways, keeps each focused panel in view, with its whole ring', async () => {
     assertStripInView(await tabThroughStrip())
   })
