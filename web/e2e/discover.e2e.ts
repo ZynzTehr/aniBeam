@@ -14,6 +14,22 @@ const resultTitles = `[...document.querySelectorAll('.ab-results .ab-strip-panel
 const resultsFor = (term: string) =>
   `document.querySelector('#results')?.textContent.includes(${JSON.stringify(`“${term}”`)})`
 
+// An AniList answer of HTTP 400. A bad request isn't retried, so Try again shows at once (a
+// failed connection waits out the AniList client's one-minute pause first).
+const BAD_REQUEST = {
+  status: 400,
+  body: { data: null, errors: [{ message: 'Bad request', status: 400 }] },
+}
+const failSearches = () =>
+  browser.rewriteAniList(({ request }) => (request.variables.search ? BAD_REQUEST : null))
+const goOffline = (offline: boolean) =>
+  browser.send('Network.emulateNetworkConditions', {
+    offline,
+    latency: 0,
+    downloadThroughput: -1,
+    uploadThroughput: -1,
+  })
+
 /** Waits until the decade row stops scrolling (snapping animates), so nothing is measured mid-slide. */
 async function rowSettled() {
   let last = -1
@@ -304,6 +320,79 @@ describe('desktop (1440x900)', () => {
     await browser.holdAniList(0)
     assert.equal(titles, '', 'the Naruto titles came back under “nar”')
     await browser.search('')
+  })
+
+  test('Try again hands focus to the heading only when it goes while focused, never while it stays', async () => {
+    // A returning visitor whose saved trending titles are over 30 minutes old: the page
+    // refreshes them, and AniList turns the refresh down. The saved titles stay on screen.
+    await sleep(1_500) // the saved copy updates a second after the page's last change
+    await browser.evaluate(`(() => {
+      const saved = JSON.parse(localStorage.getItem('anibeam:cache'))
+      for (const query of saved.clientState.queries) query.state.dataUpdatedAt -= 60 * 60 * 1000
+      localStorage.setItem('anibeam:cache', JSON.stringify(saved))
+      return true
+    })()`)
+    await browser.rewriteAniList(() => BAD_REQUEST)
+    await browser.load()
+    const retry = `document.querySelector('.ab-page .ab-retry')`
+    const note = `document.querySelector('.ab-page .ab-note').textContent`
+    assert.ok(await browser.waitFor(retry), 'no Try again over the saved titles')
+    await goOffline(true)
+    await browser.evaluate(`${retry}.focus(); true`)
+    await browser.press('Enter') // TanStack holds the refresh until the connection is back
+    await sleep(300)
+    const offline = await browser.evaluate<{ focus: string; note: string }>(
+      `({ focus: document.activeElement.className, note: ${note} })`,
+    )
+    await goOffline(false) // the held refresh runs, and the button hides while it does
+    const moved = await browser.waitFor(`document.activeElement.id === 'ab-trending'`, 5_000)
+    // AniList turns it down again, and the button comes back. This time it goes while the
+    // visitor is in the search box, which keeps focus.
+    assert.ok(await browser.waitFor(retry), 'Try again did not come back')
+    await goOffline(true)
+    await browser.evaluate(
+      `document.querySelector('.ab-search input').focus(); ${retry}.click(); true`,
+    )
+    await goOffline(false)
+    // The held refresh runs (the button goes) and is turned down (it comes back).
+    assert.ok(
+      await browser.waitFor(`${retry} && !${note}.startsWith('Offline')`),
+      'Try again did not come back again',
+    )
+    const elsewhere = await browser.evaluate<string>(`document.activeElement.tagName`)
+    // Refresh the titles for real, so the checks after this one start from a quiet page.
+    await browser.rewriteAniList(null)
+    await browser.evaluate(`${retry}.click(); true`)
+    await browser.waitFor(`!${retry} && ${note} === ''`)
+    assert.deepEqual(offline, {
+      focus: 'ab-btn ab-retry',
+      note: 'Offline: waiting for a connection.',
+    })
+    assert.ok(moved, 'focus fell off the button as it went')
+    assert.equal(elsewhere, 'INPUT', 'the button took focus from the search box as it went')
+  })
+
+  test('a mouse press on Try again leaves the page where it is', async () => {
+    await failSearches()
+    await browser.search('bad request')
+    assert.ok(await browser.waitFor(`document.querySelector('.ab-results .ab-retry')`), 'no button')
+    // The button just under the header, with its section's heading hidden behind the header.
+    const at = await browser.evaluate<{ x: number; y: number }>(`(() => {
+      const button = document.querySelector('.ab-results .ab-retry')
+      scrollBy(0, button.getBoundingClientRect().top - document.querySelector('.ab-top').getBoundingClientRect().bottom - 12)
+      const r = button.getBoundingClientRect()
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+    })()`)
+    const before = await browser.evaluate<number>('scrollY')
+    const click = { ...at, button: 'left', clickCount: 1 }
+    await browser.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...click })
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...click })
+    await sleep(500)
+    const after = await browser.evaluate<number>('scrollY')
+    await browser.rewriteAniList(null)
+    await browser.search('')
+    assert.ok(before > 0, 'the page did not scroll down to the button')
+    assert.equal(after, before, 'pressing Try again scrolled the page')
   })
 
   test('screen readers hear each search’s outcome from one status line that is always there', async () => {

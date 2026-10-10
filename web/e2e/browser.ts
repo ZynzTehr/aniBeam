@@ -23,6 +23,14 @@ type Message = {
   error?: { message: string }
 }
 
+/** One AniList answer as rewriteAniList sees it: the request's GraphQL and what came back. */
+export type Answer = {
+  request: { query: string; variables: Record<string, unknown> }
+  status: number
+  body: any
+}
+type Rewrite = (answer: Answer) => { status: number; body: unknown } | null
+
 export class Browser {
   #chrome: ChildProcess
   #profile: string
@@ -32,6 +40,8 @@ export class Browser {
   #blocking = false
   #holdMs = 0
   #held = new Set<string>()
+  #rewrite: Rewrite | null = null
+  #answering = new Set<Promise<unknown>>()
   /** Uncaught exceptions and console errors or warnings, for the "clean console" check. */
   problems: string[] = []
 
@@ -63,7 +73,14 @@ export class Browser {
         )
       if (message.method === 'Fetch.requestPaused') {
         const { requestId } = message.params
-        if (this.#blocking)
+        const { responseStatusCode, responseErrorReason } = message.params
+        // Paused again once the answer (or a failure) is in (see rewriteAniList).
+        if (responseStatusCode !== undefined || responseErrorReason !== undefined) {
+          const answering = this.#answer(message.params).finally(() =>
+            this.#answering.delete(answering),
+          )
+          this.#answering.add(answering)
+        } else if (this.#blocking)
           void this.send('Fetch.failRequest', {
             requestId,
             errorReason: 'ConnectionRefused',
@@ -246,7 +263,7 @@ export class Browser {
   /** Makes every request to AniList fail, as if it were down (`false` undoes it). */
   async blockAniList(blocked = true) {
     this.#blocking = blocked
-    return this.#intercept(blocked || this.#holdMs > 0)
+    return this.#intercept()
   }
 
   /** Delays every AniList answer by `ms`, to look at loading states (0 undoes it). */
@@ -254,7 +271,18 @@ export class Browser {
     this.#holdMs = ms
     // Requests still on hold go through now: switching interception off would drop them.
     if (ms === 0) await Promise.all([...this.#held].map((id) => this.#release(id)))
-    return this.#intercept(this.#blocking || ms > 0)
+    return this.#intercept()
+  }
+
+  /**
+   * Changes AniList's answers before the page sees them, to stage what AniList rarely does.
+   * `rewrite` gets each answer and returns a new status and body, or null to pass it on as
+   * it is. The requests still go to AniList (and count toward its limit); the answers keep
+   * its headers. `null` stops rewriting.
+   */
+  async rewriteAniList(rewrite: Rewrite | null) {
+    this.#rewrite = rewrite
+    return this.#intercept()
   }
 
   async #release(requestId: string) {
@@ -262,9 +290,42 @@ export class Browser {
     await this.send('Fetch.continueRequest', { requestId }).catch(() => {})
   }
 
-  #intercept(on: boolean) {
-    if (!on) return this.send('Fetch.disable')
-    return this.send('Fetch.enable', { patterns: [{ urlPattern: 'https://graphql.anilist.co/*' }] })
+  async #answer({ requestId, request, responseStatusCode, responseHeaders }: any) {
+    const rewrite = this.#rewrite
+    // CORS preflights (OPTIONS) carry no GraphQL; let them and everything else pass.
+    const changed =
+      rewrite && request.method === 'POST'
+        ? await this.send('Fetch.getResponseBody', { requestId })
+            .then(({ body, base64Encoded }) =>
+              rewrite({
+                request: JSON.parse(request.postData),
+                status: responseStatusCode,
+                body: JSON.parse(base64Encoded ? Buffer.from(body, 'base64').toString() : body),
+              }),
+            )
+            .catch(() => null)
+        : null
+    if (!changed) return this.send('Fetch.continueRequest', { requestId }).catch(() => {})
+    await this.send('Fetch.fulfillRequest', {
+      requestId,
+      responseCode: changed.status,
+      // The new body is plain JSON of a new length.
+      responseHeaders: responseHeaders.filter(
+        (header: { name: string }) => !/^content-(encoding|length)$/i.test(header.name),
+      ),
+      body: Buffer.from(JSON.stringify(changed.body)).toString('base64'),
+    }).catch(() => {})
+  }
+
+  async #intercept() {
+    const urlPattern = 'https://graphql.anilist.co/*'
+    const patterns = [
+      ...(this.#blocking || this.#holdMs > 0 ? [{ urlPattern, requestStage: 'Request' }] : []),
+      ...(this.#rewrite ? [{ urlPattern, requestStage: 'Response' }] : []),
+    ]
+    // Answers still being rewritten go through first: switching interception off drops them.
+    await Promise.all(this.#answering)
+    return patterns.length ? this.send('Fetch.enable', { patterns }) : this.send('Fetch.disable')
   }
 
   async close() {

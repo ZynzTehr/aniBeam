@@ -65,10 +65,12 @@ test('when AniList is back, one press of Try again brings every section back', a
   // somewhere useful (the section's heading), not fall back to the top of the page.
   await browser.evaluate(`document.querySelector('.ab-page .ab-retry').focus(); true`)
   await browser.press('Enter')
+  // Focus moves as the button goes, once the page has re-rendered.
+  const landed = await browser.waitFor(`document.activeElement.id === 'ab-trending'`, 5_000)
   const focus = await browser.evaluate<string>(
     `document.activeElement.id || document.activeElement.tagName`,
   )
-  assert.equal(focus, 'ab-trending', 'focus fell off the pressed Try again button')
+  assert.ok(landed, `focus went to ${focus}, not the section's heading`)
   assert.ok(await browser.titlesShown(120_000), 'the titles did not come back')
   assert.deepEqual(await browser.evaluate(notes), ['', ''])
   assert.equal(await browser.evaluate('document.querySelector(".ab-lever").disabled'), false)
