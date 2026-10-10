@@ -442,25 +442,44 @@ describe('desktop (1440x900)', () => {
   })
 
   test('every label on the pull machine reads at 4.5:1 or better', async () => {
-    // WCAG contrast of each label's text against the nearest solid background behind it.
+    // WCAG contrast of every piece of text on the machine, so a label added later is measured
+    // too. Each is measured against the first solid background behind it, plain and under each
+    // color of its pattern (the screentone dots darken the body's pink), with a see-through
+    // text color blended in as the screen shows it. Text in a box 1px or smaller is for screen
+    // readers only. Every label must reach 4.5:1, even the lever's large one (WCAG asks 3:1).
     const ratios = await browser.evaluate<{ text: string; ratio: number }[]>(`(() => {
-      const rgb = (color) => color.match(/[\\d.]+/g).map(Number)
+      // Chrome gives colors written in hex, by name, or with rgb() or hsl() as rgb() or rgba().
+      // Others, such as the oklch() of Tailwind's palette, would be misread: they stop the check.
+      const rgba = (color) => {
+        if (!/^rgba?\\(/.test(color)) throw new Error('cannot measure the color ' + color)
+        const [r, g, b, a = 1] = color.match(/[\\d.]+/g).map(Number)
+        return [r, g, b, a]
+      }
+      // A color with alpha a, laid over a solid one.
+      const over = ([r, g, b, a], [R, G, B]) => [r * a + R * (1 - a), g * a + G * (1 - a), b * a + B * (1 - a)]
       const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
       const lum = ([r, g, b]) => 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
-      const behind = (el) => {
+      const ratio = (x, y) => { const [a, b] = [lum(x), lum(y)].sort((p, q) => q - p); return (a + 0.05) / (b + 0.05) }
+      const fills = (el) => {
         for (let e = el; e; e = e.parentElement) {
-          const c = rgb(getComputedStyle(e).backgroundColor)
-          if (c.length < 4 || c[3] === 1) return c
+          const style = getComputedStyle(e), fill = rgba(style.backgroundColor)
+          if (fill[3] < 1) continue
+          const pattern = style.backgroundImage.match(/(?:rgba?|lab|lch|oklab|oklch|color)\\([^)]*\\)/g) ?? []
+          return [fill, ...pattern.map((color) => over(rgba(color), fill))]
         }
-        return [255, 255, 255]
+        return [[255, 255, 255]]
       }
-      return [...document.querySelectorAll('.ab-body legend, .ab-body .ab-chip span, .ab-body .ab-lever span, .ab-body .ab-count')]
-        .map((el) => {
-          const [a, b] = [lum(rgb(getComputedStyle(el).color)), lum(behind(el))].sort((x, y) => y - x)
-          return { text: el.textContent.trim(), ratio: Math.round(((a + 0.05) / (b + 0.05)) * 100) / 100 }
-        })
+      const labels = [], walker = document.createTreeWalker(document.querySelector('.ab-machine'), NodeFilter.SHOW_TEXT)
+      for (let node; (node = walker.nextNode()); ) {
+        const el = node.parentElement, box = el.getBoundingClientRect()
+        if (!node.textContent.trim() || box.width <= 1 || box.height <= 1) continue
+        const color = rgba(getComputedStyle(el).color)
+        const worst = Math.min(...fills(el).map((fill) => ratio(over(color, fill), fill)))
+        labels.push({ text: node.textContent.trim(), ratio: Math.round(worst * 100) / 100 })
+      }
+      return labels
     })()`)
-    assert.ok(ratios.length >= 7, `found only ${ratios.length} labels`)
+    assert.ok(ratios.length >= 8, `found only ${ratios.length} labels`)
     const faint = ratios.filter((label) => label.ratio < 4.5)
     assert.deepEqual(
       faint,
