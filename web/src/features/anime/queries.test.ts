@@ -2,7 +2,15 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { ERAS, eraQuery, isRefinement, QUERIES, searchQuery, trendingQuery } from './queries.ts'
+import {
+  ERAS,
+  eraQuery,
+  isRefinement,
+  QUERIES,
+  searchQuery,
+  trendingQuery,
+  type Media,
+} from './queries.ts'
 
 test('every media query excludes adult titles', () => {
   for (const [name, query] of Object.entries(QUERIES)) {
@@ -13,6 +21,73 @@ test('every media query excludes adult titles', () => {
     for (const args of mediaArguments) {
       assert.match(args, /isAdult: false/, `${name} is missing isAdult: false`)
       assert.match(args, /genre_not_in: \["Hentai"\]/, `${name} is missing the Hentai exclusion`)
+    }
+  }
+})
+
+// Every field of Media with a value: one item per array and no nulls, so every nested field is
+// reached. It's typed as Media, so the type check fails until a field added to Media is added
+// here too. The type check can't force in an optional field (`?:`), so one would go unchecked.
+const complete: Media = {
+  id: 1,
+  title: { romaji: 'Sousou no Frieren', english: 'Frieren', native: '葬送のフリーレン' },
+  coverImage: { extraLarge: 'x.png', large: 'l.png', color: '#e4a15d' },
+  bannerImage: 'b.png',
+  genres: ['Adventure'],
+  averageScore: 90,
+  format: 'TV',
+  episodes: 28,
+  season: 'FALL',
+  seasonYear: 2023,
+  studios: { nodes: [{ name: 'Madhouse' }] },
+  nextAiringEpisode: { episode: 9, airingAt: 1_800_000_000 },
+}
+
+/** "studios.nodes.name" and so on: the path of every field holding a plain value. */
+const fieldsOf = (value: unknown, path = ''): string[] =>
+  Array.isArray(value)
+    ? fieldsOf(value[0], path)
+    : value !== null && typeof value === 'object'
+      ? Object.entries(value).flatMap(([key, child]) =>
+          fieldsOf(child, path ? `${path}.${key}` : key),
+        )
+      : [path]
+
+/**
+ * The same paths for what each media(...) call in a query selects, one list per call, since one
+ * query can ask for several lists. Arguments are skipped, assuming none holds a parenthesis, as
+ * the SAFE tests do too.
+ */
+const selections = (query: string) =>
+  [...query.matchAll(/\bmedia\s*\([^)]*\)\s*\{/g)].map((call) => {
+    const tokens =
+      query
+        .slice(call.index + call[0].length)
+        .replace(/\([^)]*\)/g, ' ')
+        .match(/[{}]|\w+/g) ?? []
+    const fields: string[] = []
+    const parents: string[] = []
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i] === '}') {
+        if (!parents.length) break // the end of this media(...) call
+        parents.pop()
+      } else if (tokens[i + 1] === '{') parents.push(tokens[i++])
+      else fields.push([...parents, tokens[i]].join('.'))
+    }
+    return fields.sort()
+  })
+
+// Media is typed by hand and CARD is a plain string, so the type check can't tell when they drift
+// apart, and a field a query leaves out is undefined on every title it returns. Whole paths are
+// compared, because a check that each name appears would still find a dropped "season" inside
+// "seasonYear", or "episode" inside "episodes".
+test('every query asks AniList for exactly the fields of Media', () => {
+  const wanted = fieldsOf(complete).sort()
+  for (const [name, query] of Object.entries(QUERIES)) {
+    const calls = selections(query)
+    assert.ok(calls.length > 0, `${name} has no media(...) call`)
+    for (const fields of calls) {
+      assert.deepEqual(fields, wanted, `${name} doesn't ask for exactly the fields of Media`)
     }
   }
 })
