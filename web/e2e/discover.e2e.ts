@@ -317,17 +317,18 @@ describe('desktop (1440x900)', () => {
   })
 
   test('with motion allowed, hovering a panel still zooms its cover', async () => {
+    await browser.animationsDone() // each cover settles in from 1.3 times its size
     await browser.evaluate(`document.querySelector('#ab-trending').scrollIntoView(); true`)
     const at = await browser.evaluate<{ x: number; y: number }>(
       `(() => { const r = document.querySelectorAll('.ab-grid .ab-link')[1].getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
     )
     await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
-    await sleep(120)
-    const zooming = await browser.evaluate<number>(
-      `document.getAnimations().filter((a) => a.transitionProperty === 'transform').length`,
+    await sleep(700) // longer than the zoom's 0.6s transition
+    const cover = await browser.evaluate<string>(
+      `getComputedStyle(document.querySelectorAll('.ab-grid .ab-link')[1].querySelector('.ab-img img')).transform`,
     )
     await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
-    assert.ok(zooming > 0, 'hovering a panel started no movement at all')
+    assert.equal(cover, 'matrix(1.1, 0, 0, 1.1, 0, 0)', 'the hovered cover did not zoom')
   })
 
   test('tabbing along the decade strip, both ways, keeps each focused panel in view, with its whole ring', async () => {
@@ -380,9 +381,12 @@ describe('tablet (834x1112, iPad Pro 11" portrait)', () => {
 })
 
 describe('reduced motion', () => {
-  test('the title card appears at once, without the color wipe', async () => {
+  before(async () => {
     await browser.load({ reduceMotion: true })
     assert.ok(await browser.titlesShown())
+  })
+
+  test('the title card appears at once, without the color wipe', async () => {
     await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
     await sleep(150)
     const card = await browser.evaluate<{ opacity: string; wipe: string }>(
@@ -404,6 +408,10 @@ describe('reduced motion', () => {
     await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
     await sleep(120)
     const onHover = await browser.evaluate<number>(movingTransitions)
+    // A zoom can also apply at once, with no transition to count.
+    const cover = await browser.evaluate<string>(
+      `getComputedStyle(document.querySelector('.ab-grid .ab-link .ab-img img')).transform`,
+    )
     await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
     at = await centerOf('.ab-lever')
     await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
@@ -425,6 +433,7 @@ describe('reduced motion', () => {
       clickCount: 1,
     })
     assert.equal(onHover, 0, 'hovering a panel started a moving transition')
+    assert.equal(cover, 'none', 'the hovered cover zoomed')
     assert.equal(onPress, 0, 'pressing the lever started a moving transition')
     assert.equal(lever, 'none', 'the held lever turned')
   })
