@@ -19,7 +19,8 @@ const twoTitles = [{ id: 1 }, { id: 2 }]
 // [situation, query state, requests held for a rate limit?, expected status line]
 const cases: [string, Partial<QueryStatus>, boolean, string | RegExp][] = [
   ['first load', { isFetching: true }, false, 'Loading…'],
-  ['offline', { isFetching: true, isPaused: true }, false, 'Offline: waiting for a connection.'],
+  // TanStack reports a query held while offline as paused, never as fetching too.
+  ['offline', { isPaused: true }, false, 'Offline: waiting for a connection.'],
   [
     'retrying after a 429',
     { isFetching: true, failureReason: tooMany },
@@ -87,7 +88,7 @@ test('note: speaks while loading, empty, failed, offline or held for a rate limi
     'AniList isn’t responding right now, so these titles may be out of date. It’s not something you did.',
   )
   assert.equal(
-    noteFor({ ...idle, data: twoTitles, isFetching: true, isPaused: true }, false),
+    noteFor({ ...idle, data: twoTitles, isPaused: true }, false),
     'Offline: waiting for a connection.',
   )
   assert.equal(
