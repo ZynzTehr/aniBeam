@@ -55,6 +55,7 @@ test('nextEpisode counts down from the airing time, so cached results stay right
   })
   assert.equal(nextEpisode(media(at(52)), now), 'Ep 9 in 2d 4h')
   assert.equal(nextEpisode(media(at(24)), now), 'Ep 9 in 1d 0h')
+  assert.equal(nextEpisode(media(at(60)), now), 'Ep 9 in 2d 12h') // 2.5 days: whole days, then the hours left
   assert.equal(nextEpisode(media(at(5)), now), 'Ep 9 in 5h')
   assert.equal(nextEpisode(media(at(0.1)), now), 'Ep 9 in 1h')
   assert.equal(nextEpisode(media(at(-1)), now), null) // aired since the result was cached
