@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, type FocusEvent, type ReactNode } from 'react'
-import { seasonOf, titleOf } from '../features/anime/format.ts'
+import { coverSrcSet, seasonOf, titleOf } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { markBroken } from './cover.ts'
 import { cssVars } from './cssVars.ts'
@@ -80,7 +80,13 @@ export function Strip({
               href={`#title-${media.id}`}
               onClick={opener(media, onOpen)}
             >
-              <img src={media.coverImage.large} alt="" loading="lazy" onError={markBroken} />
+              <img
+                src={media.coverImage.large}
+                srcSet={coverSrcSet(media)}
+                alt=""
+                loading="lazy"
+                onError={markBroken}
+              />
               {!grid && (
                 <span className="ab-chapter" aria-hidden="true">
                   Ch.{i + 1}

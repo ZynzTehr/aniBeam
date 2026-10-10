@@ -1285,6 +1285,53 @@ describe('phone (390x844)', () => {
     assert.ok(menu.soonHeight <= 50, `the coming-soon pill is ${menu.soonHeight}px tall`)
   })
 
+  test('on a 2x screen, decade covers load AniList’s 460px file where there is one', async () => {
+    // A decade cover is 142px wide here: 284 pixels on this 2x screen. AniList's `large` file
+    // is 230px wide, so it was blown up and looked soft. Where AniList also has a 460px file
+    // (extraLarge), a 2x screen should load that one instead.
+    assert.equal(await browser.evaluate('devicePixelRatio'), 2, 'the phone checks need a 2x screen')
+    await browser.evaluate(`${decadeRow}.scrollIntoView({ block: 'center' }); true`)
+    assert.ok(
+      await browser.waitFor(
+        `[...${decadeRow}.querySelectorAll('img')].slice(0, 2).every((img) => img.complete && img.naturalWidth)`,
+      ),
+      'the first decade covers never loaded',
+    )
+    // For each cover that has loaded: whether it offers a bigger file, the size of the file it
+    // shows, and the size of its box in device pixels. A 2x file's naturalWidth is halved (460
+    // reads 230), so the shown file is loaded again on its own to read its real size.
+    type Cover = { title: string; offers: boolean; file: number[]; box: number[] }
+    const covers = await browser.evaluate<Cover[]>(`Promise.all(
+      [...${decadeRow}.querySelectorAll('img')]
+        .filter((img) => img.complete && img.naturalWidth)
+        .map(async (img) => {
+          const file = new Image()
+          file.src = img.currentSrc
+          await file.decode()
+          return {
+            title: img.closest('a').querySelector('.ab-strip-title').textContent,
+            offers: img.srcset !== '',
+            file: [file.naturalWidth, file.naturalHeight],
+            box: [img.offsetWidth, img.offsetHeight].map((px) => px * devicePixelRatio),
+          }
+        }),
+    )`)
+    const offering = covers.filter((cover) => cover.offers)
+    assert.ok(
+      offering.length >= 2,
+      `only ${offering.length} of ${covers.length} loaded covers offer a bigger file`,
+    )
+    assert.deepEqual(
+      offering
+        .filter(({ file, box }) => file[0] < box[0] || file[1] < box[1])
+        .map(
+          ({ title, file, box }) => `${title}: a ${file.join('x')} file for a ${box.join('x')} box`,
+        ),
+      [],
+      'covers that offer a bigger file but show a blurry one',
+    )
+  })
+
   test('on a phone, tabbing along the decade strip, both ways, keeps each focused panel in view, with its whole ring', async () => {
     assertStripInView(await tabThroughStrip())
   })

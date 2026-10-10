@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { formatOf, hasSmallCover, nextEpisode, seasonOf, studioOf, titleOf } from './format.ts'
+import {
+  coverSrcSet,
+  formatOf,
+  hasSmallCover,
+  nextEpisode,
+  seasonOf,
+  studioOf,
+  titleOf,
+} from './format.ts'
 import type { Media } from './queries.ts'
 
 const media = (overrides: Partial<Media> = {}): Media => ({
@@ -77,5 +85,17 @@ test('hasSmallCover spots AniList pointing extraLarge at the 230px folder', () =
   assert.equal(
     hasSmallCover(media({ coverImage: { extraLarge: small, large: small, color: null } })),
     true,
+  )
+})
+
+test('coverSrcSet offers 2x screens the 460px cover, and nothing when AniList has no bigger one', () => {
+  assert.equal(
+    coverSrcSet(media()),
+    'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1.png 2x',
+  )
+  const small = 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b207329.png'
+  assert.equal(
+    coverSrcSet(media({ coverImage: { extraLarge: small, large: small, color: null } })),
+    undefined,
   )
 })

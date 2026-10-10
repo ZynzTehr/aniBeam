@@ -47,6 +47,15 @@ export function nextEpisode(media: Media, now = Date.now()) {
 
 /**
  * Some titles only have a small cover (230px wide): AniList then points "extraLarge" at the
- * medium-size folder. The intro leaves these out of its cover fan, where they'd look blurry.
+ * medium-size folder. The intro leaves these out of its cover fan, where they'd look blurry, and
+ * coverSrcSet has no bigger file to offer for them.
  */
 export const hasSmallCover = (media: Media) => /\/cover\/medium\//.test(media.coverImage.extraLarge)
+
+/**
+ * A strip card's srcset. The card shows the 230px "large" cover, which a 2x or 3x screen blows
+ * up; this offers those screens the 460px "extraLarge" one where AniList has it. A 1x screen
+ * still loads only the 230px file, so it downloads no more than before.
+ */
+export const coverSrcSet = (media: Media) =>
+  hasSmallCover(media) ? undefined : `${media.coverImage.extraLarge} 2x`
