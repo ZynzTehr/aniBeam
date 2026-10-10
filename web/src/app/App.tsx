@@ -40,11 +40,13 @@ export default function App() {
   const [opened, setOpened] = useState<{ media: Media; from: DOMRect } | null>(null)
   const open: OpenTitle = (media, from) => setOpened({ media, from: from.getBoundingClientRect() })
 
-  const [search, setSearch] = useState('')
+  // What the search box shows, and the part of it to search (see SiteHeader's onSearch).
+  const [search, setSearch] = useState({ shown: '', text: '' })
   // Screen readers hear search outcomes from one line that is always on the page.
   const [announcement, setAnnouncement] = useState('')
-  // Debounce what was typed, then trim: a typed space is typing too, so it restarts the pause.
-  const term = useDebounced(search, 300).trim()
+  // Debounce every change to the box, then trim what is searched: a typed space, or a letter an
+  // input method is still converting, is typing too, so it restarts the pause.
+  const term = useDebounced(search, 300).text.trim()
   const searching = term.length >= 2
 
   // Arrowing through the decade chips changes the choice once per chip; wait like search does.
@@ -80,8 +82,8 @@ export default function App() {
           { href: '#decades', label: 'Decades' },
           { href: '#my-list', label: 'My List', soon: true },
         ]}
-        search={search}
-        onSearch={setSearch}
+        search={search.shown}
+        onSearch={(shown, text) => setSearch({ shown, text })}
       />
       <main id="main">
         <p role="status" className="sr-only">

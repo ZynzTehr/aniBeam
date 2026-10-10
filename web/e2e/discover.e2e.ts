@@ -335,6 +335,82 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('with an input method, Japanese is searched once each word is converted, and Latin letters as they are typed', async () => {
+    // A Japanese input method shows a word as kana, then as candidate words, until the visitor
+    // picks one. Searching any of those would be searching for a word nobody typed. The checks
+    // above searched "frieren", so only 進撃の巨人 costs a request.
+    const box = `document.querySelector('.ab-search input')`
+    // Each step is sent 100 ms after the one before: well within the 300 ms pause that starts a
+    // search, while a run of steps lasts longer than that pause.
+    let sent = 0
+    const step = async (method: string, params: object) => {
+      await sleep(Math.max(0, sent + 100 - performance.now()))
+      sent = performance.now()
+      await browser.send(method, params)
+    }
+    const compose = async (...texts: string[]) => {
+      for (const text of texts)
+        await step('Input.imeSetComposition', {
+          text,
+          selectionStart: text.length,
+          selectionEnd: text.length,
+        })
+    }
+    const commit = (text: string) => step('Input.insertText', { text })
+
+    // しんげき with a pause, a wrong candidate with a pause, then 進撃 picked and の巨人 typed
+    // straight after it: one search, for the whole title.
+    await browser.search('')
+    assert.ok(await browser.waitFor(`!document.querySelector('.ab-results')`, 5_000))
+    await recordHeadings()
+    await browser.evaluate(`${box}.focus(); true`)
+    await compose('s', 'sh', 'し', 'しn', 'しん', 'しんg', 'しんげ', 'しんげk', 'しんげき')
+    const kana = await browser.evaluate<string>(`${box}.value`)
+    await sleep(700)
+    await compose('神撃')
+    await sleep(700)
+    await compose('進撃')
+    await commit('進撃')
+    await compose('n', 'の', 'のk', 'のky', 'のきょ')
+    await compose('のきょj', 'のきょじ', 'のきょじn', 'のきょじん', 'の巨人')
+    await commit('の巨人')
+    const converted = await browser.waitFor(resultsFor('進撃の巨人'), 5_000)
+    const headings = await browser.evaluate<string[]>('window.__headings')
+
+    // A word being converted after a search keeps that search's results on screen.
+    await browser.search('frieren')
+    assert.ok(await browser.waitFor(`/Frieren/i.test(${resultTitles})`), 'no Frieren results')
+    await commit(' ')
+    await compose('し', 'しn', 'しん')
+    await sleep(700)
+    const added = await browser.evaluate<{ heading?: string; frieren: boolean }>(
+      `({ heading: document.getElementById('results')?.firstChild?.textContent, frieren: /Frieren/i.test(${resultTitles}) })`,
+    )
+    await compose('') // cancels the word
+
+    // Android keyboards compose Latin words too: those are searched while still composing.
+    await browser.search('')
+    assert.ok(await browser.waitFor(`!document.querySelector('.ab-results')`, 5_000))
+    await compose('f', 'fr', 'fri', 'frie', 'frier', 'friere', 'frieren')
+    const composing = await browser.waitFor(resultsFor('frieren'), 5_000)
+    await compose('')
+    await browser.search('')
+
+    assert.equal(kana, 'しんげき', 'the box did not show the kana being converted')
+    assert.ok(converted, 'the converted title was never searched')
+    assert.deepEqual(
+      headings,
+      ['Results for “進撃の巨人”'],
+      'a search ran while a word was still being converted',
+    )
+    assert.deepEqual(
+      added,
+      { heading: 'Results for “frieren”', frieren: true },
+      'a word being converted replaced the search before it',
+    )
+    assert.ok(composing, 'Latin letters still being composed were not searched')
+  })
+
   test('a different search shows that it is loading, even when typed from far down the results', async () => {
     const panels = `document.querySelectorAll('.ab-results .ab-strip-panel[href]')`
     await browser.search('naruto')

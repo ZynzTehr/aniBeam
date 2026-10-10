@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from 'react'
+import { searchable } from '../lib/ime.ts'
 
 /** A section link. `soon` marks a feature from a later phase: shown with a tag, not a link. */
 export type NavLink = { href: string; label: string; current?: boolean; soon?: boolean }
@@ -16,7 +17,8 @@ export function SiteHeader({
 }: {
   links: NavLink[]
   search: string
-  onSearch: (text: string) => void
+  /** Every change to the box: what it shows, and the part of it to search (see searchable). */
+  onSearch: (shown: string, text: string) => void
   homeHref?: string
 }) {
   const header = useRef<HTMLElement>(null)
@@ -62,9 +64,17 @@ export function SiteHeader({
 // A manga speech bubble: snug around "Search titles" at rest, popping out to fit what's typed.
 // A hidden copy of the text, in the same font, is watched for size changes (each keystroke, and
 // the web font finishing loading); its width goes to CSS, which animates the bubble to match.
-function SearchBubble({ value, onChange }: { value: string; onChange: (text: string) => void }) {
+function SearchBubble({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (shown: string, text: string) => void
+}) {
   const field = useRef<HTMLLabelElement>(null)
   const mirror = useRef<HTMLSpanElement>(null)
+  // What the box held when an input method began composing (see searchable).
+  const before = useRef('')
   useLayoutEffect(() => {
     const label = field.current
     const copy = mirror.current
@@ -79,10 +89,27 @@ function SearchBubble({ value, onChange }: { value: string; onChange: (text: str
     <label ref={field} className="ab-search">
       <span className="sr-only">Search titles</span>
       <span className="ab-bubble-field">
+        {/* The box shows every keystroke, even one an input method is still converting, so it
+            never fights the input method. Only the search waits for the finished word. */}
         <input
           type="search"
           value={value}
-          onChange={(event) => onChange(event.target.value)}
+          onCompositionStart={(event) => (before.current = event.currentTarget.value)}
+          onChange={(event) =>
+            onChange(
+              event.target.value,
+              searchable(
+                event.target.value,
+                (event.nativeEvent as InputEvent).isComposing,
+                before.current,
+              ),
+            )
+          }
+          // Chrome sends the finished word just before this, still marked as composing; Safari
+          // sends it just after.
+          onCompositionEnd={(event) =>
+            onChange(event.currentTarget.value, event.currentTarget.value)
+          }
           placeholder="Search titles"
         />
       </span>
