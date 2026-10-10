@@ -217,6 +217,8 @@ function SearchResults({
     <div ref={box} className="ab-results">
       <Strip
         id="results"
+        // The results take the intro's place, so their heading is the page's h1.
+        level="h1"
         heading={`Results for “${term}”`}
         sfx="サーチ!"
         titles={results.data ?? []}

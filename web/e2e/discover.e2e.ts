@@ -236,6 +236,33 @@ describe('desktop (1440x900)', () => {
     assert.deepEqual(back, { open: false, focus: 'ab-strip-panel' })
   })
 
+  test('the page has one h1: the intro’s title, or the results heading while searching', async () => {
+    // Screen readers jump to a page's h1 to learn what the page is about. Search results take
+    // the intro's place, so they take its h1 too. The check above searched "frieren", so this
+    // one sends no request.
+    const h1s = `[...document.querySelectorAll('h1')].map((h) => h.id)`
+    await browser.search('')
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-intro')`, 5_000),
+      'the intro did not come back',
+    )
+    const home = await browser.evaluate<string[]>(h1s)
+    await browser.search('frieren')
+    assert.ok(await browser.waitFor(resultsFor('frieren'), 5_000), 'the heading never showed')
+    const searching = await browser.evaluate<string[]>(h1s)
+    await browser.search('')
+    assert.deepEqual(
+      home,
+      ['ab-intro-title'],
+      'at home, the intro’s title is not the page’s one h1',
+    )
+    assert.deepEqual(
+      searching,
+      ['results'],
+      'while searching, the results heading is not the page’s one h1',
+    )
+  })
+
   test('a search with no matches says so, and clearing it brings the intro back', async () => {
     await browser.search('zzqqxxnotananime')
     assert.ok(

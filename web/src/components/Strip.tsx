@@ -14,6 +14,7 @@ export function Strip({
   sfx,
   titles,
   onOpen,
+  level = 'h2',
   note = null,
   loading = false,
   onRetry,
@@ -26,6 +27,8 @@ export function Strip({
   sfx: string
   titles: Media[]
   onOpen?: OpenTitle
+  /** The heading's level: h1 where the strip takes the intro's place, as search results do. */
+  level?: 'h1' | 'h2'
   /** A status line (loading, error, rate limit), or null when there's nothing to say. */
   note?: string | null
   /** Show empty cards while the first load runs. */
@@ -42,7 +45,7 @@ export function Strip({
   const row = grid ? 'ab-strip-row ab-strip-grid' : 'ab-strip-row'
   return (
     <section className="ab-strip" aria-labelledby={id}>
-      <SfxHeading id={id} sfx={sfx} small>
+      <SfxHeading as={level} id={id} sfx={sfx} small>
         {heading}
       </SfxHeading>
       {children}
