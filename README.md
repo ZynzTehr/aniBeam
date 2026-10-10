@@ -21,15 +21,16 @@ The `.env.example` files list every variable with a comment explaining it. Real 
 
 ## Scripts (run from the repo root)
 
-| Command              | What it does                                                    |
-| -------------------- | --------------------------------------------------------------- |
-| `npm run dev`        | Starts the web app at http://localhost:5173                     |
-| `npm run dev:server` | Starts the chat server at http://localhost:3001 (`GET /health`) |
-| `npm run build`      | Type-checks and builds every workspace                          |
-| `npm run typecheck`  | Type-checks every workspace                                     |
-| `npm run lint`       | Lints the web app with oxlint                                   |
-| `npm test`           | Runs the unit tests with Node's built-in test runner            |
-| `npm run format`     | Formats the repo with Prettier                                  |
+| Command                | What it does                                                    |
+| ---------------------- | --------------------------------------------------------------- |
+| `npm run dev`          | Starts the web app at http://localhost:5173                     |
+| `npm run dev:server`   | Starts the chat server at http://localhost:3001 (`GET /health`) |
+| `npm run build`        | Type-checks and builds every workspace                          |
+| `npm run typecheck`    | Type-checks every workspace                                     |
+| `npm run lint`         | Lints the web app with oxlint                                   |
+| `npm test`             | Runs the unit tests with Node's built-in test runner            |
+| `npm run test:browser` | Runs the browser checks in `web/e2e` (see below)                |
+| `npm run format`       | Formats the repo with Prettier                                  |
 
 ## Deploying
 
@@ -44,6 +45,7 @@ This repo is an [npm workspaces](https://docs.npmjs.com/cli/using-npm/workspaces
 ```
 AniBeam/
 ├── web/                     # Frontend: React + Vite + TypeScript + Tailwind CSS v4
+│   ├── e2e/                 # Browser checks (*.e2e.ts) and the Chrome driver they share
 │   ├── public/              # Static files served as-is, including the fonts
 │   └── src/
 │       ├── app/             # App shell: root component, router, providers
@@ -73,7 +75,7 @@ AniBeam/
 └── package.json             # Workspace root and shared scripts
 ```
 
-Empty folders hold a `.gitkeep` file so git tracks them; each one is removed once real code lands in that folder. Tests live next to the code they test (`*.test.ts`).
+Empty folders hold a `.gitkeep` file so git tracks them; each one is removed once real code lands in that folder. Unit tests live next to the code they test (`*.test.ts`). The browser checks live in `web/e2e` (`*.e2e.ts`).
 
 ## Notes
 
@@ -104,6 +106,20 @@ The design prototypes in `web/src/prototype` are for development only. Add `?var
 The display font is Dela Gothic One, by the Dela Gothic Project Authors. The body font is M PLUS Rounded 1c, by the Rounded M+ Project Authors. Both are self-hosted from `web/public/fonts`, so visitors' browsers never contact Google, and `npm test` fails if production code references Google Fonts.
 
 The files are subsets with Latin letters, kana and the star symbol, about 100 KB for all three. Kanji fall back to a system font. Both fonts use the SIL Open Font License, and `web/public/fonts/OFL.txt` carries their copyright notices.
+
+### Browser checks
+
+`web/e2e` holds checks that run the real page in headless Chrome: layout on desktop and phone, keyboard use, reduced motion, the title card, search, the pull, and what a visitor sees when AniList is down. They need no extra package. Node drives Chrome over its DevTools protocol.
+
+To run them, start the app with `npm run dev`, then point `CHROME_BIN` at a Chrome or chrome-headless-shell binary:
+
+```bash
+CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm run test:browser
+```
+
+They use the real AniList API, so they count against its limit of 30 requests a minute. The outage check takes about two minutes, because the app waits a minute before retrying a failed connection.
+
+Some checks stage answers AniList rarely gives, such as a refused request or titles all tagged Ecchi. `web/e2e/browser.ts` rewrites AniList's replies in the browser before the page sees them, so those requests still reach AniList.
 
 ### Tailwind CSS v4 and custom CSS
 

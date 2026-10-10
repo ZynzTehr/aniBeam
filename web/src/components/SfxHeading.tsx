@@ -15,7 +15,8 @@ export function SfxHeading({
   children: ReactNode
 }) {
   return (
-    <Heading id={id} className={small ? 'ab-sfx ab-sfx-small' : 'ab-sfx'}>
+    // tabIndex -1: script can move focus here (see RetryButton), but Tab skips it.
+    <Heading id={id} tabIndex={-1} className={small ? 'ab-sfx ab-sfx-small' : 'ab-sfx'}>
       {children}
       <span aria-hidden="true">{sfx}</span>
     </Heading>

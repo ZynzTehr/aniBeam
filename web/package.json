@@ -9,6 +9,7 @@
     "typecheck": "tsc -b",
     "lint": "oxlint",
     "test": "node --test --test-timeout=10000 --test-force-exit",
+    "test:browser": "node --test --test-concurrency=1 --test-timeout=600000 --test-force-exit e2e/*.e2e.ts",
     "preview": "vite preview"
   },
   "dependencies": {

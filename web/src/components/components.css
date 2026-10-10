@@ -82,6 +82,7 @@
 .ab-sfx {
   display: flex;
   flex-wrap: wrap;
+  overflow-wrap: anywhere; /* a search heading can hold one very long word */
   align-items: baseline;
   gap: 0.25em 0.4em;
   margin: 0 0 20px;
@@ -190,12 +191,6 @@
 .ab-img img {
   object-fit: cover;
   object-position: 50% 22%;
-  transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-.ab-link:hover .ab-img img,
-.ab-link:focus-visible .ab-img img {
-  transform: scale(1.1);
 }
 
 /* Screentone in the title's own color, densest behind the caption. */
@@ -220,17 +215,13 @@
   );
   mask-image: radial-gradient(circle at 50% 50%, transparent 26%, #000 64%);
   opacity: 0;
-  transform: scale(1.35);
-  transition:
-    opacity 0.2s,
-    transform 0.55s var(--spring);
+  transition: opacity 0.2s;
   pointer-events: none;
 }
 
 .ab-link:hover .ab-speed,
 .ab-link:focus-visible .ab-speed {
   opacity: 0.9;
-  transform: scale(1);
 }
 
 .ab-rank {
@@ -282,9 +273,7 @@
   background: #fff;
   box-shadow: 4px 4px 0 var(--ink);
   transform: rotate(-1.2deg);
-  transition:
-    transform 0.4s var(--spring),
-    box-shadow 0.4s var(--spring);
+  transition: box-shadow 0.15s;
 }
 
 .ab-caption b {
@@ -312,7 +301,6 @@
 .ab-link:hover .ab-caption,
 .ab-link:focus-visible .ab-caption {
   box-shadow: 8px 8px 0 var(--anime-accent);
-  transform: rotate(-1.2deg) translate(-3px, -5px);
 }
 
 /* ---------- Throwback strip ---------- */
@@ -321,15 +309,21 @@
 }
 
 .ab-strip-row {
+  --strip-col: clamp(150px, 17vw, 210px);
+  position: relative; /* the items' offsetParent (see revealFocused in Strip.tsx) */
   display: grid;
-  grid-auto-columns: clamp(150px, 17vw, 210px);
+  grid-auto-columns: var(--strip-col);
   grid-auto-flow: column;
   gap: var(--gutter);
-  margin: 0;
-  padding: 0 0 14px;
+  /* 8px of room on every side so a focused panel's 7px ring isn't cut off; the negative
+     margins keep the panels where they were. */
+  margin: -8px -8px 0;
+  padding: 8px 8px 14px;
   overflow-x: auto;
   list-style: none;
   scroll-snap-type: x mandatory;
+  /* The row rests with a panel 8px in, so the first panel's ring keeps its room too. */
+  scroll-padding-inline: 8px;
 }
 
 .ab-strip-item {
@@ -552,10 +546,6 @@
   border-radius: 999px;
   background: #fff;
   filter: drop-shadow(3px 3px 0 var(--ink));
-  transition:
-    width 0.35s var(--spring),
-    filter 0.25s var(--spring),
-    transform 0.25s var(--spring);
 }
 
 /* Focused, or holding a query: it pops out and grows to fit the text, with the same 66px. */
@@ -614,11 +604,12 @@
   opacity: 1;
 }
 
-/* Measures the text in the input's font; never visible. */
+/* Measures the text in the input's font; never visible. It hangs off the right edge, so a
+   long query runs off the left of the page, where it can't make the page scroll sideways. */
 .ab-search-mirror {
   position: absolute;
   top: 0;
-  left: 0;
+  right: 0;
   font: 800 15px var(--body);
   pointer-events: none;
   visibility: hidden;
@@ -633,12 +624,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .ab-bubble-field {
-    transition: none;
-  }
-}
-
 /* Keep the page still while a title card is open. */
 body:has(.ab-card[open]) {
   overflow: hidden;
@@ -647,6 +632,9 @@ body:has(.ab-card[open]) {
 /* ---------- Pull machine, drawn in ink ---------- */
 .ab-pull {
   padding: 24px clamp(16px, 4vw, 48px);
+  /* The rarity sticker pops in from 2.4 times its size and springs past it; near the screen's
+     edge it would briefly make the page scroll sideways. */
+  overflow-x: clip;
 }
 
 .ab-pull-row {
@@ -718,9 +706,15 @@ body:has(.ab-card[open]) {
   border: 0;
 }
 
+/* The machine's two labels sit on ink pills: white straight on hot pink is only 3.65:1. */
 .ab-moods legend {
-  width: 100%;
-  margin-bottom: 8px;
+  width: fit-content;
+  /* A checked chip lifts 2px and a focused one's ring reaches 7px more: 12px keeps 3px clear. */
+  margin: 0 auto 12px;
+  /* Chrome adds the letter spacing after the last letter too; less padding there evens it out. */
+  padding: 3px calc(10px - 0.14em) 3px 10px;
+  border-radius: 999px;
+  background: var(--ink);
   font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -745,7 +739,6 @@ body:has(.ab-card[open]) {
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
-  transition: transform 0.25s var(--spring);
 }
 
 .ab-chip input:checked + span {
@@ -772,22 +765,24 @@ body:has(.ab-card[open]) {
   color: var(--ink);
   font: 400 26px var(--display);
   cursor: pointer;
-  transition:
-    transform 0.25s var(--spring),
-    box-shadow 0.2s;
+  transition: box-shadow 0.15s;
 }
 
-.ab-lever:hover {
-  transform: rotate(-10deg);
+/* Hover raises the lever on a deeper shadow (and tilts it, when motion is allowed); a press
+   sinks it. */
+.ab-lever:enabled:hover {
+  box-shadow: 0 11px 0 var(--ink);
 }
 
-.ab-lever:active {
+.ab-lever:enabled:active {
   box-shadow: 0 2px 0 var(--ink);
-  transform: translateY(6px) rotate(80deg);
 }
 
 .ab-count {
   margin: 0;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--ink);
   font-size: 14px;
   font-weight: 800;
 }
@@ -966,14 +961,11 @@ body:has(.ab-card[open]) {
   font: 800 15px var(--body);
   text-decoration: none;
   cursor: pointer;
-  transition:
-    transform 0.2s var(--spring),
-    box-shadow 0.2s;
+  transition: box-shadow 0.15s;
 }
 
 .ab-btn:hover {
   box-shadow: 6px 6px 0 var(--ink);
-  transform: translate(-3px, -3px);
 }
 
 .ab-btn-ink {
@@ -1213,6 +1205,34 @@ body:has(.ab-card[open]) {
 
   .ab-sheet-art img {
     width: min(56vw, 230px);
+  }
+}
+
+/* Beside the machine on screens up to about 1170px wide (an iPad Pro 11" in portrait is 834px),
+   the reveal is too narrow for the poster and its text side by side: long title words such as
+   "Reincarnated" or "Bakemonogatari" would break mid-word. They stack as on phones. */
+.ab-reveal {
+  container-type: inline-size;
+}
+
+@container (max-width: 630px) {
+  .ab-result {
+    justify-items: center;
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .ab-result-panel {
+    width: min(64vw, 240px);
+  }
+
+  .ab-result .ab-row-actions {
+    justify-content: center;
+  }
+
+  .ab-drop {
+    top: 20%;
+    left: 50%;
   }
 }
 
@@ -1533,6 +1553,12 @@ body:has(.ab-card[open]) {
     padding: 4px 0 42px 26px;
   }
 
+  /* While trending loads, the box holds the covers' height (138px covers + 46px padding), so the
+     headline below doesn't jump down when they arrive. */
+  .ab-intro-art.is-loading {
+    min-height: 184px;
+  }
+
   .ab-intro-art img {
     --cover-w: 92px;
   }
@@ -1615,6 +1641,8 @@ body:has(.ab-card[open]) {
 }
 
 .ab-strip-grid {
+  margin: 0; /* the results grid wraps instead of scrolling, so it needs no room for rings */
+  padding: 0 0 14px;
   grid-auto-flow: row;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   overflow: visible;
@@ -1697,4 +1725,108 @@ body:has(.ab-card[open]) {
 /* After a failed load: the Try again button sits under the status line. */
 .ab-retry {
   margin: 0 0 20px;
+}
+
+/* Section headings take focus after Try again (RetryButton), with the ring every other focus
+   gets: 4px, 3px out. It's drawn behind the letters. The tight line height lets the "g" and the
+   sound effect dip below the box, so they cross the ring, like art breaking out of a panel's
+   frame, instead of being cut by it. */
+.ab-sfx:focus-visible {
+  position: relative;
+  isolation: isolate;
+  outline: none;
+}
+
+.ab-sfx:focus-visible::before {
+  position: absolute;
+  z-index: -1;
+  inset: -7px;
+  border: 4px solid var(--hot);
+  content: '';
+}
+
+/* Forced colors put a solid plate behind text, which would hide a ring drawn behind it. */
+@media (forced-colors: active) {
+  .ab-sfx:focus-visible {
+    outline: 4px solid CanvasText;
+    outline-offset: 3px;
+  }
+
+  .ab-sfx:focus-visible::before {
+    content: none;
+  }
+}
+
+/* ---------- Movement on hover, focus and press (only when the visitor allows motion) ----------
+   Visitors who ask for reduced motion get the base styles above (spec §3J): hover, focus and
+   press change color, shadow or opacity. A focused search bubble and a checked chip still sit
+   lifted, but they change at once, with nothing sliding there. Everything that slides, zooms
+   or swings is here. */
+@media (prefers-reduced-motion: no-preference) {
+  .ab-img img {
+    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .ab-link:hover .ab-img img,
+  .ab-link:focus-visible .ab-img img {
+    transform: scale(1.1);
+  }
+
+  .ab-speed {
+    transform: scale(1.35);
+    transition:
+      opacity 0.2s,
+      transform 0.55s var(--spring);
+  }
+
+  .ab-link:hover .ab-speed,
+  .ab-link:focus-visible .ab-speed {
+    transform: scale(1);
+  }
+
+  .ab-caption {
+    transition:
+      transform 0.4s var(--spring),
+      box-shadow 0.4s var(--spring);
+  }
+
+  .ab-link:hover .ab-caption,
+  .ab-link:focus-visible .ab-caption {
+    transform: rotate(-1.2deg) translate(-3px, -5px);
+  }
+
+  .ab-bubble-field {
+    transition:
+      width 0.35s var(--spring),
+      filter 0.25s var(--spring),
+      transform 0.25s var(--spring);
+  }
+
+  .ab-chip span {
+    transition: transform 0.25s var(--spring);
+  }
+
+  .ab-lever {
+    transition:
+      transform 0.25s var(--spring),
+      box-shadow 0.2s;
+  }
+
+  .ab-lever:hover {
+    transform: rotate(-10deg);
+  }
+
+  .ab-lever:active {
+    transform: translateY(6px) rotate(80deg);
+  }
+
+  .ab-btn {
+    transition:
+      transform 0.2s var(--spring),
+      box-shadow 0.2s;
+  }
+
+  .ab-btn:hover {
+    transform: translate(-3px, -3px);
+  }
 }

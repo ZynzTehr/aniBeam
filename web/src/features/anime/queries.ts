@@ -83,5 +83,13 @@ export const eraQuery = (era: Era) => mediaQuery(QUERIES.era, era.variables, 6 *
 
 // AniList search ignores capitals and extra spaces, so "Frieren " and "frieren"
 // share one request and one cache entry.
+const searchTerm = (term: string) => term.trim().replace(/\s+/g, ' ').toLowerCase()
+
 export const searchQuery = (term: string) =>
-  mediaQuery(QUERIES.search, { search: term.trim().replace(/\s+/g, ' ').toLowerCase() }, 6 * HOUR)
+  mediaQuery(QUERIES.search, { search: searchTerm(term) }, 6 * HOUR)
+
+/** True when `now` refines the search `before` (letters added or removed), not a new search. */
+export const isRefinement = (before: string, now: string) => {
+  const [a, b] = [searchTerm(before), searchTerm(now)]
+  return a !== '' && (b.startsWith(a) || a.startsWith(b))
+}

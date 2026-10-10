@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { AniListError } from '../lib/anilist.ts'
-import { noteFor, statusText, type QueryStatus } from './status.ts'
+import { noteFor, searchStatus, statusText, type QueryStatus } from './status.ts'
 
 const idle: QueryStatus = {
   data: undefined,
@@ -9,6 +9,7 @@ const idle: QueryStatus = {
   failureReason: null,
   isFetching: false,
   isPaused: false,
+  isPlaceholderData: false,
   dataUpdatedAt: 0,
 }
 const tooMany = new AniListError('Too Many Requests.', 429)
@@ -92,5 +93,65 @@ test('note: speaks while loading, empty, failed, offline or held for a rate limi
   assert.equal(
     noteFor({ ...idle, data: twoTitles, isFetching: true, failureReason: tooMany }, true),
     'AniList is busy right now. It’s not something you did. Trying again within a minute.',
+  )
+})
+
+// While a new decade loads, or a search that refines the last one, the previous list stays as
+// a placeholder (with dataUpdatedAt 0). It is not this query's answer.
+test('placeholder titles from the previous list never read as this list’s answer', () => {
+  // The previous search found nothing: the new one is loading, not "No titles found."
+  assert.equal(
+    noteFor({ ...idle, data: [], isFetching: true, isPlaceholderData: true }, false),
+    'Loading…',
+  )
+  // A retry behind the previous decade's titles: not "20 titles, fetched at <1970>".
+  const serverError = new AniListError('Internal Server Error', 500)
+  assert.equal(
+    statusText(
+      {
+        ...idle,
+        data: twoTitles,
+        isFetching: true,
+        isPlaceholderData: true,
+        failureReason: serverError,
+      },
+      false,
+    ),
+    'Loading…',
+  )
+})
+
+// What a screen reader hears about a search. The term is in every message, so two searches
+// with the same outcome still change the text, and each one gets announced.
+test('search announcements name the search and what it found', () => {
+  const one = [{ id: 1 }]
+  assert.equal(
+    searchStatus({ ...idle, isFetching: true }, 'frieren', false),
+    'Searching for “frieren”…',
+  )
+  assert.equal(
+    searchStatus(
+      { ...idle, data: twoTitles, isFetching: true, isPlaceholderData: true },
+      'frieren b',
+      false,
+    ),
+    'Searching for “frieren b”…',
+  )
+  assert.equal(
+    searchStatus({ ...idle, data: twoTitles }, 'frieren', false),
+    '2 titles found for “frieren”',
+  )
+  assert.equal(
+    searchStatus({ ...idle, data: one }, 'mushishi', false),
+    '1 title found for “mushishi”',
+  )
+  assert.equal(searchStatus({ ...idle, data: [] }, 'zzz', false), 'No titles found for “zzz”')
+  assert.equal(
+    searchStatus({ ...idle, isPaused: true }, 'zzz', false),
+    'Offline: waiting for a connection.',
+  )
+  assert.match(
+    searchStatus({ ...idle, error: noConnection }, 'zzz', false),
+    /isn’t responding right now/,
   )
 })

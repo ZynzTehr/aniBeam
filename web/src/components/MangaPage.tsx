@@ -3,6 +3,7 @@ import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
 import { cssVars } from './cssVars.ts'
 import { opener } from './opener.ts'
+import { RetryButton } from './RetryButton.tsx'
 import { SfxHeading } from './SfxHeading.tsx'
 import type { OpenTitle } from './TitleCard.tsx'
 
@@ -53,11 +54,7 @@ export function MangaPage({
       <p role="status" className="ab-note">
         {note}
       </p>
-      {onRetry && (
-        <button type="button" className="ab-btn ab-retry" onClick={onRetry}>
-          Try again
-        </button>
-      )}
+      {onRetry && <RetryButton headingId={id} onRetry={onRetry} />}
       {titles.length ? (
         <ol className="ab-grid">
           {titles.slice(0, LAYOUT.length).map((media, i) => (

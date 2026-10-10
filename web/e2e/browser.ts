@@ -1,0 +1,358 @@
+// Drives a headless Chrome over the DevTools protocol for the browser checks in this folder.
+// No dependency: Node's built-in fetch and WebSocket talk to the browser.
+//
+//   CHROME_BIN  path to Chrome or chrome-headless-shell (required)
+//   BASE_URL    the running app (default http://localhost:5173/, from `npm run dev`)
+//
+// The checks use the real AniList API, which allows 30 requests a minute per IP address.
+// One browser profile is kept for a whole test file, so its saved cache spares requests.
+import { spawn, type ChildProcess } from 'node:child_process'
+import { once } from 'node:events'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
+
+export const BASE_URL = process.env.BASE_URL ?? 'http://localhost:5173/'
+
+type Message = {
+  id?: number
+  method?: string
+  params?: any
+  result?: any
+  error?: { message: string }
+}
+
+/** One AniList answer as rewriteAniList sees it: the request's GraphQL and what came back. */
+export type Answer = {
+  request: { query: string; variables: Record<string, unknown> }
+  status: number
+  body: any
+}
+type Rewrite = (answer: Answer) => { status: number; body: unknown } | null
+
+export class Browser {
+  #chrome: ChildProcess
+  #profile: string
+  #socket: WebSocket
+  #nextId = 0
+  #pending = new Map<number, (message: Message) => void>()
+  #blocking = false
+  #holdMs = 0
+  #held = new Set<string>()
+  #rewrite: Rewrite | null = null
+  #answering = new Set<Promise<unknown>>()
+  /** Uncaught exceptions and console errors or warnings, for the "clean console" check. */
+  problems: string[] = []
+
+  private constructor(chrome: ChildProcess, profile: string, socket: WebSocket) {
+    this.#chrome = chrome
+    this.#profile = profile
+    this.#socket = socket
+    socket.addEventListener('message', (event) => {
+      const message: Message = JSON.parse(String(event.data))
+      if (message.id !== undefined) {
+        this.#pending.get(message.id)?.(message)
+        this.#pending.delete(message.id)
+      }
+      if (message.method === 'Runtime.exceptionThrown')
+        this.problems.push(
+          'exception: ' +
+            String(
+              message.params.exceptionDetails.exception?.description ??
+                message.params.exceptionDetails.text,
+            ).split('\n')[0],
+        )
+      if (
+        message.method === 'Runtime.consoleAPICalled' &&
+        ['error', 'warning'].includes(message.params.type)
+      )
+        this.problems.push(
+          `console.${message.params.type}: ` +
+            message.params.args.map((arg: any) => arg.value ?? arg.description ?? '').join(' '),
+        )
+      if (message.method === 'Fetch.requestPaused') {
+        const { requestId } = message.params
+        const { responseStatusCode, responseErrorReason } = message.params
+        // Paused again once the answer (or a failure) is in (see rewriteAniList).
+        if (responseStatusCode !== undefined || responseErrorReason !== undefined) {
+          const answering = this.#answer(message.params).finally(() =>
+            this.#answering.delete(answering),
+          )
+          this.#answering.add(answering)
+        } else if (this.#blocking)
+          void this.send('Fetch.failRequest', {
+            requestId,
+            errorReason: 'ConnectionRefused',
+          }).catch(() => {})
+        else {
+          this.#held.add(requestId)
+          setTimeout(() => void this.#release(requestId), this.#holdMs)
+        }
+      }
+    })
+  }
+
+  /** Starts Chrome with a fresh profile; port 0 lets Chrome pick a free debugging port. */
+  static async open(): Promise<Browser> {
+    const chromeBin = process.env.CHROME_BIN
+    if (!chromeBin || !existsSync(chromeBin))
+      throw new Error(
+        'Set CHROME_BIN to a Chrome or chrome-headless-shell binary to run the browser checks.',
+      )
+    const reachable = await fetch(BASE_URL)
+      .then((response) => response.ok)
+      .catch(() => false)
+    if (!reachable)
+      throw new Error(`Nothing is serving ${BASE_URL}. Start it with \`npm run dev\` first.`)
+
+    const profile = mkdtempSync(join(tmpdir(), 'anibeam-e2e-'))
+    const chrome = spawn(
+      chromeBin,
+      [
+        '--headless',
+        '--no-first-run',
+        `--user-data-dir=${profile}`,
+        '--remote-debugging-port=0',
+        'about:blank',
+      ],
+      { stdio: 'ignore' },
+    )
+    let failedToRun: Error | undefined
+    chrome.once('error', (error) => (failedToRun = error))
+    // Whatever goes wrong from here, Chrome and its profile go too.
+    try {
+      const portFile = join(profile, 'DevToolsActivePort')
+      for (let i = 0; i < 200 && !existsSync(portFile); i++) {
+        if (failedToRun) throw failedToRun
+        if (exited(chrome)) throw new Error('Chrome exited before it was ready.')
+        await sleep(100)
+      }
+      if (!existsSync(portFile)) throw new Error('Chrome opened no debugging port in 20 seconds.')
+      const port = readFileSync(portFile, 'utf8').split('\n')[0]
+      let target: { type: string; webSocketDebuggerUrl: string } | undefined
+      for (let i = 0; i < 100 && !target; i++) {
+        target = await fetch(`http://127.0.0.1:${port}/json/list`)
+          .then((response) => response.json())
+          .then((targets: { type: string; webSocketDebuggerUrl: string }[]) =>
+            targets.find((t) => t.type === 'page'),
+          )
+          .catch(() => undefined)
+        if (!target) await sleep(100)
+      }
+      if (!target) throw new Error('Chrome started but exposed no page to control.')
+      const socket = new WebSocket(target.webSocketDebuggerUrl)
+      await new Promise((resolve, reject) => {
+        socket.addEventListener('open', resolve, { once: true })
+        socket.addEventListener('error', () => reject(new Error('Could not connect to Chrome.')), {
+          once: true,
+        })
+      })
+      const browser = new Browser(chrome, profile, socket)
+      await browser.send('Page.enable')
+      await browser.send('Runtime.enable')
+      return browser
+    } catch (error) {
+      await stop(chrome, profile)
+      throw error
+    }
+  }
+
+  send(method: string, params: object = {}): Promise<any> {
+    const id = ++this.#nextId
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`${method} timed out`)), 60_000)
+      this.#pending.set(id, (message) => {
+        clearTimeout(timer)
+        if (message.error) reject(new Error(`${method}: ${message.error.message}`))
+        else resolve(message.result)
+      })
+      this.#socket.send(JSON.stringify({ id, method, params }))
+    })
+  }
+
+  /** Runs an expression in the page and returns its JSON value. */
+  async evaluate<T = unknown>(expression: string): Promise<T> {
+    const result = await this.send('Runtime.evaluate', {
+      expression,
+      awaitPromise: true,
+      returnByValue: true,
+    })
+    if (result.exceptionDetails)
+      throw new Error(
+        `${result.exceptionDetails.exception?.description ?? result.exceptionDetails.text}\n  in: ${expression.slice(0, 160)}`,
+      )
+    return result.result?.value as T
+  }
+
+  /** Polls a true/false expression until it is true or the time runs out; returns the last answer. */
+  async waitFor(expression: string, ms = 20_000): Promise<boolean> {
+    for (let waited = 0; waited < ms; waited += 250) {
+      if (await this.evaluate<boolean>(`Boolean(${expression})`)) return true
+      await sleep(250)
+    }
+    return false
+  }
+
+  /** Sets the screen size and motion preference, loads the app, and waits for titles and fonts. */
+  async load({
+    width = 1440,
+    height = 900,
+    phone = false,
+    reduceMotion = false,
+    url = BASE_URL,
+  } = {}) {
+    await this.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height,
+      deviceScaleFactor: phone ? 2 : 1,
+      mobile: phone,
+    })
+    await this.send('Emulation.setEmulatedMedia', {
+      features: [
+        { name: 'prefers-reduced-motion', value: reduceMotion ? 'reduce' : 'no-preference' },
+      ],
+    })
+    await this.send('Page.navigate', { url })
+    await this.waitFor(
+      `document.readyState === 'complete' && document.querySelector('#main')`,
+      30_000,
+    )
+    await this.evaluate('document.fonts.ready.then(() => true)')
+  }
+
+  /** Leaves the app and deletes what it saved (titles and all), so the next load is a first visit. */
+  async forget() {
+    // Away from the app first, so it can't save again in between.
+    await this.send('Page.navigate', { url: 'about:blank' })
+    await this.waitFor(`location.href === 'about:blank'`)
+    await this.send('Storage.clearDataForOrigin', {
+      origin: new URL(BASE_URL).origin,
+      storageTypes: 'local_storage',
+    })
+  }
+
+  /** Resolves once the trending panels and the decade strip show real titles. */
+  titlesShown(ms = 60_000) {
+    return this.waitFor(
+      `document.querySelectorAll('.ab-grid .ab-link').length >= 9 && document.querySelectorAll('.ab-strip-row .ab-strip-panel[href]').length > 3`,
+      ms,
+    )
+  }
+
+  /**
+   * Resolves once every finite, time-based animation (entrances, pops, wipes) has finished.
+   * Scroll-driven ones are skipped: they only finish when scrolled through.
+   */
+  animationsDone() {
+    return this.evaluate(
+      `Promise.all(document.getAnimations().filter((a) => a.timeline === document.timeline && a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))).then(() => true)`,
+    )
+  }
+
+  async press(key: 'Tab' | 'Enter' | 'Escape' | 'Backspace' | 'ArrowRight', shift = false) {
+    const code = { Tab: 9, Enter: 13, Escape: 27, Backspace: 8, ArrowRight: 39 }[key]
+    const base = { key, code: key, windowsVirtualKeyCode: code, modifiers: shift ? 8 : 0 }
+    // A real Enter also types "\r": buttons activate on that character, links on the key alone.
+    const text = key === 'Enter' ? { text: '\r' } : {}
+    await this.send('Input.dispatchKeyEvent', { type: 'keyDown', ...base, ...text })
+    await this.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base })
+  }
+
+  /**
+   * Replaces the header search text the way typing does (one input event per character). The
+   * first character replaces the selected old text, so the box never sits empty in between.
+   */
+  async search(text: string) {
+    await this.evaluate(
+      `(() => { const input = document.querySelector('.ab-search input'); input.focus(); input.select(); return true })()`,
+    )
+    if (!text) await this.press('Backspace')
+    for (const character of text) await this.send('Input.insertText', { text: character })
+  }
+
+  /** Makes every request to AniList fail, as if it were down (`false` undoes it). */
+  async blockAniList(blocked = true) {
+    this.#blocking = blocked
+    return this.#intercept()
+  }
+
+  /** Delays every AniList answer by `ms`, to look at loading states (0 undoes it). */
+  async holdAniList(ms: number) {
+    this.#holdMs = ms
+    // Requests still on hold go through now: switching interception off would drop them.
+    if (ms === 0) await Promise.all([...this.#held].map((id) => this.#release(id)))
+    return this.#intercept()
+  }
+
+  /**
+   * Changes AniList's answers before the page sees them, to stage what AniList rarely does.
+   * `rewrite` gets each answer and returns a new status and body, or null to pass it on as
+   * it is. The requests still go to AniList (and count toward its limit); the answers keep
+   * its headers. `null` stops rewriting.
+   */
+  async rewriteAniList(rewrite: Rewrite | null) {
+    this.#rewrite = rewrite
+    return this.#intercept()
+  }
+
+  async #release(requestId: string) {
+    if (!this.#held.delete(requestId)) return
+    await this.send('Fetch.continueRequest', { requestId }).catch(() => {})
+  }
+
+  async #answer({ requestId, request, responseStatusCode, responseHeaders }: any) {
+    const rewrite = this.#rewrite
+    // CORS preflights (OPTIONS) carry no GraphQL; let them and everything else pass.
+    const changed =
+      rewrite && request.method === 'POST'
+        ? await this.send('Fetch.getResponseBody', { requestId })
+            .then(({ body, base64Encoded }) =>
+              rewrite({
+                request: JSON.parse(request.postData),
+                status: responseStatusCode,
+                body: JSON.parse(base64Encoded ? Buffer.from(body, 'base64').toString() : body),
+              }),
+            )
+            .catch(() => null)
+        : null
+    if (!changed) return this.send('Fetch.continueRequest', { requestId }).catch(() => {})
+    await this.send('Fetch.fulfillRequest', {
+      requestId,
+      responseCode: changed.status,
+      // The new body is plain JSON of a new length.
+      responseHeaders: responseHeaders.filter(
+        (header: { name: string }) => !/^content-(encoding|length)$/i.test(header.name),
+      ),
+      body: Buffer.from(JSON.stringify(changed.body)).toString('base64'),
+    }).catch(() => {})
+  }
+
+  async #intercept() {
+    const urlPattern = 'https://graphql.anilist.co/*'
+    const patterns = [
+      ...(this.#blocking || this.#holdMs > 0 ? [{ urlPattern, requestStage: 'Request' }] : []),
+      ...(this.#rewrite ? [{ urlPattern, requestStage: 'Response' }] : []),
+    ]
+    // Answers still being rewritten go through first: switching interception off drops them.
+    await Promise.all(this.#answering)
+    return patterns.length ? this.send('Fetch.enable', { patterns }) : this.send('Fetch.disable')
+  }
+
+  async close() {
+    this.#socket.close()
+    await stop(this.#chrome, this.#profile)
+  }
+}
+
+const exited = (chrome: ChildProcess) => chrome.exitCode !== null || chrome.signalCode !== null
+
+/** Ends Chrome, waits until it has gone, and deletes its throwaway profile. */
+async function stop(chrome: ChildProcess, profile: string) {
+  // With no pid, Chrome never ran, and there may never be an exit event to wait for.
+  if (chrome.pid !== undefined && !exited(chrome)) {
+    chrome.kill()
+    await once(chrome, 'exit')
+  }
+  rmSync(profile, { recursive: true, force: true })
+}

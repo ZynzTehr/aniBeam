@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { ERAS, eraQuery, QUERIES, searchQuery, trendingQuery } from './queries.ts'
+import { ERAS, eraQuery, isRefinement, QUERIES, searchQuery, trendingQuery } from './queries.ts'
 
 test('every media query excludes adult titles', () => {
   for (const [name, query] of Object.entries(QUERIES)) {
@@ -192,4 +192,14 @@ test('every variable a query sends is declared by that query', async (t) => {
       assert.ok(query.includes(`$${name}:`), `sends $${name}, which its query doesn't declare`)
     }
   }
+})
+
+// While a search loads, its previous titles stay on screen only if the visitor is refining
+// the same search. A different search must not show another search's titles.
+test('isRefinement tells refining a search from starting a new one', () => {
+  assert.equal(isRefinement('frier', 'frieren'), true) // typing on
+  assert.equal(isRefinement('frieren', 'frier'), true) // deleting letters
+  assert.equal(isRefinement('frieren', 'frieren beyond'), true)
+  assert.equal(isRefinement('frieren', 'mushishi'), false) // typed over
+  assert.equal(isRefinement('', 'mushishi'), false) // no previous search
 })
