@@ -58,6 +58,20 @@ const cases: [string, Partial<QueryStatus>, boolean, string | RegExp][] = [
     'AniList isn’t responding right now, so these titles may be out of date. It’s not something you did.',
   ],
   ['an empty result', { data: [] }, false, 'No titles found.'],
+  // Right after a list's last try, anilist() is still holding requests back, but nothing retries.
+  [
+    'a failed first load, just after its last try started a pause',
+    { error: tooMany, failureReason: tooMany },
+    true,
+    'AniList, where AniBeam gets its anime, isn’t responding right now. It’s not something you did. Try again in a minute.',
+  ],
+  [
+    'a failed refresh with an earlier list on screen, during the pause it started',
+    { data: twoTitles, error: noConnection, failureReason: noConnection },
+    true,
+    'AniList isn’t responding right now, so these titles may be out of date. It’s not something you did.',
+  ],
+  ['an empty result while requests are held', { data: [] }, true, 'No titles found.'],
   [
     'a list being refreshed',
     { data: twoTitles, isFetching: true },
