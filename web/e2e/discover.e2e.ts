@@ -743,6 +743,61 @@ describe('desktop (1440x900)', () => {
     assert.equal(Math.round(gap), 18)
   })
 
+  test('with motion allowed, a newly picked decade stays at Ch.1 while its titles pop in', async () => {
+    // Each title pops in, small and tilted at first. The row snaps to its list items, and Chrome
+    // snaps to an item's box as transformed, so when the items themselves popped in, the row slid
+    // about 32px sideways and back as the first one grew. The slide was over in about 170ms, so
+    // the row is read on every frame.
+    const checked = `document.querySelector('.ab-eras input:checked').value`
+    const first = `${decadeRow}?.querySelector('.ab-strip-title')?.textContent`
+    // From the 1980s, scrolled to their end. A load opens on the 1990s, so the 1980s an earlier
+    // check picked may be gone by now (or this check may run alone): pick them if so.
+    if ((await browser.evaluate<string>(checked)) !== '1980s') {
+      const nineties = await browser.evaluate<string>(first)
+      await browser.evaluate(
+        `document.querySelector('.ab-eras input[value="1980s"]').click(); true`,
+      )
+      assert.ok(
+        await browser.waitFor(`${first} && ${first} !== ${JSON.stringify(nineties)}`),
+        'the strip kept the 1990s titles',
+      )
+    }
+    await browser.animationsDone()
+    await browser.evaluate(
+      `${decadeRow}.scrollIntoView({ block: 'center' }); ${decadeRow}.scrollTo({ left: ${decadeRow}.scrollWidth, behavior: 'instant' }); true`,
+    )
+    await rowSettled()
+    const scrolled = await browser.evaluate<number>(`${decadeRow}.scrollLeft`)
+    // Back to the 1990s, which come from the cache: the row's scrollLeft on every frame that
+    // shows their titles, until 2 seconds after they went in, when the last has popped in.
+    type Frame = { ms: number; left: number }
+    const frames = await browser.evaluate<Frame[]>(`new Promise((resolve) => {
+      const before = ${first}, frames = []
+      let shown = null, done = false
+      const finish = () => { done = true; resolve(frames) }
+      const sample = (now) => {
+        if (done) return
+        const title = ${first}
+        if (title && title !== before) {
+          shown ??= now
+          frames.push({ ms: Math.round(now - shown), left: ${decadeRow}.scrollLeft })
+        }
+        if (shown !== null && now - shown > 2000) finish()
+        else requestAnimationFrame(sample)
+      }
+      requestAnimationFrame(sample)
+      setTimeout(finish, 10000)
+      document.querySelector('.ab-eras input[value="1990s"]').click()
+    })`)
+    assert.ok(scrolled > 0, 'the 1980s row did not scroll')
+    assert.ok(frames.length > 0, 'the 1990s titles never replaced the 1980s')
+    assert.deepEqual(
+      frames.filter((frame) => frame.left !== 0).map((frame) => `${frame.left}px at ${frame.ms}ms`),
+      [],
+      'the row slid off Ch.1 while the 1990s popped in (its scrollLeft, by time since their titles went in)',
+    )
+  })
+
   test('screen readers hear each pull in one sentence, and the machine says nothing on its own', async () => {
     // A live region speaks every change to its text. The whole reveal used to be one: it spoke
     // its hint when titles arrived, and each pull read the title twice, every star ("black

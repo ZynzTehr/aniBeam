@@ -422,7 +422,9 @@
     animation: ab-boom 0.7s var(--spring) both 0.2s;
   }
 
-  .ab-strip-item {
+  /* Strip titles pop in one after another. The panel pops, not its list item: the row snaps to
+     the items, so an item that popped in pulled the row sideways and back as it grew. */
+  .ab-strip-item > .ab-strip-panel {
     animation: ab-pop 0.6s var(--spring) both;
     animation-delay: calc(var(--i) * 60ms);
   }
