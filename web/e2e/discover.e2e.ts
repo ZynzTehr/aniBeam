@@ -7,41 +7,59 @@ import { Browser } from './browser.ts'
 
 let browser: Browser
 
+// The decade strip's row of titles (the row of empty cards shown while loading is another one).
+const decadeRow = `document.querySelector('[aria-labelledby="decades"] .ab-strip-row:not([aria-hidden])')`
+
+/** Waits until the decade row stops scrolling (snapping animates), so nothing is measured mid-slide. */
+async function rowSettled() {
+  let last = -1
+  for (let settle = 0; settle < 20; settle++) {
+    await sleep(100)
+    const now = await browser.evaluate<number>(`${decadeRow}.scrollLeft`)
+    if (now === last) return
+    last = now
+  }
+}
+
 /**
- * Tabs from the checked decade chip through the strip's panels. For each focused panel: how
- * much of it shows inside the row, and whether its focus ring (4px plus a 3px gap) is cut off.
+ * Tabs from the checked decade chip through the strip's panels, then Shift+Tabs back to the
+ * first. For each focused panel: how much of it shows inside the row, and whether its focus
+ * ring (4px plus a 3px gap) is cut off.
  */
 async function tabThroughStrip() {
   await browser.animationsDone() // the panels pop in; measure them once they have landed
   await browser.evaluate(`document.querySelector('.ab-eras input:checked').focus(); true`)
-  const seen: { visible: number; ringCut: boolean; edges?: number[] }[] = []
-  for (let i = 0; i < 20; i++) {
-    await browser.press('Tab')
-    // Wait until the row stops scrolling (snapping animates), so nothing is measured mid-slide.
-    let last = -1
-    for (let settle = 0; settle < 20; settle++) {
-      await sleep(100)
-      const now = await browser.evaluate<number>(
-        `document.querySelector('.ab-strip-row').scrollLeft`,
-      )
-      if (now === last) break
-      last = now
+  const seen: { panel: number; back: boolean; visible: number; ringCut: boolean }[] = []
+  for (const back of [false, true]) {
+    for (let i = 0; i < 20; i++) {
+      await browser.press('Tab', back)
+      await rowSettled()
+      const step = await browser.evaluate<{
+        panel: number
+        visible: number
+        ringCut: boolean
+      } | null>(`(() => {
+        const panel = document.activeElement
+        if (!panel.matches('.ab-strip-row .ab-strip-panel')) return null
+        const p = panel.getBoundingClientRect(), row = panel.closest('.ab-strip-row').getBoundingClientRect()
+        const visible = Math.max(0, Math.min(p.right, row.right) - Math.max(p.left, row.left)) / p.width
+        const ringCut = p.left - 7 < row.left || p.right + 7 > row.right || p.top - 7 < row.top || p.bottom + 7 > row.bottom
+        return { panel: [...panel.closest('.ab-strip-row').children].indexOf(panel.parentElement) + 1, visible: Math.round(visible * 100) / 100, ringCut }
+      })()`)
+      if (step) seen.push({ ...step, back })
     }
-    const step = await browser.evaluate<{
-      visible: number
-      ringCut: boolean
-      edges?: number[]
-    } | null>(`(() => {
-      const panel = document.activeElement
-      if (!panel.matches('.ab-strip-row .ab-strip-panel')) return null
-      const p = panel.getBoundingClientRect(), row = panel.closest('.ab-strip-row').getBoundingClientRect()
-      const visible = Math.max(0, Math.min(p.right, row.right) - Math.max(p.left, row.left)) / p.width
-      const ringCut = p.left - 7 < row.left || p.right + 7 > row.right || p.top - 7 < row.top || p.bottom + 7 > row.bottom
-      return { visible: Math.round(visible * 100) / 100, ringCut, edges: [p.left - row.left, row.right - p.right, p.top - row.top, row.bottom - p.bottom].map(Math.round) }
-    })()`)
-    if (step) seen.push(step)
   }
   return seen
+}
+
+/** Checks a tabThroughStrip() run: every focused panel shows in full, with its whole ring. */
+function assertStripInView(steps: Awaited<ReturnType<typeof tabThroughStrip>>) {
+  assert.ok(steps.filter((s) => !s.back).length >= 15, 'too few panels reached by Tab')
+  assert.ok(steps.filter((s) => s.back).length >= 15, 'too few panels reached by Shift+Tab')
+  const label = (s: (typeof steps)[number]) =>
+    `${s.back ? 'Shift+Tab' : 'Tab'} to panel ${s.panel}: ${Math.round(s.visible * 100)}% shown${s.ringCut ? ', ring cut' : ''}`
+  const bad = steps.filter((s) => s.visible < 0.95 || s.ringCut).map(label)
+  assert.deepEqual(bad, [], 'focused panels out of view or with their ring cut off')
 }
 before(async () => {
   browser = await Browser.open()
@@ -312,16 +330,16 @@ describe('desktop (1440x900)', () => {
     assert.ok(zooming > 0, 'hovering a panel started no movement at all')
   })
 
-  test('tabbing along the decade strip keeps each focused panel in view, with its whole ring', async () => {
-    const steps = await tabThroughStrip()
-    assert.ok(steps.length >= 15, `only ${steps.length} panels reached by Tab`)
-    const hidden = steps.filter((s) => s.visible < 0.95).map((s) => s.visible)
-    assert.deepEqual(hidden, [], 'focused panels mostly out of view')
-    assert.equal(
-      steps.filter((s) => s.ringCut).length,
-      0,
-      `focus rings cut off by the row: ${JSON.stringify(steps.filter((s) => s.ringCut))}`,
+  test('tabbing along the decade strip, both ways, keeps each focused panel in view, with its whole ring', async () => {
+    assertStripInView(await tabThroughStrip())
+  })
+
+  test('the decade panels sit where they did before the row made room for focus rings', async () => {
+    // 18px under the decade chips, as before the row gained 8px of room on every side.
+    const gap = await browser.evaluate<number>(
+      `${decadeRow}.querySelector('.ab-strip-panel').getBoundingClientRect().top - document.querySelector('.ab-eras').getBoundingClientRect().bottom`,
     )
+    assert.equal(Math.round(gap), 18)
   })
 
   test('the lever pulls a real title from the page', async () => {
@@ -446,16 +464,8 @@ describe('phone (390x844)', () => {
     assert.ok(menu.soonHeight <= 50, `the coming-soon pill is ${menu.soonHeight}px tall`)
   })
 
-  test('on a phone, tabbing along the decade strip keeps each focused panel in view, with its whole ring', async () => {
-    const steps = await tabThroughStrip()
-    assert.ok(steps.length >= 15, `only ${steps.length} panels reached by Tab`)
-    const hidden = steps.filter((s) => s.visible < 0.95).map((s) => s.visible)
-    assert.deepEqual(hidden, [], 'focused panels mostly out of view')
-    assert.equal(
-      steps.filter((s) => s.ringCut).length,
-      0,
-      `focus rings cut off by the row: ${JSON.stringify(steps.filter((s) => s.ringCut))}`,
-    )
+  test('on a phone, tabbing along the decade strip, both ways, keeps each focused panel in view, with its whole ring', async () => {
+    assertStripInView(await tabThroughStrip())
   })
 
   test('a long search never pushes the page wider than the phone', async () => {
@@ -471,5 +481,44 @@ describe('phone (390x844)', () => {
     assert.ok(await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`))
     assert.ok(await browser.evaluate<boolean>(fits), 'the page is wider than the phone')
     await browser.search('')
+  })
+})
+
+describe('small phone (320x568, also a desktop window at 400% zoom)', () => {
+  before(async () => {
+    await browser.load({ width: 320, height: 568, phone: true })
+    assert.ok(await browser.titlesShown())
+  })
+
+  test('the decade row rests at its first panel once the panels have popped in', async () => {
+    await browser.animationsDone()
+    await rowSettled()
+    assert.equal(await browser.evaluate(`${decadeRow}.scrollLeft`), 0)
+  })
+
+  test('a small sideways scroll of the decade row comes to rest with a panel at its start', async () => {
+    await browser.evaluate(`${decadeRow}.scrollIntoView({ block: 'center' }); true`)
+    const at = await browser.evaluate<{ x: number; y: number }>(
+      `(() => { const r = ${decadeRow}.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
+    )
+    await browser.send('Input.dispatchMouseEvent', {
+      type: 'mouseWheel',
+      ...at,
+      deltaX: 40,
+      deltaY: 0,
+    })
+    await sleep(300)
+    await rowSettled()
+    // At rest, some panel starts 8px into the row (the room left for its focus ring).
+    const offset = await browser.evaluate<number>(`(() => {
+      const row = ${decadeRow}, left = row.getBoundingClientRect().left
+      return Math.min(...[...row.querySelectorAll('.ab-strip-panel')].map((p) => Math.abs(p.getBoundingClientRect().left - left - 8)))
+    })()`)
+    assert.ok(offset <= 1, `the row came to rest ${Math.round(offset)}px off a panel`)
+    await browser.evaluate(`${decadeRow}.scrollTo({ left: 0 }); true`)
+  })
+
+  test('tabbing along the decade strip, both ways, keeps each focused panel in view, with its whole ring', async () => {
+    assertStripInView(await tabThroughStrip())
   })
 })
