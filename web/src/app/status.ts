@@ -32,6 +32,9 @@ export function statusText(q: QueryStatus, rateLimited: boolean): string {
       return 'AniList isn’t responding right now. It’s not something you did. Trying again in a minute.'
     if (rateLimited)
       return 'Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.'
+    // Try again, or TanStack's own retry of a failed list (back on the tab, a new visit). An
+    // error saved in an earlier visit comes back from storage as a plain object, not an Error.
+    if (q.error) return 'Trying AniList again…'
   }
   // Errors are worded for visitors: AniList's outage is not their fault.
   // Placeholder titles belong to the previous decade or search, so this list is still loading.

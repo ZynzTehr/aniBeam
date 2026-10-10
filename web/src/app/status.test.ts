@@ -14,6 +14,8 @@ const idle: QueryStatus = {
 }
 const tooMany = new AniListError('Too Many Requests.', 429)
 const noConnection = new TypeError('Failed to fetch')
+// An error as the saved cache brings it back on a later visit: a plain object, not an Error.
+const savedError = JSON.parse(JSON.stringify(new AniListError('API disabled', 403)))
 const twoTitles = [{ id: 1 }, { id: 2 }]
 // Saved lists come back for up to a day, so the line must say when the list was fetched, not
 // the current time. statusText formats that time in the visitor's locale and time zone, so the
@@ -67,6 +69,33 @@ const cases: [string, Partial<QueryStatus>, boolean, string][] = [
     { data: [], error: noConnection, failureReason: noConnection },
     false,
     'AniList, where AniBeam gets its anime, isn’t responding right now. It’s not something you did. Try again in a minute.',
+  ],
+  // A list whose refresh failed keeps its error while Try again runs, and while TanStack
+  // retries it on its own (back on the tab, a new visit). If requests are held, it waits that
+  // out first.
+  [
+    'Try again with an earlier list on screen',
+    { data: twoTitles, error: noConnection, isFetching: true },
+    false,
+    'Trying AniList again…',
+  ],
+  [
+    'trying again after a visit whose refresh failed',
+    { data: twoTitles, error: savedError, isFetching: true },
+    false,
+    'Trying AniList again…',
+  ],
+  [
+    'Try again on an empty list',
+    { data: [], error: noConnection, isFetching: true },
+    false,
+    'Trying AniList again…',
+  ],
+  [
+    'Try again waiting out a pause first',
+    { data: twoTitles, error: noConnection, isFetching: true },
+    true,
+    'Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.',
   ],
   ['an empty result', { data: [] }, false, 'No titles found.'],
   // Right after a list's last try, anilist() is still holding requests back, but nothing retries.
@@ -125,6 +154,11 @@ test('note: speaks while loading, empty, failed, offline or held for a rate limi
   assert.equal(
     noteFor({ ...idle, data: twoTitles, error: noConnection, failureReason: noConnection }, false),
     'AniList isn’t responding right now, so these titles may be out of date. It’s not something you did.',
+  )
+  // Then Try again: the titles stay on screen while it runs.
+  assert.equal(
+    noteFor({ ...idle, data: twoTitles, error: noConnection, isFetching: true }, false),
+    'Trying AniList again…',
   )
   assert.equal(
     noteFor({ ...idle, data: twoTitles, isPaused: true }, false),
@@ -206,6 +240,15 @@ test('search announcements say why a search is held up', () => {
   assert.equal(
     searchStatus({ ...idle, isFetching: true, failureReason: noConnection }, 'zzz', false),
     'AniList isn’t responding right now. It’s not something you did. Trying again in a minute.',
+  )
+  // Try again on a saved search whose refresh failed.
+  assert.equal(
+    searchStatus(
+      { ...idle, data: twoTitles, error: noConnection, isFetching: true },
+      'frieren',
+      false,
+    ),
+    'Trying AniList again…',
   )
   assert.equal(
     searchStatus({ ...idle, data: twoTitles }, 'frieren', true),
