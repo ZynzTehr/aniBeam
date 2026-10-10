@@ -309,15 +309,21 @@
 }
 
 .ab-strip-row {
+  --strip-col: clamp(150px, 17vw, 210px);
   display: grid;
-  grid-auto-columns: clamp(150px, 17vw, 210px);
+  grid-auto-columns: var(--strip-col);
   grid-auto-flow: column;
   gap: var(--gutter);
-  margin: 0;
-  padding: 0 0 14px;
+  /* 8px of room on every side so a focused panel's 7px ring isn't cut off; the negative
+     margin keeps the panels where they were. */
+  margin: 0 -8px;
+  padding: 8px 8px 14px;
   overflow-x: auto;
   list-style: none;
   scroll-snap-type: x mandatory;
+  /* Chrome won't scroll a focused panel into view while any of it shows. A full column of
+     end padding makes a panel that only peeks in count as out of view, so focus brings it in. */
+  scroll-padding-inline: 8px calc(var(--strip-col) + var(--gutter) + 8px);
 }
 
 .ab-strip-item {
@@ -1620,6 +1626,8 @@ body:has(.ab-card[open]) {
 }
 
 .ab-strip-grid {
+  margin: 0; /* the results grid wraps instead of scrolling, so it needs no room for rings */
+  padding: 0 0 14px;
   grid-auto-flow: row;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   overflow: visible;

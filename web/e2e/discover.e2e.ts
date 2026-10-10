@@ -6,6 +6,43 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { Browser } from './browser.ts'
 
 let browser: Browser
+
+/**
+ * Tabs from the checked decade chip through the strip's panels. For each focused panel: how
+ * much of it shows inside the row, and whether its focus ring (4px plus a 3px gap) is cut off.
+ */
+async function tabThroughStrip() {
+  await browser.animationsDone() // the panels pop in; measure them once they have landed
+  await browser.evaluate(`document.querySelector('.ab-eras input:checked').focus(); true`)
+  const seen: { visible: number; ringCut: boolean; edges?: number[] }[] = []
+  for (let i = 0; i < 20; i++) {
+    await browser.press('Tab')
+    // Wait until the row stops scrolling (snapping animates), so nothing is measured mid-slide.
+    let last = -1
+    for (let settle = 0; settle < 20; settle++) {
+      await sleep(100)
+      const now = await browser.evaluate<number>(
+        `document.querySelector('.ab-strip-row').scrollLeft`,
+      )
+      if (now === last) break
+      last = now
+    }
+    const step = await browser.evaluate<{
+      visible: number
+      ringCut: boolean
+      edges?: number[]
+    } | null>(`(() => {
+      const panel = document.activeElement
+      if (!panel.matches('.ab-strip-row .ab-strip-panel')) return null
+      const p = panel.getBoundingClientRect(), row = panel.closest('.ab-strip-row').getBoundingClientRect()
+      const visible = Math.max(0, Math.min(p.right, row.right) - Math.max(p.left, row.left)) / p.width
+      const ringCut = p.left - 7 < row.left || p.right + 7 > row.right || p.top - 7 < row.top || p.bottom + 7 > row.bottom
+      return { visible: Math.round(visible * 100) / 100, ringCut, edges: [p.left - row.left, row.right - p.right, p.top - row.top, row.bottom - p.bottom].map(Math.round) }
+    })()`)
+    if (step) seen.push(step)
+  }
+  return seen
+}
 before(async () => {
   browser = await Browser.open()
 })
@@ -275,6 +312,18 @@ describe('desktop (1440x900)', () => {
     assert.ok(zooming > 0, 'hovering a panel started no movement at all')
   })
 
+  test('tabbing along the decade strip keeps each focused panel in view, with its whole ring', async () => {
+    const steps = await tabThroughStrip()
+    assert.ok(steps.length >= 15, `only ${steps.length} panels reached by Tab`)
+    const hidden = steps.filter((s) => s.visible < 0.95).map((s) => s.visible)
+    assert.deepEqual(hidden, [], 'focused panels mostly out of view')
+    assert.equal(
+      steps.filter((s) => s.ringCut).length,
+      0,
+      `focus rings cut off by the row: ${JSON.stringify(steps.filter((s) => s.ringCut))}`,
+    )
+  })
+
   test('the lever pulls a real title from the page', async () => {
     await browser.evaluate(
       `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').click(); true`,
@@ -393,6 +442,18 @@ describe('phone (390x844)', () => {
     })`)
     assert.ok(menu.right <= 374, `the menu ends at ${menu.right}px`)
     assert.ok(menu.soonHeight <= 50, `the coming-soon pill is ${menu.soonHeight}px tall`)
+  })
+
+  test('on a phone, tabbing along the decade strip keeps each focused panel in view, with its whole ring', async () => {
+    const steps = await tabThroughStrip()
+    assert.ok(steps.length >= 15, `only ${steps.length} panels reached by Tab`)
+    const hidden = steps.filter((s) => s.visible < 0.95).map((s) => s.visible)
+    assert.deepEqual(hidden, [], 'focused panels mostly out of view')
+    assert.equal(
+      steps.filter((s) => s.ringCut).length,
+      0,
+      `focus rings cut off by the row: ${JSON.stringify(steps.filter((s) => s.ringCut))}`,
+    )
   })
 
   test('a long search never pushes the page wider than the phone', async () => {

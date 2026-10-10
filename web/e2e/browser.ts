@@ -193,6 +193,16 @@ export class Browser {
     )
   }
 
+  /**
+   * Resolves once every finite, time-based animation (entrances, pops, wipes) has finished.
+   * Scroll-driven ones are skipped: they only finish when scrolled through.
+   */
+  animationsDone() {
+    return this.evaluate(
+      `Promise.all(document.getAnimations().filter((a) => a.timeline === document.timeline && a.effect?.getTiming().iterations !== Infinity).map((a) => a.finished.catch(() => {}))).then(() => true)`,
+    )
+  }
+
   async press(key: 'Tab' | 'Enter' | 'Escape' | 'Backspace' | 'ArrowRight', shift = false) {
     const code = { Tab: 9, Enter: 13, Escape: 27, Backspace: 8, ArrowRight: 39 }[key]
     const base = { key, code: key, windowsVirtualKeyCode: code, modifiers: shift ? 8 : 0 }
