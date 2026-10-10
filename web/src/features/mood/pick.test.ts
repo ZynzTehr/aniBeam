@@ -24,6 +24,14 @@ test('a pull only picks titles with one of the vibe genres', () => {
   }
 })
 
+test('a vibe matches titles that have any one of its genres', () => {
+  // Title 2 has Comedy but not Sports, and title 5 has Sports but not Comedy: the vibe's only
+  // matches. Draw 0 takes the first match and 0.99 the last, so both come up, in either order.
+  const first = pickTitle(pool, ['Comedy', 'Sports'], new Set(), sequence(0))
+  const last = pickTitle(pool, ['Comedy', 'Sports'], new Set(), sequence(0.99))
+  assert.deepEqual(new Set([first?.id, last?.id]), new Set([2, 5]))
+})
+
 test('no title repeats until every match has come up once', () => {
   // This holds whatever the draw, so fixed draws make a broken pickTitle fail every run, not
   // just by chance. 0 always takes the first unseen title and 0.99 the last, so a title at
