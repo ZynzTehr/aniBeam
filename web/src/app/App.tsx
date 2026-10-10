@@ -4,7 +4,7 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from '@tanstack/react-query'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { IntroHero } from '../components/IntroHero.tsx'
 import { MangaPage } from '../components/MangaPage.tsx'
 import { SiteHeader } from '../components/SiteHeader.tsx'
@@ -183,6 +183,16 @@ function SearchResults({
   const status = searchStatus(results, term, isRateLimited())
   useEffect(() => onStatus(status), [status, onStatus])
   useEffect(() => () => onStatus(''), [onStatus])
+
+  // A different search starts from the top of the page, where its heading and loading state
+  // show. On wide screens the header stays put, so the box can be typed in from far down the
+  // results. Refining a search keeps the visitor's place. Before paint, so no frame shows the
+  // old place.
+  const lastTerm = useRef(term)
+  useLayoutEffect(() => {
+    if (!isRefinement(lastTerm.current, term)) window.scrollTo({ top: 0 })
+    lastTerm.current = term
+  }, [term])
   return (
     <div className="ab-results">
       <Strip

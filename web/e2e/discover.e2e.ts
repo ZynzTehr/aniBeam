@@ -246,18 +246,49 @@ describe('desktop (1440x900)', () => {
     await browser.search('')
   })
 
-  test('refining a search keeps its titles on screen while the refined one loads', async () => {
+  test('refining a search keeps its titles on screen, and the visitor’s place, while it loads', async () => {
     await browser.search('mushishi')
     assert.ok(await browser.waitFor(`/mushi-?shi/i.test(${resultTitles})`), 'no Mushishi results')
+    await browser.evaluate('scrollTo(0, 300); true')
     await browser.holdAniList(3_000)
     await browser.search('mushishi zoku')
     assert.ok(
       await browser.waitFor(resultsFor('mushishi zoku'), 5_000),
       'the heading never switched',
     )
-    const refining = await browser.evaluate<string>(resultTitles)
+    const refining = await browser.evaluate<{ titles: string; scrollY: number }>(
+      `({ titles: ${resultTitles}, scrollY })`,
+    )
     await browser.holdAniList(0)
-    assert.match(refining, /mushi-?shi/i, 'the titles emptied while the refined search loaded')
+    assert.match(
+      refining.titles,
+      /mushi-?shi/i,
+      'the titles emptied while the refined search loaded',
+    )
+    assert.equal(refining.scrollY, 300, 'refining the search moved the page')
+    await browser.search('')
+  })
+
+  test('a different search shows that it is loading, even when typed from far down the results', async () => {
+    const panels = `document.querySelectorAll('.ab-results .ab-strip-panel[href]')`
+    await browser.search('naruto')
+    assert.ok(await browser.waitFor(`${panels}.length >= 12`), 'too few Naruto results')
+    // The header stays on screen here, so the box can be typed in from anywhere on the page.
+    await browser.evaluate(`[...${panels}].at(-1).scrollIntoView({ block: 'center' }); true`)
+    await browser.holdAniList(3_000)
+    await browser.search('dragon ball')
+    assert.ok(await browser.waitFor(resultsFor('dragon ball'), 5_000), 'the heading never switched')
+    await sleep(100)
+    const loading = await browser.evaluate<{ text: string; top: number; below: number }>(`(() => {
+      const note = document.querySelector('.ab-results .ab-note'), r = note.getBoundingClientRect()
+      return { text: note.textContent, top: r.top, below: document.querySelector('.ab-top').getBoundingClientRect().bottom }
+    })()`)
+    await browser.holdAniList(0)
+    assert.equal(loading.text, 'Loading…')
+    assert.ok(
+      loading.top >= loading.below && loading.top < 900,
+      `the Loading… line is at ${Math.round(loading.top)}px, outside the view under the header (${Math.round(loading.below)}px to 900px)`,
+    )
     await browser.search('')
   })
 
