@@ -233,6 +233,34 @@ describe('desktop (1440x900)', () => {
     await browser.search('')
   })
 
+  test('every label on the pull machine reads at 4.5:1 or better', async () => {
+    // WCAG contrast of each label's text against the nearest solid background behind it.
+    const ratios = await browser.evaluate<{ text: string; ratio: number }[]>(`(() => {
+      const rgb = (color) => color.match(/[\\d.]+/g).map(Number)
+      const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+      const lum = ([r, g, b]) => 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+      const behind = (el) => {
+        for (let e = el; e; e = e.parentElement) {
+          const c = rgb(getComputedStyle(e).backgroundColor)
+          if (c.length < 4 || c[3] === 1) return c
+        }
+        return [255, 255, 255]
+      }
+      return [...document.querySelectorAll('.ab-body legend, .ab-body .ab-chip span, .ab-body .ab-lever span, .ab-body .ab-count')]
+        .map((el) => {
+          const [a, b] = [lum(rgb(getComputedStyle(el).color)), lum(behind(el))].sort((x, y) => y - x)
+          return { text: el.textContent.trim(), ratio: Math.round(((a + 0.05) / (b + 0.05)) * 100) / 100 }
+        })
+    })()`)
+    assert.ok(ratios.length >= 7, `found only ${ratios.length} labels`)
+    const faint = ratios.filter((label) => label.ratio < 4.5)
+    assert.deepEqual(
+      faint,
+      [],
+      `too faint: ${faint.map((l) => `${l.text} ${l.ratio}:1`).join(', ')}`,
+    )
+  })
+
   test('the lever pulls a real title from the page', async () => {
     await browser.evaluate(
       `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').click(); true`,
