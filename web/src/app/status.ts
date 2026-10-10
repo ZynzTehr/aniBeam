@@ -12,7 +12,7 @@ export type QueryStatus = {
   failureReason: Error | null
   isFetching: boolean
   isPaused: boolean
-  /** The previous key's list, shown by keepPreviousData while this one loads. */
+  /** Another key's list shown while this one loads: the last decade's, or a refined search's. */
   isPlaceholderData: boolean
   dataUpdatedAt: number
 }

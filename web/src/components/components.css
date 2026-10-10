@@ -1758,8 +1758,10 @@ body:has(.ab-card[open]) {
 }
 
 /* ---------- Movement on hover, focus and press (only when the visitor allows motion) ----------
-   The base styles above change only color, shadow and opacity, which is what visitors who
-   ask for reduced motion get (spec §3J). Everything that slides, zooms or swings is here. */
+   Visitors who ask for reduced motion get the base styles above (spec §3J): hover, focus and
+   press change color, shadow or opacity. A focused search bubble and a checked chip still sit
+   lifted, but they change at once, with nothing sliding there. Everything that slides, zooms
+   or swings is here. */
 @media (prefers-reduced-motion: no-preference) {
   .ab-img img {
     transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);

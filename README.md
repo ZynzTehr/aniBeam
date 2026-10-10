@@ -45,6 +45,7 @@ This repo is an [npm workspaces](https://docs.npmjs.com/cli/using-npm/workspaces
 ```
 AniBeam/
 ├── web/                     # Frontend: React + Vite + TypeScript + Tailwind CSS v4
+│   ├── e2e/                 # Browser checks (*.e2e.ts) and the Chrome driver they share
 │   ├── public/              # Static files served as-is, including the fonts
 │   └── src/
 │       ├── app/             # App shell: root component, router, providers
@@ -74,7 +75,7 @@ AniBeam/
 └── package.json             # Workspace root and shared scripts
 ```
 
-Empty folders hold a `.gitkeep` file so git tracks them; each one is removed once real code lands in that folder. Tests live next to the code they test (`*.test.ts`).
+Empty folders hold a `.gitkeep` file so git tracks them; each one is removed once real code lands in that folder. Unit tests live next to the code they test (`*.test.ts`). The browser checks live in `web/e2e` (`*.e2e.ts`).
 
 ## Notes
 
@@ -117,6 +118,8 @@ CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm ru
 ```
 
 They use the real AniList API, so they count against its limit of 30 requests a minute. The outage check takes about two minutes, because the app waits a minute before retrying a failed connection.
+
+Some checks stage answers AniList rarely gives, such as a refused request or titles all tagged Ecchi. `web/e2e/browser.ts` rewrites AniList's replies in the browser before the page sees them, so those requests still reach AniList.
 
 ### Tailwind CSS v4 and custom CSS
 

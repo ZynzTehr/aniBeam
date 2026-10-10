@@ -96,8 +96,8 @@ test('note: speaks while loading, empty, failed, offline or held for a rate limi
   )
 })
 
-// While a new decade or search loads, keepPreviousData shows the previous list as a
-// placeholder (with dataUpdatedAt 0). It is not this query's answer.
+// While a new decade loads, or a search that refines the last one, the previous list stays as
+// a placeholder (with dataUpdatedAt 0). It is not this query's answer.
 test('placeholder titles from the previous list never read as this list’s answer', () => {
   // The previous search found nothing: the new one is loading, not "No titles found."
   assert.equal(
