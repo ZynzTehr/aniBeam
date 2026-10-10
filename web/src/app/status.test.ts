@@ -15,9 +15,13 @@ const idle: QueryStatus = {
 const tooMany = new AniListError('Too Many Requests.', 429)
 const noConnection = new TypeError('Failed to fetch')
 const twoTitles = [{ id: 1 }, { id: 2 }]
+// Saved lists come back for up to a day, so the line must say when the list was fetched, not
+// the current time. statusText formats that time in the visitor's locale and time zone, so the
+// expected time is formatted the same way.
+const threeHoursAgo = Date.now() - 3 * 60 * 60 * 1000
 
 // [situation, query state, requests held for a rate limit?, expected status line]
-const cases: [string, Partial<QueryStatus>, boolean, string | RegExp][] = [
+const cases: [string, Partial<QueryStatus>, boolean, string][] = [
   ['first load', { isFetching: true }, false, 'Loading…'],
   // TanStack reports a query held while offline as paused, never as fetching too.
   ['offline', { isPaused: true }, false, 'Offline: waiting for a connection.'],
@@ -73,18 +77,16 @@ const cases: [string, Partial<QueryStatus>, boolean, string | RegExp][] = [
   ],
   ['an empty result while requests are held', { data: [] }, true, 'No titles found.'],
   [
-    'a list being refreshed',
-    { data: twoTitles, isFetching: true },
+    'a list being refreshed says when it was fetched',
+    { data: twoTitles, isFetching: true, dataUpdatedAt: threeHoursAgo },
     false,
-    /^2 titles, fetched at .+ \(refreshing…\)$/,
+    `2 titles, fetched at ${new Date(threeHoursAgo).toLocaleTimeString()} (refreshing…)`,
   ],
 ]
 
 for (const [situation, state, rateLimited, expected] of cases) {
   test(`status line: ${situation}`, () => {
-    const text = statusText({ ...idle, ...state }, rateLimited)
-    if (expected instanceof RegExp) assert.match(text, expected)
-    else assert.equal(text, expected)
+    assert.equal(statusText({ ...idle, ...state }, rateLimited), expected)
   })
 }
 
