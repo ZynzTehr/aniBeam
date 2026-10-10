@@ -10,12 +10,21 @@ export type IntroAction = { href: string; label: string; primary?: boolean }
  * up with what's hot and new, and to talk about it. It fills the screen under the header
  * (the header publishes its height as --top-h), so the next section starts below the fold.
  */
-export function IntroHero({ titles, actions }: { titles: Media[]; actions: IntroAction[] }) {
+export function IntroHero({
+  titles,
+  loading = false,
+  actions,
+}: {
+  titles: Media[]
+  /** Hold the covers' place while the first load runs (on phones, so the headline stays put). */
+  loading?: boolean
+  actions: IntroAction[]
+}) {
   // Three real covers say "anime" at a glance. Small covers are skipped so none look blurry.
   const covers = titles.filter((media) => !hasSmallCover(media)).slice(0, 3)
   return (
     <section className="ab-intro" aria-labelledby="ab-intro-title">
-      <div className="ab-intro-art" aria-hidden="true">
+      <div className={loading ? 'ab-intro-art is-loading' : 'ab-intro-art'} aria-hidden="true">
         {covers.map((media, i) => (
           <img
             key={media.id}

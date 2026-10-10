@@ -221,6 +221,17 @@ export class Browser {
     await this.evaluate('document.fonts.ready.then(() => true)')
   }
 
+  /** Leaves the app and deletes what it saved (titles and all), so the next load is a first visit. */
+  async forget() {
+    // Away from the app first, so it can't save again in between.
+    await this.send('Page.navigate', { url: 'about:blank' })
+    await this.waitFor(`location.href === 'about:blank'`)
+    await this.send('Storage.clearDataForOrigin', {
+      origin: new URL(BASE_URL).origin,
+      storageTypes: 'local_storage',
+    })
+  }
+
   /** Resolves once the trending panels and the decade strip show real titles. */
   titlesShown(ms = 60_000) {
     return this.waitFor(

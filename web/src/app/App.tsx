@@ -96,6 +96,9 @@ export default function App() {
         ) : (
           <IntroHero
             titles={trending.data ?? []}
+            // Not once a try has failed or the browser is offline: covers that aren't coming
+            // would leave an empty band pushing the buttons off a phone's first screen.
+            loading={trending.isPending && !trending.isPaused && !trending.failureReason}
             actions={[
               { href: '#ab-trending', label: 'See what’s trending', primary: true },
               { href: '#pull', label: 'Pull a random title' },

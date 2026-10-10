@@ -1541,13 +1541,16 @@ body:has(.ab-card[open]) {
     font-size: clamp(34px, 10.8vw, 60px);
   }
 
-  /* The tilted side covers hang about 27px below their box, so the bottom padding clears them.
-     The height is held while trending loads (138px covers + 46px padding), so the headline
-     below doesn't jump down when they arrive. */
+  /* The tilted side covers hang about 27px below their box, so the bottom padding clears them. */
   .ab-intro-art {
     justify-content: flex-start;
-    min-height: 184px;
     padding: 4px 0 42px 26px;
+  }
+
+  /* While trending loads, the box holds the covers' height (138px covers + 46px padding), so the
+     headline below doesn't jump down when they arrive. */
+  .ab-intro-art.is-loading {
+    min-height: 184px;
   }
 
   .ab-intro-art img {
