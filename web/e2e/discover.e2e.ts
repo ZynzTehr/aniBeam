@@ -340,7 +340,7 @@ describe('desktop (1440x900)', () => {
 })
 
 describe('tablet (834x1112, iPad Pro 11" portrait)', () => {
-  test('a pulled title’s text gets a readable column, and nothing overflows', async () => {
+  test('a pulled title stacks under its poster, and nothing overflows once it has landed', async () => {
     await browser.load({ width: 834, height: 1112 })
     assert.ok(await browser.titlesShown())
     await browser.evaluate(
@@ -350,11 +350,13 @@ describe('tablet (834x1112, iPad Pro 11" portrait)', () => {
       await browser.waitFor(`document.querySelector('.ab-result.is-open .ab-result-copy')`, 5_000),
       'nothing was pulled',
     )
-    const result = await browser.evaluate<{ copy: number; wide: number }>(`({
-      copy: document.querySelector('.ab-result-copy').getBoundingClientRect().width,
+    await browser.animationsDone() // the rarity sticker pops in from 2.4 times its size
+    const result = await browser.evaluate<{ columns: string; wide: number }>(`({
+      columns: getComputedStyle(document.querySelector('.ab-result')).gridTemplateColumns,
       wide: document.documentElement.scrollWidth - innerWidth,
     })`)
-    assert.ok(result.copy >= 180, `the title and buttons get a ${Math.round(result.copy)}px column`)
+    // Beside the poster, the text got a column about 56px wide (review finding F2).
+    assert.equal(result.columns.split(' ').length, 1, `the result has columns ${result.columns}`)
     assert.ok(result.wide <= 0, `the page is ${result.wide}px wider than the screen`)
   })
 })
