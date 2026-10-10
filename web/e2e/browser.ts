@@ -212,12 +212,15 @@ export class Browser {
     await this.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base })
   }
 
-  /** Replaces the header search text the way typing does (one input event per character). */
+  /**
+   * Replaces the header search text the way typing does (one input event per character). The
+   * first character replaces the selected old text, so the box never sits empty in between.
+   */
   async search(text: string) {
     await this.evaluate(
       `(() => { const input = document.querySelector('.ab-search input'); input.focus(); input.select(); return true })()`,
     )
-    await this.press('Backspace')
+    if (!text) await this.press('Backspace')
     for (const character of text) await this.send('Input.insertText', { text: character })
   }
 

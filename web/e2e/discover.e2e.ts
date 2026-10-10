@@ -9,6 +9,10 @@ let browser: Browser
 
 // The decade strip's row of titles (the row of empty cards shown while loading is another one).
 const decadeRow = `document.querySelector('[aria-labelledby="decades"] .ab-strip-row:not([aria-hidden])')`
+// The search results' titles, joined; and whether the results heading names a search term.
+const resultTitles = `[...document.querySelectorAll('.ab-results .ab-strip-panel[href] .ab-strip-title')].map((t) => t.textContent).join(' | ')`
+const resultsFor = (term: string) =>
+  `document.querySelector('#results')?.textContent.includes(${JSON.stringify(`“${term}”`)})`
 
 /** Waits until the decade row stops scrolling (snapping animates), so nothing is measured mid-slide. */
 async function rowSettled() {
@@ -217,28 +221,43 @@ describe('desktop (1440x900)', () => {
     )
   })
 
-  test('a new search never shows the previous search’s titles while it loads', async () => {
-    const titles = `[...document.querySelectorAll('.ab-results .ab-strip-panel[href] .ab-strip-title')].map((t) => t.textContent).join(' | ')`
+  test('a different search, typed over the last or after clearing it, never shows the old titles while it loads', async () => {
     await browser.search('frieren')
-    assert.ok(await browser.waitFor(`/Frieren/i.test(${titles})`), 'no Frieren results')
-    await browser.search('')
+    assert.ok(await browser.waitFor(`/Frieren/i.test(${resultTitles})`), 'no Frieren results')
+
+    // Typed straight over: the box never empties, so the results stay on the page throughout.
     await browser.holdAniList(3_000)
     await browser.search('mushishi')
-    assert.ok(
-      await browser.waitFor(
-        `document.querySelector('#results')?.textContent.includes('mushishi')`,
-        5_000,
-      ),
-      'the results heading never switched to the new search',
-    )
-    const whileLoading = await browser.evaluate<string>(titles)
+    assert.ok(await browser.waitFor(resultsFor('mushishi'), 5_000), 'the heading never switched')
+    const typedOver = await browser.evaluate<string>(resultTitles)
     await browser.holdAniList(0)
-    assert.doesNotMatch(
-      whileLoading,
-      /Frieren/i,
-      'the cleared search’s titles came back under the new heading',
+    assert.doesNotMatch(typedOver, /Frieren/i, 'the last search’s titles showed under the new one')
+    assert.ok(await browser.waitFor(`/mushi-?shi/i.test(${resultTitles})`), 'no Mushishi results') // English title: MUSHI-SHI
+
+    // Cleared first: a new search starts from nothing, even one that "mushishi" starts with.
+    await browser.search('')
+    assert.ok(await browser.waitFor(`!document.querySelector('.ab-results')`, 5_000))
+    await browser.holdAniList(3_000)
+    await browser.search('mushi')
+    assert.ok(await browser.waitFor(resultsFor('mushi'), 5_000), 'the heading never switched')
+    const afterClear = await browser.evaluate<string>(resultTitles)
+    await browser.holdAniList(0)
+    assert.equal(afterClear, '', 'the cleared search’s titles came back')
+    await browser.search('')
+  })
+
+  test('refining a search keeps its titles on screen while the refined one loads', async () => {
+    await browser.search('mushishi')
+    assert.ok(await browser.waitFor(`/mushi-?shi/i.test(${resultTitles})`), 'no Mushishi results')
+    await browser.holdAniList(3_000)
+    await browser.search('mushishi zoku')
+    assert.ok(
+      await browser.waitFor(resultsFor('mushishi zoku'), 5_000),
+      'the heading never switched',
     )
-    assert.ok(await browser.waitFor(`/mushi-?shi/i.test(${titles})`), 'no Mushishi results') // English title: MUSHI-SHI
+    const refining = await browser.evaluate<string>(resultTitles)
+    await browser.holdAniList(0)
+    assert.match(refining, /mushi-?shi/i, 'the titles emptied while the refined search loaded')
     await browser.search('')
   })
 
