@@ -469,6 +469,28 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('the vibe pill is centered on its text and clear of the chips’ focus rings', async () => {
+    const pill = await browser.evaluate<{ left: number; right: number; ringGap: number }>(`(() => {
+      const legend = document.querySelector('.ab-moods legend'), box = legend.getBoundingClientRect()
+      const range = document.createRange()
+      range.selectNodeContents(legend)
+      const text = range.getBoundingClientRect()
+      // Chrome adds letter spacing after the last letter too, where it shows as space.
+      const trailing = parseFloat(getComputedStyle(legend).letterSpacing)
+      // A checked chip lifts 2px, and a focused one's ring reaches 7px further (4px, 3px out).
+      const ringTops = [...document.querySelectorAll('.ab-moods .ab-chip span')]
+        .map((chip) => ({ r: chip.getBoundingClientRect(), lifted: chip.previousElementSibling.checked }))
+        .filter(({ r }) => r.left - 7 < box.right && r.right + 7 > box.left)
+        .map(({ r, lifted }) => r.top - (lifted ? 0 : 2) - 7)
+      return { left: text.left - box.left, right: box.right - (text.right - trailing), ringGap: Math.min(...ringTops) - box.bottom }
+    })()`)
+    assert.ok(
+      Math.abs(pill.left - pill.right) <= 0.5,
+      `the text sits ${(pill.right - pill.left).toFixed(1)}px left of center`,
+    )
+    assert.ok(pill.ringGap >= 2, `a focused chip's ring comes within ${pill.ringGap}px of the pill`)
+  })
+
   test('with motion allowed, hovering a panel still zooms its cover', async () => {
     await browser.animationsDone() // each cover settles in from 1.3 times its size
     await browser.evaluate(`document.querySelector('#ab-trending').scrollIntoView(); true`)

@@ -706,8 +706,10 @@ body:has(.ab-card[open]) {
 /* The machine's two labels sit on ink pills: white straight on hot pink is only 3.65:1. */
 .ab-moods legend {
   width: fit-content;
-  margin: 0 auto 8px;
-  padding: 3px 10px;
+  /* A checked chip lifts 2px and a focused one's ring reaches 7px more: 12px keeps 3px clear. */
+  margin: 0 auto 12px;
+  /* Chrome adds the letter spacing after the last letter too; less padding there evens it out. */
+  padding: 3px calc(10px - 0.14em) 3px 10px;
   border-radius: 999px;
   background: var(--ink);
   font-size: 13px;
