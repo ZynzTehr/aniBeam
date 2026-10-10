@@ -91,6 +91,8 @@ for (const [situation, state, rateLimited, expected] of cases) {
 // The page shows a section's status line only when there is something to say.
 test('note: quiet while the titles are on screen, even during a normal refresh', () => {
   assert.equal(noteFor({ ...idle, data: twoTitles }, false), null)
+  // A search that finds a single title.
+  assert.equal(noteFor({ ...idle, data: [{ id: 1 }] }, false), null)
   assert.equal(noteFor({ ...idle, data: twoTitles, isFetching: true }, false), null)
   // Another request's pause holds requests back, but this list isn't waiting on it.
   assert.equal(noteFor({ ...idle, data: twoTitles }, true), null)
