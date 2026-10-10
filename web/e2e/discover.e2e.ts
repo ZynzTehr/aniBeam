@@ -292,6 +292,20 @@ describe('desktop (1440x900)', () => {
     await browser.search('')
   })
 
+  test('titles that have left the screen stay gone, even for a search they would refine', async () => {
+    await browser.search('naruto')
+    assert.ok(await browser.waitFor(`/naruto/i.test(${resultTitles})`), 'no Naruto results')
+    await browser.holdAniList(3_000)
+    await browser.search('dragon')
+    assert.ok(await browser.waitFor(resultsFor('dragon'), 5_000), 'the heading never switched')
+    await browser.search('nar') // "naruto" refines "nar", but its titles are no longer on screen
+    assert.ok(await browser.waitFor(resultsFor('nar'), 5_000), 'the heading never switched')
+    const titles = await browser.evaluate<string>(resultTitles)
+    await browser.holdAniList(0)
+    assert.equal(titles, '', 'the Naruto titles came back under “nar”')
+    await browser.search('')
+  })
+
   test('screen readers hear each search’s outcome from one status line that is always there', async () => {
     const region = `document.querySelector('main > [role="status"]')`
     // The previous check clears its search; the line empties once that settles (300 ms).

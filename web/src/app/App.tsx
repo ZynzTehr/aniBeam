@@ -157,9 +157,10 @@ export default function App() {
 }
 
 /**
- * Search results, rendered only while searching. While a search loads, the previous titles stay
- * on screen only if the visitor is refining that search (isRefinement); a different search,
- * even one typed straight over the last, starts from empty cards.
+ * Search results, rendered only while searching. While a search loads, the titles on screen
+ * stay only if the visitor is refining their search (isRefinement); a different search, even
+ * one typed straight over the last, starts from empty cards. Titles that have left the screen
+ * don't come back.
  */
 function SearchResults({
   term,
@@ -173,12 +174,19 @@ function SearchResults({
   /** Receives the screen-reader announcement for this search ('' once it is gone). */
   onStatus: (text: string) => void
 }) {
+  // Whether the last render showed titles: this search's own, or those of the one it refines.
+  // TanStack offers the last search that had titles, even after a different search's empty
+  // cards have replaced them.
+  const titlesShown = useRef(false)
   const results = useQuery({
     ...searchQuery(term),
     placeholderData: (previous, previousQuery) => {
       const before = (previousQuery?.queryKey[2] as { search?: string } | undefined)?.search
-      return isRefinement(before ?? '', term) ? previous : undefined
+      return titlesShown.current && isRefinement(before ?? '', term) ? previous : undefined
     },
+  })
+  useLayoutEffect(() => {
+    titlesShown.current = Boolean(results.data?.length)
   })
   const status = searchStatus(results, term, isRateLimited())
   useEffect(() => onStatus(status), [status, onStatus])
