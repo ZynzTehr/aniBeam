@@ -1276,6 +1276,29 @@ describe('phone (390x844)', () => {
     assert.ok(phone.chipRows >= 2)
   })
 
+  test('the intro’s speed lines stay under the header', async () => {
+    // The intro's speed lines reach up behind the header. On a phone the header scrolls away
+    // with the page instead of sticking, but it should still cover them, as it does on
+    // desktop, so it looks the same with the lines hidden.
+    await browser.animationsDone()
+    await browser.evaluate('scrollTo(0, 0); true')
+    const header = await browser.evaluate<{ x: number; y: number; width: number; height: number }>(
+      `(() => { const r = document.querySelector('.ab-top').getBoundingClientRect(); return { x: r.left + scrollX, y: r.top + scrollY, width: r.width, height: r.height } })()`,
+    )
+    const withLines = await browser.screenshot(header)
+    // Hide them, and wait two frames, so the page has painted without them.
+    await browser.evaluate(`(() => {
+      const style = document.head.appendChild(document.createElement('style'))
+      style.id = 'no-speed-lines'
+      style.textContent = '.ab-intro::before { content: none }'
+      return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))
+    })()`)
+    const withoutLines = await browser.screenshot(header)
+    await browser.evaluate(`document.getElementById('no-speed-lines').remove(); true`)
+    // Not assert.equal, which would print both PNGs in full.
+    assert.ok(withLines === withoutLines, 'the intro’s speed lines paint over the header')
+  })
+
   test('every menu item fits on screen without squeezing', async () => {
     const menu = await browser.evaluate<{ right: number; soonHeight: number }>(`({
       right: Math.max(...[...document.querySelectorAll('.ab-nav > *')].map((n) => n.getBoundingClientRect().right)),

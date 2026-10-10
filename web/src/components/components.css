@@ -507,8 +507,10 @@ img[data-broken] {
 }
 
 @media (max-width: 899px) {
+  /* Relative, not static: the header still scrolls away with the page, but its z-index works
+     again, so the intro's speed lines stay under it, as on desktop. */
   .ab-top {
-    position: static;
+    position: relative;
   }
 
   .ab-search {

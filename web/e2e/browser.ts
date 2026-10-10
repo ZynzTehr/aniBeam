@@ -250,6 +250,19 @@ export class Browser {
     )
   }
 
+  /**
+   * A PNG of part of the page, as base64. The clip is in CSS pixels from the top left of the
+   * page, not of the screen: add scrollX and scrollY to a getBoundingClientRect() box. On a 2x
+   * screen the PNG has twice as many pixels each way.
+   */
+  async screenshot(clip: { x: number; y: number; width: number; height: number }) {
+    const { data } = await this.send('Page.captureScreenshot', {
+      format: 'png',
+      clip: { ...clip, scale: 1 },
+    })
+    return data as string
+  }
+
   async press(key: 'Tab' | 'Enter' | 'Escape' | 'Backspace' | 'ArrowRight', shift = false) {
     const code = { Tab: 9, Enter: 13, Escape: 27, Backspace: 8, ArrowRight: 39 }[key]
     const base = { key, code: key, windowsVirtualKeyCode: code, modifiers: shift ? 8 : 0 }
