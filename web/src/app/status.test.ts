@@ -184,3 +184,20 @@ test('search announcements name the search and what it found', () => {
     /isn’t responding right now/,
   )
 })
+
+// A search held up by AniList reads as the section's own line; one that found titles says so,
+// even while another request's pause holds requests back.
+test('search announcements say why a search is held up', () => {
+  assert.equal(
+    searchStatus({ ...idle, isFetching: true }, 'zzz', true),
+    'Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.',
+  )
+  assert.equal(
+    searchStatus({ ...idle, isFetching: true, failureReason: noConnection }, 'zzz', false),
+    'AniList isn’t responding right now. It’s not something you did. Trying again in a minute.',
+  )
+  assert.equal(
+    searchStatus({ ...idle, data: twoTitles }, 'frieren', true),
+    '2 titles found for “frieren”',
+  )
+})
