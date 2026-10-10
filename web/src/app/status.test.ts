@@ -61,6 +61,13 @@ const cases: [string, Partial<QueryStatus>, boolean, string][] = [
     false,
     'AniList isn’t responding right now, so these titles may be out of date. It’s not something you did.',
   ],
+  // A search that found nothing, refreshed hours later while AniList is down.
+  [
+    'a failed refresh of an empty list',
+    { data: [], error: noConnection, failureReason: noConnection },
+    false,
+    'AniList, where AniBeam gets its anime, isn’t responding right now. It’s not something you did. Try again in a minute.',
+  ],
   ['an empty result', { data: [] }, false, 'No titles found.'],
   // Right after a list's last try, anilist() is still holding requests back, but nothing retries.
   [

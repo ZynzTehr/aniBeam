@@ -36,7 +36,8 @@ export function statusText(q: QueryStatus, rateLimited: boolean): string {
   // Errors are worded for visitors: AniList's outage is not their fault.
   // Placeholder titles belong to the previous decade or search, so this list is still loading.
   if (!q.data || q.isPlaceholderData) return q.error ? FAILED : 'Loading…'
-  if (q.error && !q.isFetching) return STALE
+  // With no titles on screen, a failed refresh reads like a failed first load.
+  if (q.error && !q.isFetching) return q.data.length ? STALE : FAILED
   if (q.data.length === 0) return 'No titles found.'
   const fetchedAt = new Date(q.dataUpdatedAt).toLocaleTimeString()
   return `${q.data.length} titles, fetched at ${fetchedAt}${q.isFetching ? ' (refreshing…)' : ''}`
