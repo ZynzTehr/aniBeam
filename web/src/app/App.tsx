@@ -43,7 +43,8 @@ export default function App() {
   const [search, setSearch] = useState('')
   // Screen readers hear search outcomes from one line that is always on the page.
   const [announcement, setAnnouncement] = useState('')
-  const term = useDebounced(search.trim(), 300)
+  // Debounce what was typed, then trim: a typed space is typing too, so it restarts the pause.
+  const term = useDebounced(search, 300).trim()
   const searching = term.length >= 2
 
   // Arrowing through the decade chips changes the choice once per chip; wait like search does.

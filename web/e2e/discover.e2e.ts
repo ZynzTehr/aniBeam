@@ -14,6 +14,23 @@ const resultTitles = `[...document.querySelectorAll('.ab-results .ab-strip-panel
 const resultsFor = (term: string) =>
   `document.querySelector('#results')?.textContent.includes(${JSON.stringify(`“${term}”`)})`
 
+/**
+ * From now on, lists each results heading the page shows, in order, in window.__headings, so a
+ * check sees every search that ran, even one on screen for a moment. Calling it again starts a
+ * new list.
+ */
+async function recordHeadings() {
+  await browser.evaluate(`(() => {
+    if (!window.__headings)
+      new MutationObserver(() => {
+        const heading = document.getElementById('results')?.firstChild?.textContent
+        if (heading && heading !== window.__headings.at(-1)) window.__headings.push(heading)
+      }).observe(document.querySelector('main'), { childList: true, characterData: true, subtree: true })
+    window.__headings = []
+    return true
+  })()`)
+}
+
 // An AniList answer of HTTP 400. A bad request isn't retried, so Try again shows at once (a
 // failed connection waits out the AniList client's one-minute pause first).
 const BAD_REQUEST = {
@@ -283,6 +300,39 @@ describe('desktop (1440x900)', () => {
     )
     assert.equal(refining.scrollY, 300, 'refining the search moved the page')
     await browser.search('')
+  })
+
+  test('a typed space restarts the search’s pause, so two words typed at an easy pace search once', async () => {
+    // Both searches were made by the check above, so this one sends no request.
+    await browser.search('')
+    assert.ok(await browser.waitFor(`!document.querySelector('.ab-results')`, 5_000))
+    await recordHeadings()
+    await browser.evaluate(`document.querySelector('.ab-search input').focus(); true`)
+    // "mushishi", 200 ms, a space, 200 ms, "zoku": each pause is shorter than the 300 ms one
+    // that starts a search, so nothing should be searched until "zoku" is in. A pause counts
+    // from when the last key was sent: a key takes 10 to 80 ms to come back, which would
+    // stretch the pauses toward 300 ms.
+    let sent = 0
+    const type = async (text: string) => {
+      for (const character of text) {
+        sent = performance.now()
+        await browser.send('Input.insertText', { text: character })
+      }
+    }
+    const pause = (ms: number) => sleep(Math.max(0, sent + ms - performance.now()))
+    await type('mushishi')
+    await pause(200)
+    await type(' ')
+    await pause(200)
+    await type('zoku')
+    assert.ok(await browser.waitFor(resultsFor('mushishi zoku'), 5_000), 'the heading never showed')
+    const headings = await browser.evaluate<string[]>('window.__headings')
+    await browser.search('')
+    assert.deepEqual(
+      headings,
+      ['Results for “mushishi zoku”'],
+      'a search ran while the visitor was still typing',
+    )
   })
 
   test('a different search shows that it is loading, even when typed from far down the results', async () => {
