@@ -89,7 +89,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
           </div>
         </div>
 
-        <div className="ab-reveal" aria-live="polite">
+        <div className="ab-reveal">
           {pulled && rarity ? (
             <div
               key={pulls}
@@ -116,7 +116,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
                   </a>
                   <div className="ab-result-copy">
                     <p className="ab-tier">
-                      {rarity.label} {rarity.stars}
+                      {rarity.label} <span aria-hidden="true">{rarity.stars}</span>
                     </p>
                     <h3>{titleOf(pulled)}</h3>
                     <p className="ab-result-meta">
@@ -154,6 +154,12 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
           )}
         </div>
       </div>
+      {/* Screen readers hear each pull from this one line as its capsule opens. It is always on
+          the page because a live region is read only when its text changes. The number keeps a
+          repeated title (a vibe with one match) from reading as no change. */}
+      <p role="status" className="sr-only">
+        {pulled && rarity && revealed ? `Pull ${pulls}: ${titleOf(pulled)}, ${rarity.label}.` : ''}
+      </p>
     </section>
   )
 }

@@ -518,13 +518,74 @@ describe('desktop (1440x900)', () => {
     assert.equal(Math.round(gap), 18)
   })
 
-  test('the lever pulls a real title from the page', async () => {
-    await browser.evaluate(
-      `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').click(); true`,
+  test('screen readers hear each pull in one sentence, and the machine says nothing on its own', async () => {
+    // A live region speaks every change to its text. The whole reveal used to be one: it spoke
+    // its hint when titles arrived, and each pull read the title twice, every star ("black
+    // star") and the button's label. Now one status line, there from the start, says each pull.
+    const line = `document.querySelector('#pull > [role="status"]')`
+    const live = `[...document.querySelectorAll('#pull [aria-live], #pull [role="status"], #pull [role="alert"]')].map((el) => el.className)`
+    assert.deepEqual(
+      await browser.evaluate(`({ line: ${line}?.textContent ?? null, live: ${live} })`),
+      { line: '', live: ['sr-only'] },
+      'before any pull, the only live region in the pull section should be its empty status line',
     )
+    // What the line says, and the sentence for the capsule once it has opened: the pull's
+    // number from the counter, the title and its tier.
+    const heard = `(() => {
+      const result = document.querySelector('.ab-result.is-open:not([data-old])')
+      const count = parseInt(document.querySelector('.ab-count').textContent)
+      const tier = result?.querySelector('.ab-tier').textContent.split(' ')[0]
+      const shown = result && 'Pull ' + count + ': ' + result.querySelector('h3').textContent + ', ' + tier + '.'
+      return { line: ${line}?.textContent ?? null, count, shown }
+    })()`
+    // Text with a star in it that a screen reader would read out.
+    const starsRead = `(() => {
+      const found = [], walker = document.createTreeWalker(document.querySelector('#pull'), NodeFilter.SHOW_TEXT)
+      for (let node; (node = walker.nextNode()); )
+        if (node.textContent.includes('★') && !node.parentElement.closest('[aria-hidden="true"]')) found.push(node.parentElement.className)
+      return found
+    })()`
+    await browser.evaluate(
+      `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').focus(); true`,
+    )
+    const counts: number[] = []
+    for (let i = 0; i < 2; i++) {
+      await browser.evaluate(
+        `document.querySelector('.ab-result')?.setAttribute('data-old', ''); true`,
+      )
+      await browser.press('Enter')
+      // Silent until the capsule opens 0.9s later, so the pull is heard as it is seen.
+      const pressed = await browser.evaluate<{ line: string; shown: string | null }>(heard)
+      assert.ok(
+        pressed.shown || pressed.line === '',
+        `"${pressed.line}" was heard before the capsule opened`,
+      )
+      await browser.waitFor(`(({ line, shown }) => shown && line === shown)(${heard})`, 5_000)
+      const opened = await browser.evaluate<{ line: string; count: number; shown: string | null }>(
+        heard,
+      )
+      assert.ok(opened.shown, 'the capsule never opened')
+      assert.equal(opened.line, opened.shown, 'the line does not say the pull on screen')
+      assert.match(opened.line, /^Pull \d+: .+, (SSR|SR|R|Mystery)\.$/)
+      assert.deepEqual(await browser.evaluate(starsRead), [], 'stars a screen reader would read')
+      counts.push(opened.count)
+    }
+    assert.equal(counts[1], counts[0] + 1, 'the second pull’s number did not go up by one')
+    // The result itself must not speak either, or it reads the title a second time.
+    assert.deepEqual(
+      await browser.evaluate(live),
+      ['sr-only'],
+      'live regions in the pull section once a title is out',
+    )
+  })
+
+  test('the lever pulls a real title from the page', async () => {
+    await pull()
     assert.ok(
-      await browser.waitFor(`document.querySelector('.ab-result.is-open h3')?.textContent`, 5_000),
-      'nothing was pulled',
+      await browser.evaluate(
+        `document.querySelector('.ab-result:not([data-old]) h3')?.textContent`,
+      ),
+      'the capsule holds no title',
     )
   })
 
