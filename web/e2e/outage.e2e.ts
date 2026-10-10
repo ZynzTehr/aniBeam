@@ -38,6 +38,70 @@ test('on a phone, the intro holds its covers’ place while they load, so the he
   assert.ok(Math.abs(moved) <= 2, `the headline moved ${moved}px when the covers arrived`)
 })
 
+// Covers come from AniList's image server, which a school or office filter can block while its
+// API still answers. Chrome then draws its broken-image icon in each cover's box (alt="" doesn't
+// stop it). The titles come from the copy the check above saved, so this asks AniList for none.
+test('covers that can’t load show no broken-image icon, and each panel shows its title’s color instead', async () => {
+  await sleep(1_500) // the saved copy updates a second after the page's last change
+  await browser.send('Network.enable')
+  await browser.send('Network.setBlockedURLs', { urls: ['*s4.anilist.co*'] })
+  try {
+    await browser.load()
+    assert.ok(await browser.titlesShown(), 'the titles never came')
+    // Lazy covers are asked for as they near the screen. A pull and a title card add one each.
+    const finished = (selector: string) =>
+      `[...document.querySelectorAll('${selector}')].every((img) => img.complete)`
+    await browser.evaluate(`document.querySelector('#ab-trending').scrollIntoView(); true`)
+    await browser.waitFor(finished('.ab-intro-art img, .ab-grid img'))
+    await browser.evaluate(`document.querySelector('#decades').scrollIntoView(); true`)
+    await browser.waitFor(`document.querySelector('.ab-strip-row img')?.complete`)
+    await browser.evaluate(`document.querySelector('.ab-lever').click(); true`)
+    await browser.waitFor(`document.querySelector('.ab-result.is-open img')?.complete`)
+    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
+    await browser.waitFor(`document.querySelector('dialog.ab-card img')?.complete`)
+    // Two frames on, so every failed cover's error event has been handled.
+    const covers = await browser.evaluate<{
+      failed: string[]
+      shown: string[]
+      grey: string[]
+      intro: number
+    }>(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))).then(() => {
+      const place = (img) => img.parentElement.closest('[class]').classList[0]
+      const failed = [...document.images].filter((img) => img.complete && img.naturalWidth === 0)
+      const swatch = document.body.appendChild(document.createElement('i'))
+      const rgb = (color) => {
+        swatch.style.color = color
+        return getComputedStyle(swatch).color
+      }
+      const grey = [...document.querySelectorAll('.ab-grid .ab-link')].flatMap((link, i) => {
+        const fill = getComputedStyle(link).backgroundColor
+        const accent = rgb(getComputedStyle(link).getPropertyValue('--anime-accent'))
+        return fill === accent ? [] : ['panel ' + (i + 1) + ': ' + fill + ', not ' + accent]
+      })
+      swatch.remove()
+      return {
+        failed: [...new Set(failed.map(place))].sort(),
+        shown: failed.filter((img) => img.checkVisibility({ visibilityProperty: true })).map(place),
+        grey,
+        intro: [...document.querySelectorAll('.ab-intro-art img')].filter((img) => img.getClientRects().length).length,
+      }
+    })`)
+    await browser.press('Escape')
+    assert.deepEqual(
+      covers.failed,
+      ['ab-img', 'ab-intro-art', 'ab-result-panel', 'ab-sheet-art', 'ab-strip-panel'],
+      'places where no cover failed to load, so they went unchecked',
+    )
+    assert.deepEqual(covers.shown, [], 'covers that failed to load still show, as broken images')
+    assert.deepEqual(covers.grey, [], 'panels that show grey instead of their title’s color')
+    assert.equal(covers.intro, 0, 'the intro holds a place for covers that failed to load')
+  } finally {
+    // Covers load again for the checks below.
+    await browser.send('Network.setBlockedURLs', { urls: [] })
+    await browser.send('Network.disable')
+  }
+})
+
 describe('AniList down on a first visit', () => {
   before(async () => {
     await browser.forget()

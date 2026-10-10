@@ -1,6 +1,7 @@
 import { hasSmallCover } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
+import { markBroken } from './cover.ts'
 import { cssVars } from './cssVars.ts'
 
 export type IntroAction = { href: string; label: string; primary?: boolean }
@@ -31,6 +32,7 @@ export function IntroHero({
             src={media.coverImage.extraLarge}
             alt=""
             style={{ ...accentVars(media.coverImage.color), ...cssVars({ '--i': i }) }}
+            onError={markBroken}
           />
         ))}
       </div>

@@ -1,6 +1,7 @@
 import { formatOf, seasonOf, titleOf } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
+import { markBroken } from './cover.ts'
 import { cssVars } from './cssVars.ts'
 import { opener } from './opener.ts'
 import { RetryButton } from './RetryButton.tsx'
@@ -111,7 +112,12 @@ function Panel({
             {splash && media.bannerImage && (
               <source media="(min-width: 900px)" srcSet={media.bannerImage} />
             )}
-            <img src={media.coverImage.extraLarge} alt="" loading={rank <= 3 ? 'eager' : 'lazy'} />
+            <img
+              src={media.coverImage.extraLarge}
+              alt=""
+              loading={rank <= 3 ? 'eager' : 'lazy'}
+              onError={markBroken}
+            />
           </picture>
         </span>
         <span className="ab-tone" aria-hidden="true" />

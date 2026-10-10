@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef } from 'react'
 import { formatOf, nextEpisode, seasonOf, studioOf, titleOf } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
+import { markBroken } from './cover.ts'
 import { cssVars } from './cssVars.ts'
 
 /** Called with the title and the element it was opened from (for the opening animation). */
@@ -66,7 +67,7 @@ export function TitleCard({
               {media.title.native}
             </p>
           )}
-          <img src={media.coverImage.extraLarge} alt="" />
+          <img src={media.coverImage.extraLarge} alt="" onError={markBroken} />
         </div>
         <div className="ab-sheet-copy">
           <p className="ab-kicker">
