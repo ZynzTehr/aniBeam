@@ -724,6 +724,37 @@ describe('reduced motion', () => {
     )
     assert.equal(hovered.transform, 'none', 'the hovered lever moved')
   })
+
+  test('a pull never shows the title already on screen, even once every title has come up', async () => {
+    // A pull that lands on the title already showing looks like the lever did nothing. With
+    // Math.random fixed, each pull draws the same place in its list: once every title has come
+    // up, that is the same title every time, unless the one showing is skipped. Reduced motion
+    // opens each capsule at once, so 100 pulls take about a second.
+    const shown = await browser.evaluate<(string | null)[]>(`(async () => {
+      const random = Math.random
+      Math.random = () => 0.5
+      const shown = []
+      try {
+        for (let i = 0; i < 100; i++) {
+          document.querySelector('.ab-result')?.setAttribute('data-old', '')
+          document.querySelector('.ab-lever').click()
+          let panel = null
+          for (let wait = 0; wait < 100 && !(panel = document.querySelector('.ab-result.is-open:not([data-old]) .ab-result-panel')); wait++)
+            await new Promise((resolve) => setTimeout(resolve, 5))
+          shown.push(panel?.getAttribute('href') ?? null)
+        }
+      } finally {
+        Math.random = random
+      }
+      return shown
+    })()`)
+    const unopened = shown.flatMap((href, i) => (href ? [] : [i + 1]))
+    const repeats = shown.flatMap((href, i) =>
+      i > 0 && href === shown[i - 1] ? [`pull ${i + 1}: ${href}`] : [],
+    )
+    assert.deepEqual(unopened, [], 'pulls that never opened')
+    assert.deepEqual(repeats, [], 'pulls that showed the title already on screen')
+  })
 })
 
 describe('phone (390x844)', () => {

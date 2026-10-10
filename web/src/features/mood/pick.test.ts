@@ -60,6 +60,27 @@ test('a vibe with no matches falls back to the whole pool', () => {
   assert.equal(pick?.id, 5)
 })
 
+// The last argument is the title on screen. A pull that lands on it again looks like the lever
+// did nothing.
+test('once every match has come up, a pull skips the title on screen', () => {
+  // Both Action titles have come up: whichever one is showing, the other comes next. Draw 0
+  // would take title 1 and 0.99 title 3, the one showing each time.
+  assert.equal(pickTitle(pool, ['Action'], new Set([1, 3]), () => 0, 1)?.id, 3)
+  assert.equal(pickTitle(pool, ['Action'], new Set([1, 3]), () => 0.99, 3)?.id, 1)
+})
+
+test('a vibe with a single match pulls it again, even while it is on screen', () => {
+  // Skipping title 4, the only Romance title, would leave nothing to pull.
+  assert.equal(pickTitle(pool, ['Romance'], new Set([4]), () => 0, 4)?.id, 4)
+})
+
+test('with no match for the vibe, a pull skips the title on screen too', () => {
+  // No title is Mecha, so a pull draws from the whole pool. Draw 0 would take title 1 and 0.99
+  // title 5, the one showing each time.
+  assert.equal(pickTitle(pool, ['Mecha'], new Set([1]), () => 0, 1)?.id, 2)
+  assert.equal(pickTitle(pool, ['Mecha'], new Set([5]), () => 0.99, 5)?.id, 4)
+})
+
 test('an empty pool gives nothing to pull', () => {
   assert.equal(pickTitle([], ['Action'], new Set(), Math.random), null)
 })

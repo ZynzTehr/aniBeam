@@ -34,7 +34,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
   const titles = useMemo(() => pullable(pool), [pool])
 
   function pull() {
-    const choice = pickTitle(titles, MOODS[mood].genres, seen.current, Math.random)
+    const choice = pickTitle(titles, MOODS[mood].genres, seen.current, Math.random, pulled?.id)
     if (!choice) return
     seen.current.add(choice.id)
     clearTimeout(timer.current)
