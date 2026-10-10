@@ -1798,6 +1798,27 @@ body:has(.ab-card[open]) {
   }
 }
 
+/* Contrast themes (forced colors) drop the chosen chip's yellow fill and its shadow, so it
+   looked like the others. It takes the theme's selection colors instead, and keeps its lift as
+   a shadow in the theme's text color. forced-color-adjust: none stops Chrome painting a plate in
+   the page's color behind the label, which would hide it. It also stops Chrome recoloring the
+   focus ring, which would keep the color written for it (white, or brand hot on the decades),
+   so here it takes the theme's text color. That rule ties with the decade chips' brand ring, so
+   it has to come after it. */
+@media (forced-colors: active) {
+  .ab-chip input:checked + span {
+    border-color: Highlight;
+    background: Highlight;
+    box-shadow: 3px 3px 0 CanvasText;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
+
+  .ab-chip input:checked:focus-visible + span {
+    outline-color: CanvasText;
+  }
+}
+
 /* ---------- Movement on hover, focus and press (only when the visitor allows motion) ----------
    Visitors who ask for reduced motion get the base styles above (spec §3J): hover, focus and
    press change color, shadow or opacity. A focused search bubble and a checked chip still sit

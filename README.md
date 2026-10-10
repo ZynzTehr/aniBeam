@@ -109,7 +109,7 @@ The files are subsets with Latin letters, kana and the star symbol, about 100 KB
 
 ### Browser checks
 
-`web/e2e` holds checks that run the real page in headless Chrome: layout on desktop and phone, keyboard use, reduced motion, the title card, search, the pull, and what a visitor sees when AniList is down. They need no extra package. Node drives Chrome over its DevTools protocol.
+`web/e2e` holds checks that run the real page in headless Chrome: layout on desktop and phone, keyboard use, reduced motion, Windows contrast themes, the title card, search, the pull, and what a visitor sees when AniList is down. They need no extra package. Node drives Chrome over its DevTools protocol.
 
 To run them, start the app with `npm run dev`, then point `CHROME_BIN` at a Chrome or chrome-headless-shell binary:
 

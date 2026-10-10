@@ -115,6 +115,30 @@ async function scrollSplashOut(fraction: number) {
   })()`)
 }
 
+/**
+ * The contrast a part of the page shows on screen: between its dark and its light pixels, taken
+ * 5% in from each end, so a few stray pixels don't decide it. Computed styles can't show all
+ * that a contrast theme paints, such as the plate Chrome puts behind text. The clip is in CSS
+ * pixels from the top left of the page, as for Browser.screenshot.
+ */
+async function pixelContrast(clip: { x: number; y: number; width: number; height: number }) {
+  const png = await browser.screenshot(clip)
+  // Decoded in the page.
+  return browser.evaluate<number>(`(async () => {
+    const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+    const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+    const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+    context.drawImage(image, 0, 0)
+    const { data } = context.getImageData(0, 0, image.width, image.height)
+    const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+    const lum = []
+    for (let i = 0; i < data.length; i += 4) lum.push(0.2126 * channel(data[i]) + 0.7152 * channel(data[i + 1]) + 0.0722 * channel(data[i + 2]))
+    lum.sort((a, b) => a - b)
+    const dark = lum[Math.floor(lum.length * 0.05)], light = lum[Math.floor(lum.length * 0.95)]
+    return Math.round(((light + 0.05) / (dark + 0.05)) * 100) / 100
+  })()`)
+}
+
 before(async () => {
   browser = await Browser.open()
 })
@@ -1492,5 +1516,92 @@ describe('small phone (320x568, also a desktop window at 400% zoom)', () => {
 
   test('tabbing along the decade strip, both ways, keeps each focused panel in view, with its whole ring', async () => {
     assertStripInView(await tabThroughStrip())
+  })
+})
+
+describe('Windows contrast themes (forced colors)', () => {
+  // A contrast theme replaces the page's colors with a few the visitor picked (forced colors).
+  // Chrome emulates one in a light palette and a dark one.
+  before(async () => {
+    await browser.load({ reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+  })
+  // Emulated media features are replaced as a whole: this clears forced colors.
+  after(() => browser.send('Emulation.setEmulatedMedia', { features: [] }))
+
+  test('the chosen decade and vibe stand out, with a readable label and the theme’s focus ring', async () => {
+    // The theme drops a chosen chip's yellow fill and its shadow, which left it looking like the
+    // rest. It must still differ from an unchosen chip, its label must read at 4.5:1 or better
+    // as the screen shows it, and its focus ring must take the theme's text color.
+    const problems: string[] = []
+    for (const scheme of ['light', 'dark']) {
+      // This list replaces the one load() set, so reduced motion goes in again.
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [
+          { name: 'prefers-reduced-motion', value: 'reduce' },
+          { name: 'forced-colors', value: 'active' },
+          { name: 'prefers-color-scheme', value: scheme },
+        ],
+      })
+      for (const [group, name] of [
+        ['.ab-eras', 'decades'],
+        ['.ab-moods', 'vibes'],
+      ]) {
+        // Focuses the chosen chip from the keyboard, so it shows its ring (:focus-visible): Tab
+        // out of its group, then Shift+Tab back in.
+        await browser.evaluate(
+          `document.querySelector('${group}').scrollIntoView({ block: 'center' }); document.querySelector('${group} input:checked').focus(); true`,
+        )
+        await browser.press('Tab')
+        await browser.press('Tab', true)
+        // Read after two frames, once the page has painted in the theme's colors.
+        const chip = await browser.evaluate<{
+          focused: boolean
+          same: boolean
+          ring: string
+          text: string
+          label: { x: number; y: number; width: number; height: number }
+        }>(`(async () => {
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+          // The theme's text color, as Chrome computes it.
+          const probe = document.body.appendChild(document.createElement('i'))
+          probe.style.color = 'CanvasText'
+          const text = getComputedStyle(probe).color
+          probe.remove()
+          const [chosen, other] = ['input:checked', 'input:not(:checked)'].map((input) => document.querySelector('${group} ' + input + ' + span'))
+          const look = (span) => { const c = getComputedStyle(span); return [c.backgroundColor, c.color, c.borderTopColor].join(' ') }
+          const style = getComputedStyle(chosen)
+          // The label's text box, in whole pixels from the top left of the page, rounded inward:
+          // its edge pixels are partly the chip around it, and those would be measured instead
+          // of a label hidden by a plate behind it.
+          const range = document.createRange()
+          range.selectNodeContents(chosen)
+          const r = range.getBoundingClientRect()
+          const x = Math.ceil(r.left + scrollX), y = Math.ceil(r.top + scrollY)
+          return {
+            focused: chosen.previousElementSibling.matches(':focus-visible'),
+            same: look(chosen) === look(other),
+            ring: style.outlineStyle === 'none' ? 'none' : style.outlineColor,
+            text,
+            label: { x, y, width: Math.floor(r.right + scrollX) - x, height: Math.floor(r.bottom + scrollY) - y },
+          }
+        })()`)
+        const contrast = await pixelContrast(chip.label)
+        const where = `${scheme} ${name}`
+        if (!chip.focused) problems.push(`${where}: the chosen chip did not take keyboard focus`)
+        if (chip.same) problems.push(`${where}: the chosen chip looks like the others`)
+        if (chip.ring !== chip.text)
+          problems.push(
+            `${where}: its focus ring is ${chip.ring}, not the theme’s text color ${chip.text}`,
+          )
+        if (contrast < 4.5) problems.push(`${where}: its label reads ${contrast}:1`)
+      }
+    }
+    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+    assert.deepEqual(
+      problems,
+      [],
+      'chosen chips that a contrast theme hides, washes out or rings in the wrong color',
+    )
   })
 })
