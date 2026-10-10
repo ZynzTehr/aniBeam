@@ -276,6 +276,26 @@ describe('desktop (1440x900)', () => {
   })
 })
 
+describe('tablet (834x1112, iPad Pro 11" portrait)', () => {
+  test('a pulled title’s text gets a readable column, and nothing overflows', async () => {
+    await browser.load({ width: 834, height: 1112 })
+    assert.ok(await browser.titlesShown())
+    await browser.evaluate(
+      `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').click(); true`,
+    )
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-result.is-open .ab-result-copy')`, 5_000),
+      'nothing was pulled',
+    )
+    const result = await browser.evaluate<{ copy: number; wide: number }>(`({
+      copy: document.querySelector('.ab-result-copy').getBoundingClientRect().width,
+      wide: document.documentElement.scrollWidth - innerWidth,
+    })`)
+    assert.ok(result.copy >= 180, `the title and buttons get a ${Math.round(result.copy)}px column`)
+    assert.ok(result.wide <= 0, `the page is ${result.wide}px wider than the screen`)
+  })
+})
+
 describe('reduced motion', () => {
   test('the title card appears at once, without the color wipe', async () => {
     await browser.load({ reduceMotion: true })

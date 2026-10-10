@@ -1225,6 +1225,33 @@ body:has(.ab-card[open]) {
   }
 }
 
+/* Beside the machine on 821-1000px screens (an iPad Pro 11" in portrait is 834px), the reveal
+   is too narrow for the poster and its text side by side, so they stack as on phones. */
+.ab-reveal {
+  container-type: inline-size;
+}
+
+@container (max-width: 480px) {
+  .ab-result {
+    justify-items: center;
+    grid-template-columns: 1fr;
+    text-align: center;
+  }
+
+  .ab-result-panel {
+    width: min(64vw, 240px);
+  }
+
+  .ab-result .ab-row-actions {
+    justify-content: center;
+  }
+
+  .ab-drop {
+    top: 20%;
+    left: 50%;
+  }
+}
+
 /* ---------- Motion (only when the visitor allows it) ---------- */
 @media (prefers-reduced-motion: no-preference) {
   .ab-card[open] .ab-wipe {
