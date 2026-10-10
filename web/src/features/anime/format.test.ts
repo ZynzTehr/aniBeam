@@ -39,6 +39,7 @@ test('seasonOf names the season when AniList knows it', () => {
 
 test('formatOf reads like English, and passes unknown formats through', () => {
   assert.equal(formatOf(media({ format: 'TV_SHORT' })), 'TV short')
+  assert.equal(formatOf(media({ format: 'MOVIE' })), 'Movie')
   assert.equal(formatOf(media({ format: 'NEW_FORMAT' })), 'NEW_FORMAT')
   assert.equal(formatOf(media({ format: null })), null)
 })
