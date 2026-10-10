@@ -98,6 +98,23 @@ function assertStripInView(steps: Awaited<ReturnType<typeof tabThroughStrip>>) {
   const bad = steps.filter((s) => s.visible < 0.95 || s.ringCut).map(label)
   assert.deepEqual(bad, [], 'focused panels out of view or with their ring cut off')
 }
+
+// The splash cover's transform. Its parallax moves this span; the img inside zooms on hover.
+const splashCover = `getComputedStyle(document.querySelector('.ab-splash .ab-img')).transform`
+
+/**
+ * Scrolls the page until that fraction of the splash panel's height has gone off the top of the
+ * screen (a negative one leaves its top that far below), then waits two frames, so the
+ * scroll-driven parallax has caught up.
+ */
+async function scrollSplashOut(fraction: number) {
+  await browser.evaluate(`(() => {
+    const r = document.querySelector('.ab-splash').getBoundingClientRect()
+    scrollTo(0, scrollY + r.top + r.height * ${fraction})
+    return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))
+  })()`)
+}
+
 before(async () => {
   browser = await Browser.open()
 })
@@ -747,6 +764,23 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('with motion allowed, the splash cover drifts only as the page scrolls it away', async () => {
+    // The splash cover grows and slides down as its panel leaves the top of the screen. The
+    // drift runs on a view() timeline, which follows the nearest scroll container: while the
+    // panel links had overflow: hidden, that was the splash's own link, which never scrolls, so
+    // the cover never moved.
+    const matrix = `new DOMMatrix(${splashCover})`
+    await scrollSplashOut(-0.05) // its top just below the top of the screen, about to leave
+    const still = await browser.waitFor(`${matrix}.isIdentity`, 2_000)
+    const inView = await browser.evaluate<string>(splashCover)
+    await scrollSplashOut(0.5) // halfway out, it has grown about 6% and slid about 40px down
+    const drifting = await browser.waitFor(`${matrix}.a > 1.03 && ${matrix}.f > 10`, 2_000)
+    const halfOut = await browser.evaluate<string>(splashCover)
+    await browser.evaluate('scrollTo(0, 0); true')
+    assert.ok(still, `the splash cover moved before its panel began to leave the screen: ${inView}`)
+    assert.ok(drifting, `the splash cover stayed put with half its panel scrolled away: ${halfOut}`)
+  })
+
   test('tabbing along the decade strip, both ways, keeps each focused panel in view, with its whole ring', async () => {
     assertStripInView(await tabThroughStrip())
   })
@@ -1100,6 +1134,14 @@ describe('reduced motion', () => {
       'hovering the lever changed nothing',
     )
     assert.equal(hovered.transform, 'none', 'the hovered lever moved')
+  })
+
+  test('the splash cover stays still as the page scrolls it away', async () => {
+    // The drift that the desktop check sees with motion allowed must not run here.
+    await scrollSplashOut(0.5)
+    const halfOut = await browser.evaluate<string>(splashCover)
+    await browser.evaluate('scrollTo(0, 0); true')
+    assert.equal(halfOut, 'none', 'the splash cover drifted with half its panel scrolled away')
   })
 
   test('a pull never shows the title already on screen, even once every title has come up', async () => {

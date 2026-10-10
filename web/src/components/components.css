@@ -174,7 +174,9 @@
   position: relative;
   display: block;
   height: 100%;
-  overflow: hidden;
+  /* Clip, not hidden: hidden makes the link a scroll container, and the splash cover's view()
+     timeline (first motion block) would follow the link, which never scrolls, not the page. */
+  overflow: clip;
   background: #ddd;
   color: inherit;
   text-decoration: none;
