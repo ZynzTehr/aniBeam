@@ -51,7 +51,7 @@
   --ink: #141414;
   --hot: #ff2d55; /* brand accent; also every focus ring */
   --hot-text: #c9003a; /* brand hot, dark enough for text on paper */
-  --hot-deep: #d6002a;
+  --hot-deep: #d6002a; /* brand hot, dark enough behind white text: Save to My List (Phase 4) */
   --sun: #ffd400; /* sound-effect yellow */
 
   /* A title's own colors, from deriveAccent(); brand hot until a title sets them. */
