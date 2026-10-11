@@ -29,9 +29,22 @@ export const seasonOf = (media: Media) =>
 export const formatOf = (media: Media) =>
   media.format ? (FORMATS[media.format] ?? media.format) : null
 
+/**
+ * "28 eps", or null when AniList doesn't know the count. A movie in one part gets null too: its
+ * caption already says "Movie", so "1 eps" would add nothing and read wrong.
+ */
+export function episodesOf(media: Media) {
+  if (!media.episodes) return null
+  if (media.format === 'MOVIE' && media.episodes === 1) return null
+  return `${media.episodes} eps`
+}
+
 export const studioOf = (media: Media) => media.studios.nodes[0]?.name ?? null
 
-/** "Ep 9 in 2d 4h", or null when nothing is scheduled or it has aired since the data was cached. */
+/**
+ * "Ep 9 in 2d 4h", to the nearest hour (at least 1h), or null when nothing is scheduled or it has
+ * aired since the data was cached.
+ */
 export function nextEpisode(media: Media, now = Date.now()) {
   const next = media.nextAiringEpisode
   if (!next) return null
@@ -44,7 +57,15 @@ export function nextEpisode(media: Media, now = Date.now()) {
 
 /**
  * Some titles only have a small cover (230px wide): AniList then points "extraLarge" at the
- * medium-size folder. The intro leaves these out of its cover fan, where they'd look blurry.
+ * medium-size folder. The intro leaves these out of its cover fan, where they'd look blurry, and
+ * coverSrcSet has no bigger file to offer for them.
  */
-export const hasSmallCover = (media: Media) =>
-  /\/cover\/(medium|small)\//.test(media.coverImage.extraLarge)
+export const hasSmallCover = (media: Media) => /\/cover\/medium\//.test(media.coverImage.extraLarge)
+
+/**
+ * A strip card's srcset. The card shows the 230px "large" cover, which a 2x or 3x screen blows
+ * up; this offers those screens the 460px "extraLarge" one where AniList has it. A 1x screen
+ * still loads only the 230px file, so it downloads no more than before.
+ */
+export const coverSrcSet = (media: Media) =>
+  hasSmallCover(media) ? undefined : `${media.coverImage.extraLarge} 2x`

@@ -47,6 +47,7 @@ AniBeam/
 ├── web/                     # Frontend: React + Vite + TypeScript + Tailwind CSS v4
 │   ├── e2e/                 # Browser checks (*.e2e.ts) and the Chrome driver they share
 │   ├── public/              # Static files served as-is, including the fonts
+│   ├── scripts/             # Maintenance scripts, such as the sample titles' refresh
 │   └── src/
 │       ├── app/             # App shell: root component, router, providers
 │       ├── pages/           # One component per route (Discover, Browse, Detail, Mood, My List)
@@ -81,19 +82,23 @@ Empty folders hold a `.gitkeep` file so git tracks them; each one is removed onc
 
 ### AniList requests
 
-The browser calls AniList directly, so each visitor's IP address gets its own limit of 30 requests a minute. `web/src/lib/anilist.ts` holds every request back for up to a minute after a 429, after a failed connection, or when AniList reports no requests left. Failed connections wait too, because a rate-limit reply without CORS headers reaches the browser as a plain network error.
+The browser calls AniList directly, so each visitor's IP address gets its own limit of 30 requests a minute. `web/src/lib/anilist.ts` holds every request back for up to a minute after a 429, after a failed connection, or when AniList reports no requests left. Failed connections wait too, because a rate-limit reply without CORS headers reaches the browser as a plain network error. When AniList says when the limit resets, the wait ends up to 2 seconds after that, at random. Devices on one network share one IP address, and so one limit and one reset time, and this keeps them from all asking again in the same instant.
 
 TanStack Query saves results in `localStorage` for up to a day (`web/src/lib/queryClient.ts`). When a refresh fails, the last good list stays saved. It caches each result under its exact query text and variables, so editing a query never shows results saved for the old version. Change `buster` in `queryClient.ts` only if the code that reshapes results changes.
+
+Saved trending titles are refreshed once they are over 30 minutes old. If the refresh brings a new order while the trending panels or the intro's covers are on screen, they keep the order the visitor is looking at until they are scrolled away, so nothing reshuffles in front of the visitor (`web/src/lib/steadyList.ts`).
 
 Every `media(...)` query in the source must include the `SAFE` filter, which excludes adult titles, and `npm test` fails if one doesn't. `SAFE` only works on top-level queries. Titles nested inside other results, such as relations or recommendations, need a filter in code.
 
 Saved results and the rate-limit pause belong to one browser tab. With several tabs open, the last tab to save wins.
 
+For when AniList can't be reached, `web/src/features/anime/samples.ts` bundles 30 well-known titles, 3 to 5 from each decade. A section with no titles of its own shows them, labelled, once AniList refuses it (403), rate-limits it (429) or can't be reached, until AniList answers: trending becomes "Fan favorites", with the first 9 and no rank numbers, and the decade strip shows that decade's samples (Upcoming has none). They load only then, from a file of their own, and are never saved as AniList's titles. `npm run samples --workspace web` rewrites it from the list of IDs in `web/scripts/refresh-samples.ts`, with one AniList request. Run it to change the titles, or when the type check fails after a change to the fields AniBeam asks for. It writes nothing if a title is missing, Ecchi, or has no cover color or year, and `npm test` checks the file again.
+
 ### Design
 
 The look is the manga-page design chosen in Phase 2: paper, ink outlines, screentone and sound effects.
 
-Design tokens are plain CSS custom properties in `web/src/styles/index.css`, such as `--paper`, `--ink` and `--spring`. Component CSS reads them directly, and an `@theme inline` block exposes them to Tailwind utilities like `bg-paper` and `font-display`.
+Design tokens are plain CSS custom properties in `web/src/styles/index.css`, such as `--paper`, `--ink` and `--spring`. Component CSS reads them directly, and an `@theme inline` block exposes them to Tailwind utilities like `bg-paper` and `font-display`. `npm test` fails if nothing reads a token, or if `components.css` copies a token's color, `clamp()` or other function instead of reading it.
 
 The components live in `web/src/components`, with their styles in `components.css`. Every class there starts with `ab-`, so none collide with Tailwind utilities, and the file loads in the components layer.
 
@@ -103,13 +108,13 @@ The design prototypes in `web/src/prototype` are for development only. Add `?var
 
 ### Fonts
 
-The display font is Dela Gothic One, by the Dela Gothic Project Authors. The body font is M PLUS Rounded 1c, by the Rounded M+ Project Authors. Both are self-hosted from `web/public/fonts`, so visitors' browsers never contact Google, and `npm test` fails if production code references Google Fonts.
+The display font is Dela Gothic One, by the Dela Gothic Project Authors. The body font is M PLUS Rounded 1c, by the Rounded M+ Project Authors. Both are self-hosted from `web/public/fonts`, so visitors' browsers never contact Google. `npm test` builds the production bundle in memory and fails if any file in it references Google Fonts.
 
 The files are subsets with Latin letters, kana and the star symbol, about 100 KB for all three. Kanji fall back to a system font. Both fonts use the SIL Open Font License, and `web/public/fonts/OFL.txt` carries their copyright notices.
 
 ### Browser checks
 
-`web/e2e` holds checks that run the real page in headless Chrome: layout on desktop and phone, keyboard use, reduced motion, the title card, search, the pull, and what a visitor sees when AniList is down. They need no extra package. Node drives Chrome over its DevTools protocol.
+`web/e2e` holds checks that run the real page in headless Chrome: layout on desktop and phone, keyboard use, reduced motion, Windows contrast themes, the title card, search, the pull, trending refreshed while it is on screen, and what a visitor sees when AniList is down. They need no extra package. Node drives Chrome over its DevTools protocol.
 
 To run them, start the app with `npm run dev`, then point `CHROME_BIN` at a Chrome or chrome-headless-shell binary:
 

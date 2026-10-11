@@ -51,7 +51,7 @@
   --ink: #141414;
   --hot: #ff2d55; /* brand accent; also every focus ring */
   --hot-text: #c9003a; /* brand hot, dark enough for text on paper */
-  --hot-deep: #d6002a;
+  --hot-deep: #d6002a; /* brand hot, dark enough behind white text: Save to My List (Phase 4) */
   --sun: #ffd400; /* sound-effect yellow */
 
   /* A title's own colors, from deriveAccent(); brand hot until a title sets them. */
@@ -72,7 +72,7 @@
   --border: 4px; /* ink outline weight */
   --gutter: 12px; /* space between manga panels */
   --cut: 48px; /* the diagonal cut between two panels */
-  --page-x: clamp(16px, 4vw, 48px); /* page side padding */
+  --page-x: clamp(16px, 4vw, 48px); /* page side padding, and the trending section's top padding */
 
   /* Motion */
   --spring: cubic-bezier(0.2, 1.5, 0.35, 1);

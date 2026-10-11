@@ -1,6 +1,8 @@
-import { hasSmallCover } from '../features/anime/format.ts'
+import type { Ref } from 'react'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
+import { markBroken, markLoaded } from './cover.ts'
+import { coverFan } from './coverFan.ts'
 import { cssVars } from './cssVars.ts'
 
 export type IntroAction = { href: string; label: string; primary?: boolean }
@@ -12,26 +14,40 @@ export type IntroAction = { href: string; label: string; primary?: boolean }
  */
 export function IntroHero({
   titles,
+  coversRef,
   loading = false,
   actions,
 }: {
   titles: Media[]
+  /** Gets the cover fan, so App can tell when it is on screen (see useSteadyList). */
+  coversRef?: Ref<HTMLDivElement>
   /** Hold the covers' place while the first load runs (on phones, so the headline stays put). */
   loading?: boolean
   actions: IntroAction[]
 }) {
-  // Three real covers say "anime" at a glance. Small covers are skipped so none look blurry.
-  const covers = titles.filter((media) => !hasSmallCover(media)).slice(0, 3)
+  // The same pick App's hold uses (see coverFan).
+  const covers = coverFan(titles)
   return (
     <section className="ab-intro" aria-labelledby="ab-intro-title">
-      <div className={loading ? 'ab-intro-art is-loading' : 'ab-intro-art'} aria-hidden="true">
+      <div
+        ref={coversRef}
+        className={loading ? 'ab-intro-art is-loading' : 'ab-intro-art'}
+        aria-hidden="true"
+      >
         {covers.map((media, i) => (
-          <img
+          // The frame holds the cover's place in its title's color, as a trending panel does.
+          <span
             key={media.id}
-            src={media.coverImage.extraLarge}
-            alt=""
+            className="ab-intro-cover"
             style={{ ...accentVars(media.coverImage.color), ...cssVars({ '--i': i }) }}
-          />
+          >
+            <img
+              src={media.coverImage.extraLarge}
+              alt=""
+              onLoad={markLoaded}
+              onError={markBroken}
+            />
+          </span>
         ))}
       </div>
       <p className="ab-intro-kicker">For anime fans · powered by AniList</p>

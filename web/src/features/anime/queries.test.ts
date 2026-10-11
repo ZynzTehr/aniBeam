@@ -2,7 +2,16 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { ERAS, eraQuery, isRefinement, QUERIES, searchQuery, trendingQuery } from './queries.ts'
+import {
+  ERAS,
+  eraQuery,
+  isRefinement,
+  QUERIES,
+  searchQuery,
+  trendingQuery,
+  type Era,
+  type Media,
+} from './queries.ts'
 
 test('every media query excludes adult titles', () => {
   for (const [name, query] of Object.entries(QUERIES)) {
@@ -13,6 +22,73 @@ test('every media query excludes adult titles', () => {
     for (const args of mediaArguments) {
       assert.match(args, /isAdult: false/, `${name} is missing isAdult: false`)
       assert.match(args, /genre_not_in: \["Hentai"\]/, `${name} is missing the Hentai exclusion`)
+    }
+  }
+})
+
+// Every field of Media with a value: one item per array and no nulls, so every nested field is
+// reached. It's typed as Media, so the type check fails until a field added to Media is added
+// here too. The type check can't force in an optional field (`?:`), so one would go unchecked.
+const complete: Media = {
+  id: 1,
+  title: { romaji: 'Sousou no Frieren', english: 'Frieren', native: '葬送のフリーレン' },
+  coverImage: { extraLarge: 'x.png', large: 'l.png', color: '#e4a15d' },
+  bannerImage: 'b.png',
+  genres: ['Adventure'],
+  averageScore: 90,
+  format: 'TV',
+  episodes: 28,
+  season: 'FALL',
+  seasonYear: 2023,
+  studios: { nodes: [{ name: 'Madhouse' }] },
+  nextAiringEpisode: { episode: 9, airingAt: 1_800_000_000 },
+}
+
+/** "studios.nodes.name" and so on: the path of every field holding a plain value. */
+const fieldsOf = (value: unknown, path = ''): string[] =>
+  Array.isArray(value)
+    ? fieldsOf(value[0], path)
+    : value !== null && typeof value === 'object'
+      ? Object.entries(value).flatMap(([key, child]) =>
+          fieldsOf(child, path ? `${path}.${key}` : key),
+        )
+      : [path]
+
+/**
+ * The same paths for what each media(...) call in a query selects, one list per call, since one
+ * query can ask for several lists. Arguments are skipped, assuming none holds a parenthesis, as
+ * the SAFE tests do too.
+ */
+const selections = (query: string) =>
+  [...query.matchAll(/\bmedia\s*\([^)]*\)\s*\{/g)].map((call) => {
+    const tokens =
+      query
+        .slice(call.index + call[0].length)
+        .replace(/\([^)]*\)/g, ' ')
+        .match(/[{}]|\w+/g) ?? []
+    const fields: string[] = []
+    const parents: string[] = []
+    for (let i = 0; i < tokens.length; i++) {
+      if (tokens[i] === '}') {
+        if (!parents.length) break // the end of this media(...) call
+        parents.pop()
+      } else if (tokens[i + 1] === '{') parents.push(tokens[i++])
+      else fields.push([...parents, tokens[i]].join('.'))
+    }
+    return fields.sort()
+  })
+
+// Media is typed by hand and CARD is a plain string, so the type check can't tell when they drift
+// apart, and a field a query leaves out is undefined on every title it returns. Whole paths are
+// compared, because a check that each name appears would still find a dropped "season" inside
+// "seasonYear", or "episode" inside "episodes".
+test('every query asks AniList for exactly the fields of Media', () => {
+  const wanted = fieldsOf(complete).sort()
+  for (const [name, query] of Object.entries(QUERIES)) {
+    const calls = selections(query)
+    assert.ok(calls.length > 0, `${name} has no media(...) call`)
+    for (const fields of calls) {
+      assert.deepEqual(fields, wanted, `${name} doesn't ask for exactly the fields of Media`)
     }
   }
 })
@@ -105,6 +181,128 @@ test('Upcoming lists only unreleased titles, and the other eras leave them out',
 
 const decades = (...ids: string[]) => ids.map((id) => ERAS.find((era) => era.id === id)!)
 
+type Sent = { query: string; variables: Record<string, unknown> }
+// AniList's answer to a request for both of a first visit's lists.
+const both = { data: { trending: { media: [{ id: 1 }] }, era: { media: [{ id: 2 }] } } }
+
+/** Sets up trending and a decade the way App does: both built first, then both subscribed. */
+function page(client: QueryClient, era: Era) {
+  const observers = [trendingQuery(), eraQuery(era)].map(
+    (options) => new QueryObserver(client, options),
+  )
+  const stops = observers.map((observer) => observer.subscribe(() => {}))
+  return { decade: observers[1], leave: () => stops.forEach((stop) => stop()) }
+}
+
+// The page opens on trending and the 1990s. AniList allows 30 requests a minute per IP address,
+// and a class on one school Wi-Fi shares one, so a first visit asks for both lists at once.
+test('a first visit asks AniList for trending and the 1990s in one request', async (t) => {
+  const sent: Sent[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    sent.push(JSON.parse(init.body as string))
+    return new Response(JSON.stringify(both))
+  })
+  const client = new QueryClient()
+  t.after(() => client.clear())
+  const [nineties] = decades('1990s')
+  const { leave } = page(client, nineties)
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  leave()
+
+  assert.equal(sent.length, 1, `sent ${sent.length} requests`)
+  assert.deepEqual(sent[0].variables, nineties.variables, 'it asks for another decade')
+  for (const name of Object.keys(sent[0].variables)) {
+    assert.ok(
+      sent[0].query.includes(`$${name}:`),
+      `sends $${name}, which its query doesn't declare`,
+    )
+  }
+  assert.deepEqual(client.getQueryData(trendingQuery().queryKey), [{ id: 1 }])
+  assert.deepEqual(client.getQueryData(eraQuery(nineties).queryKey), [{ id: 2 }])
+})
+
+test('with one of those lists saved, the other is asked for on its own', async (t) => {
+  const sent: string[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    sent.push(JSON.parse(init.body as string).query)
+    return new Response(JSON.stringify({ data: { Page: { media: [{ id: 3 }] } } }))
+  })
+  const [nineties] = decades('1990s')
+  // A returning visitor's saved list, and the one the page must then ask for.
+  for (const [saved, asked] of [
+    ['trending', QUERIES.era],
+    ['the 1990s', QUERIES.trending],
+  ]) {
+    sent.length = 0
+    const client = new QueryClient()
+    const { queryKey } = saved === 'trending' ? trendingQuery() : eraQuery(nineties)
+    client.setQueryData(queryKey, [complete])
+    const { leave } = page(client, nineties)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    leave()
+    client.clear()
+    assert.deepEqual(sent, [asked], `with ${saved} saved`)
+  }
+})
+
+test('a decade picked while a first visit loads asks for its own titles', async (t) => {
+  const sent: Sent[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    const request: Sent = JSON.parse(init.body as string)
+    sent.push(request)
+    const answer = request.query.includes('trending:')
+      ? both
+      : { data: { Page: { media: [{ id: 4 }] } } }
+    return new Response(JSON.stringify(answer))
+  })
+  const client = new QueryClient()
+  t.after(() => client.clear())
+  const [eighties, nineties] = decades('1980s', '1990s')
+  const { decade, leave } = page(client, nineties)
+  decade.setOptions(eraQuery(eighties)) // the visitor picks the 1980s before the answer
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  leave()
+
+  assert.deepEqual(
+    client.getQueryData(eraQuery(eighties).queryKey),
+    [{ id: 4 }],
+    'the 1980s got another list',
+  )
+  assert.deepEqual(sent.at(-1), { query: QUERIES.era, variables: eighties.variables })
+})
+
+test('when that request fails, both lists retry it together, still one request a try', async (t) => {
+  // Fake timers skip TanStack's wait before the retry.
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const sent: Sent[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    sent.push(JSON.parse(init.body as string))
+    return sent.length === 1
+      ? new Response(
+          JSON.stringify({
+            data: null,
+            errors: [{ message: 'Internal Server Error', status: 500 }],
+          }),
+          { status: 500 },
+        )
+      : new Response(JSON.stringify(both))
+  })
+  // Node counts as a server, where TanStack retries nothing unless told to.
+  const client = new QueryClient({ defaultOptions: { queries: { retry: 1 } } })
+  t.after(() => client.clear())
+  const [nineties] = decades('1990s')
+  const { leave } = page(client, nineties)
+  for (let step = 0; step < 40; step++) {
+    await new Promise((resolve) => setImmediate(resolve))
+    t.mock.timers.tick(100)
+  }
+  leave()
+
+  assert.equal(sent.length, 2, `sent ${sent.length} requests over two tries`)
+  assert.deepEqual(client.getQueryData(trendingQuery().queryKey), [{ id: 1 }])
+  assert.deepEqual(client.getQueryData(eraQuery(nineties).queryKey), [{ id: 2 }])
+})
+
 test('switching lists keeps a request that was already sent, so its result is cached', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => {
     return new Response(JSON.stringify({ data: { Page: { media: [{ id: 1 }] } } }))
@@ -151,6 +349,53 @@ test('while rate-limited, a request still waiting is dropped when the list chang
   unsubscribe()
 
   assert.deepEqual(sent, ['trending', '19899999'], 'only the list still on screen was sent')
+})
+
+// The request for both of a first visit's lists reads no abort signal (see mediaQuery). If it took
+// the signal of the list that asked first, leaving that list would cancel the other's half too.
+// App asks for trending first and always shows it, so here the 1990s ask first, while requests
+// are held for a rate limit: the only time a list's own request reads its signal.
+test("while rate-limited, leaving the 1990s on a first visit doesn't cancel trending", async (t) => {
+  // A fake clock in the past, so the pause this test starts has long expired for later tests,
+  // and a day after the test above's, whose pause (until 2000-01-01 00:01) would hold this one.
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2000, 0, 2) })
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    // As fetch does, a request whose signal was aborted while it waited is refused.
+    if (init.signal?.aborted) throw new DOMException('This operation was aborted', 'AbortError')
+    const { query } = JSON.parse(init.body as string)
+    if (query === QUERIES.search) {
+      return new Response(
+        JSON.stringify({ data: null, errors: [{ message: 'Too Many Requests.', status: 429 }] }),
+        { status: 429 },
+      )
+    }
+    // The request for both lists, or the 1980s' own.
+    return new Response(
+      JSON.stringify(query === QUERIES.firstVisit ? both : { data: { Page: { media: [] } } }),
+    )
+  })
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  t.after(() => client.clear())
+  // A search's 429 starts a one-minute pause, before either list has been asked for.
+  await client.query(searchQuery('frieren')).catch(() => {})
+  const [eighties, nineties] = decades('1980s', '1990s')
+
+  // Both lists are built before either asks, as page() does, but the 1990s ask first.
+  const decade = new QueryObserver(client, eraQuery(nineties))
+  const trending = new QueryObserver(client, trendingQuery())
+  const stops = [decade, trending].map((observer) => observer.subscribe(() => {}))
+  decade.setOptions(eraQuery(eighties)) // the visitor picks the 1980s before the request is sent
+  for (let second = 0; second <= 60; second++) {
+    await new Promise((resolve) => setImmediate(resolve))
+    t.mock.timers.tick(1000)
+  }
+  stops.forEach((stop) => stop())
+
+  assert.deepEqual(
+    client.getQueryData(trendingQuery().queryKey),
+    [{ id: 1 }],
+    "leaving the 1990s also cancelled trending's half of their request",
+  )
 })
 
 test('every media query anywhere in the source uses SAFE', () => {

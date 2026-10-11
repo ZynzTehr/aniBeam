@@ -41,7 +41,42 @@ const tooMany = (resetSeconds: number): Reply => ({
 const settle = () => new Promise((resolve) => setImmediate(resolve))
 
 test('retryAt trusts a reset time within the next minute', () => {
-  assert.equal(retryAt(new Headers({ 'X-RateLimit-Reset': '1030' }), 1_000_000), 1_030_000)
+  assert.equal(
+    retryAt(new Headers({ 'X-RateLimit-Reset': '1030' }), 1_000_000, () => 0),
+    1_030_000,
+  )
+})
+
+// Every device on one network shares one limit, and so one reset time. Up to 2 seconds more,
+// picked at random, keeps them from all asking again in the same instant.
+test('retryAt spreads retries over the 2 seconds after a reset time', () => {
+  const headers = new Headers({ 'X-RateLimit-Reset': '1030' })
+  // How many ms after the reset the pause ends when random() returns the given number
+  const spread = (random: number) => retryAt(headers, 1_000_000, () => random) - 1_030_000
+
+  assert.equal(spread(0), 0, `random 0 ended the pause ${spread(0)} ms after the reset, not at it`)
+  const most = spread(0.999)
+  assert.ok(
+    most > 1_990 && most <= 2_000,
+    `random 0.999 ended the pause ${most} ms after the reset, not about 2 s`,
+  )
+  for (const random of [0.1, 0.25, 0.5, 0.75, 0.9]) {
+    assert.ok(spread(random) >= 0, `random ${random} ended the pause before the reset`)
+  }
+  // The full minute counts from each device's own reply, so their times already differ.
+  assert.equal(
+    retryAt(new Headers(), 1_000_000, () => 0.999),
+    1_060_000,
+    'the full minute got a spread too',
+  )
+  // The spread goes on only after the reset time is trusted. Added before that check, it could
+  // push a reset that passed up to 2 s ago into the next minute, where it would be trusted, and
+  // the pause would end within 2 s instead of after the full minute.
+  assert.equal(
+    retryAt(new Headers({ 'X-RateLimit-Reset': '999' }), 1_000_000, () => 0.999),
+    1_060_000,
+    'a reset 1 s ago was trusted, so the pause ended within 2 s, not after a minute',
+  )
 })
 
 test('retryAt waits one minute when the reset header is missing', () => {
@@ -79,19 +114,20 @@ test('an HTML error page becomes a readable error', async (t) => {
   })
 })
 
-test('after a 429, the next request waits until the limit resets', async (t) => {
+test('after a 429, the next request waits until the limit resets, plus its spread', async (t) => {
+  t.mock.method(Math, 'random', () => 0.5) // a 1 s spread, half the most
   const start = Date.now()
   const sentAt = replies(t, tooMany(start / 1000 + 30), {})
-  await assert.rejects(anilist('query { x }'), { status: 429, retryAt: start + 30_000 })
+  await assert.rejects(anilist('query { x }'), { status: 429, retryAt: start + 31_000 })
 
   const next = anilist('query { x }')
-  t.mock.timers.tick(29_999)
+  t.mock.timers.tick(30_999)
   await settle()
-  assert.equal(sentAt.length, 1, 'the second request went out before the limit reset')
+  assert.equal(sentAt.length, 1, 'the second request went out before the reset plus its spread')
 
   t.mock.timers.tick(1)
   assert.deepEqual(await next, { ok: true })
-  assert.deepEqual(sentAt, [start, start + 30_000])
+  assert.deepEqual(sentAt, [start, start + 31_000])
 })
 
 test('after the last request of the minute, the next request waits a minute', async (t) => {
@@ -110,6 +146,9 @@ test('after the last request of the minute, the next request waits a minute', as
 })
 
 test('a waiting request keeps waiting when the pause gets longer', async (t) => {
+  // No spread, so B's pause ends exactly 10 s in and C wakes up between the ticks below. With
+  // a spread, C would first wake inside the 55 s tick, and a C that looked only once would pass.
+  t.mock.method(Math, 'random', () => 0)
   const start = Date.now()
   // Request A is still in flight when request B gets a 429 that resets in 10 s, so C waits.
   // Then A finishes with no requests left this minute, which extends the pause by a minute.

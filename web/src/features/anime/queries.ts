@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query'
+import { queryOptions, type QueryClient } from '@tanstack/react-query'
 import { anilist, isRateLimited, type Variables } from '../../lib/anilist.ts'
 
 /** The fields the panels, title card and pull need. AniList leaves many of them null. */
@@ -28,10 +28,23 @@ const CARD = `id title { romaji english native } coverImage { extraLarge large c
   genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }
   nextAiringEpisode { episode airingAt }`
 
+// A page of each list. The queries below are built from them, so the request for both of a first
+// visit's lists asks for exactly what the two on their own do.
+const TRENDING = `Page(perPage: 20) { media(type: ANIME, sort: TRENDING_DESC, countryOfOrigin: "JP", ${SAFE}) { ${CARD} } }`
+const ERA_VARIABLES =
+  '$from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus'
+const ERA = `Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: "JP", startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, ${SAFE}) { ${CARD} } }`
+
 export const QUERIES = {
-  trending: `query { Page(perPage: 20) { media(type: ANIME, sort: TRENDING_DESC, countryOfOrigin: "JP", ${SAFE}) { ${CARD} } } }`,
-  era: `query ($from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus) { Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: "JP", startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, ${SAFE}) { ${CARD} } } }`,
+  trending: `query { ${TRENDING} }`,
+  era: `query (${ERA_VARIABLES}) { ${ERA} }`,
   search: `query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, ${SAFE}) { ${CARD} } } }`,
+  // A first visit's trending and first decade in one request, each list under its own name
+  // (see bothLists).
+  firstVisit: `query (${ERA_VARIABLES}) { trending: ${TRENDING} era: ${ERA} }`,
+  // The titles bundled for when AniList can't be reached, by id (see scripts/refresh-samples.ts).
+  // Only finished titles, so none has an episode countdown that would go stale in the bundle.
+  samples: `query ($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, status: FINISHED, type: ANIME, ${SAFE}) { ${CARD} } } }`,
 }
 
 export type Era = { id: string; label: string; variables: Variables }
@@ -55,8 +68,37 @@ export const ERAS: Era[] = [
   { id: 'upcoming', label: 'Upcoming', variables: { status: 'NOT_YET_RELEASED' } },
 ]
 
+/** The decade the page opens on. A first visit asks for it in one request with trending. */
+export const FIRST_ERA = ERAS.find((era) => era.id === '1990s')!
+
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
+
+type Page = { media: Media[] }
+
+// Spec §2: a screen's lists come in one request, because AniList allows 30 requests a minute
+// per IP address and a class on one Wi-Fi shares one. A first visit (nothing saved) needs
+// trending and the first decade at the same moment, so while neither has titles yet, each asks
+// for both in one request: whichever asks first sends it, and the other joins it while it runs.
+// Retries fail and come back together, so they share one request a try too.
+let bothRunning: Promise<{ trending: Page; era: Page }> | undefined
+const bothLists = () =>
+  (bothRunning ??= anilist<{ trending: Page; era: Page }>(
+    QUERIES.firstVisit,
+    FIRST_ERA.variables,
+  ).finally(() => (bothRunning = undefined)))
+
+/**
+ * True when trending and the first decade are both in the cache with no titles yet. A queryFn
+ * called on its own, outside TanStack (as some tests do), has no client and never pairs. The
+ * return type is written out because TypeScript can't infer it: the options read here take
+ * their type from mediaQuery, which calls this.
+ */
+const firstVisit = (client?: QueryClient): boolean =>
+  [trendingQuery(), eraQuery(FIRST_ERA)].every(({ queryKey }) => {
+    const state = client?.getQueryState(queryKey)
+    return state !== undefined && state.data === undefined
+  })
 
 // The cache key is the exact request (query text and variables), so editing a query
 // or an era's dates never shows results saved under the old version.
@@ -64,22 +106,35 @@ const HOUR = 60 * MINUTE
 // TanStack cancels a query the user moves away from only if its queryFn read the
 // abort signal. The signal is read only while requests are held for a rate limit:
 // then a stale request is dropped before it is sent. Otherwise a request AniList
-// has already counted finishes and its result is cached for later.
-const mediaQuery = (query: string, variables: Variables, staleTime: number) =>
+// has already counted finishes and its result is cached for later. The request for both of a
+// first visit's lists reads no signal: trending is always on screen, so it is always wanted.
+//
+// `part` names the list's place in that request, for the lists that can be in it. Whether they
+// go together is decided as the request is made, from what the cache holds then, not when the
+// options are built: TanStack can start a fetch with an earlier render's options.
+const mediaQuery = (
+  query: string,
+  variables: Variables,
+  staleTime: number,
+  part?: 'trending' | 'era',
+) =>
   queryOptions({
     queryKey: ['anilist', query, variables],
     queryFn: (context) =>
-      anilist<{ Page: { media: Media[] } }>(
-        query,
-        variables,
-        isRateLimited() ? context.signal : undefined,
-      ).then((data) => data.Page.media),
+      part && firstVisit(context.client)
+        ? bothLists().then((lists) => lists[part].media)
+        : anilist<{ Page: Page }>(
+            query,
+            variables,
+            isRateLimited() ? context.signal : undefined,
+          ).then((data) => data.Page.media),
     staleTime,
   })
 
-export const trendingQuery = () => mediaQuery(QUERIES.trending, {}, 30 * MINUTE)
+export const trendingQuery = () => mediaQuery(QUERIES.trending, {}, 30 * MINUTE, 'trending')
 
-export const eraQuery = (era: Era) => mediaQuery(QUERIES.era, era.variables, 6 * HOUR)
+export const eraQuery = (era: Era) =>
+  mediaQuery(QUERIES.era, era.variables, 6 * HOUR, era === FIRST_ERA ? 'era' : undefined)
 
 // AniList search ignores capitals and extra spaces, so "Frieren " and "frieren"
 // share one request and one cache entry.

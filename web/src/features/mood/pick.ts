@@ -9,13 +9,15 @@ export const pullable = (pool: Media[]) => pool.filter((media) => !media.genres.
 /**
  * A random title for a pull, from the pullable ones. It has one of the vibe's genres (any
  * title, for no genres), and it hasn't come up yet this visit until every match has. With no
- * match at all, any pullable title will do. `random` is Math.random, or a stand-in in tests.
+ * match at all, any pullable title will do. It is never `shown`, the title on screen, while
+ * another can come up. `random` is Math.random, or a stand-in in tests.
  */
 export function pickTitle(
   pool: Media[],
   genres: string[],
   seen: Set<number>,
   random: () => number,
+  shown?: number,
 ): Media | null {
   const titles = pullable(pool)
   const matches = titles.filter(
@@ -23,5 +25,9 @@ export function pickTitle(
   )
   const fresh = matches.filter((media) => !seen.has(media.id))
   const from = fresh.length ? fresh : matches.length ? matches : titles
-  return from.length ? from[Math.floor(random() * from.length)] : null
+  // Once every match has come up, a pull could land on the title already showing, and look
+  // like the lever did nothing.
+  const others = from.filter((media) => media.id !== shown)
+  const choices = others.length ? others : from
+  return choices.length ? choices[Math.floor(random() * choices.length)] : null
 }

@@ -3,7 +3,8 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { Browser } from './browser.ts'
+import { SAMPLES } from '../src/features/anime/samples.ts'
+import { Browser, type Answer } from './browser.ts'
 
 let browser: Browser
 
@@ -13,6 +14,23 @@ const decadeRow = `document.querySelector('[aria-labelledby="decades"] .ab-strip
 const resultTitles = `[...document.querySelectorAll('.ab-results .ab-strip-panel[href] .ab-strip-title')].map((t) => t.textContent).join(' | ')`
 const resultsFor = (term: string) =>
   `document.querySelector('#results')?.textContent.includes(${JSON.stringify(`“${term}”`)})`
+
+/**
+ * From now on, lists each results heading the page shows, in order, in window.__headings, so a
+ * check sees every search that ran, even one on screen for a moment. Calling it again starts a
+ * new list. In this file's browser, unless given another.
+ */
+async function recordHeadings(page = browser) {
+  await page.evaluate(`(() => {
+    if (!window.__headings)
+      new MutationObserver(() => {
+        const heading = document.getElementById('results')?.firstChild?.textContent
+        if (heading && heading !== window.__headings.at(-1)) window.__headings.push(heading)
+      }).observe(document.querySelector('main'), { childList: true, characterData: true, subtree: true })
+    window.__headings = []
+    return true
+  })()`)
+}
 
 // An AniList answer of HTTP 400. A bad request isn't retried, so Try again shows at once (a
 // failed connection waits out the AniList client's one-minute pause first).
@@ -29,6 +47,118 @@ const goOffline = (offline: boolean) =>
     downloadThroughput: -1,
     uploadThroughput: -1,
   })
+
+/**
+ * Answers the page's searches for these terms inside the page, each with that many of the sample
+ * titles, a moment after it is asked, as AniList would. No request reaches AniList, and each
+ * search gets as many titles as a check needs. Other requests go on as usual. It lasts until the
+ * page loads again, or until the function it returns puts the page's own fetch back. `held`
+ * answers wait for releaseAnswers(), as a late one waits out anilist()'s pause or a slow
+ * connection, so a check can stage what the visitor does meanwhile.
+ */
+async function answerSearches(titles: Record<string, number>, { held = false } = {}) {
+  const answers = Object.fromEntries(
+    Object.entries(titles).map(([term, count]) => [
+      term,
+      JSON.stringify({ data: { Page: { media: SAMPLES.slice(0, count) } } }),
+    ]),
+  )
+  await browser.evaluate(`(() => {
+    const answers = ${JSON.stringify(answers)}, fetch = window.fetch
+    let release
+    const released = new Promise((resolve) => (release = resolve))
+    if (!${held}) release()
+    window.__releaseAnswers = () => {
+      release()
+      return true
+    }
+    window.fetch = function (url, init) {
+      const answer = url === 'https://graphql.anilist.co' && answers[JSON.parse(init.body).variables.search]
+      if (!answer) return fetch.apply(this, arguments)
+      const response = new Response(answer, { headers: { 'Content-Type': 'application/json' } })
+      return released.then(() => new Promise((resolve) => setTimeout(() => resolve(response), 300)))
+    }
+    window.__stopAnswering = () => {
+      window.fetch = fetch
+      return true
+    }
+    return true
+  })()`)
+  return () => browser.evaluate('window.__stopAnswering()')
+}
+
+/** Lets the answers answerSearches holds go, each a moment later, as ever. */
+const releaseAnswers = () => browser.evaluate('window.__releaseAnswers()')
+
+/** Where the checked decade chip is on screen, and what else lateFirstAnswer looks at. */
+type Chip = { top: number; inView: boolean; focused: boolean; titles: number; scrollY: number }
+
+/**
+ * A new search whose first answer comes late, as after anilist()'s one-minute pause, a slow
+ * connection or a retry. The search starts at the top of the page, where its heading and loading
+ * state show. Meanwhile the visitor scrolls down to the decades and focuses the checked chip, as
+ * Tab would, and only then do the titles arrive. The answer is held inside the page until then
+ * (see answerSearches), so no request is sent. Returns the chip as it was just before the titles
+ * arrived and once they have.
+ */
+async function lateFirstAnswer(term: string) {
+  const stopAnswering = await answerSearches({ [term]: 20 }, { held: true })
+  const titles = `document.querySelectorAll('.ab-results .ab-strip-panel[href]').length`
+  // The chip's pill (its radio button is see-through), and the view under the header, or under
+  // the top of the screen once a phone's header has scrolled away.
+  const chip = `(() => {
+    const input = document.querySelector('.ab-eras input:checked'), r = input.nextElementSibling.getBoundingClientRect()
+    const below = Math.max(0, document.querySelector('.ab-top').getBoundingClientRect().bottom)
+    return { top: r.top, inView: r.top >= below && r.bottom <= innerHeight, focused: document.activeElement === input, titles: ${titles}, scrollY }
+  })()`
+  try {
+    // Pasted, not typed letter by letter: a shorter search run on the way would put its titles on
+    // screen to stand in for this one's, which would make this a refinement.
+    await browser.evaluate(
+      `(() => { const input = document.querySelector('.ab-search input'); input.focus(); input.select(); return true })()`,
+    )
+    await browser.send('Input.insertText', { text: term })
+    assert.ok(
+      await browser.waitFor(resultsFor(term), 5_000),
+      `the heading for “${term}” never showed`,
+    )
+    const before = await browser.evaluate<Chip>(`(() => {
+      document.getElementById('decades').scrollIntoView()
+      document.querySelector('.ab-eras input:checked').focus()
+      return ${chip}
+    })()`)
+    await releaseAnswers()
+    assert.ok(
+      await browser.waitFor(`${titles} === 20`, 5_000),
+      `the titles for “${term}” never came`,
+    )
+    // Two frames on, so whatever the answer set off has been drawn.
+    const after = await browser.evaluate<Chip>(
+      `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(${chip}))))`,
+    )
+    return { before, after }
+  } finally {
+    await releaseAnswers() // in case the check stopped before it let the answer go
+    await stopAnswering()
+    await browser.search('')
+  }
+}
+
+/**
+ * Checks a lateFirstAnswer() run: the chip kept focus and stayed where it was on screen. The
+ * titles arriving above it make the page taller, and Chrome scrolls on by as much to keep what
+ * the visitor sees in place, in whole pixels, so the chip may shift by a fraction of one.
+ */
+function assertPlaceKept({ before, after }: Awaited<ReturnType<typeof lateFirstAnswer>>) {
+  assert.ok(
+    before.titles === 0 && before.focused && before.inView,
+    `before the answer came: ${JSON.stringify(before)}, not 0 titles with the chip focused and in view`,
+  )
+  assert.ok(
+    after.focused && Math.abs(after.top - before.top) < 1,
+    `the late answer moved the page from ${Math.round(before.scrollY)} to ${Math.round(after.scrollY)}px, and the focused chip from ${Math.round(before.top)}px to ${Math.round(after.top)}px on screen${after.focused ? '' : ', and took its focus'}`,
+  )
+}
 
 /** Waits until the decade row stops scrolling (snapping animates), so nothing is measured mid-slide. */
 async function rowSettled() {
@@ -81,15 +211,79 @@ function assertStripInView(steps: Awaited<ReturnType<typeof tabThroughStrip>>) {
   const bad = steps.filter((s) => s.visible < 0.95 || s.ringCut).map(label)
   assert.deepEqual(bad, [], 'focused panels out of view or with their ring cut off')
 }
+
+// The splash cover's transform. Its parallax moves this span; the img inside zooms on hover.
+const splashCover = `getComputedStyle(document.querySelector('.ab-splash .ab-img')).transform`
+
+/**
+ * Scrolls the page until that fraction of the splash panel's height has gone off the top of the
+ * screen (a negative one leaves its top that far below), then waits two frames, so the
+ * scroll-driven parallax has caught up.
+ */
+async function scrollSplashOut(fraction: number) {
+  await browser.evaluate(`(() => {
+    const r = document.querySelector('.ab-splash').getBoundingClientRect()
+    scrollTo(0, scrollY + r.top + r.height * ${fraction})
+    return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))
+  })()`)
+}
+
+/**
+ * The contrast a part of the page shows on screen: between its dark and its light pixels, taken
+ * 5% in from each end, so a few stray pixels don't decide it. Computed styles can't show all
+ * that a contrast theme paints, such as the plate Chrome puts behind text. The clip is in CSS
+ * pixels from the top left of the page, as for Browser.screenshot.
+ */
+async function pixelContrast(clip: { x: number; y: number; width: number; height: number }) {
+  const png = await browser.screenshot(clip)
+  // Decoded in the page.
+  return browser.evaluate<number>(`(async () => {
+    const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+    const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+    const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+    context.drawImage(image, 0, 0)
+    const { data } = context.getImageData(0, 0, image.width, image.height)
+    const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+    const lum = []
+    for (let i = 0; i < data.length; i += 4) lum.push(0.2126 * channel(data[i]) + 0.7152 * channel(data[i + 1]) + 0.0722 * channel(data[i + 2]))
+    lum.sort((a, b) => a - b)
+    const dark = lum[Math.floor(lum.length * 0.05)], light = lum[Math.floor(lum.length * 0.95)]
+    return Math.round(((light + 0.05) / (dark + 0.05)) * 100) / 100
+  })()`)
+}
+
 before(async () => {
   browser = await Browser.open()
 })
 after(() => browser?.close())
 
 describe('desktop (1440x900)', () => {
+  // What the page asks AniList for on its first load, a first visit: the profile is new.
+  const firstVisit: Answer['request'][] = []
   before(async () => {
-    await browser.load()
-    assert.ok(await browser.titlesShown(), 'trending and decade titles never appeared')
+    await browser.rewriteAniList(({ request }) => {
+      firstVisit.push(request)
+      return null
+    })
+    try {
+      await browser.load()
+      assert.ok(await browser.titlesShown(), 'trending and decade titles never appeared')
+    } finally {
+      await browser.rewriteAniList(null)
+    }
+  })
+
+  // AniList allows 30 requests a minute per IP address, and a class on one Wi-Fi shares one.
+  test('a first visit asks AniList for trending and the 1990s in one request', () => {
+    // Each request, as the lists it asks for. A decade is named by its first year: its `from`
+    // is the YYYYMMDD date just before it.
+    const lists = firstVisit.map(({ query, variables }) => [
+      ...(query.includes('TRENDING_DESC') ? ['trending'] : []),
+      ...(query.includes('POPULARITY_DESC')
+        ? [`${Math.ceil(Number(variables.from) / 10000)}s`]
+        : []),
+    ])
+    assert.deepEqual(lists, [['trending', '1990s']], 'the lists each request asked AniList for')
   })
 
   test('renders the header, intro, nine trending panels, the pull and the decades', async () => {
@@ -219,6 +413,33 @@ describe('desktop (1440x900)', () => {
     assert.deepEqual(back, { open: false, focus: 'ab-strip-panel' })
   })
 
+  test('the page has one h1: the intro’s title, or the results heading while searching', async () => {
+    // Screen readers jump to a page's h1 to learn what the page is about. Search results take
+    // the intro's place, so they take its h1 too. The check above searched "frieren", so this
+    // one sends no request.
+    const h1s = `[...document.querySelectorAll('h1')].map((h) => h.id)`
+    await browser.search('')
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-intro')`, 5_000),
+      'the intro did not come back',
+    )
+    const home = await browser.evaluate<string[]>(h1s)
+    await browser.search('frieren')
+    assert.ok(await browser.waitFor(resultsFor('frieren'), 5_000), 'the heading never showed')
+    const searching = await browser.evaluate<string[]>(h1s)
+    await browser.search('')
+    assert.deepEqual(
+      home,
+      ['ab-intro-title'],
+      'at home, the intro’s title is not the page’s one h1',
+    )
+    assert.deepEqual(
+      searching,
+      ['results'],
+      'while searching, the results heading is not the page’s one h1',
+    )
+  })
+
   test('a search with no matches says so, and clearing it brings the intro back', async () => {
     await browser.search('zzqqxxnotananime')
     assert.ok(
@@ -283,6 +504,281 @@ describe('desktop (1440x900)', () => {
     )
     assert.equal(refining.scrollY, 300, 'refining the search moved the page')
     await browser.search('')
+  })
+
+  test('a refinement typed from below the results brings them back into view', async () => {
+    // Both searches were made by the check above, so this one sends no request.
+    // Where the results heading is, and the part of the view below the header.
+    const heading = () =>
+      browser.evaluate<{ top: number; below: number; bottom: number }>(`({
+        top: document.getElementById('results').getBoundingClientRect().top,
+        below: document.querySelector('.ab-top').getBoundingClientRect().bottom,
+        bottom: innerHeight,
+      })`)
+    // Wait for this search's own heading: the check above has just cleared “mushishi zoku”,
+    // whose results show until the box has been still for 300 ms.
+    await browser.search('mushishi')
+    assert.ok(
+      await browser.waitFor(`${resultsFor('mushishi')} && /mushi-?shi/i.test(${resultTitles})`),
+      'no Mushishi results',
+    )
+    // Where the header's Trending link lands, the results end behind the header.
+    await browser.evaluate(`document.getElementById('ab-trending').scrollIntoView(); true`)
+    const end = await browser.evaluate<number>(
+      `document.querySelector('.ab-results').getBoundingClientRect().bottom`,
+    )
+    await browser.search('mushishi zoku') // letters added
+    assert.ok(
+      await browser.waitFor(resultsFor('mushishi zoku'), 5_000),
+      'the heading never switched',
+    )
+    const added = await heading()
+    // Far below the results, at the pull.
+    await browser.evaluate(`document.getElementById('pull').scrollIntoView(); true`)
+    await browser.search('mushishi') // letters removed
+    assert.ok(await browser.waitFor(resultsFor('mushishi'), 5_000), 'the heading never switched')
+    const removed = await heading()
+    await browser.search('')
+    assert.ok(
+      end > 0 && end <= added.below,
+      `where the Trending link lands, the results end at ${Math.round(end)}px, not behind the header (0 to ${Math.round(added.below)}px)`,
+    )
+    const outOfView = [
+      { typed: '“mushishi zoku” typed where the Trending link lands', ...added },
+      { typed: '“mushishi” typed at the pull', ...removed },
+    ]
+      .filter((at) => at.top < at.below || at.top >= at.bottom)
+      .map(
+        (at) =>
+          `${at.typed}: heading at ${Math.round(at.top)}px, view ${Math.round(at.below)}px to ${at.bottom}px`,
+      )
+    assert.deepEqual(
+      outOfView,
+      [],
+      'a refinement typed from below the results left them out of view',
+    )
+  })
+
+  test('a refinement brings its titles into view when fewer arrive than stood in for them, and stays put while some show', async () => {
+    // These searches are answered inside the page with sample titles (see answerSearches), so
+    // this check sends no request, and each search gets the titles it needs: 20 fill three rows
+    // at this width, 8 fill one. Each answer comes a moment after its search, as AniList's does,
+    // and until then the titles of the search it refines stand in for it. A saved answer would
+    // show at once, with the search.
+    const stopAnswering = await answerSearches({
+      gundam: 20,
+      'gundam 00': 8,
+      'gundam wing': 3,
+      'gundam win': 4,
+    })
+    const titles = `[...document.querySelectorAll('.ab-results .ab-strip-panel[href]')]`
+    // Where each title ends up: its list item, as its panel pops in from a smaller size.
+    const items = `${titles}.map((panel) => panel.parentElement.getBoundingClientRect())`
+    const header = `document.querySelector('.ab-top').getBoundingClientRect().bottom`
+    // How many titles show in full between the header and the bottom of the screen, and where
+    // they all are.
+    type Shown = { whole: number; top: number; end: number; below: number; bottom: number }
+    const shown = `(() => {
+      const below = ${header}, all = ${items}
+      const whole = all.filter((r) => r.top >= below && r.bottom <= innerHeight).length
+      return { whole, top: all[0].top, end: all.at(-1).bottom, below, bottom: innerHeight }
+    })()`
+    // Types a search, then waits for its answer: that many titles.
+    const answered = async (term: string, count: number) => {
+      await browser.search(term)
+      return browser.waitFor(`${resultsFor(term)} && ${titles}.length === ${count}`, 5_000)
+    }
+    try {
+      assert.ok(await answered('gundam', 20), 'the titles for “gundam” never showed')
+      // 300px down, as in the refining check, the first row still shows under the header, and
+      // the 8 refined titles fill that row.
+      await browser.evaluate('scrollTo(0, 300); true')
+      assert.ok(await answered('gundam 00', 8), 'the titles for “gundam 00” never showed')
+      const stayed = await browser.evaluate<number>('scrollY')
+      // The last row just under the header, the rows above it out of view: a shorter answer's
+      // one row ends up where the first is, above the view. "gundam" is saved, so it shows at once.
+      assert.ok(await answered('gundam', 20), 'the titles for “gundam” never came back')
+      const lastRow = await browser.evaluate<{ first: number; below: number }>(`(() => {
+        scrollBy(0, ${items}.at(-1).top - ${header} - 32)
+        return { first: ${items}[0].bottom, below: ${header} }
+      })()`)
+      assert.ok(await answered('gundam wing', 3), 'the titles for “gundam wing” never showed')
+      const fewer = await browser.evaluate<Shown>(shown)
+      // The titles ending halfway behind the header: below it shows only the results' empty end
+      // (they fill at least a screen).
+      const behind = await browser.evaluate<{
+        end: number
+        results: number
+        below: number
+      }>(`(() => {
+        scrollBy(0, ${items}.at(-1).bottom - ${header} / 2)
+        return {
+          end: ${items}.at(-1).bottom,
+          results: document.querySelector('.ab-results').getBoundingClientRect().bottom,
+          below: ${header},
+        }
+      })()`)
+      assert.ok(await answered('gundam win', 4), 'the titles for “gundam win” never showed')
+      const hidden = await browser.evaluate<Shown>(shown)
+
+      assert.equal(
+        stayed,
+        300,
+        'refining the search moved the page by the time its titles arrived, though some were in view',
+      )
+      assert.ok(
+        lastRow.first <= lastRow.below,
+        `with the last row under the header, the first ends at ${Math.round(lastRow.first)}px, not above the header (${Math.round(lastRow.below)}px)`,
+      )
+      assert.ok(
+        behind.end > 0 && behind.end <= behind.below && behind.results > behind.below,
+        `the titles end at ${Math.round(behind.end)}px and the results at ${Math.round(behind.results)}px: not behind the header and below it (${Math.round(behind.below)}px)`,
+      )
+      const outOfView = [
+        {
+          typed: '“gundam wing” (3 titles) typed with the last row of 20 under the header',
+          ...fewer,
+        },
+        { typed: '“gundam win” typed with the titles ending behind the header', ...hidden },
+      ]
+        .filter((at) => !at.whole)
+        .map(
+          (at) =>
+            `${at.typed}: titles at ${Math.round(at.top)}px to ${Math.round(at.end)}px, view ${Math.round(at.below)}px to ${at.bottom}px`,
+        )
+      assert.deepEqual(outOfView, [], 'a refinement left its titles out of view once they arrived')
+    } finally {
+      await stopAnswering()
+      await browser.search('')
+    }
+  })
+
+  test('a new search’s first answer, arriving late, leaves the visitor’s place and focused chip where they were', async () => {
+    // Only a refinement's titles, arriving where others stood in for them, may move the page
+    // (see the check above). A new search started at the top when it was typed, and the visitor
+    // may have moved on since. Its answer is held inside the page (see lateFirstAnswer), so this
+    // check sends no request.
+    assertPlaceKept(await lateFirstAnswer('macross'))
+  })
+
+  test('a typed space restarts the search’s pause, so two words typed at an easy pace search once', async () => {
+    // "mushishi", 200 ms, a space, 200 ms, "zoku", then a second: each pause before "zoku" is
+    // shorter than the 300 ms one that starts a search, so only "mushishi zoku" should be
+    // searched. The pauses are timed on the page's own clock, stopped and moved on by the check:
+    // real pauses stretch and shrink on a busy machine, enough to miss a search that ran too
+    // soon in about 1 run of 6. A stopped clock can't start again (see Browser.stopClock), so
+    // the check opens a browser of its own. AniList is blocked there: the results heading shows
+    // as soon as a search starts, so no answer is needed, and no request is sent.
+    const own = await Browser.open()
+    try {
+      await own.blockAniList()
+      await own.load()
+      await own.animationsDone()
+      await recordHeadings(own)
+      await own.evaluate(`document.querySelector('.ab-search input').focus(); true`)
+      await own.stopClock()
+      const type = async (text: string) => {
+        for (const character of text) await own.send('Input.insertText', { text: character })
+      }
+      await type('mushishi')
+      await own.tick(200)
+      await type(' ')
+      await own.tick(200)
+      await type('zoku')
+      await own.tick(1000)
+      assert.ok(await own.waitFor(resultsFor('mushishi zoku'), 5_000), 'the heading never showed')
+      assert.deepEqual(
+        await own.evaluate<string[]>('window.__headings'),
+        ['Results for “mushishi zoku”'],
+        'a search ran while the visitor was still typing',
+      )
+    } finally {
+      await own.close()
+    }
+  })
+
+  test('with an input method, Japanese is searched once each word is converted, and Latin letters as they are typed', async () => {
+    // A Japanese input method shows a word as kana, then as candidate words, until the visitor
+    // picks one. Searching any of those would be searching for a word nobody typed. The checks
+    // above searched "frieren", so only 進撃の巨人 and "進撃の巨人 final" cost a request each.
+    const box = `document.querySelector('.ab-search input')`
+    // Each step is sent 100 ms after the one before: well within the 300 ms pause that starts a
+    // search, while a run of steps lasts longer than that pause.
+    let sent = 0
+    const step = async (method: string, params: object) => {
+      await sleep(Math.max(0, sent + 100 - performance.now()))
+      sent = performance.now()
+      await browser.send(method, params)
+    }
+    const compose = async (...texts: string[]) => {
+      for (const text of texts)
+        await step('Input.imeSetComposition', {
+          text,
+          selectionStart: text.length,
+          selectionEnd: text.length,
+        })
+    }
+    const commit = (text: string) => step('Input.insertText', { text })
+
+    // しんげき with a pause, a wrong candidate with a pause, then 進撃 picked and の巨人 typed
+    // straight after it: one search, for the whole title.
+    await browser.search('')
+    assert.ok(await browser.waitFor(`!document.querySelector('.ab-results')`, 5_000))
+    await recordHeadings()
+    await browser.evaluate(`${box}.focus(); true`)
+    await compose('s', 'sh', 'し', 'しn', 'しん', 'しんg', 'しんげ', 'しんげk', 'しんげき')
+    const kana = await browser.evaluate<string>(`${box}.value`)
+    await sleep(700)
+    await compose('神撃')
+    await sleep(700)
+    await compose('進撃')
+    await commit('進撃')
+    await compose('n', 'の', 'のk', 'のky', 'のきょ')
+    await compose('のきょj', 'のきょじ', 'のきょじn', 'のきょじん', 'の巨人')
+    await commit('の巨人')
+    const converted = await browser.waitFor(resultsFor('進撃の巨人'), 5_000)
+    const headings = await browser.evaluate<string[]>('window.__headings')
+
+    // Only the word being composed is judged, so a Latin word composed after 進撃の巨人, as
+    // Android keyboards compose it, is searched as typed too.
+    await commit(' ')
+    await compose('f', 'fi', 'fin', 'fina', 'final')
+    const mixed = await browser.waitFor(resultsFor('進撃の巨人 final'), 5_000)
+    await compose('') // cancels the word
+
+    // A word being converted after a search keeps that search's results on screen.
+    await browser.search('frieren')
+    assert.ok(await browser.waitFor(`/Frieren/i.test(${resultTitles})`), 'no Frieren results')
+    await commit(' ')
+    await compose('し', 'しn', 'しん')
+    await sleep(700)
+    const added = await browser.evaluate<{ heading?: string; frieren: boolean }>(
+      `({ heading: document.getElementById('results')?.firstChild?.textContent, frieren: /Frieren/i.test(${resultTitles}) })`,
+    )
+    await compose('') // cancels the word
+
+    // Android keyboards compose Latin words too: those are searched while still composing.
+    await browser.search('')
+    assert.ok(await browser.waitFor(`!document.querySelector('.ab-results')`, 5_000))
+    await compose('f', 'fr', 'fri', 'frie', 'frier', 'friere', 'frieren')
+    const composing = await browser.waitFor(resultsFor('frieren'), 5_000)
+    await compose('')
+    await browser.search('')
+
+    assert.equal(kana, 'しんげき', 'the box did not show the kana being converted')
+    assert.ok(converted, 'the converted title was never searched')
+    assert.deepEqual(
+      headings,
+      ['Results for “進撃の巨人”'],
+      'a search ran while a word was still being converted',
+    )
+    assert.deepEqual(
+      added,
+      { heading: 'Results for “frieren”', frieren: true },
+      'a word being converted replaced the search before it',
+    )
+    assert.ok(composing, 'Latin letters still being composed were not searched')
+    assert.ok(mixed, 'a Latin word composed after a Japanese one was not searched as typed')
   })
 
   test('a different search shows that it is loading, even when typed from far down the results', async () => {
@@ -441,26 +937,396 @@ describe('desktop (1440x900)', () => {
     await browser.search('')
   })
 
+  test('from 900px up, a long search fills only the room beside the links, so the header stays one row', async () => {
+    // From 900px the logo, the links and the search share one row of the sticky header, and a
+    // long query's bubble fills the room the links leave. It used to drop onto a second row, so
+    // on windows up to about 1300px wide the header grew from 78 to 134px and hid the headings
+    // its links jump to. The check above searched this query, so this one sends no request.
+    const long =
+      'a very long search that keeps going and going past the width of the bubble and the screen '.repeat(
+        2,
+      )
+    const resize = (width: number) =>
+      browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 900,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+    // The header's height and content edges, the room its links leave, the top of the links,
+    // and the bubble's box, once the bubble has taken its text's measured width (a frame late)
+    // and eased there.
+    const measure = async () => {
+      await browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+      await browser.animationsDone()
+      return browser.evaluate<{
+        height: number
+        left: number
+        right: number
+        room: number
+        linksTop: number
+        bubble: { top: number; right: number; width: number }
+      }>(`(() => {
+        const top = document.querySelector('.ab-top'), box = top.getBoundingClientRect(), style = getComputedStyle(top)
+        const links = document.querySelector('.ab-nav').getBoundingClientRect()
+        const bubble = document.querySelector('.ab-bubble-field').getBoundingClientRect()
+        const right = box.right - parseFloat(style.paddingRight)
+        return {
+          height: box.height,
+          left: box.left + parseFloat(style.paddingLeft),
+          right,
+          room: right - links.right - parseFloat(style.columnGap),
+          linksTop: links.top,
+          bubble: { top: bubble.top, right: bubble.right, width: bubble.width },
+        }
+      })()`)
+    }
+    const rest = Math.round((await measure()).height)
+    await browser.search(long)
+    assert.ok(await browser.waitFor(resultsFor(long.trim())), 'the long search showed no results')
+    const problems: string[] = []
+    for (const width of [900, 1024, 1180, 1280]) {
+      await resize(width)
+      const held = await measure()
+      const below = Math.round(held.bubble.top - held.linksTop)
+      if (Math.abs(held.height - rest) > 1)
+        problems.push(`${width}px: the header is ${Math.round(held.height)}px tall, not ${rest}px`)
+      if (Math.abs(below) >= 30)
+        problems.push(`${width}px: the bubble sits ${below}px below the links`)
+      if (Math.abs(held.bubble.width - held.room) > 2)
+        problems.push(
+          `${width}px: the bubble is ${Math.round(held.bubble.width)}px wide, not the ${Math.round(held.room)}px the links leave`,
+        )
+    }
+    // Below 900px the header stacks, and the bubble fills a row of its own.
+    await resize(834)
+    const stacked = await measure()
+    const row = stacked.right - stacked.left
+    if (Math.abs(stacked.bubble.width - row) > 2)
+      problems.push(
+        `834px: the bubble is ${Math.round(stacked.bubble.width)}px wide, not the row’s ${Math.round(row)}px`,
+      )
+    // Empty and at rest, it still sits at the header's right end.
+    await resize(1024)
+    await browser.search('')
+    await browser.evaluate('document.activeElement.blur(); true')
+    const resting = await measure()
+    const short = Math.round(resting.right - resting.bubble.right)
+    if (Math.abs(short) > 1)
+      problems.push(`1024px, at rest: the bubble ends ${short}px short of the header’s right edge`)
+    // Back to this describe's screen before anything is asserted, so the checks after this one
+    // see the screen they expect.
+    await resize(1440)
+    assert.deepEqual(problems, [], 'a long search wraps the header, or the bubble leaves its place')
+  })
+
+  test('with WCAG text spacing, the search box never cuts its placeholder to fit the header, and takes a second row only when it must', async () => {
+    // "Search titles" is the only label the search box shows. With WCAG 1.4.12's test spacing,
+    // the links take more of the header, and from 900 to about 965px the bubble shrank into the
+    // room they left, cutting it to "Search t". It must stay wide enough to show it, even if the
+    // search then needs a second row, which WCAG allows. Chrome draws the placeholder in a box
+    // of its own inside the input, beside the room it keeps for its clear button. That box is
+    // out of the page's reach (in a user-agent shadow root) but not of CDP's, so this reads it:
+    // the text is cut when it is wider than the box. The second row must be needed, though. The
+    // search used to take it up to 978px, when from about 966px the room beside the links
+    // already held the bubble with its whole placeholder.
+    await browser.search('') // the placeholder shows only while the box is empty
+    await browser.evaluate(`(() => {
+      const style = document.head.appendChild(document.createElement('style'))
+      style.id = 'text-spacing'
+      style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+      return true
+    })()`)
+    const resize = (width: number) =>
+      browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 900,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+    // A node as CDP's DOM.describeNode gives it, its attributes in one list of names and values.
+    // Chrome marks its placeholder box pseudo="-webkit-input-placeholder", for ::placeholder.
+    type Described = {
+      backendNodeId: number
+      attributes?: string[]
+      children?: Described[]
+      shadowRoots?: Described[]
+    }
+    const placeholderIn = (node: Described): Described | undefined =>
+      node.attributes?.includes('-webkit-input-placeholder')
+        ? node
+        : [...(node.shadowRoots ?? []), ...(node.children ?? [])].map(placeholderIn).find(Boolean)
+    // Once the bubble has taken its text's measured width (a frame late) and eased there: the
+    // widths of the placeholder's box and of its text, and how far the bubble runs past the
+    // header's right edge, where its room ends. Then how far below the links the bubble sits,
+    // the room beside them, and the width the bubble needs there to show its whole placeholder:
+    // its own width around the placeholder's box, and the text's. A range gives the text's
+    // width; scrollWidth gives the box's while the box is the wider.
+    const measure = async () => {
+      await browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+      await browser.animationsDone()
+      const input = await browser.send('Runtime.evaluate', {
+        expression: `document.querySelector('.ab-search input')`,
+      })
+      const { node } = await browser.send('DOM.describeNode', {
+        objectId: input.result.objectId,
+        depth: -1,
+        pierce: true,
+      })
+      const placeholder = placeholderIn(node)
+      assert.ok(placeholder, 'Chrome’s placeholder box was not found inside the search input')
+      const { object } = await browser.send('DOM.resolveNode', {
+        backendNodeId: placeholder.backendNodeId,
+      })
+      const { result } = await browser.send('Runtime.callFunctionOn', {
+        objectId: object.objectId,
+        functionDeclaration: `function () {
+          const top = document.querySelector('.ab-top'), style = getComputedStyle(top)
+          const edge = top.getBoundingClientRect().right - parseFloat(style.paddingRight)
+          const links = document.querySelector('.ab-nav').getBoundingClientRect()
+          const bubble = document.querySelector('.ab-bubble-field').getBoundingClientRect()
+          const range = document.createRange()
+          range.selectNodeContents(this)
+          return {
+            box: this.clientWidth,
+            text: this.scrollWidth,
+            past: Math.round(bubble.right - edge),
+            below: Math.round(bubble.top - links.top),
+            room: edge - links.right - parseFloat(style.columnGap),
+            need: bubble.width - this.getBoundingClientRect().width + range.getBoundingClientRect().width,
+          }
+        }`,
+        returnByValue: true,
+      })
+      return result.value as {
+        box: number
+        text: number
+        past: number
+        below: number
+        room: number
+        need: number
+      }
+    }
+    const problems: string[] = []
+    try {
+      for (const [state, focus] of [
+        ['at rest', 'blur'],
+        ['focused', 'focus'],
+      ] as const) {
+        await browser.evaluate(`document.querySelector('.ab-search input').${focus}(); true`)
+        // At 900px, and at 960, where the room beside the links is only a little too narrow,
+        // and at 970 and 978, where it is a little wider than the bubble needs.
+        for (const width of [900, 960, 970, 978]) {
+          await resize(width)
+          const { box, text, past, below, room, need } = await measure()
+          if (!text) problems.push(`${width}px, ${state}: no placeholder shows`)
+          else if (text > box)
+            problems.push(
+              `${width}px, ${state}: the placeholder is cut to ${box}px of its ${text}px`,
+            )
+          if (past > 1)
+            problems.push(
+              `${width}px, ${state}: the bubble runs ${past}px past the header’s right edge`,
+            )
+          // A pixel's leeway: the placeholder's width reaches CSS rounded to a whole pixel.
+          if (below >= 30 && room - need >= 1)
+            problems.push(
+              `${width}px, ${state}: the search drops to a second row, though the ${Math.round(room)}px beside the links hold the ${Math.round(need)}px it needs to show its whole placeholder`,
+            )
+        }
+      }
+    } finally {
+      // Back to the normal view, empty and at rest, on this describe's screen before anything is
+      // asserted, even if measuring failed, so the checks after this one see the page they expect.
+      await browser.evaluate(
+        `document.getElementById('text-spacing').remove(); document.querySelector('.ab-search input').blur(); true`,
+      )
+      await resize(1440)
+    }
+    assert.deepEqual(
+      problems,
+      [],
+      'the search box’s placeholder, its only visible label, is cut or leaves the header, or the search takes a second row it doesn’t need',
+    )
+  })
+
+  test('the header’s links land their targets below it, even when WCAG text spacing wraps it onto two rows', async () => {
+    // From 900px the header stays at the top of the screen, and what its links jump to stops
+    // 18px under it: 96px from the top, below its one 78px row. With WCAG 1.4.12's test
+    // spacing, the search takes a second row from 900 to about 965px (see the check above), and
+    // the header grows to 135 to 138px. A fixed 96px then left the top 46 to 49px of the
+    // focused Trending heading, focus ring included, under the header, and 38 to 42px of the
+    // Pull section. Without the spacing every target must still land at 96px, as it always
+    // has, and below 900px too, where the header scrolls away with the page.
+    const resize = (width: number) =>
+      browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 900,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+    const links = [
+      ['#ab-trending', 'the Trending heading'],
+      ['#pull', 'the Pull section'],
+    ] as const
+    // Presses Enter on a header link from the top of the page, as a keyboard user would. Once
+    // the page has jumped: the top of the link's target, and how much of it is under the header,
+    // with its focus ring (4px, 3px out) when it took focus, as the Trending heading does.
+    const jump = async (href: string) => {
+      await browser.evaluate(`(() => {
+        history.replaceState(null, '', location.pathname)
+        scrollTo(0, 0)
+        document.querySelector('.ab-nav a[href="${href}"]').focus()
+        return true
+      })()`)
+      await browser.press('Enter')
+      assert.ok(
+        await browser.waitFor(`location.hash === '${href}'`, 5_000),
+        `Enter on the header’s ${href} link went nowhere`,
+      )
+      await browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+      return browser.evaluate<{ top: number; hidden: number; ring: boolean }>(`(() => {
+        const target = document.querySelector('${href}'), top = target.getBoundingClientRect().top
+        const ring = document.activeElement === target
+        const header = document.querySelector('.ab-top').getBoundingClientRect().bottom
+        return { top, ring, hidden: Math.round(header - (ring ? top - 7 : top)) }
+      })()`)
+    }
+    const problems: string[] = []
+    try {
+      // Without the spacing: on one row, at this describe's width and at 900px, and at 899px,
+      // where the header scrolls away.
+      for (const width of [1440, 900, 899]) {
+        await resize(width)
+        await browser.animationsDone()
+        for (const [href, name] of links) {
+          const { top } = await jump(href)
+          if (Math.abs(top - 96) > 1)
+            problems.push(`${width}px: ${name} lands at ${Math.round(top)}px, not 96px`)
+        }
+      }
+      await browser.evaluate(`(() => {
+        const style = document.head.appendChild(document.createElement('style'))
+        style.id = 'text-spacing'
+        style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+        return true
+      })()`)
+      // With the spacing, on two rows.
+      for (const width of [900, 960]) {
+        await resize(width)
+        await browser.animationsDone()
+        for (const [href, name] of links) {
+          const { hidden, ring } = await jump(href)
+          if (hidden > 0)
+            problems.push(
+              `${width}px with text spacing: ${hidden}px of ${name}${ring ? ' and its focus ring' : ''} is under the header`,
+            )
+        }
+      }
+    } finally {
+      // Back to the normal view, at the top and on this describe's screen, before anything is
+      // asserted, even if a jump failed, so the checks after this one see the page they expect.
+      await browser.evaluate(`(() => {
+        document.getElementById('text-spacing')?.remove()
+        history.replaceState(null, '', location.pathname)
+        document.activeElement.blur()
+        scrollTo(0, 0)
+        return true
+      })()`)
+      await resize(1440)
+    }
+    assert.deepEqual(
+      problems,
+      [],
+      'a header link leaves its target under the header, or lands it somewhere new',
+    )
+  })
+
   test('every label on the pull machine reads at 4.5:1 or better', async () => {
-    // WCAG contrast of each label's text against the nearest solid background behind it.
+    // WCAG contrast of every piece of text on the machine, text a ::before or ::after adds
+    // included, so a label added later is measured too. Each is measured as the screen shows
+    // it: from the text out to the page, every box lays its background color under what it
+    // holds, alone and under each color of its pattern in turn (the screentone dots darken the
+    // body's pink, whether the box's background-image draws them or its ::before or ::after
+    // does), and its opacity fades all it holds over what lies behind. A see-through text color
+    // is laid over the same way, and the worst case counts. Text in a box 1px or smaller is for
+    // screen readers only. Every label must reach 4.5:1, even the lever's large one (WCAG asks
+    // 3:1). The machine is measured at rest, so colors only hover or a press brings are not,
+    // and neither is the text beside it (the hint bubble, the pulled title).
     const ratios = await browser.evaluate<{ text: string; ratio: number }[]>(`(() => {
-      const rgb = (color) => color.match(/[\\d.]+/g).map(Number)
+      // Chrome gives colors written in hex, by name, or with rgb() or hsl() as rgb() or rgba().
+      // Others, such as the oklch() of Tailwind's palette, would be misread: they stop the check.
+      const rgba = (color) => {
+        if (!/^rgba?\\(/.test(color)) throw new Error('cannot measure the color ' + color)
+        const [r, g, b, a = 1] = color.match(/[\\d.]+/g).map(Number)
+        return [r, g, b, a]
+      }
+      // One color laid over another, each as [r, g, b, alpha].
+      const over = ([r, g, b, a], [R, G, B, A]) => {
+        const alpha = a + A * (1 - a)
+        const mix = (x, X) => (alpha ? (x * a + X * A * (1 - a)) / alpha : 0)
+        return [mix(r, R), mix(g, G), mix(b, B), alpha]
+      }
       const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
       const lum = ([r, g, b]) => 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
-      const behind = (el) => {
-        for (let e = el; e; e = e.parentElement) {
-          const c = rgb(getComputedStyle(e).backgroundColor)
-          if (c.length < 4 || c[3] === 1) return c
+      const ratio = (x, y) => { const [a, b] = [lum(x), lum(y)].sort((p, q) => q - p); return (a + 0.05) / (b + 0.05) }
+      // A ::before or ::after is drawn unless its content is none: content '' draws one too.
+      const drawn = (style) => !/^(none|normal)$/.test(style.content) && style.display !== 'none'
+      // Lays each pair of colors, [a letter, beside it], over one box's background: its color
+      // alone, and that color under each color of the pattern drawn on it (by the box, or by its
+      // ::before or ::after), each a case of its own. Then the box's opacity fades every case.
+      // Nothing shows behind a solid pair, so the box's colors are read only when they can show.
+      const under = (pairs, style, painters) => {
+        if (pairs.some((pair) => pair.some((color) => color[3] < 1))) {
+          const fill = rgba(style.backgroundColor)
+          const pattern = painters.flatMap(
+            (painter) => painter.backgroundImage.match(/(?:rgba?|lab|lch|oklab|oklch|color)\\([^)]*\\)/g) ?? [],
+          )
+          const behind = [fill, ...pattern.map((color) => over(rgba(color), fill))]
+          pairs = pairs.flatMap((pair) => behind.map((back) => pair.map((color) => over(color, back))))
         }
-        return [255, 255, 255]
+        return pairs.map((pair) => pair.map(([r, g, b, a]) => [r, g, b, a * style.opacity]))
       }
-      return [...document.querySelectorAll('.ab-body legend, .ab-body .ab-chip span, .ab-body .ab-lever span, .ab-body .ab-count')]
-        .map((el) => {
-          const [a, b] = [lum(rgb(getComputedStyle(el).color)), lum(behind(el))].sort((x, y) => y - x)
-          return { text: el.textContent.trim(), ratio: Math.round(((a + 0.05) / (b + 0.05)) * 100) / 100 }
-        })
+      // The worst contrast of the text in el, or of the text its ::before or ::after adds.
+      const worst = (el, pseudo) => {
+        const own = getComputedStyle(el, pseudo)
+        // A letter in the text's color, with nothing yet beside it.
+        let pairs = [[rgba(own.color), [0, 0, 0, 0]]]
+        // Text a ::before or ::after adds sits on that box first.
+        if (pseudo) pairs = under(pairs, own, [own])
+        for (let e = el; e; e = e.parentElement) {
+          const style = getComputedStyle(e)
+          const pseudos = ['::before', '::after'].map((p) => getComputedStyle(e, p)).filter(drawn)
+          pairs = under(pairs, style, [style, ...pseudos])
+        }
+        // Where nothing is drawn, the page is white.
+        const shown = pairs.map((pair) => pair.map((color) => over(color, [255, 255, 255, 1])))
+        return Math.min(...shown.map(([letter, beside]) => ratio(letter, beside)))
+      }
+      const labels = [], machine = document.querySelector('.ab-machine')
+      const measure = (text, el, pseudo) => {
+        const box = el.getBoundingClientRect()
+        if (!text || box.width <= 1 || box.height <= 1) return
+        labels.push({ text, ratio: Math.round(worst(el, pseudo) * 100) / 100 })
+      }
+      const walker = document.createTreeWalker(machine, NodeFilter.SHOW_TEXT)
+      for (let node; (node = walker.nextNode()); ) measure(node.textContent.trim(), node.parentElement)
+      // The text a ::before or ::after adds: the strings in its content, which Chrome quotes.
+      for (const el of [machine, ...machine.querySelectorAll('*')])
+        for (const pseudo of ['::before', '::after']) {
+          const style = getComputedStyle(el, pseudo)
+          const text = (style.content.match(/"[^"]*"/g) ?? []).map((s) => s.slice(1, -1)).join('').trim()
+          if (drawn(style)) measure(text && text + ' (' + pseudo + ')', el, pseudo)
+        }
+      return labels
     })()`)
-    assert.ok(ratios.length >= 7, `found only ${ratios.length} labels`)
+    assert.ok(ratios.length >= 8, `found only ${ratios.length} labels`)
     const faint = ratios.filter((label) => label.ratio < 4.5)
     assert.deepEqual(
       faint,
@@ -491,19 +1357,133 @@ describe('desktop (1440x900)', () => {
     assert.ok(pill.ringGap >= 2, `a focused chip's ring comes within ${pill.ringGap}px of the pill`)
   })
 
-  test('with motion allowed, hovering a panel still zooms its cover', async () => {
+  test('with motion allowed, hovering a panel eases its cover into a zoom and its caption up', async () => {
     await browser.animationsDone() // each cover settles in from 1.3 times its size
     await browser.evaluate(`document.querySelector('#ab-trending').scrollIntoView(); true`)
+    const panel = `document.querySelectorAll('.ab-grid .ab-link')[1]`
+    const cover = `getComputedStyle(${panel}.querySelector('.ab-img img')).transform`
+    // Notes the cover and the caption as a transform transition starts on each. While their
+    // finished entrances still held the transform, the zoom and the lift jumped there at once.
+    await browser.evaluate(`(() => {
+      window.__eased = new Set()
+      for (const el of [${panel}.querySelector('.ab-img img'), ${panel}.querySelector('.ab-caption')])
+        el.addEventListener('transitionrun', (event) => {
+          if (event.target === el && event.propertyName === 'transform') window.__eased.add(el.className || el.tagName)
+        })
+      return true
+    })()`)
     const at = await browser.evaluate<{ x: number; y: number }>(
-      `(() => { const r = document.querySelectorAll('.ab-grid .ab-link')[1].getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
+      `(() => { const r = ${panel}.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
     )
     await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
-    await sleep(700) // longer than the zoom's 0.6s transition
-    const cover = await browser.evaluate<string>(
-      `getComputedStyle(document.querySelectorAll('.ab-grid .ab-link')[1].querySelector('.ab-img img')).transform`,
-    )
+    await browser.waitFor(`${cover} === 'matrix(1.1, 0, 0, 1.1, 0, 0)'`, 3_000) // the zoom takes 0.6s
+    const zoom = await browser.evaluate<string>(cover)
+    const eased = await browser.evaluate<string[]>(`[...window.__eased].sort()`)
     await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
-    assert.equal(cover, 'matrix(1.1, 0, 0, 1.1, 0, 0)', 'the hovered cover did not zoom')
+    assert.equal(zoom, 'matrix(1.1, 0, 0, 1.1, 0, 0)', 'the hovered cover did not zoom')
+    assert.deepEqual(
+      eased,
+      ['IMG', 'ab-caption'],
+      'the zoom or the caption lift jumped instead of easing',
+    )
+  })
+
+  test('with motion allowed, the splash cover drifts only as the page scrolls it away', async () => {
+    // The splash cover grows and slides down as its panel leaves the top of the screen. The
+    // drift runs on a view() timeline, which follows the nearest scroll container: while the
+    // panel links had overflow: hidden, that was the splash's own link, which never scrolls, so
+    // the cover never moved.
+    const matrix = `new DOMMatrix(${splashCover})`
+    await scrollSplashOut(-0.05) // its top just below the top of the screen, about to leave
+    const still = await browser.waitFor(`${matrix}.isIdentity`, 2_000)
+    const inView = await browser.evaluate<string>(splashCover)
+    await scrollSplashOut(0.5) // halfway out, it has grown about 6% and slid about 40px down
+    const drifting = await browser.waitFor(`${matrix}.a > 1.03 && ${matrix}.f > 10`, 2_000)
+    const halfOut = await browser.evaluate<string>(splashCover)
+    await browser.evaluate('scrollTo(0, 0); true')
+    assert.ok(still, `the splash cover moved before its panel began to leave the screen: ${inView}`)
+    assert.ok(drifting, `the splash cover stayed put with half its panel scrolled away: ${halfOut}`)
+  })
+
+  test('every trending panel shows a brand-hot focus ring when tabbed to', async () => {
+    // A panel's ring is its link's outline: 4px of brand hot, 3px out. Panels 4 and 5 share the
+    // diagonal cut, whose clip-paths cut that ring away, so tabbing to them showed nothing; their
+    // 4px ink frame turns brand hot instead. getComputedStyle still reports the cut-away outline,
+    // so this counts brand-hot pixels in a screenshot of each panel, within 4px of its box, inside
+    // or out: at least 4,400 for a whole ring or frame here, and 0 for none. The boxes of panels 4
+    // and 5 overlap along the cut, where the other panel's cover shows (or its color, brand hot
+    // itself for a title without one), so pixels inside another panel's box don't count.
+    await browser.animationsDone() // each panel's ink wipe covers its frame until it has gone
+    const panels = `document.querySelectorAll('.ab-grid .ab-link')`
+    const seen: { reached: number; focusVisible: boolean; hot: number }[] = []
+    for (let k = 0; k < 9; k++) {
+      // Tab from the stop before the panel: the trending heading, or the panel before it.
+      const before = k ? `${panels}[${k - 1}]` : `document.getElementById('ab-trending')`
+      await browser.evaluate(`${before}.focus({ preventScroll: true }); true`)
+      await browser.press('Tab')
+      // Centers the panel and waits two frames, so it is painted there. The clip is its box with
+      // 8px to spare, in whole pixels from the top left of the page.
+      const { reached, focusVisible, clip } = await browser.evaluate<{
+        reached: number
+        focusVisible: boolean
+        clip: { x: number; y: number; width: number; height: number }
+      }>(`(async () => {
+        const link = ${panels}[${k}]
+        link.parentElement.scrollIntoView({ block: 'center' })
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        const r = link.parentElement.getBoundingClientRect()
+        const x = Math.floor(r.left + scrollX) - 8, y = Math.floor(r.top + scrollY) - 8
+        const width = Math.ceil(r.right + scrollX) + 8 - x, height = Math.ceil(r.bottom + scrollY) + 8 - y
+        return {
+          reached: [...${panels}].indexOf(document.activeElement) + 1,
+          focusVisible: link.matches(':focus-visible'),
+          clip: { x, y, width, height },
+        }
+      })()`)
+      const png = await browser.screenshot(clip)
+      // Decoded in the page. A pixel within 60 of #ff2d55 counts as brand hot.
+      const hot = await browser.evaluate<number>(`(async () => {
+        const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+        const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+        const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+        context.drawImage(image, 0, 0)
+        const { data } = context.getImageData(0, 0, image.width, image.height)
+        // Boxes in the screenshot's pixels.
+        const box = (el) => {
+          const r = el.getBoundingClientRect(), x = scrollX - ${clip.x}, y = scrollY - ${clip.y}
+          return { left: r.left + x, top: r.top + y, right: r.right + x, bottom: r.bottom + y }
+        }
+        const li = ${panels}[${k}].parentElement, own = box(li)
+        const others = [...li.parentElement.children].filter((el) => el !== li).map(box)
+        const within = (b, x, y, grow) => x >= b.left - grow && x < b.right + grow && y >= b.top - grow && y < b.bottom + grow
+        // Within 4px of the panel's box, inside or out, and in no other panel's box.
+        const atEdge = (x, y) => within(own, x, y, 4) && !within(own, x, y, -4) && !others.some((b) => within(b, x, y, 0))
+        let hot = 0
+        for (let y = 0; y < image.height; y++)
+          for (let x = 0; x < image.width; x++) {
+            const i = (y * image.width + x) * 4
+            if (atEdge(x + 0.5, y + 0.5) && Math.hypot(data[i] - 255, data[i + 1] - 45, data[i + 2] - 85) < 60) hot++
+          }
+        return hot
+      })()`)
+      seen.push({ reached, focusVisible, hot })
+    }
+    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+    assert.deepEqual(
+      seen.map((s) => s.reached),
+      [1, 2, 3, 4, 5, 6, 7, 8, 9],
+      'Tab did not go from panel to panel in order',
+    )
+    assert.deepEqual(
+      seen
+        .filter((s) => !s.focusVisible || s.hot < 1000)
+        .map(
+          (s) =>
+            `panel ${s.reached}: ${s.hot} brand-hot pixels${s.focusVisible ? '' : ', not :focus-visible'}`,
+        ),
+      [],
+      'panels that show no brand-hot focus ring when tabbed to',
+    )
   })
 
   test('tabbing along the decade strip, both ways, keeps each focused panel in view, with its whole ring', async () => {
@@ -518,13 +1498,149 @@ describe('desktop (1440x900)', () => {
     assert.equal(Math.round(gap), 18)
   })
 
-  test('the lever pulls a real title from the page', async () => {
+  test('with motion allowed, a newly picked decade stays at Ch.1 while its titles pop in', async () => {
+    // Each title pops in, small and tilted at first. The row snaps to its list items, and Chrome
+    // snaps to an item's box as transformed, so when the items themselves popped in, the row slid
+    // about 32px sideways and back as the first one grew. The slide was over in about 170ms, so
+    // the row is read on every frame.
+    const checked = `document.querySelector('.ab-eras input:checked').value`
+    const first = `${decadeRow}?.querySelector('.ab-strip-title')?.textContent`
+    // From the 1980s, scrolled to their end. A load opens on the 1990s, so the 1980s an earlier
+    // check picked may be gone by now (or this check may run alone): pick them if so.
+    if ((await browser.evaluate<string>(checked)) !== '1980s') {
+      const nineties = await browser.evaluate<string>(first)
+      await browser.evaluate(
+        `document.querySelector('.ab-eras input[value="1980s"]').click(); true`,
+      )
+      assert.ok(
+        await browser.waitFor(`${first} && ${first} !== ${JSON.stringify(nineties)}`),
+        'the strip kept the 1990s titles',
+      )
+    }
+    await browser.animationsDone()
     await browser.evaluate(
-      `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').click(); true`,
+      `${decadeRow}.scrollIntoView({ block: 'center' }); ${decadeRow}.scrollTo({ left: ${decadeRow}.scrollWidth, behavior: 'instant' }); true`,
     )
+    await rowSettled()
+    const scrolled = await browser.evaluate<number>(`${decadeRow}.scrollLeft`)
+    // Back to the 1990s, which come from the cache: the row's scrollLeft on every frame that
+    // shows their titles, until 2 seconds after they went in, when the last has popped in.
+    type Frame = { ms: number; left: number }
+    const frames = await browser.evaluate<Frame[]>(`new Promise((resolve) => {
+      const before = ${first}, frames = []
+      let shown = null, done = false
+      const finish = () => { done = true; resolve(frames) }
+      const sample = (now) => {
+        if (done) return
+        const title = ${first}
+        if (title && title !== before) {
+          shown ??= now
+          frames.push({ ms: Math.round(now - shown), left: ${decadeRow}.scrollLeft })
+        }
+        if (shown !== null && now - shown > 2000) finish()
+        else requestAnimationFrame(sample)
+      }
+      requestAnimationFrame(sample)
+      setTimeout(finish, 10000)
+      document.querySelector('.ab-eras input[value="1990s"]').click()
+    })`)
+    assert.ok(scrolled > 0, 'the 1980s row did not scroll')
+    assert.ok(frames.length > 0, 'the 1990s titles never replaced the 1980s')
+    assert.deepEqual(
+      frames.filter((frame) => frame.left !== 0).map((frame) => `${frame.left}px at ${frame.ms}ms`),
+      [],
+      'the row slid off Ch.1 while the 1990s popped in (its scrollLeft, by time since their titles went in)',
+    )
+  })
+
+  test('screen readers hear each pull in one sentence, and the machine says nothing on its own', async () => {
+    // A live region speaks every change to its text. The whole reveal used to be one: it spoke
+    // its hint when titles arrived, and each pull read the title twice, every star ("black
+    // star") and the button's label. Now one status line, there from the start, says each pull.
+    const line = `document.querySelector('#pull > [role="status"]')`
+    const live = `[...document.querySelectorAll('#pull [aria-live], #pull [role="status"], #pull [role="alert"]')].map((el) => el.className)`
+    assert.deepEqual(
+      await browser.evaluate(`({ line: ${line}?.textContent ?? null, live: ${live} })`),
+      { line: '', live: ['sr-only'] },
+      'before any pull, the only live region in the pull section should be its empty status line',
+    )
+    // What the line says, and the sentence for the capsule once it has opened: the pull's
+    // number from the counter, the title and its tier.
+    const heard = `(() => {
+      const result = document.querySelector('.ab-result.is-open:not([data-old])')
+      const count = parseInt(document.querySelector('.ab-count').textContent)
+      const tier = result?.querySelector('.ab-tier').textContent.split(' ')[0]
+      const shown = result && 'Pull ' + count + ': ' + result.querySelector('h3').textContent + ', ' + tier + '.'
+      return { line: ${line}?.textContent ?? null, count, shown }
+    })()`
+    // Text with a star in it that a screen reader would read out.
+    const starsRead = `(() => {
+      const found = [], walker = document.createTreeWalker(document.querySelector('#pull'), NodeFilter.SHOW_TEXT)
+      for (let node; (node = walker.nextNode()); )
+        if (node.textContent.includes('★') && !node.parentElement.closest('[aria-hidden="true"]')) found.push(node.parentElement.className)
+      return found
+    })()`
+    await browser.evaluate(
+      `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').focus(); true`,
+    )
+    const counts: number[] = []
+    for (let i = 0; i < 2; i++) {
+      await browser.evaluate(
+        `document.querySelector('.ab-result')?.setAttribute('data-old', ''); true`,
+      )
+      await browser.press('Enter')
+      // Silent until the capsule opens 0.9s later, so the pull is heard as it is seen.
+      const pressed = await browser.evaluate<{ line: string; shown: string | null }>(heard)
+      assert.ok(
+        pressed.shown || pressed.line === '',
+        `"${pressed.line}" was heard before the capsule opened`,
+      )
+      await browser.waitFor(`(({ line, shown }) => shown && line === shown)(${heard})`, 5_000)
+      const opened = await browser.evaluate<{ line: string; count: number; shown: string | null }>(
+        heard,
+      )
+      assert.ok(opened.shown, 'the capsule never opened')
+      assert.equal(opened.line, opened.shown, 'the line does not say the pull on screen')
+      assert.match(opened.line, /^Pull \d+: .+, (SSR|SR|R|Mystery)\.$/)
+      assert.deepEqual(await browser.evaluate(starsRead), [], 'stars a screen reader would read')
+      counts.push(opened.count)
+    }
+    assert.equal(counts[1], counts[0] + 1, 'the second pull’s number did not go up by one')
+    // The result itself must not speak either, or it reads the title a second time.
+    assert.deepEqual(
+      await browser.evaluate(live),
+      ['sr-only'],
+      'live regions in the pull section once a title is out',
+    )
+  })
+
+  test('the lever pulls a real title from the page', async () => {
+    await pull()
     assert.ok(
-      await browser.waitFor(`document.querySelector('.ab-result.is-open h3')?.textContent`, 5_000),
-      'nothing was pulled',
+      await browser.evaluate(
+        `document.querySelector('.ab-result:not([data-old]) h3')?.textContent`,
+      ),
+      'the capsule holds no title',
+    )
+  })
+
+  test('with motion allowed, hovering the lever still tilts it', async () => {
+    // The other half of pull.e2e.ts's check that the off lever stays still: a working one still
+    // tilts. It only hovers, so it pulls nothing.
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    const at = await browser.evaluate<{ x: number; y: number }>(
+      `(() => { const r = document.querySelector('.ab-lever').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
+    )
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
+    await sleep(400) // longer than the lever's 0.25s turn
+    const lever = await browser.evaluate<string>(
+      `getComputedStyle(document.querySelector('.ab-lever')).transform`,
+    )
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
+    assert.equal(
+      lever,
+      'matrix(0.984808, -0.173648, 0.173648, 0.984808, 0, 0)', // rotate(-10deg)
+      'the hovered lever did not tilt',
     )
   })
 
@@ -724,6 +1840,120 @@ describe('reduced motion', () => {
     )
     assert.equal(hovered.transform, 'none', 'the hovered lever moved')
   })
+
+  test('the splash cover stays still as the page scrolls it away', async () => {
+    // The drift that the desktop check sees with motion allowed must not run here.
+    await scrollSplashOut(0.5)
+    const halfOut = await browser.evaluate<string>(splashCover)
+    await browser.evaluate('scrollTo(0, 0); true')
+    assert.equal(halfOut, 'none', 'the splash cover drifted with half its panel scrolled away')
+  })
+
+  test('a pull never shows the title already on screen, even once every title has come up', async () => {
+    // A pull that lands on the title already showing looks like the lever did nothing. With
+    // Math.random fixed, each pull draws the same place in its list: once every title has come
+    // up, that is the same title every time, unless the one showing is skipped. Reduced motion
+    // opens each capsule at once, so 100 pulls take about a second.
+    const shown = await browser.evaluate<(string | null)[]>(`(async () => {
+      const random = Math.random
+      Math.random = () => 0.5
+      const shown = []
+      try {
+        for (let i = 0; i < 100; i++) {
+          document.querySelector('.ab-result')?.setAttribute('data-old', '')
+          document.querySelector('.ab-lever').click()
+          let panel = null
+          for (let wait = 0; wait < 100 && !(panel = document.querySelector('.ab-result.is-open:not([data-old]) .ab-result-panel')); wait++)
+            await new Promise((resolve) => setTimeout(resolve, 5))
+          shown.push(panel?.getAttribute('href') ?? null)
+        }
+      } finally {
+        Math.random = random
+      }
+      return shown
+    })()`)
+    const unopened = shown.flatMap((href, i) => (href ? [] : [i + 1]))
+    const repeats = shown.flatMap((href, i) =>
+      i > 0 && href === shown[i - 1] ? [`pull ${i + 1}: ${href}`] : [],
+    )
+    assert.deepEqual(unopened, [], 'pulls that never opened')
+    assert.deepEqual(repeats, [], 'pulls that showed the title already on screen')
+  })
+
+  test('picking another decade opens it at Ch.1, wherever the last one was scrolled', async () => {
+    // The page keeps the decade row for the next decade's titles, so a new decade used to open
+    // wherever the visitor had scrolled the last one. With reduced motion nothing pops in, so
+    // where the row is when the new titles go in is what the visitor sees.
+    const first = `${decadeRow}?.querySelector('.ab-strip-title')?.textContent`
+    const nineties = await browser.evaluate<string>(first)
+    await browser.evaluate(`document.querySelector('.ab-eras input[value="1980s"]').click(); true`)
+    assert.ok(
+      await browser.waitFor(`${first} && ${first} !== ${JSON.stringify(nineties)}`),
+      'the strip kept the 1990s titles',
+    )
+    await browser.evaluate(
+      `${decadeRow}.scrollTo({ left: ${decadeRow}.scrollWidth, behavior: 'instant' }); true`,
+    )
+    await rowSettled()
+    const scrolled = await browser.evaluate<number>(`${decadeRow}.scrollLeft`)
+    // Back to the 1990s, which the page loaded first, so they come from the cache. That switch
+    // shows whether the reset waits for paint: React draws cached titles in an update whose
+    // effects can run after paint, while a fetched list arrives in one whose effects all run
+    // first. The row's place is read as soon as the first title changes, before the browser
+    // paints.
+    const atSwap = await browser.evaluate<number | null>(`new Promise((resolve) => {
+      const section = document.querySelector('[aria-labelledby="decades"]')
+      const row = () => section.querySelector('.ab-strip-row:not([aria-hidden])')
+      const before = row().querySelector('.ab-strip-title').textContent
+      const watch = new MutationObserver(() => {
+        if (row()?.querySelector('.ab-strip-title')?.textContent === before) return
+        watch.disconnect()
+        resolve(row().scrollLeft)
+      })
+      watch.observe(section, { childList: true, subtree: true })
+      setTimeout(() => resolve(null), 5000)
+      document.querySelector('.ab-eras input[value="1990s"]').click()
+    })`)
+    await rowSettled()
+    const atRest = await browser.evaluate<number>(`${decadeRow}.scrollLeft`)
+    assert.ok(scrolled > 0, 'the 1980s row did not scroll')
+    assert.notEqual(atSwap, null, 'the 1990s titles never replaced the 1980s')
+    assert.deepEqual(
+      { atSwap, atRest },
+      { atSwap: 0, atRest: 0 },
+      'the 1990s did not open at Ch.1 (the row’s scrollLeft when their titles went in, and at rest)',
+    )
+  })
+
+  test('opening a title card elsewhere leaves the decade row where the visitor left it', async () => {
+    // Only a new list starts at Ch.1. The page draws the strip again, with the same titles,
+    // whenever anything on it changes, such as a title card opening or closing; the visitor's
+    // place must stay.
+    await browser.evaluate(`(() => {
+      const row = ${decadeRow}
+      row.scrollTo({ left: row.children[5].offsetLeft - parseFloat(getComputedStyle(row).scrollPaddingLeft), behavior: 'instant' })
+      return true
+    })()`)
+    await rowSettled()
+    const before = await browser.evaluate<number>(`${decadeRow}.scrollLeft`)
+    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
+    assert.ok(
+      await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+      'the title card did not open',
+    )
+    await browser.press('Escape')
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000),
+      'the title card did not close',
+    )
+    await rowSettled()
+    assert.ok(before > 0, 'the decade row did not scroll')
+    assert.equal(
+      await browser.evaluate<number>(`${decadeRow}.scrollLeft`),
+      before,
+      'opening and closing a title card moved the decade row',
+    )
+  })
 })
 
 describe('phone (390x844)', () => {
@@ -751,6 +1981,98 @@ describe('phone (390x844)', () => {
     assert.ok(phone.chipRows >= 2)
   })
 
+  test('the intro’s speed lines stay under the header', async () => {
+    // The intro's speed lines reach up behind the header. On a phone the header scrolls away
+    // with the page instead of sticking, but it should still cover them, as it does on
+    // desktop, so it looks the same with the lines hidden.
+    await browser.animationsDone()
+    await browser.evaluate('scrollTo(0, 0); true')
+    const header = await browser.evaluate<{ x: number; y: number; width: number; height: number }>(
+      `(() => { const r = document.querySelector('.ab-top').getBoundingClientRect(); return { x: r.left + scrollX, y: r.top + scrollY, width: r.width, height: r.height } })()`,
+    )
+    const withLines = await browser.screenshot(header)
+    // Hide them, and wait two frames, so the page has painted without them.
+    await browser.evaluate(`(() => {
+      const style = document.head.appendChild(document.createElement('style'))
+      style.id = 'no-speed-lines'
+      style.textContent = '.ab-intro::before { content: none }'
+      return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))
+    })()`)
+    const withoutLines = await browser.screenshot(header)
+    await browser.evaluate(`document.getElementById('no-speed-lines').remove(); true`)
+    // Not assert.equal, which would print both PNGs in full.
+    assert.ok(withLines === withoutLines, 'the intro’s speed lines paint over the header')
+  })
+
+  test('with WCAG text spacing, no word in the intro is cut off or pushed out of its box', async () => {
+    // Some readers widen the spacing of letters, words and lines to read more easily, and WCAG
+    // 1.4.12 asks that no text is lost when they do. With its test spacing on, at two phone
+    // widths and a desktop one, this lists each word of the intro that ends up past the intro's
+    // padding, where the intro cuts it off, or outside its own box (on desktop, under the
+    // covers). The sound effect is decoration (aria-hidden), so it is left out.
+    await browser.animationsDone() // the lines rise into place; measure them once they have landed
+    await browser.evaluate(`(() => {
+      const style = document.head.appendChild(document.createElement('style'))
+      style.id = 'text-spacing'
+      style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+      return true
+    })()`)
+    const lost: string[] = []
+    // All at this describe's 2x density. At 1x, decade covers that come within lazy-loading
+    // range of the shorter desktop page would load their 1x file and keep it on the phone,
+    // where the 2x cover check below would find them blurry.
+    for (const [width, height, mobile] of [
+      [390, 844, true],
+      [320, 568, true],
+      [1024, 768, false],
+    ] as const) {
+      await browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height,
+        deviceScaleFactor: 2,
+        mobile,
+      })
+      const words = await browser.evaluate<string[]>(`(() => {
+        const intro = document.querySelector('.ab-intro'), box = intro.getBoundingClientRect(), style = getComputedStyle(intro)
+        const left = box.left + parseFloat(style.paddingLeft), right = box.right - parseFloat(style.paddingRight)
+        const lost = []
+        for (const block of intro.querySelectorAll('.ab-intro-kicker, .ab-intro-title, .ab-intro-lede, .ab-intro-actions a')) {
+          const own = block.getBoundingClientRect(), text = document.createTreeWalker(block, NodeFilter.SHOW_TEXT)
+          for (let node; (node = text.nextNode()); ) {
+            if (node.parentElement.closest('[aria-hidden="true"]')) continue
+            for (const word of node.data.matchAll(/\\S+/g)) {
+              const range = document.createRange()
+              range.setStart(node, word.index)
+              range.setEnd(node, word.index + word[0].length)
+              for (const r of range.getClientRects())
+                if (r.left < Math.max(left, own.left) - 0.5 || r.right > Math.min(right, own.right) + 0.5) lost.push(word[0])
+            }
+          }
+        }
+        return lost
+      })()`)
+      lost.push(...words.map((word) => `${width}px: ${word}`))
+    }
+    // Back to the normal view on this describe's phone before anything is asserted, so the
+    // checks after this one see the screen they expect.
+    await browser.evaluate(`document.getElementById('text-spacing').remove(); true`)
+    await browser.send('Emulation.setDeviceMetricsOverride', {
+      width: 390,
+      height: 844,
+      deviceScaleFactor: 2,
+      mobile: true,
+    })
+    // The sound effect hangs off the end of the first line, with no width of its own, so it
+    // must not wrap one katakana per line.
+    const effectLines = await browser.evaluate<number>(`(() => {
+      const range = document.createRange()
+      range.selectNodeContents(document.querySelector('.ab-intro-sfx'))
+      return new Set([...range.getClientRects()].map((r) => Math.round(r.top))).size
+    })()`)
+    assert.deepEqual(lost, [], 'words in the intro cut off or pushed out of their box')
+    assert.equal(effectLines, 1, 'the intro’s sound effect wraps onto more than one line')
+  })
+
   test('every menu item fits on screen without squeezing', async () => {
     const menu = await browser.evaluate<{ right: number; soonHeight: number }>(`({
       right: Math.max(...[...document.querySelectorAll('.ab-nav > *')].map((n) => n.getBoundingClientRect().right)),
@@ -758,6 +2080,53 @@ describe('phone (390x844)', () => {
     })`)
     assert.ok(menu.right <= 374, `the menu ends at ${menu.right}px`)
     assert.ok(menu.soonHeight <= 50, `the coming-soon pill is ${menu.soonHeight}px tall`)
+  })
+
+  test('on a 2x screen, decade covers load AniList’s 460px file where there is one', async () => {
+    // A decade cover is 142px wide here: 284 pixels on this 2x screen. AniList's `large` file
+    // is 230px wide, so it was blown up and looked soft. Where AniList also has a 460px file
+    // (extraLarge), a 2x screen should load that one instead.
+    assert.equal(await browser.evaluate('devicePixelRatio'), 2, 'the phone checks need a 2x screen')
+    await browser.evaluate(`${decadeRow}.scrollIntoView({ block: 'center' }); true`)
+    assert.ok(
+      await browser.waitFor(
+        `[...${decadeRow}.querySelectorAll('img')].slice(0, 2).every((img) => img.complete && img.naturalWidth)`,
+      ),
+      'the first decade covers never loaded',
+    )
+    // For each cover that has loaded: whether it offers a bigger file, the size of the file it
+    // shows, and the size of its box in device pixels. A 2x file's naturalWidth is halved (460
+    // reads 230), so the shown file is loaded again on its own to read its real size.
+    type Cover = { title: string; offers: boolean; file: number[]; box: number[] }
+    const covers = await browser.evaluate<Cover[]>(`Promise.all(
+      [...${decadeRow}.querySelectorAll('img')]
+        .filter((img) => img.complete && img.naturalWidth)
+        .map(async (img) => {
+          const file = new Image()
+          file.src = img.currentSrc
+          await file.decode()
+          return {
+            title: img.closest('a').querySelector('.ab-strip-title').textContent,
+            offers: img.srcset !== '',
+            file: [file.naturalWidth, file.naturalHeight],
+            box: [img.offsetWidth, img.offsetHeight].map((px) => px * devicePixelRatio),
+          }
+        }),
+    )`)
+    const offering = covers.filter((cover) => cover.offers)
+    assert.ok(
+      offering.length >= 2,
+      `only ${offering.length} of ${covers.length} loaded covers offer a bigger file`,
+    )
+    assert.deepEqual(
+      offering
+        .filter(({ file, box }) => file[0] < box[0] || file[1] < box[1])
+        .map(
+          ({ title, file, box }) => `${title}: a ${file.join('x')} file for a ${box.join('x')} box`,
+        ),
+      [],
+      'covers that offer a bigger file but show a blurry one',
+    )
   })
 
   test('on a phone, tabbing along the decade strip, both ways, keeps each focused panel in view, with its whole ring', async () => {
@@ -777,6 +2146,12 @@ describe('phone (390x844)', () => {
     assert.ok(await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`))
     assert.ok(await browser.evaluate<boolean>(fits), 'the page is wider than the phone')
     await browser.search('')
+  })
+
+  test('on a phone, a new search’s first answer, arriving late, leaves the visitor’s place and focused chip where they were', async () => {
+    // As on desktop, with another title: the answer for "macross" is saved, so it would show at
+    // once. Here the header scrolls away with the page. No request is sent.
+    assertPlaceKept(await lateFirstAnswer('patlabor'))
   })
 })
 
@@ -816,5 +2191,92 @@ describe('small phone (320x568, also a desktop window at 400% zoom)', () => {
 
   test('tabbing along the decade strip, both ways, keeps each focused panel in view, with its whole ring', async () => {
     assertStripInView(await tabThroughStrip())
+  })
+})
+
+describe('Windows contrast themes (forced colors)', () => {
+  // A contrast theme replaces the page's colors with a few the visitor picked (forced colors).
+  // Chrome emulates one in a light palette and a dark one.
+  before(async () => {
+    await browser.load({ reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+  })
+  // Emulated media features are replaced as a whole: this clears forced colors.
+  after(() => browser.send('Emulation.setEmulatedMedia', { features: [] }))
+
+  test('the chosen decade and vibe stand out, with a readable label and the theme’s focus ring', async () => {
+    // The theme drops a chosen chip's yellow fill and its shadow, which left it looking like the
+    // rest. It must still differ from an unchosen chip, its label must read at 4.5:1 or better
+    // as the screen shows it, and its focus ring must take the theme's text color.
+    const problems: string[] = []
+    for (const scheme of ['light', 'dark']) {
+      // This list replaces the one load() set, so reduced motion goes in again.
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [
+          { name: 'prefers-reduced-motion', value: 'reduce' },
+          { name: 'forced-colors', value: 'active' },
+          { name: 'prefers-color-scheme', value: scheme },
+        ],
+      })
+      for (const [group, name] of [
+        ['.ab-eras', 'decades'],
+        ['.ab-moods', 'vibes'],
+      ]) {
+        // Focuses the chosen chip from the keyboard, so it shows its ring (:focus-visible): Tab
+        // out of its group, then Shift+Tab back in.
+        await browser.evaluate(
+          `document.querySelector('${group}').scrollIntoView({ block: 'center' }); document.querySelector('${group} input:checked').focus(); true`,
+        )
+        await browser.press('Tab')
+        await browser.press('Tab', true)
+        // Read after two frames, once the page has painted in the theme's colors.
+        const chip = await browser.evaluate<{
+          focused: boolean
+          same: boolean
+          ring: string
+          text: string
+          label: { x: number; y: number; width: number; height: number }
+        }>(`(async () => {
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+          // The theme's text color, as Chrome computes it.
+          const probe = document.body.appendChild(document.createElement('i'))
+          probe.style.color = 'CanvasText'
+          const text = getComputedStyle(probe).color
+          probe.remove()
+          const [chosen, other] = ['input:checked', 'input:not(:checked)'].map((input) => document.querySelector('${group} ' + input + ' + span'))
+          const look = (span) => { const c = getComputedStyle(span); return [c.backgroundColor, c.color, c.borderTopColor].join(' ') }
+          const style = getComputedStyle(chosen)
+          // The label's text box, in whole pixels from the top left of the page, rounded inward:
+          // its edge pixels are partly the chip around it, and those would be measured instead
+          // of a label hidden by a plate behind it.
+          const range = document.createRange()
+          range.selectNodeContents(chosen)
+          const r = range.getBoundingClientRect()
+          const x = Math.ceil(r.left + scrollX), y = Math.ceil(r.top + scrollY)
+          return {
+            focused: chosen.previousElementSibling.matches(':focus-visible'),
+            same: look(chosen) === look(other),
+            ring: style.outlineStyle === 'none' ? 'none' : style.outlineColor,
+            text,
+            label: { x, y, width: Math.floor(r.right + scrollX) - x, height: Math.floor(r.bottom + scrollY) - y },
+          }
+        })()`)
+        const contrast = await pixelContrast(chip.label)
+        const where = `${scheme} ${name}`
+        if (!chip.focused) problems.push(`${where}: the chosen chip did not take keyboard focus`)
+        if (chip.same) problems.push(`${where}: the chosen chip looks like the others`)
+        if (chip.ring !== chip.text)
+          problems.push(
+            `${where}: its focus ring is ${chip.ring}, not the theme’s text color ${chip.text}`,
+          )
+        if (contrast < 4.5) problems.push(`${where}: its label reads ${contrast}:1`)
+      }
+    }
+    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+    assert.deepEqual(
+      problems,
+      [],
+      'chosen chips that a contrast theme hides, washes out or rings in the wrong color',
+    )
   })
 })

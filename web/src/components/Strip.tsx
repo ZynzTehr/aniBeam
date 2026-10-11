@@ -1,6 +1,7 @@
-import type { FocusEvent, ReactNode } from 'react'
-import { seasonOf, titleOf } from '../features/anime/format.ts'
+import { useLayoutEffect, useRef, type FocusEvent, type ReactNode } from 'react'
+import { coverSrcSet, seasonOf, titleOf } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
+import { markBroken, markLoaded } from './cover.ts'
 import { cssVars } from './cssVars.ts'
 import { opener } from './opener.ts'
 import { RetryButton } from './RetryButton.tsx'
@@ -13,7 +14,9 @@ export function Strip({
   heading,
   sfx,
   titles,
+  list,
   onOpen,
+  level = 'h2',
   note = null,
   loading = false,
   onRetry,
@@ -25,7 +28,15 @@ export function Strip({
   heading: string
   sfx: string
   titles: Media[]
+  /**
+   * Which list the titles are, such as a decade. A different list opens at Ch.1, so change it as
+   * the new list's titles arrive, not while the last list's stand in for them. The same list is
+   * never sent back to Ch.1, even when a refresh reorders its titles.
+   */
+  list?: string
   onOpen?: OpenTitle
+  /** The heading's level: h1 where the strip takes the intro's place, as search results do. */
+  level?: 'h1' | 'h2'
   /** A status line (loading, error, rate limit), or null when there's nothing to say. */
   note?: string | null
   /** Show empty cards while the first load runs. */
@@ -40,9 +51,18 @@ export function Strip({
   children?: ReactNode
 }) {
   const row = grid ? 'ab-strip-row ab-strip-grid' : 'ab-strip-row'
+  // A different list opens at Ch.1: React keeps this row for the next list, which would otherwise
+  // open wherever the last one was scrolled. Keyed on which list it is, not on its titles, so a
+  // refresh that reorders the list on screen doesn't send the visitor back to Ch.1, taking a
+  // panel focused by keyboard out of view. Before paint, so no frame shows the new titles at the
+  // old place.
+  const titlesRow = useRef<HTMLOListElement>(null)
+  useLayoutEffect(() => {
+    titlesRow.current?.scrollTo({ left: 0, behavior: 'instant' })
+  }, [list])
   return (
     <section className="ab-strip" aria-labelledby={id}>
-      <SfxHeading id={id} sfx={sfx} small>
+      <SfxHeading as={level} id={id} sfx={sfx} small>
         {heading}
       </SfxHeading>
       {children}
@@ -59,7 +79,7 @@ export function Strip({
           ))}
         </ol>
       )}
-      <ol className={row} onFocus={grid ? undefined : revealFocused}>
+      <ol ref={titlesRow} className={row} onFocus={grid ? undefined : revealFocused}>
         {titles.map((media, i) => (
           <li key={media.id} className="ab-strip-item" style={cssVars({ '--i': i })}>
             <a
@@ -67,7 +87,14 @@ export function Strip({
               href={`#title-${media.id}`}
               onClick={opener(media, onOpen)}
             >
-              <img src={media.coverImage.large} alt="" loading="lazy" />
+              <img
+                src={media.coverImage.large}
+                srcSet={coverSrcSet(media)}
+                alt=""
+                loading="lazy"
+                onLoad={markLoaded}
+                onError={markBroken}
+              />
               {!grid && (
                 <span className="ab-chapter" aria-hidden="true">
                   Ch.{i + 1}

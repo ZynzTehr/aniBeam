@@ -1,6 +1,8 @@
-import { formatOf, seasonOf, titleOf } from '../features/anime/format.ts'
+import type { Ref } from 'react'
+import { episodesOf, formatOf, seasonOf, titleOf } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
+import { markBroken, markLoaded } from './cover.ts'
 import { cssVars } from './cssVars.ts'
 import { opener } from './opener.ts'
 import { RetryButton } from './RetryButton.tsx'
@@ -20,6 +22,8 @@ const LAYOUT: [number, number][] = [
   [3, 3],
   [4, 3],
 ]
+/** How many titles the page shows, one per panel. App's hold compares these (see useSteadyList). */
+export const PANELS = LAYOUT.length
 
 /** Ranked titles as a manga page: the higher the rank, the bigger the panel. */
 export function MangaPage({
@@ -27,8 +31,10 @@ export function MangaPage({
   heading,
   sfx,
   titles,
+  titlesRef,
   onOpen,
   level = 'h2',
+  ranked = true,
   note = null,
   loading = false,
   onRetry,
@@ -37,8 +43,12 @@ export function MangaPage({
   heading: string
   sfx: string
   titles: Media[]
+  /** Gets the panels' list, so App can tell when they are on screen (see useSteadyList). */
+  titlesRef?: Ref<HTMLOListElement>
   onOpen?: OpenTitle
   level?: 'h1' | 'h2'
+  /** Number the panels by rank. Off for titles in no particular order, such as the samples. */
+  ranked?: boolean
   /** A status line (loading, error, rate limit), or null when there's nothing to say. */
   note?: string | null
   /** Show empty panels while the first load runs. */
@@ -56,9 +66,16 @@ export function MangaPage({
       </p>
       {onRetry && <RetryButton headingId={id} onRetry={onRetry} />}
       {titles.length ? (
-        <ol className="ab-grid">
-          {titles.slice(0, LAYOUT.length).map((media, i) => (
-            <Panel key={media.id} media={media} rank={i + 1} span={LAYOUT[i]} onOpen={onOpen} />
+        <ol ref={titlesRef} className="ab-grid">
+          {titles.slice(0, PANELS).map((media, i) => (
+            <Panel
+              key={media.id}
+              media={media}
+              rank={i + 1}
+              ranked={ranked}
+              span={LAYOUT[i]}
+              onOpen={onOpen}
+            />
           ))}
         </ol>
       ) : (
@@ -84,18 +101,19 @@ export function MangaPage({
 function Panel({
   media,
   rank,
+  ranked,
   span,
   onOpen,
 }: {
   media: Media
+  /** The panel's place on the page, which sets its size; shown only when `ranked`. */
   rank: number
+  ranked: boolean
   span: [number, number]
   onOpen?: OpenTitle
 }) {
   const splash = rank === 1
-  const meta = [seasonOf(media), formatOf(media), media.episodes && `${media.episodes} eps`]
-    .filter(Boolean)
-    .join(' · ')
+  const meta = [seasonOf(media), formatOf(media), episodesOf(media)].filter(Boolean).join(' · ')
   const cut = rank === 4 ? 'ab-cut-right' : rank === 5 ? 'ab-cut-left' : ''
   return (
     <li
@@ -111,21 +129,29 @@ function Panel({
             {splash && media.bannerImage && (
               <source media="(min-width: 900px)" srcSet={media.bannerImage} />
             )}
-            <img src={media.coverImage.extraLarge} alt="" loading={rank <= 3 ? 'eager' : 'lazy'} />
+            <img
+              src={media.coverImage.extraLarge}
+              alt=""
+              loading={rank <= 3 ? 'eager' : 'lazy'}
+              onLoad={markLoaded}
+              onError={markBroken}
+            />
           </picture>
         </span>
         <span className="ab-tone" aria-hidden="true" />
         <span className="ab-speed" aria-hidden="true" />
-        <span className="ab-rank" aria-hidden="true">
-          {rank}
-        </span>
+        {ranked && (
+          <span className="ab-rank" aria-hidden="true">
+            {rank}
+          </span>
+        )}
         {media.averageScore !== null && (
           <span className="ab-bubble" aria-hidden="true">
             {media.averageScore}%
           </span>
         )}
         <span className="ab-caption">
-          <span className="sr-only">Number {rank} trending: </span>
+          {ranked && <span className="sr-only">Number {rank} trending: </span>}
           <b>{titleOf(media)}</b>
           <small>{meta}</small>
           {media.averageScore !== null && (
