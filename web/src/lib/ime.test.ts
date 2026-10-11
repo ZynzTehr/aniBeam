@@ -11,6 +11,11 @@ test('kana, kanji and full-width letters an input method is still converting are
 
 test('while a word is converted, the search keeps what the box held before it', () => {
   assert.equal(searchable('frieren しん', true, 'frieren '), 'frieren ')
+  // Wherever the word is typed: over the selected "frieren", or after the kana it repeats (のん,
+  // then のん again for のんのんびより). Cancelling the word leaves the search as it was.
+  assert.equal(searchable('しん', true, 'frieren'), 'frieren')
+  assert.equal(searchable('のんのん', true, 'のん'), 'のん')
+  assert.equal(searchable('frieren ', true, 'frieren '), 'frieren ')
 })
 
 test('a converted word is searched once the visitor has picked it', () => {
@@ -21,4 +26,16 @@ test('Latin letters and Korean are searched as typed, even while an input method
   // Android keyboards compose every word, and Korean shows final letters as you type.
   assert.equal(searchable('frieren', true, ''), 'frieren')
   assert.equal(searchable('근은혼', true, '근은'), '근은혼')
+})
+
+test('a Latin or Korean word is searched as typed even next to a Japanese one', () => {
+  // Only the word being composed counts, not the Japanese word the visitor already picked: here
+  // "shippuden" (Android keyboards compose every word) and a Korean syllable after ナルト, and
+  // "boruto" typed in front of it.
+  for (const [text, before] of [
+    ['ナルト shippuden', 'ナルト '],
+    ['ナルト 질풍전', 'ナルト 질풍'],
+    ['borutoナルト', 'ナルト'],
+  ])
+    assert.equal(searchable(text, true, before), text, `${text} was held, as if still converting`)
 })

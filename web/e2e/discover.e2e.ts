@@ -482,7 +482,7 @@ describe('desktop (1440x900)', () => {
   test('with an input method, Japanese is searched once each word is converted, and Latin letters as they are typed', async () => {
     // A Japanese input method shows a word as kana, then as candidate words, until the visitor
     // picks one. Searching any of those would be searching for a word nobody typed. The checks
-    // above searched "frieren", so only 進撃の巨人 costs a request.
+    // above searched "frieren", so only 進撃の巨人 and "進撃の巨人 final" cost a request each.
     const box = `document.querySelector('.ab-search input')`
     // Each step is sent 100 ms after the one before: well within the 300 ms pause that starts a
     // search, while a run of steps lasts longer than that pause.
@@ -521,6 +521,13 @@ describe('desktop (1440x900)', () => {
     const converted = await browser.waitFor(resultsFor('進撃の巨人'), 5_000)
     const headings = await browser.evaluate<string[]>('window.__headings')
 
+    // Only the word being composed is judged, so a Latin word composed after 進撃の巨人, as
+    // Android keyboards compose it, is searched as typed too.
+    await commit(' ')
+    await compose('f', 'fi', 'fin', 'fina', 'final')
+    const mixed = await browser.waitFor(resultsFor('進撃の巨人 final'), 5_000)
+    await compose('') // cancels the word
+
     // A word being converted after a search keeps that search's results on screen.
     await browser.search('frieren')
     assert.ok(await browser.waitFor(`/Frieren/i.test(${resultTitles})`), 'no Frieren results')
@@ -553,6 +560,7 @@ describe('desktop (1440x900)', () => {
       'a word being converted replaced the search before it',
     )
     assert.ok(composing, 'Latin letters still being composed were not searched')
+    assert.ok(mixed, 'a Latin word composed after a Japanese one was not searched as typed')
   })
 
   test('a different search shows that it is loading, even when typed from far down the results', async () => {
