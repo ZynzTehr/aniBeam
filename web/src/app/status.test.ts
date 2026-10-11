@@ -64,6 +64,14 @@ const cases: [string, Partial<QueryStatus>, boolean, string][] = [
     false,
     'AniList isn’t responding right now, so these titles may be out of date. It’s not something you did.',
   ],
+  // A search that found a single title, refreshed hours later while AniList is down. One title
+  // on screen may be out of date too: only an empty list reads like a failed first load.
+  [
+    'a failed refresh with one title on screen',
+    { data: [{ id: 1 }], error: noConnection, failureReason: noConnection },
+    false,
+    'AniList isn’t responding right now, so these titles may be out of date. It’s not something you did.',
+  ],
   // A search that found nothing, refreshed hours later while AniList is down.
   [
     'a failed refresh of an empty list',
