@@ -549,20 +549,23 @@ img[data-broken] {
    the bubble (max-width: 100%) stops at its edge instead of dropping to a second row, which
    grew the sticky header and hid the headings its links jump to. max-content keeps the box
    as narrow as the bubble, so it stays at the right. It never gets narrower than the bubble
-   at rest, though: the placeholder's measured width and the same 66px (see below). The
-   placeholder is the box's only visible label, so where widened text spacing (WCAG 1.4.12)
-   leaves less room than that, the search drops to a second row instead of cutting it off. */
+   needs to show the whole placeholder, though: the placeholder's measured width and 56px, the
+   bubble's border and padding (42px) and the 14px Chrome keeps for its clear button. That is
+   the bubble at rest without its 10px of air (see below), which it can spare. The placeholder
+   is the box's only visible label, so where widened text spacing (WCAG 1.4.12) leaves less
+   room than that, the search drops to a second row instead of cutting it off. */
 @media (min-width: 900px) {
   .ab-search {
     flex: 1 1 0;
-    min-width: calc(var(--placeholder-w, 104px) + 66px);
+    min-width: calc(var(--placeholder-w, 104px) + 56px);
     max-width: max-content;
   }
 }
 
-/* At rest the bubble is just wide enough for "Search titles". --text-w is the measured width
-   of the text (or of the placeholder while it's empty). The extra 66px covers the padding, the
-   border, and the space Chrome keeps for its clear button even while the button is hidden. */
+/* At rest the bubble sits snug around "Search titles". --text-w is the measured width of the
+   text (or of the placeholder while it's empty). The extra 66px covers the border and padding
+   (42px), the 14px Chrome keeps for its clear button even while the button is hidden, and 10px
+   of air after the text. */
 .ab-bubble-field {
   position: relative;
   display: inline-flex;

@@ -1022,14 +1022,16 @@ describe('desktop (1440x900)', () => {
     assert.deepEqual(problems, [], 'a long search wraps the header, or the bubble leaves its place')
   })
 
-  test('with WCAG text spacing, the search box never cuts its placeholder to fit the header', async () => {
+  test('with WCAG text spacing, the search box never cuts its placeholder to fit the header, and takes a second row only when it must', async () => {
     // "Search titles" is the only label the search box shows. With WCAG 1.4.12's test spacing,
     // the links take more of the header, and from 900 to about 965px the bubble shrank into the
     // room they left, cutting it to "Search t". It must stay wide enough to show it, even if the
     // search then needs a second row, which WCAG allows. Chrome draws the placeholder in a box
     // of its own inside the input, beside the room it keeps for its clear button. That box is
     // out of the page's reach (in a user-agent shadow root) but not of CDP's, so this reads it:
-    // the text is cut when it is wider than the box.
+    // the text is cut when it is wider than the box. The second row must be needed, though. The
+    // search used to take it up to 978px, when from about 966px the room beside the links
+    // already held the bubble with its whole placeholder.
     await browser.search('') // the placeholder shows only while the box is empty
     await browser.evaluate(`(() => {
       const style = document.head.appendChild(document.createElement('style'))
@@ -1058,7 +1060,10 @@ describe('desktop (1440x900)', () => {
         : [...(node.shadowRoots ?? []), ...(node.children ?? [])].map(placeholderIn).find(Boolean)
     // Once the bubble has taken its text's measured width (a frame late) and eased there: the
     // widths of the placeholder's box and of its text, and how far the bubble runs past the
-    // header's right edge, where its room ends.
+    // header's right edge, where its room ends. Then how far below the links the bubble sits,
+    // the room beside them, and the width the bubble needs there to show its whole placeholder:
+    // its own width around the placeholder's box, and the text's. A range gives the text's
+    // width; scrollWidth gives the box's while the box is the wider.
     const measure = async () => {
       await browser.evaluate(
         'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
@@ -1080,12 +1085,31 @@ describe('desktop (1440x900)', () => {
       const { result } = await browser.send('Runtime.callFunctionOn', {
         objectId: object.objectId,
         functionDeclaration: `function () {
-          const top = document.querySelector('.ab-top'), edge = top.getBoundingClientRect().right - parseFloat(getComputedStyle(top).paddingRight)
-          return { box: this.clientWidth, text: this.scrollWidth, past: Math.round(document.querySelector('.ab-bubble-field').getBoundingClientRect().right - edge) }
+          const top = document.querySelector('.ab-top'), style = getComputedStyle(top)
+          const edge = top.getBoundingClientRect().right - parseFloat(style.paddingRight)
+          const links = document.querySelector('.ab-nav').getBoundingClientRect()
+          const bubble = document.querySelector('.ab-bubble-field').getBoundingClientRect()
+          const range = document.createRange()
+          range.selectNodeContents(this)
+          return {
+            box: this.clientWidth,
+            text: this.scrollWidth,
+            past: Math.round(bubble.right - edge),
+            below: Math.round(bubble.top - links.top),
+            room: edge - links.right - parseFloat(style.columnGap),
+            need: bubble.width - this.getBoundingClientRect().width + range.getBoundingClientRect().width,
+          }
         }`,
         returnByValue: true,
       })
-      return result.value as { box: number; text: number; past: number }
+      return result.value as {
+        box: number
+        text: number
+        past: number
+        below: number
+        room: number
+        need: number
+      }
     }
     const problems: string[] = []
     try {
@@ -1094,10 +1118,11 @@ describe('desktop (1440x900)', () => {
         ['focused', 'focus'],
       ] as const) {
         await browser.evaluate(`document.querySelector('.ab-search input').${focus}(); true`)
-        // At 900px, and at 960, where the room beside the links is only a little too narrow.
-        for (const width of [900, 960]) {
+        // At 900px, and at 960, where the room beside the links is only a little too narrow,
+        // and at 970 and 978, where it is a little wider than the bubble needs.
+        for (const width of [900, 960, 970, 978]) {
           await resize(width)
-          const { box, text, past } = await measure()
+          const { box, text, past, below, room, need } = await measure()
           if (!text) problems.push(`${width}px, ${state}: no placeholder shows`)
           else if (text > box)
             problems.push(
@@ -1106,6 +1131,11 @@ describe('desktop (1440x900)', () => {
           if (past > 1)
             problems.push(
               `${width}px, ${state}: the bubble runs ${past}px past the header’s right edge`,
+            )
+          // A pixel's leeway: the placeholder's width reaches CSS rounded to a whole pixel.
+          if (below >= 30 && room - need >= 1)
+            problems.push(
+              `${width}px, ${state}: the search drops to a second row, though the ${Math.round(room)}px beside the links hold the ${Math.round(need)}px it needs to show its whole placeholder`,
             )
         }
       }
@@ -1120,14 +1150,14 @@ describe('desktop (1440x900)', () => {
     assert.deepEqual(
       problems,
       [],
-      'the search box’s placeholder, its only visible label, is cut or leaves the header',
+      'the search box’s placeholder, its only visible label, is cut or leaves the header, or the search takes a second row it doesn’t need',
     )
   })
 
   test('the header’s links land their targets below it, even when WCAG text spacing wraps it onto two rows', async () => {
     // From 900px the header stays at the top of the screen, and what its links jump to stops
     // 18px under it: 96px from the top, below its one 78px row. With WCAG 1.4.12's test
-    // spacing, the search takes a second row from 900 to about 978px (see the check above), and
+    // spacing, the search takes a second row from 900 to about 965px (see the check above), and
     // the header grows to 135 to 138px. A fixed 96px then left the top 46 to 49px of the
     // focused Trending heading, focus ring included, under the header, and 38 to 42px of the
     // Pull section. Without the spacing every target must still land at 96px, as it always
