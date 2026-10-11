@@ -77,6 +77,8 @@ test('nextEpisode counts down from the airing time, so cached results stay right
 test('nextEpisode rounds the countdown to the nearest hour', () => {
   assert.equal(nextEpisode(media(at(4.6)), now), 'Ep 9 in 5h') // 4h 36m
   assert.equal(nextEpisode(media(at(4.4)), now), 'Ep 9 in 4h') // 4h 24m
+  // A countdown in days rounds its hours the same way.
+  assert.equal(nextEpisode(media(at(52.6)), now), 'Ep 9 in 2d 5h') // 2d 4h 36m
 })
 
 test('hasSmallCover spots AniList pointing extraLarge at the 230px folder', () => {
