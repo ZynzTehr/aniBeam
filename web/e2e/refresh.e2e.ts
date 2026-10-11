@@ -2,7 +2,7 @@
 // visible list is never re-sorted when a background refresh arrives), and the decade row, which a
 // refresh never sends back to Ch.1. Its own file, so the aged lists and the reordered answers stay
 // in a profile of their own. About 4 AniList requests: the first visit, then one refresh in each
-// check.
+// check but the last, which answers its own inside the page.
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -199,5 +199,81 @@ test('a refresh that reorders the decade on screen doesn’t send its row back t
   } finally {
     await browser.holdAniList(0)
     await browser.rewriteAniList(null)
+  }
+})
+
+// A refresh that brings no titles at all empties trending's panels at once, so their note, "No
+// titles found.", never sits over old titles. The intro's covers are only decoration and stay
+// (see steadyList): on a phone they sit above the headline, which jumped 77px up when they went.
+// AniList rarely sends an empty list, so the refresh is answered inside the page, and no request
+// is sent. Last in this file: it leaves trending saved with no titles.
+test('on a phone, a trending refresh with no titles empties the panels but keeps the intro’s covers, so the headline stays put', async () => {
+  await sleep(1_500) // the saved copy updates a second after the page's last change
+  // An hour on, as in returnAnHourLater, but only trending: the 1990s stay fresh, so the page asks
+  // for trending alone.
+  await browser.evaluate(`(() => {
+    const cache = JSON.parse(localStorage.getItem('anibeam:cache'))
+    for (const query of cache.clientState.queries)
+      if (query.queryKey[1].includes('TRENDING_DESC')) query.state.dataUpdatedAt -= 60 * 60 * 1000
+    localStorage.setItem('anibeam:cache', JSON.stringify(cache))
+    return true
+  })()`)
+  // In place before the page loads, since it asks as it opens: trending's refresh gets a list with
+  // no titles, once the check lets it go with window.__answer().
+  const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `(() => {
+      const fetch = window.fetch
+      let answer
+      const answered = new Promise((resolve) => (answer = resolve))
+      window.__answer = () => (answer(), true)
+      window.fetch = function (url, init) {
+        if (url !== 'https://graphql.anilist.co' || !JSON.parse(init.body).query.includes('TRENDING_DESC'))
+          return fetch.apply(this, arguments)
+        window.__asked = true
+        const empty = JSON.stringify({ data: { Page: { media: [] } } })
+        return answered.then(() => new Response(empty, { headers: { 'Content-Type': 'application/json' } }))
+      }
+    })()`,
+  })
+  const note = `document.querySelector('[aria-labelledby="ab-trending"] .ab-note').textContent`
+  try {
+    await browser.load({ width: 390, height: 844, phone: true })
+    assert.ok(
+      await browser.waitFor(`window.__asked && ${covers}.length === 3 && ${panels}.length === 9`),
+      'the saved titles did not show, or the page did not ask for new ones',
+    )
+    // Once the intro has landed, where the headline is on screen: read at once, since the answer
+    // can land before the next frame, then at every frame.
+    await browser.animationsDone()
+    await browser.evaluate(`(() => {
+      const top = () => Math.round(document.querySelector('.ab-intro-title').getBoundingClientRect().top)
+      window.__headline = [top()]
+      requestAnimationFrame(function sample() {
+        if (window.__headline.at(-1) !== top()) window.__headline.push(top())
+        requestAnimationFrame(sample)
+      })
+      return true
+    })()`)
+    const before = await browser.evaluate<string[]>(covers)
+    await browser.evaluate('window.__answer()')
+    assert.ok(
+      await browser.waitFor(`${note} === 'No titles found.'`, 5_000),
+      'the refresh with no titles never landed',
+    )
+    // Two frames on, so whatever the refresh set off has been drawn.
+    const after = await browser.evaluate<{ panels: number; covers: string[]; headline: number[] }>(
+      `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() =>
+        resolve({ panels: ${panels}.length, covers: ${covers}, headline: window.__headline }))))`,
+    )
+    assert.equal(after.panels, 0, 'the panels stayed under “No titles found.”')
+    const moved = Math.max(...after.headline) - Math.min(...after.headline)
+    assert.ok(
+      moved <= 2,
+      `the headline moved ${moved}px as the refresh landed (${after.headline.join(' → ')}px)`,
+    )
+    assert.deepEqual(after.covers, before, 'the intro’s covers went with the refresh')
+  } finally {
+    await browser.evaluate('window.__answer?.()').catch(() => {}) // in case the check stopped first
+    await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
   }
 })

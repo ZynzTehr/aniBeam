@@ -114,9 +114,11 @@ export default function App() {
   // so it counts them as the component does: a count of App's own could miss a change in view.
   const [trendingTitles, trendingRef] = useSteadyList(trending.data ?? EMPTY, PANELS)
   // The intro's cover fan, picked as IntroHero picks it. useMemo keeps it one array until
-  // trending changes, as useSteadyList needs.
+  // trending changes, as useSteadyList needs. The covers are only decoration, so a refresh with
+  // no titles, which empties the panels, leaves them: on a phone the fan sits above the headline,
+  // and its place would close up.
   const covers = useMemo(() => coverFan(trending.data ?? EMPTY), [trending.data])
-  const [introCovers, introRef] = useSteadyList(covers, COVERS)
+  const [introCovers, introRef] = useSteadyList(covers, COVERS, { keepWhenEmpty: true })
 
   const trendingShown = trending.data ? trendingTitles : trendingSamples
   const decadeShown = decade.data ?? decadeSamples

@@ -28,6 +28,21 @@ test('an empty refresh shows at once, even on screen', () => {
   assert.equal(shortened, shown, 'the titles in view took a shorter list’s order')
 })
 
+test('a decoration keeps what it shows when a refresh comes back empty, on screen or off', () => {
+  // The intro's cover fan has no note to say there are no titles, and on a phone its place would
+  // close up, moving the headline under it.
+  const keep = { keepWhenEmpty: true }
+  const empty = titles()
+  const onScreen = steadyList(shown, empty, true, 3, keep)
+  assert.equal(onScreen, shown, 'the fan’s covers went with an empty refresh while on screen')
+  const offScreen = steadyList(shown, empty, false, 3, keep)
+  assert.equal(offScreen, shown, 'the fan’s covers went with an empty refresh off screen')
+  // Only an empty one: off screen, new covers still show at once.
+  const latest = titles(4, 3, 2, 1)
+  const renewed = steadyList(shown, latest, false, 3, keep)
+  assert.equal(renewed, latest, 'the fan’s new covers waited off screen')
+})
+
 test('on screen, a new order of the titles in view waits', () => {
   const reordered = steadyList(shown, titles(2, 1, 3, 4), true, 3)
   assert.equal(reordered, shown, 'the titles in view took a new order')
