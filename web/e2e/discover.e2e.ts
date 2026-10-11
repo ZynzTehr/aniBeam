@@ -1035,11 +1035,16 @@ describe('desktop (1440x900)', () => {
   })
 
   test('every label on the pull machine reads at 4.5:1 or better', async () => {
-    // WCAG contrast of every piece of text on the machine, so a label added later is measured
-    // too. Each is measured against the first solid background behind it, plain and under each
-    // color of its pattern (the screentone dots darken the body's pink), with a see-through
-    // text color blended in as the screen shows it. Text in a box 1px or smaller is for screen
-    // readers only. Every label must reach 4.5:1, even the lever's large one (WCAG asks 3:1).
+    // WCAG contrast of every piece of text on the machine, text a ::before or ::after adds
+    // included, so a label added later is measured too. Each is measured as the screen shows
+    // it: from the text out to the page, every box lays its background color under what it
+    // holds, alone and under each color of its pattern in turn (the screentone dots darken the
+    // body's pink, whether the box's background-image draws them or its ::before or ::after
+    // does), and its opacity fades all it holds over what lies behind. A see-through text color
+    // is laid over the same way, and the worst case counts. Text in a box 1px or smaller is for
+    // screen readers only. Every label must reach 4.5:1, even the lever's large one (WCAG asks
+    // 3:1). The machine is measured at rest, so colors only hover or a press brings are not,
+    // and neither is the text beside it (the hint bubble, the pulled title).
     const ratios = await browser.evaluate<{ text: string; ratio: number }[]>(`(() => {
       // Chrome gives colors written in hex, by name, or with rgb() or hsl() as rgb() or rgba().
       // Others, such as the oklch() of Tailwind's palette, would be misread: they stop the check.
@@ -1048,28 +1053,63 @@ describe('desktop (1440x900)', () => {
         const [r, g, b, a = 1] = color.match(/[\\d.]+/g).map(Number)
         return [r, g, b, a]
       }
-      // A color with alpha a, laid over a solid one.
-      const over = ([r, g, b, a], [R, G, B]) => [r * a + R * (1 - a), g * a + G * (1 - a), b * a + B * (1 - a)]
+      // One color laid over another, each as [r, g, b, alpha].
+      const over = ([r, g, b, a], [R, G, B, A]) => {
+        const alpha = a + A * (1 - a)
+        const mix = (x, X) => (alpha ? (x * a + X * A * (1 - a)) / alpha : 0)
+        return [mix(r, R), mix(g, G), mix(b, B), alpha]
+      }
       const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
       const lum = ([r, g, b]) => 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
       const ratio = (x, y) => { const [a, b] = [lum(x), lum(y)].sort((p, q) => q - p); return (a + 0.05) / (b + 0.05) }
-      const fills = (el) => {
-        for (let e = el; e; e = e.parentElement) {
-          const style = getComputedStyle(e), fill = rgba(style.backgroundColor)
-          if (fill[3] < 1) continue
-          const pattern = style.backgroundImage.match(/(?:rgba?|lab|lch|oklab|oklch|color)\\([^)]*\\)/g) ?? []
-          return [fill, ...pattern.map((color) => over(rgba(color), fill))]
+      // A ::before or ::after is drawn unless its content is none: content '' draws one too.
+      const drawn = (style) => !/^(none|normal)$/.test(style.content) && style.display !== 'none'
+      // Lays each pair of colors, [a letter, beside it], over one box's background: its color
+      // alone, and that color under each color of the pattern drawn on it (by the box, or by its
+      // ::before or ::after), each a case of its own. Then the box's opacity fades every case.
+      // Nothing shows behind a solid pair, so the box's colors are read only when they can show.
+      const under = (pairs, style, painters) => {
+        if (pairs.some((pair) => pair.some((color) => color[3] < 1))) {
+          const fill = rgba(style.backgroundColor)
+          const pattern = painters.flatMap(
+            (painter) => painter.backgroundImage.match(/(?:rgba?|lab|lch|oklab|oklch|color)\\([^)]*\\)/g) ?? [],
+          )
+          const behind = [fill, ...pattern.map((color) => over(rgba(color), fill))]
+          pairs = pairs.flatMap((pair) => behind.map((back) => pair.map((color) => over(color, back))))
         }
-        return [[255, 255, 255]]
+        return pairs.map((pair) => pair.map(([r, g, b, a]) => [r, g, b, a * style.opacity]))
       }
-      const labels = [], walker = document.createTreeWalker(document.querySelector('.ab-machine'), NodeFilter.SHOW_TEXT)
-      for (let node; (node = walker.nextNode()); ) {
-        const el = node.parentElement, box = el.getBoundingClientRect()
-        if (!node.textContent.trim() || box.width <= 1 || box.height <= 1) continue
-        const color = rgba(getComputedStyle(el).color)
-        const worst = Math.min(...fills(el).map((fill) => ratio(over(color, fill), fill)))
-        labels.push({ text: node.textContent.trim(), ratio: Math.round(worst * 100) / 100 })
+      // The worst contrast of the text in el, or of the text its ::before or ::after adds.
+      const worst = (el, pseudo) => {
+        const own = getComputedStyle(el, pseudo)
+        // A letter in the text's color, with nothing yet beside it.
+        let pairs = [[rgba(own.color), [0, 0, 0, 0]]]
+        // Text a ::before or ::after adds sits on that box first.
+        if (pseudo) pairs = under(pairs, own, [own])
+        for (let e = el; e; e = e.parentElement) {
+          const style = getComputedStyle(e)
+          const pseudos = ['::before', '::after'].map((p) => getComputedStyle(e, p)).filter(drawn)
+          pairs = under(pairs, style, [style, ...pseudos])
+        }
+        // Where nothing is drawn, the page is white.
+        const shown = pairs.map((pair) => pair.map((color) => over(color, [255, 255, 255, 1])))
+        return Math.min(...shown.map(([letter, beside]) => ratio(letter, beside)))
       }
+      const labels = [], machine = document.querySelector('.ab-machine')
+      const measure = (text, el, pseudo) => {
+        const box = el.getBoundingClientRect()
+        if (!text || box.width <= 1 || box.height <= 1) return
+        labels.push({ text, ratio: Math.round(worst(el, pseudo) * 100) / 100 })
+      }
+      const walker = document.createTreeWalker(machine, NodeFilter.SHOW_TEXT)
+      for (let node; (node = walker.nextNode()); ) measure(node.textContent.trim(), node.parentElement)
+      // The text a ::before or ::after adds: the strings in its content, which Chrome quotes.
+      for (const el of [machine, ...machine.querySelectorAll('*')])
+        for (const pseudo of ['::before', '::after']) {
+          const style = getComputedStyle(el, pseudo)
+          const text = (style.content.match(/"[^"]*"/g) ?? []).map((s) => s.slice(1, -1)).join('').trim()
+          if (drawn(style)) measure(text && text + ' (' + pseudo + ')', el, pseudo)
+        }
       return labels
     })()`)
     assert.ok(ratios.length >= 8, `found only ${ratios.length} labels`)
