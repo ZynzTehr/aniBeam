@@ -69,6 +69,14 @@ test('retryAt spreads retries over the 2 seconds after a reset time', () => {
     1_060_000,
     'the full minute got a spread too',
   )
+  // The spread goes on only after the reset time is trusted. Added before that check, it could
+  // push a reset that passed up to 2 s ago into the next minute, where it would be trusted, and
+  // the pause would end within 2 s instead of after the full minute.
+  assert.equal(
+    retryAt(new Headers({ 'X-RateLimit-Reset': '999' }), 1_000_000, () => 0.999),
+    1_060_000,
+    'a reset 1 s ago was trusted, so the pause ended within 2 s, not after a minute',
+  )
 })
 
 test('retryAt waits one minute when the reset header is missing', () => {
