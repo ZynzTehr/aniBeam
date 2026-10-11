@@ -548,11 +548,14 @@ img[data-broken] {
 /* From 900px the header is one row. The search takes the room the logo and links leave, and
    the bubble (max-width: 100%) stops at its edge instead of dropping to a second row, which
    grew the sticky header and hid the headings its links jump to. max-content keeps the box
-   as narrow as the bubble, so it stays at the right. */
+   as narrow as the bubble, so it stays at the right. It never gets narrower than the bubble
+   at rest, though: the placeholder's measured width and the same 66px (see below). The
+   placeholder is the box's only visible label, so where widened text spacing (WCAG 1.4.12)
+   leaves less room than that, the search drops to a second row instead of cutting it off. */
 @media (min-width: 900px) {
   .ab-search {
     flex: 1 1 0;
-    min-width: 0;
+    min-width: calc(var(--placeholder-w, 104px) + 66px);
     max-width: max-content;
   }
 }

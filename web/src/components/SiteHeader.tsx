@@ -61,9 +61,13 @@ export function SiteHeader({
   )
 }
 
+const PLACEHOLDER = 'Search titles'
+
 // A manga speech bubble: snug around "Search titles" at rest, popping out to fit what's typed.
 // A hidden copy of the text, in the same font, is watched for size changes (each keystroke, and
 // the web font finishing loading); its width goes to CSS, which animates the bubble to match.
+// A second copy always holds the placeholder, the box's only visible label, so CSS can keep the
+// bubble wide enough to show it, whatever is typed and however far a reader widens text spacing.
 function SearchBubble({
   value,
   onChange,
@@ -73,16 +77,20 @@ function SearchBubble({
 }) {
   const field = useRef<HTMLLabelElement>(null)
   const mirror = useRef<HTMLSpanElement>(null)
+  const placeholderMirror = useRef<HTMLSpanElement>(null)
   // What the box held when an input method began composing (see searchable).
   const before = useRef('')
   useLayoutEffect(() => {
     const label = field.current
     const copy = mirror.current
-    if (!label || !copy) return
-    const observer = new ResizeObserver(() =>
-      label.style.setProperty('--text-w', `${copy.offsetWidth}px`),
-    )
+    const placeholderCopy = placeholderMirror.current
+    if (!label || !copy || !placeholderCopy) return
+    const observer = new ResizeObserver(() => {
+      label.style.setProperty('--text-w', `${copy.offsetWidth}px`)
+      label.style.setProperty('--placeholder-w', `${placeholderCopy.offsetWidth}px`)
+    })
     observer.observe(copy)
+    observer.observe(placeholderCopy)
     return () => observer.disconnect()
   }, [])
   return (
@@ -110,11 +118,14 @@ function SearchBubble({
           onCompositionEnd={(event) =>
             onChange(event.currentTarget.value, event.currentTarget.value)
           }
-          placeholder="Search titles"
+          placeholder={PLACEHOLDER}
         />
       </span>
       <span ref={mirror} className="ab-search-mirror" aria-hidden="true">
-        {value || 'Search titles'}
+        {value || PLACEHOLDER}
+      </span>
+      <span ref={placeholderMirror} className="ab-search-mirror" aria-hidden="true">
+        {PLACEHOLDER}
       </span>
     </label>
   )

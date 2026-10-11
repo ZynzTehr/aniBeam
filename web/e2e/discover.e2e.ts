@@ -929,6 +929,108 @@ describe('desktop (1440x900)', () => {
     assert.deepEqual(problems, [], 'a long search wraps the header, or the bubble leaves its place')
   })
 
+  test('with WCAG text spacing, the search box never cuts its placeholder to fit the header', async () => {
+    // "Search titles" is the only label the search box shows. With WCAG 1.4.12's test spacing,
+    // the links take more of the header, and from 900 to about 965px the bubble shrank into the
+    // room they left, cutting it to "Search t". It must stay wide enough to show it, even if the
+    // search then needs a second row, which WCAG allows. Chrome draws the placeholder in a box
+    // of its own inside the input, beside the room it keeps for its clear button. That box is
+    // out of the page's reach (in a user-agent shadow root) but not of CDP's, so this reads it:
+    // the text is cut when it is wider than the box.
+    await browser.search('') // the placeholder shows only while the box is empty
+    await browser.evaluate(`(() => {
+      const style = document.head.appendChild(document.createElement('style'))
+      style.id = 'text-spacing'
+      style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+      return true
+    })()`)
+    const resize = (width: number) =>
+      browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 900,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+    // A node as CDP's DOM.describeNode gives it, its attributes in one list of names and values.
+    // Chrome marks its placeholder box pseudo="-webkit-input-placeholder", for ::placeholder.
+    type Described = {
+      backendNodeId: number
+      attributes?: string[]
+      children?: Described[]
+      shadowRoots?: Described[]
+    }
+    const placeholderIn = (node: Described): Described | undefined =>
+      node.attributes?.includes('-webkit-input-placeholder')
+        ? node
+        : [...(node.shadowRoots ?? []), ...(node.children ?? [])].map(placeholderIn).find(Boolean)
+    // Once the bubble has taken its text's measured width (a frame late) and eased there: the
+    // widths of the placeholder's box and of its text, and how far the bubble runs past the
+    // header's right edge, where its room ends.
+    const measure = async () => {
+      await browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+      await browser.animationsDone()
+      const input = await browser.send('Runtime.evaluate', {
+        expression: `document.querySelector('.ab-search input')`,
+      })
+      const { node } = await browser.send('DOM.describeNode', {
+        objectId: input.result.objectId,
+        depth: -1,
+        pierce: true,
+      })
+      const placeholder = placeholderIn(node)
+      assert.ok(placeholder, 'Chrome’s placeholder box was not found inside the search input')
+      const { object } = await browser.send('DOM.resolveNode', {
+        backendNodeId: placeholder.backendNodeId,
+      })
+      const { result } = await browser.send('Runtime.callFunctionOn', {
+        objectId: object.objectId,
+        functionDeclaration: `function () {
+          const top = document.querySelector('.ab-top'), edge = top.getBoundingClientRect().right - parseFloat(getComputedStyle(top).paddingRight)
+          return { box: this.clientWidth, text: this.scrollWidth, past: Math.round(document.querySelector('.ab-bubble-field').getBoundingClientRect().right - edge) }
+        }`,
+        returnByValue: true,
+      })
+      return result.value as { box: number; text: number; past: number }
+    }
+    const problems: string[] = []
+    try {
+      for (const [state, focus] of [
+        ['at rest', 'blur'],
+        ['focused', 'focus'],
+      ] as const) {
+        await browser.evaluate(`document.querySelector('.ab-search input').${focus}(); true`)
+        // At 900px, and at 960, where the room beside the links is only a little too narrow.
+        for (const width of [900, 960]) {
+          await resize(width)
+          const { box, text, past } = await measure()
+          if (!text) problems.push(`${width}px, ${state}: no placeholder shows`)
+          else if (text > box)
+            problems.push(
+              `${width}px, ${state}: the placeholder is cut to ${box}px of its ${text}px`,
+            )
+          if (past > 1)
+            problems.push(
+              `${width}px, ${state}: the bubble runs ${past}px past the header’s right edge`,
+            )
+        }
+      }
+    } finally {
+      // Back to the normal view, empty and at rest, on this describe's screen before anything is
+      // asserted, even if measuring failed, so the checks after this one see the page they expect.
+      await browser.evaluate(
+        `document.getElementById('text-spacing').remove(); document.querySelector('.ab-search input').blur(); true`,
+      )
+      await resize(1440)
+    }
+    assert.deepEqual(
+      problems,
+      [],
+      'the search box’s placeholder, its only visible label, is cut or leaves the header',
+    )
+  })
+
   test('every label on the pull machine reads at 4.5:1 or better', async () => {
     // WCAG contrast of every piece of text on the machine, so a label added later is measured
     // too. Each is measured against the first solid background behind it, plain and under each
