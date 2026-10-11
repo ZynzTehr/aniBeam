@@ -351,6 +351,53 @@ test('while rate-limited, a request still waiting is dropped when the list chang
   assert.deepEqual(sent, ['trending', '19899999'], 'only the list still on screen was sent')
 })
 
+// The request for both of a first visit's lists reads no abort signal (see mediaQuery). If it took
+// the signal of the list that asked first, leaving that list would cancel the other's half too.
+// App asks for trending first and always shows it, so here the 1990s ask first, while requests
+// are held for a rate limit: the only time a list's own request reads its signal.
+test("while rate-limited, leaving the 1990s on a first visit doesn't cancel trending", async (t) => {
+  // A fake clock in the past, so the pause this test starts has long expired for later tests,
+  // and a day after the test above's, whose pause (until 2000-01-01 00:01) would hold this one.
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2000, 0, 2) })
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    // As fetch does, a request whose signal was aborted while it waited is refused.
+    if (init.signal?.aborted) throw new DOMException('This operation was aborted', 'AbortError')
+    const { query } = JSON.parse(init.body as string)
+    if (query === QUERIES.search) {
+      return new Response(
+        JSON.stringify({ data: null, errors: [{ message: 'Too Many Requests.', status: 429 }] }),
+        { status: 429 },
+      )
+    }
+    // The request for both lists, or the 1980s' own.
+    return new Response(
+      JSON.stringify(query === QUERIES.firstVisit ? both : { data: { Page: { media: [] } } }),
+    )
+  })
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  t.after(() => client.clear())
+  // A search's 429 starts a one-minute pause, before either list has been asked for.
+  await client.query(searchQuery('frieren')).catch(() => {})
+  const [eighties, nineties] = decades('1980s', '1990s')
+
+  // Both lists are built before either asks, as page() does, but the 1990s ask first.
+  const decade = new QueryObserver(client, eraQuery(nineties))
+  const trending = new QueryObserver(client, trendingQuery())
+  const stops = [decade, trending].map((observer) => observer.subscribe(() => {}))
+  decade.setOptions(eraQuery(eighties)) // the visitor picks the 1980s before the request is sent
+  for (let second = 0; second <= 60; second++) {
+    await new Promise((resolve) => setImmediate(resolve))
+    t.mock.timers.tick(1000)
+  }
+  stops.forEach((stop) => stop())
+
+  assert.deepEqual(
+    client.getQueryData(trendingQuery().queryKey),
+    [{ id: 1 }],
+    "leaving the 1990s also cancelled trending's half of their request",
+  )
+})
+
 test('every media query anywhere in the source uses SAFE', () => {
   // Also catches a query written outside QUERIES, such as one inline in a future feature.
   const src = new URL('../../', import.meta.url)
