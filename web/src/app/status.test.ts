@@ -314,4 +314,10 @@ test('sample note: says what the samples are, then what AniList is doing', () =>
     sampleNote(favorites, { ...idle, isFetching: true }, true),
     'These are fan favorites, not this week’s trending. Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.',
   )
+  // Then the try goes out, at once after a refusal (403), which starts no pause. The samples show
+  // only once a try has failed, so this is AniList tried again, not a first load.
+  assert.equal(
+    sampleNote(favorites, { ...idle, isFetching: true }, false),
+    'These are fan favorites, not this week’s trending. Trying AniList again…',
+  )
 })
