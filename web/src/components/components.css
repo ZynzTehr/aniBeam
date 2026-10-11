@@ -59,15 +59,6 @@
   color: var(--paper);
 }
 
-.ab-search {
-  margin-left: auto;
-}
-
-.ab-search input {
-  width: clamp(180px, 24vw, 300px);
-  box-shadow: 3px 3px 0 var(--ink);
-}
-
 .ab-app a:focus-visible,
 .ab-app input:focus-visible {
   outline: 4px solid var(--hot);
@@ -305,10 +296,6 @@ img[data-broken] {
   -webkit-line-clamp: 3;
 }
 
-.ab-splash .ab-caption b {
-  font-size: clamp(24px, 3.3vw, 48px);
-}
-
 .ab-caption small {
   color: #3d3d3d;
   font-size: 12.5px;
@@ -522,10 +509,6 @@ img[data-broken] {
 
   .ab-search {
     flex: 1 1 100%;
-  }
-
-  .ab-search input {
-    width: 100%;
   }
 
   /* Half-width phone panels: a shorter caption so the art stays visible. */
