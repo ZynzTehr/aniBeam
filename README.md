@@ -47,6 +47,7 @@ AniBeam/
 ├── web/                     # Frontend: React + Vite + TypeScript + Tailwind CSS v4
 │   ├── e2e/                 # Browser checks (*.e2e.ts) and the Chrome driver they share
 │   ├── public/              # Static files served as-is, including the fonts
+│   ├── scripts/             # Maintenance scripts, such as the sample titles' refresh
 │   └── src/
 │       ├── app/             # App shell: root component, router, providers
 │       ├── pages/           # One component per route (Discover, Browse, Detail, Mood, My List)
@@ -88,6 +89,8 @@ TanStack Query saves results in `localStorage` for up to a day (`web/src/lib/que
 Every `media(...)` query in the source must include the `SAFE` filter, which excludes adult titles, and `npm test` fails if one doesn't. `SAFE` only works on top-level queries. Titles nested inside other results, such as relations or recommendations, need a filter in code.
 
 Saved results and the rate-limit pause belong to one browser tab. With several tabs open, the last tab to save wins.
+
+For when AniList can't be reached, `web/src/features/anime/samples.ts` bundles 30 well-known titles, 3 to 5 from each decade. `npm run samples --workspace web` rewrites it from the list of IDs in `web/scripts/refresh-samples.ts`, with one AniList request. Run it to change the titles, or when the type check fails after a change to the fields AniBeam asks for. It writes nothing if a title is missing, Ecchi, or has no cover color or year, and `npm test` checks the file again.
 
 ### Design
 

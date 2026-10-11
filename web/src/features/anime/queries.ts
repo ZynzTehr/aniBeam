@@ -42,6 +42,9 @@ export const QUERIES = {
   // A first visit's trending and first decade in one request, each list under its own name
   // (see bothLists).
   firstVisit: `query (${ERA_VARIABLES}) { trending: ${TRENDING} era: ${ERA} }`,
+  // The titles bundled for when AniList can't be reached, by id (see scripts/refresh-samples.ts).
+  // Only finished titles, so none has an episode countdown that would go stale in the bundle.
+  samples: `query ($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, status: FINISHED, type: ANIME, ${SAFE}) { ${CARD} } } }`,
 }
 
 export type Era = { id: string; label: string; variables: Variables }
