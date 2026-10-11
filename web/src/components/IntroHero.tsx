@@ -35,14 +35,19 @@ export function IntroHero({
         aria-hidden="true"
       >
         {covers.map((media, i) => (
-          <img
+          // The frame holds the cover's place in its title's color, as a trending panel does.
+          <span
             key={media.id}
-            src={media.coverImage.extraLarge}
-            alt=""
+            className="ab-intro-cover"
             style={{ ...accentVars(media.coverImage.color), ...cssVars({ '--i': i }) }}
-            onLoad={markLoaded}
-            onError={markBroken}
-          />
+          >
+            <img
+              src={media.coverImage.extraLarge}
+              alt=""
+              onLoad={markLoaded}
+              onError={markBroken}
+            />
+          </span>
         ))}
       </div>
       <p className="ab-intro-kicker">For anime fans · powered by AniList</p>

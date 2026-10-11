@@ -197,8 +197,8 @@
 }
 
 /* Any cover that can't load (see cover.ts) keeps its place but hides Chrome's broken-image icon.
-   What's behind it shows instead: the title's color on a panel, grey on a strip card, ink in a
-   pull, paper in a title card. */
+   What's behind it shows instead: the title's color on a panel or in the intro's fan, grey on a
+   strip card, ink in a pull, paper in a title card. */
 img[data-broken] {
   visibility: hidden;
 }
@@ -1542,26 +1542,31 @@ body:has(.ab-card[open]) {
   grid-area: art;
 }
 
-.ab-intro-art img {
+/* Each cover sits in a frame filled with its title's color, which shows while the cover loads and
+   in its place if it can't (see cover.ts). A failed cover keeps the fan's shape, and on phones,
+   where the covers sit above the headline, the headline stays put. */
+.ab-intro-cover {
   --cover-w: clamp(130px, 14vw, 210px);
   width: var(--cover-w);
   aspect-ratio: 2 / 3;
   margin-inline: calc(var(--cover-w) * -0.18);
-  object-fit: cover;
+  background: var(--anime-accent);
+  /* Inside the ink border only: under it, the color would tint the tilted border's outer edge. */
+  background-clip: padding-box;
   border: var(--border) solid var(--ink);
   box-shadow: 7px 7px 0 var(--anime-accent);
   transform: rotate(calc((var(--i) - 1) * 9deg))
     translateY(calc((var(--i) - 1) * (var(--i) - 1) * 14px));
 }
 
-.ab-intro-art img:nth-child(2) {
+.ab-intro-cover:nth-child(2) {
   z-index: 1;
 }
 
-/* The fan shows only the covers that load. With none, the band holds no room for covers, as
-   while AniList is down. */
-.ab-intro-art img[data-broken] {
-  display: none;
+.ab-intro-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* Links in the intro and header land below the sticky header. */
@@ -1603,7 +1608,7 @@ body:has(.ab-card[open]) {
     min-height: 184px;
   }
 
-  .ab-intro-art img {
+  .ab-intro-cover {
     --cover-w: 92px;
   }
 
@@ -1651,7 +1656,7 @@ body:has(.ab-card[open]) {
     animation: ab-boom 0.7s var(--spring) both 0.6s;
   }
 
-  .ab-intro-art img {
+  .ab-intro-cover {
     animation: ab-deal 0.8s var(--spring) both;
     animation-delay: calc(0.2s + var(--i) * 90ms);
   }

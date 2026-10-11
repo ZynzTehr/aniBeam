@@ -58,7 +58,6 @@ test('covers that can’t load show no broken-image icon, and each panel shows i
       failed: string[]
       shown: string[]
       grey: string[]
-      intro: number
     }>(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))).then(() => {
       const place = (img) => img.parentElement.closest('[class]').classList[0]
       const failed = [...document.images].filter((img) => img.complete && img.naturalWidth === 0)
@@ -77,20 +76,78 @@ test('covers that can’t load show no broken-image icon, and each panel shows i
         failed: [...new Set(failed.map(place))].sort(),
         shown: failed.filter((img) => img.checkVisibility({ visibilityProperty: true })).map(place),
         grey,
-        intro: [...document.querySelectorAll('.ab-intro-art img')].filter((img) => img.getClientRects().length).length,
       }
     })`)
     await browser.press('Escape')
     assert.deepEqual(
       covers.failed,
-      ['ab-img', 'ab-intro-art', 'ab-result-panel', 'ab-sheet-art', 'ab-strip-panel'],
+      ['ab-img', 'ab-intro-cover', 'ab-result-panel', 'ab-sheet-art', 'ab-strip-panel'],
       'places where no cover failed to load, so they went unchecked',
     )
     assert.deepEqual(covers.shown, [], 'covers that failed to load still show, as broken images')
     assert.deepEqual(covers.grey, [], 'panels that show grey instead of their title’s color')
-    assert.equal(covers.intro, 0, 'the intro holds a place for covers that failed to load')
   } finally {
     // Covers load again for the checks below.
+    await browser.send('Network.setBlockedURLs', { urls: [] })
+    await browser.send('Network.disable')
+  }
+})
+
+// On a phone the intro's covers sit above the headline, so a cover that can't load keeps its
+// place, in its title's color as a trending panel does. When failed covers dropped out of the
+// fan, the headline jumped 77px up just after it was drawn. The titles come from the saved copy
+// again, so this asks AniList for none.
+test('on a phone, intro covers that can’t load keep their place in their title’s color', async () => {
+  // Where the headline sits, a frame at a time, from the frame the covers appear in.
+  const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `window.__headline = []
+      requestAnimationFrame(function sample() {
+        if (document.querySelector('.ab-intro-art img')) {
+          const top = Math.round(${headline})
+          if (window.__headline.at(-1) !== top) window.__headline.push(top)
+        }
+        requestAnimationFrame(sample)
+      })`,
+  })
+  await browser.send('Network.enable')
+  await browser.send('Network.setBlockedURLs', { urls: ['*s4.anilist.co*'] })
+  try {
+    await browser.load({ width: 390, height: 844, phone: true })
+    const covers = `[...document.querySelectorAll('.ab-intro-art img')]`
+    assert.ok(
+      await browser.waitFor(
+        `${covers}.length === 3 && ${covers}.every((img) => img.complete && !img.naturalWidth)`,
+      ),
+      'the intro’s covers never failed to load, so there is nothing to check',
+    )
+    // Two frames on, so every failed cover's error event has been handled. Each cover carries
+    // its title's color as --anime-accent (see accentVars); its frame should show that color.
+    const page = await browser.evaluate<{ headline: number[]; shown: string[]; colors: string[] }>(
+      `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))).then(() => {
+        const swatch = document.body.appendChild(document.createElement('i'))
+        const rgb = (color) => {
+          swatch.style.color = color
+          return getComputedStyle(swatch).color
+        }
+        const shows = (frame) =>
+          frame.checkVisibility({ visibilityProperty: true }) ? getComputedStyle(frame).backgroundColor : 'nothing'
+        const page = {
+          headline: window.__headline,
+          shown: ${covers}.map((img) => shows(img.parentElement)),
+          colors: ${covers}.map((img) => rgb(getComputedStyle(img).getPropertyValue('--anime-accent'))),
+        }
+        swatch.remove()
+        return page
+      })`,
+    )
+    const moved = Math.max(...page.headline) - Math.min(...page.headline)
+    assert.ok(
+      moved <= 2,
+      `the headline moved ${moved}px as the covers failed (${page.headline.join(' → ')}px)`,
+    )
+    assert.deepEqual(page.shown, page.colors, 'failed covers that don’t show their title’s color')
+  } finally {
+    await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
     await browser.send('Network.setBlockedURLs', { urls: [] })
     await browser.send('Network.disable')
   }
