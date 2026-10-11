@@ -171,7 +171,14 @@ export default function App() {
               (!trending.failureReason || (trendingOutage && samples === undefined))
             }
             actions={[
-              { href: '#ab-trending', label: 'See what’s trending', primary: true },
+              {
+                href: '#ab-trending',
+                // While the section shows the samples, its heading reads "Fan favorites", so the
+                // button that leads there says so too. The header's Trending link stays: it names
+                // the section's place in the page.
+                label: trendingSamples.length ? 'See fan favorites' : 'See what’s trending',
+                primary: true,
+              },
               { href: '#pull', label: 'Pull a random title' },
               { href: '#decades', label: 'Browse by decade' },
             ]}

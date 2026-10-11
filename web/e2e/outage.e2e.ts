@@ -233,10 +233,12 @@ describe('AniList down on a first visit', () => {
   )
   const favorites = 'These are fan favorites, not this week’s trending.'
   const fromThe1990s = 'A few fan favorites from the 1990s, not the full list.'
-  // What the visitor sees: the trending heading and its panels' titles, rank numbers, panels
-  // that say "Number 1 trending", the strip's titles and both sections' status lines.
+  // What the visitor sees: the trending heading and the intro's button that leads to it, the
+  // panels' titles, rank numbers, panels that say "Number 1 trending", the strip's titles and
+  // both sections' status lines.
   const shown = `({
     heading: document.getElementById('ab-trending').firstChild.textContent,
+    button: document.querySelector('.ab-intro-actions a[href="#ab-trending"]').textContent,
     panels: [...document.querySelectorAll('.ab-grid .ab-caption b')].map((title) => title.textContent),
     ranks: document.querySelectorAll('.ab-grid .ab-rank').length,
     ranked: [...document.querySelectorAll('.ab-grid .ab-caption')].filter((caption) => caption.textContent.includes('trending')).length,
@@ -245,6 +247,7 @@ describe('AniList down on a first visit', () => {
   })`
   type Shown = {
     heading: string
+    button: string
     panels: string[]
     ranks: number
     ranked: number
@@ -253,6 +256,8 @@ describe('AniList down on a first visit', () => {
   }
   const samplesShown = (status: string) => ({
     heading: 'Fan favorites',
+    // The button must not promise this week's trending either.
+    button: 'See fan favorites',
     panels: SAMPLES.slice(0, 9).map(titleOf),
     ranks: 0,
     ranked: 0,
@@ -416,8 +421,20 @@ describe('AniList down on a first visit', () => {
     )
     const page = await browser.evaluate<Shown>(shown)
     assert.deepEqual(
-      { heading: page.heading, ranks: page.ranks, ranked: page.ranked, notes: page.notes },
-      { heading: 'Trending now', ranks: 9, ranked: 9, notes: ['', ''] },
+      {
+        heading: page.heading,
+        button: page.button,
+        ranks: page.ranks,
+        ranked: page.ranked,
+        notes: page.notes,
+      },
+      {
+        heading: 'Trending now',
+        button: 'See what’s trending',
+        ranks: 9,
+        ranked: 9,
+        notes: ['', ''],
+      },
     )
     assert.notDeepEqual(
       page.panels,
