@@ -29,6 +29,16 @@ export const seasonOf = (media: Media) =>
 export const formatOf = (media: Media) =>
   media.format ? (FORMATS[media.format] ?? media.format) : null
 
+/**
+ * "28 eps", or null when AniList doesn't know the count. A movie in one part gets null too: its
+ * caption already says "Movie", so "1 eps" would add nothing and read wrong.
+ */
+export function episodesOf(media: Media) {
+  if (!media.episodes) return null
+  if (media.format === 'MOVIE' && media.episodes === 1) return null
+  return `${media.episodes} eps`
+}
+
 export const studioOf = (media: Media) => media.studios.nodes[0]?.name ?? null
 
 /**

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   coverSrcSet,
+  episodesOf,
   formatOf,
   hasSmallCover,
   nextEpisode,
@@ -50,6 +51,13 @@ test('formatOf reads like English, and passes unknown formats through', () => {
   assert.equal(formatOf(media({ format: 'MOVIE' })), 'Movie')
   assert.equal(formatOf(media({ format: 'NEW_FORMAT' })), 'NEW_FORMAT')
   assert.equal(formatOf(media({ format: null })), null)
+})
+
+test('episodesOf gives the episode count, except for a movie in one part', () => {
+  assert.equal(episodesOf(media()), '28 eps')
+  assert.equal(episodesOf(media({ format: 'MOVIE', episodes: 1 })), null) // not "Movie · 1 eps"
+  assert.equal(episodesOf(media({ format: 'MOVIE', episodes: 3 })), '3 eps') // a movie in parts
+  assert.equal(episodesOf(media({ episodes: null })), null) // AniList doesn't know the count
 })
 
 test('studioOf gives the main studio, or null', () => {

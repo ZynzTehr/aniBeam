@@ -1,5 +1,5 @@
 import type { Ref } from 'react'
-import { formatOf, seasonOf, titleOf } from '../features/anime/format.ts'
+import { episodesOf, formatOf, seasonOf, titleOf } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
 import { markBroken } from './cover.ts'
@@ -111,9 +111,7 @@ function Panel({
   onOpen?: OpenTitle
 }) {
   const splash = rank === 1
-  const meta = [seasonOf(media), formatOf(media), media.episodes && `${media.episodes} eps`]
-    .filter(Boolean)
-    .join(' · ')
+  const meta = [seasonOf(media), formatOf(media), episodesOf(media)].filter(Boolean).join(' · ')
   const cut = rank === 4 ? 'ab-cut-right' : rank === 5 ? 'ab-cut-left' : ''
   return (
     <li
