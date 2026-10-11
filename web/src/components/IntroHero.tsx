@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import { hasSmallCover } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
@@ -13,10 +14,13 @@ export type IntroAction = { href: string; label: string; primary?: boolean }
  */
 export function IntroHero({
   titles,
+  coversRef,
   loading = false,
   actions,
 }: {
   titles: Media[]
+  /** Gets the cover fan, so App can tell when it is on screen (see useSteadyList). */
+  coversRef?: Ref<HTMLDivElement>
   /** Hold the covers' place while the first load runs (on phones, so the headline stays put). */
   loading?: boolean
   actions: IntroAction[]
@@ -25,7 +29,11 @@ export function IntroHero({
   const covers = titles.filter((media) => !hasSmallCover(media)).slice(0, 3)
   return (
     <section className="ab-intro" aria-labelledby="ab-intro-title">
-      <div className={loading ? 'ab-intro-art is-loading' : 'ab-intro-art'} aria-hidden="true">
+      <div
+        ref={coversRef}
+        className={loading ? 'ab-intro-art is-loading' : 'ab-intro-art'}
+        aria-hidden="true"
+      >
         {covers.map((media, i) => (
           <img
             key={media.id}

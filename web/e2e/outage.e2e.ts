@@ -269,6 +269,9 @@ describe('AniList down on a first visit', () => {
   })
 
   test('once AniList answers, every section shows its own titles again', async () => {
+    // With the panels on screen: a new order of AniList's titles waits there (see
+    // useSteadyList), but the samples give way to AniList's titles at once.
+    await browser.evaluate(`document.querySelector('#ab-trending').scrollIntoView(); true`)
     await browser.blockAniList(false)
     // Both lists come in one answer, and the 1990s outnumber their samples.
     assert.ok(
@@ -286,6 +289,11 @@ describe('AniList down on a first visit', () => {
     assert.deepEqual(
       { heading: page.heading, ranks: page.ranks, ranked: page.ranked, notes: page.notes },
       { heading: 'Trending now', ranks: 9, ranked: 9, notes: ['', ''] },
+    )
+    assert.notDeepEqual(
+      page.panels,
+      SAMPLES.slice(0, 9).map(titleOf),
+      'the samples stayed on screen once AniList answered',
     )
   })
 })

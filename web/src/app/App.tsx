@@ -11,6 +11,7 @@ import { SiteHeader } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
 import { loadSamples, outOfReach, samplesFor } from '../features/anime/fallback.ts'
+import { hasSmallCover } from '../features/anime/format.ts'
 import {
   ERAS,
   eraQuery,
@@ -24,6 +25,7 @@ import {
 import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { isRateLimited } from '../lib/anilist.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
+import { useSteadyList } from '../lib/steadyList.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
 import { noteFor, sampleNote, searchStatus } from './status.ts'
 
@@ -33,6 +35,8 @@ const retryFor = (query: UseQueryResult<Media[]>, retryFailed: () => void) =>
   query.isError && !query.isFetching ? retryFailed : undefined
 // "the 1990s", or "before 1970"
 const eraName = (era: Era) => (era.id === 'pre-1970' ? 'before 1970' : `the ${era.label}`)
+// No titles yet: one array for every render, as useSteadyList needs.
+const EMPTY: Media[] = []
 
 /**
  * Whether a section shows the sample titles (spec §3H, see fallback.ts) in place of its own: from
@@ -103,7 +107,19 @@ export default function App() {
     () => (decadeOutage && samples ? samplesFor(samples, era) : []),
     [decadeOutage, samples, era],
   )
-  const trendingShown = trending.data ?? trendingSamples
+
+  // A refresh that reorders trending's nine panels, or the intro's three covers, waits while they
+  // are on screen, and shows once they have left it (spec §3H, see useSteadyList). Only AniList's
+  // titles wait: the samples give way to them at once.
+  const [trendingTitles, trendingRef] = useSteadyList(trending.data ?? EMPTY, 9)
+  // The intro's cover fan, picked as IntroHero picks it: the first three big covers.
+  const covers = useMemo(
+    () => (trending.data ?? EMPTY).filter((media) => !hasSmallCover(media)).slice(0, 3),
+    [trending.data],
+  )
+  const [introCovers, introRef] = useSteadyList(covers, 3)
+
+  const trendingShown = trending.data ? trendingTitles : trendingSamples
   const decadeShown = decade.data ?? decadeSamples
 
   // Pulls draw from titles already on the page, so a pull costs no request.
@@ -145,7 +161,8 @@ export default function App() {
           />
         ) : (
           <IntroHero
-            titles={trendingShown}
+            titles={trending.data ? introCovers : trendingSamples}
+            coversRef={introRef}
             // Not once a try has failed or the browser is offline: covers that aren't coming
             // would leave an empty band pushing the buttons off a phone's first screen. The
             // samples' covers are coming, though, until their file fails to load.
@@ -166,6 +183,7 @@ export default function App() {
           heading={trendingSamples.length ? 'Fan favorites' : 'Trending now'}
           sfx="ドン!"
           titles={trendingShown}
+          titlesRef={trendingRef}
           // The samples have no rank: they are well-loved titles, not this week's trending.
           ranked={!trendingSamples.length}
           note={

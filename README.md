@@ -86,6 +86,8 @@ The browser calls AniList directly, so each visitor's IP address gets its own li
 
 TanStack Query saves results in `localStorage` for up to a day (`web/src/lib/queryClient.ts`). When a refresh fails, the last good list stays saved. It caches each result under its exact query text and variables, so editing a query never shows results saved for the old version. Change `buster` in `queryClient.ts` only if the code that reshapes results changes.
 
+Saved trending titles are refreshed once they are over 30 minutes old. If the refresh brings a new order while the trending panels or the intro's covers are on screen, they keep the order the visitor is looking at until they are scrolled away, so nothing reshuffles in front of the visitor (`web/src/lib/steadyList.ts`).
+
 Every `media(...)` query in the source must include the `SAFE` filter, which excludes adult titles, and `npm test` fails if one doesn't. `SAFE` only works on top-level queries. Titles nested inside other results, such as relations or recommendations, need a filter in code.
 
 Saved results and the rate-limit pause belong to one browser tab. With several tabs open, the last tab to save wins.
@@ -112,7 +114,7 @@ The files are subsets with Latin letters, kana and the star symbol, about 100 KB
 
 ### Browser checks
 
-`web/e2e` holds checks that run the real page in headless Chrome: layout on desktop and phone, keyboard use, reduced motion, Windows contrast themes, the title card, search, the pull, and what a visitor sees when AniList is down. They need no extra package. Node drives Chrome over its DevTools protocol.
+`web/e2e` holds checks that run the real page in headless Chrome: layout on desktop and phone, keyboard use, reduced motion, Windows contrast themes, the title card, search, the pull, trending refreshed while it is on screen, and what a visitor sees when AniList is down. They need no extra package. Node drives Chrome over its DevTools protocol.
 
 To run them, start the app with `npm run dev`, then point `CHROME_BIN` at a Chrome or chrome-headless-shell binary:
 

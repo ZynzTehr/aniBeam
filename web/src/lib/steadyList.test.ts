@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import { steadyList } from './steadyList.ts'
+
+// Titles by id. A refresh can also change a title's details, such as its score.
+const titles = (...ids: number[]) => ids.map((id) => ({ id, score: 80 }))
+// On screen: the first 3 of these.
+const shown = titles(1, 2, 3, 4)
+
+test('off screen, a refresh shows at once, in its new order', () => {
+  const latest = titles(4, 3, 2, 1)
+  assert.equal(steadyList(shown, latest, false, 3), latest, 'the new order waited off screen')
+})
+
+test('the first titles show at once, even on screen', () => {
+  const latest = titles(1, 2, 3, 4)
+  assert.equal(steadyList([], latest, true, 3), latest, 'the first titles waited')
+})
+
+test('on screen, a new order of the titles in view waits', () => {
+  const reordered = steadyList(shown, titles(2, 1, 3, 4), true, 3)
+  assert.equal(reordered, shown, 'the titles in view took a new order')
+  // A new title in view is a new order too, even in the last place.
+  const replaced = steadyList(shown, titles(1, 2, 5, 4), true, 3)
+  assert.equal(replaced, shown, 'a new title took the place of one in view')
+})
+
+test('on screen, the same order with new details shows at once', () => {
+  const latest = shown.map((title) => ({ ...title, score: 81 }))
+  assert.equal(steadyList(shown, latest, true, 3), latest, 'the new details waited')
+})
+
+test('on screen, a new order past the titles in view shows at once', () => {
+  const latest = titles(1, 2, 3, 5)
+  assert.equal(steadyList(shown, latest, true, 3), latest, 'a change out of view waited')
+})

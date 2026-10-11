@@ -1,3 +1,4 @@
+import type { Ref } from 'react'
 import { formatOf, seasonOf, titleOf } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
@@ -28,6 +29,7 @@ export function MangaPage({
   heading,
   sfx,
   titles,
+  titlesRef,
   onOpen,
   level = 'h2',
   ranked = true,
@@ -39,6 +41,8 @@ export function MangaPage({
   heading: string
   sfx: string
   titles: Media[]
+  /** Gets the panels' list, so App can tell when they are on screen (see useSteadyList). */
+  titlesRef?: Ref<HTMLOListElement>
   onOpen?: OpenTitle
   level?: 'h1' | 'h2'
   /** Number the panels by rank. Off for titles in no particular order, such as the samples. */
@@ -60,7 +64,7 @@ export function MangaPage({
       </p>
       {onRetry && <RetryButton headingId={id} onRetry={onRetry} />}
       {titles.length ? (
-        <ol className="ab-grid">
+        <ol ref={titlesRef} className="ab-grid">
           {titles.slice(0, LAYOUT.length).map((media, i) => (
             <Panel
               key={media.id}
