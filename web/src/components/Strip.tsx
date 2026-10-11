@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, type FocusEvent, type ReactNode } from 'react'
 import { coverSrcSet, seasonOf, titleOf } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
-import { markBroken } from './cover.ts'
+import { markBroken, markLoaded } from './cover.ts'
 import { cssVars } from './cssVars.ts'
 import { opener } from './opener.ts'
 import { RetryButton } from './RetryButton.tsx'
@@ -85,6 +85,7 @@ export function Strip({
                 srcSet={coverSrcSet(media)}
                 alt=""
                 loading="lazy"
+                onLoad={markLoaded}
                 onError={markBroken}
               />
               {!grid && (

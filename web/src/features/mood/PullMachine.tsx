@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { markBroken } from '../../components/cover.ts'
+import { markBroken, markLoaded } from '../../components/cover.ts'
 import { cssVars } from '../../components/cssVars.ts'
 import { opener } from '../../components/opener.ts'
 import type { OpenTitle } from '../../components/TitleCard.tsx'
@@ -109,7 +109,12 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
                     href={`#title-${pulled.id}`}
                     onClick={opener(pulled, onOpen)}
                   >
-                    <img src={pulled.coverImage.extraLarge} alt="" onError={markBroken} />
+                    <img
+                      src={pulled.coverImage.extraLarge}
+                      alt=""
+                      onLoad={markLoaded}
+                      onError={markBroken}
+                    />
                     <span className="ab-sfx-tier" aria-hidden="true">
                       {rarity.sfx}
                     </span>

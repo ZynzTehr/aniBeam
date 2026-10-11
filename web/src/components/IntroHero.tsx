@@ -1,7 +1,7 @@
 import type { Ref } from 'react'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
-import { markBroken } from './cover.ts'
+import { markBroken, markLoaded } from './cover.ts'
 import { coverFan } from './coverFan.ts'
 import { cssVars } from './cssVars.ts'
 
@@ -40,6 +40,7 @@ export function IntroHero({
             src={media.coverImage.extraLarge}
             alt=""
             style={{ ...accentVars(media.coverImage.color), ...cssVars({ '--i': i }) }}
+            onLoad={markLoaded}
             onError={markBroken}
           />
         ))}

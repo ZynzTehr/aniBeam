@@ -9,3 +9,13 @@ import type { SyntheticEvent } from 'react'
 export const markBroken = (event: SyntheticEvent<HTMLImageElement>) => {
   event.currentTarget.dataset.broken = ''
 }
+
+/**
+ * Every cover's onLoad, beside markBroken. The same img can load another file after one failed:
+ * from 900px wide the splash panel shows its title's banner and below that its cover, so
+ * narrowing the window swaps one for the other, and a refresh can bring a cover's new address.
+ * The mark belongs to the file that failed, so one that loads clears it and the cover shows.
+ */
+export const markLoaded = (event: SyntheticEvent<HTMLImageElement>) => {
+  delete event.currentTarget.dataset.broken
+}

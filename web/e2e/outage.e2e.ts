@@ -96,6 +96,47 @@ test('covers that can’t load show no broken-image icon, and each panel shows i
   }
 })
 
+// From 900px wide the splash panel shows its title's banner, and below that its cover, in the
+// same img: narrowing the window or turning a tablet swaps one file for the other. A banner that
+// failed must not keep the cover hidden once it loads. With AniList kept away, the panels show
+// the samples, so the splash title has a banner whatever is trending, and no request is sent.
+test('the splash panel shows its cover when the window narrows, even after its banner failed', async () => {
+  await browser.forget()
+  await browser.blockAniList()
+  await browser.send('Network.enable')
+  await browser.send('Network.setBlockedURLs', { urls: ['*/banner/*'] })
+  const splash = `document.querySelector('.ab-splash img')`
+  try {
+    await browser.load({ width: 1280, height: 900 })
+    assert.ok(
+      await browser.waitFor(
+        `${splash}?.currentSrc.includes('/banner/') && ${splash}.complete && !${splash}.naturalWidth`,
+        15_000,
+      ),
+      'the splash panel’s banner never failed, so there is nothing to check',
+    )
+    await browser.send('Emulation.setDeviceMetricsOverride', {
+      width: 800,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: false,
+    })
+    assert.ok(
+      await browser.waitFor(`${splash}.complete && ${splash}.naturalWidth > 0`),
+      'the splash panel’s cover never loaded below 900px',
+    )
+    // Two frames on, so the cover's load event has been handled.
+    const shown = await browser.evaluate<boolean>(
+      `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))).then(() => ${splash}.checkVisibility({ visibilityProperty: true }))`,
+    )
+    assert.equal(shown, true, 'the cover loaded but stays hidden, as if it had failed')
+  } finally {
+    await browser.send('Network.setBlockedURLs', { urls: [] })
+    await browser.send('Network.disable')
+    await browser.blockAniList(false)
+  }
+})
+
 // Spec §3H: a section that can't reach AniList shows bundled sample titles instead of an empty
 // page, and says what they are. Trending shows the first 9; the decade strip, the open decade's.
 describe('AniList down on a first visit', () => {

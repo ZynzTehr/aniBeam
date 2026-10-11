@@ -2,7 +2,7 @@ import type { Ref } from 'react'
 import { episodesOf, formatOf, seasonOf, titleOf } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
-import { markBroken } from './cover.ts'
+import { markBroken, markLoaded } from './cover.ts'
 import { cssVars } from './cssVars.ts'
 import { opener } from './opener.ts'
 import { RetryButton } from './RetryButton.tsx'
@@ -133,6 +133,7 @@ function Panel({
               src={media.coverImage.extraLarge}
               alt=""
               loading={rank <= 3 ? 'eager' : 'lazy'}
+              onLoad={markLoaded}
               onError={markBroken}
             />
           </picture>
