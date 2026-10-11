@@ -5,13 +5,13 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { coverFan, COVERS } from '../components/coverFan.ts'
 import { IntroHero } from '../components/IntroHero.tsx'
-import { MangaPage } from '../components/MangaPage.tsx'
+import { MangaPage, PANELS } from '../components/MangaPage.tsx'
 import { SiteHeader } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
 import { loadSamples, outOfReach, samplesFor } from '../features/anime/fallback.ts'
-import { hasSmallCover } from '../features/anime/format.ts'
 import {
   ERAS,
   eraQuery,
@@ -108,16 +108,15 @@ export default function App() {
     [decadeOutage, samples, era],
   )
 
-  // A refresh that reorders trending's nine panels, or the intro's three covers, waits while they
-  // are on screen, and shows once they have left it (spec §3H, see useSteadyList). Only AniList's
-  // titles wait: the samples give way to them at once.
-  const [trendingTitles, trendingRef] = useSteadyList(trending.data ?? EMPTY, 9)
-  // The intro's cover fan, picked as IntroHero picks it: the first three big covers.
-  const covers = useMemo(
-    () => (trending.data ?? EMPTY).filter((media) => !hasSmallCover(media)).slice(0, 3),
-    [trending.data],
-  )
-  const [introCovers, introRef] = useSteadyList(covers, 3)
+  // A refresh that reorders trending's panels, or the intro's covers, waits while they are on
+  // screen, and shows once they have left it (spec §3H, see useSteadyList). Only AniList's titles
+  // wait: the samples give way to them at once. Each hold compares the titles its component shows,
+  // so it counts them as the component does: a count of App's own could miss a change in view.
+  const [trendingTitles, trendingRef] = useSteadyList(trending.data ?? EMPTY, PANELS)
+  // The intro's cover fan, picked as IntroHero picks it. useMemo keeps it one array until
+  // trending changes, as useSteadyList needs.
+  const covers = useMemo(() => coverFan(trending.data ?? EMPTY), [trending.data])
+  const [introCovers, introRef] = useSteadyList(covers, COVERS)
 
   const trendingShown = trending.data ? trendingTitles : trendingSamples
   const decadeShown = decade.data ?? decadeSamples

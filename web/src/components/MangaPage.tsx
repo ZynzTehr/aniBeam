@@ -22,6 +22,8 @@ const LAYOUT: [number, number][] = [
   [3, 3],
   [4, 3],
 ]
+/** How many titles the page shows, one per panel. App's hold compares these (see useSteadyList). */
+export const PANELS = LAYOUT.length
 
 /** Ranked titles as a manga page: the higher the rank, the bigger the panel. */
 export function MangaPage({
@@ -65,7 +67,7 @@ export function MangaPage({
       {onRetry && <RetryButton headingId={id} onRetry={onRetry} />}
       {titles.length ? (
         <ol ref={titlesRef} className="ab-grid">
-          {titles.slice(0, LAYOUT.length).map((media, i) => (
+          {titles.slice(0, PANELS).map((media, i) => (
             <Panel
               key={media.id}
               media={media}

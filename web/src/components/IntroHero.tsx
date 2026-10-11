@@ -1,8 +1,8 @@
 import type { Ref } from 'react'
-import { hasSmallCover } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
 import { markBroken } from './cover.ts'
+import { coverFan } from './coverFan.ts'
 import { cssVars } from './cssVars.ts'
 
 export type IntroAction = { href: string; label: string; primary?: boolean }
@@ -25,8 +25,8 @@ export function IntroHero({
   loading?: boolean
   actions: IntroAction[]
 }) {
-  // Three real covers say "anime" at a glance. Small covers are skipped so none look blurry.
-  const covers = titles.filter((media) => !hasSmallCover(media)).slice(0, 3)
+  // The same pick App's hold uses (see coverFan).
+  const covers = coverFan(titles)
   return (
     <section className="ab-intro" aria-labelledby="ab-intro-title">
       <div
