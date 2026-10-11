@@ -72,7 +72,7 @@
   --border: 4px; /* ink outline weight */
   --gutter: 12px; /* space between manga panels */
   --cut: 48px; /* the diagonal cut between two panels */
-  --page-x: clamp(16px, 4vw, 48px); /* page side padding */
+  --page-x: clamp(16px, 4vw, 48px); /* page side padding, and the trending section's top padding */
 
   /* Motion */
   --spring: cubic-bezier(0.2, 1.5, 0.35, 1);

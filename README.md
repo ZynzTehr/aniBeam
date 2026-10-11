@@ -98,7 +98,7 @@ For when AniList can't be reached, `web/src/features/anime/samples.ts` bundles 3
 
 The look is the manga-page design chosen in Phase 2: paper, ink outlines, screentone and sound effects.
 
-Design tokens are plain CSS custom properties in `web/src/styles/index.css`, such as `--paper`, `--ink` and `--spring`. Component CSS reads them directly, and an `@theme inline` block exposes them to Tailwind utilities like `bg-paper` and `font-display`.
+Design tokens are plain CSS custom properties in `web/src/styles/index.css`, such as `--paper`, `--ink` and `--spring`. Component CSS reads them directly, and an `@theme inline` block exposes them to Tailwind utilities like `bg-paper` and `font-display`. `npm test` fails if nothing reads a token, or if `components.css` copies a token's color, `clamp()` or other function instead of reading it.
 
 The components live in `web/src/components`, with their styles in `components.css`. Every class there starts with `ab-`, so none collide with Tailwind utilities, and the file loads in the components layer.
 
