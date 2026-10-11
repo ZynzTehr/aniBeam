@@ -9,6 +9,7 @@ import {
   QUERIES,
   searchQuery,
   trendingQuery,
+  type Era,
   type Media,
 } from './queries.ts'
 
@@ -179,6 +180,128 @@ test('Upcoming lists only unreleased titles, and the other eras leave them out',
 })
 
 const decades = (...ids: string[]) => ids.map((id) => ERAS.find((era) => era.id === id)!)
+
+type Sent = { query: string; variables: Record<string, unknown> }
+// AniList's answer to a request for both of a first visit's lists.
+const both = { data: { trending: { media: [{ id: 1 }] }, era: { media: [{ id: 2 }] } } }
+
+/** Sets up trending and a decade the way App does: both built first, then both subscribed. */
+function page(client: QueryClient, era: Era) {
+  const observers = [trendingQuery(), eraQuery(era)].map(
+    (options) => new QueryObserver(client, options),
+  )
+  const stops = observers.map((observer) => observer.subscribe(() => {}))
+  return { decade: observers[1], leave: () => stops.forEach((stop) => stop()) }
+}
+
+// The page opens on trending and the 1990s. AniList allows 30 requests a minute per IP address,
+// and a class on one school Wi-Fi shares one, so a first visit asks for both lists at once.
+test('a first visit asks AniList for trending and the 1990s in one request', async (t) => {
+  const sent: Sent[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    sent.push(JSON.parse(init.body as string))
+    return new Response(JSON.stringify(both))
+  })
+  const client = new QueryClient()
+  t.after(() => client.clear())
+  const [nineties] = decades('1990s')
+  const { leave } = page(client, nineties)
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  leave()
+
+  assert.equal(sent.length, 1, `sent ${sent.length} requests`)
+  assert.deepEqual(sent[0].variables, nineties.variables, 'it asks for another decade')
+  for (const name of Object.keys(sent[0].variables)) {
+    assert.ok(
+      sent[0].query.includes(`$${name}:`),
+      `sends $${name}, which its query doesn't declare`,
+    )
+  }
+  assert.deepEqual(client.getQueryData(trendingQuery().queryKey), [{ id: 1 }])
+  assert.deepEqual(client.getQueryData(eraQuery(nineties).queryKey), [{ id: 2 }])
+})
+
+test('with one of those lists saved, the other is asked for on its own', async (t) => {
+  const sent: string[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    sent.push(JSON.parse(init.body as string).query)
+    return new Response(JSON.stringify({ data: { Page: { media: [{ id: 3 }] } } }))
+  })
+  const [nineties] = decades('1990s')
+  // A returning visitor's saved list, and the one the page must then ask for.
+  for (const [saved, asked] of [
+    ['trending', QUERIES.era],
+    ['the 1990s', QUERIES.trending],
+  ]) {
+    sent.length = 0
+    const client = new QueryClient()
+    const { queryKey } = saved === 'trending' ? trendingQuery() : eraQuery(nineties)
+    client.setQueryData(queryKey, [complete])
+    const { leave } = page(client, nineties)
+    await new Promise((resolve) => setTimeout(resolve, 50))
+    leave()
+    client.clear()
+    assert.deepEqual(sent, [asked], `with ${saved} saved`)
+  }
+})
+
+test('a decade picked while a first visit loads asks for its own titles', async (t) => {
+  const sent: Sent[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    const request: Sent = JSON.parse(init.body as string)
+    sent.push(request)
+    const answer = request.query.includes('trending:')
+      ? both
+      : { data: { Page: { media: [{ id: 4 }] } } }
+    return new Response(JSON.stringify(answer))
+  })
+  const client = new QueryClient()
+  t.after(() => client.clear())
+  const [eighties, nineties] = decades('1980s', '1990s')
+  const { decade, leave } = page(client, nineties)
+  decade.setOptions(eraQuery(eighties)) // the visitor picks the 1980s before the answer
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  leave()
+
+  assert.deepEqual(
+    client.getQueryData(eraQuery(eighties).queryKey),
+    [{ id: 4 }],
+    'the 1980s got another list',
+  )
+  assert.deepEqual(sent.at(-1), { query: QUERIES.era, variables: eighties.variables })
+})
+
+test('when that request fails, both lists retry it together, still one request a try', async (t) => {
+  // Fake timers skip TanStack's wait before the retry.
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const sent: Sent[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    sent.push(JSON.parse(init.body as string))
+    return sent.length === 1
+      ? new Response(
+          JSON.stringify({
+            data: null,
+            errors: [{ message: 'Internal Server Error', status: 500 }],
+          }),
+          { status: 500 },
+        )
+      : new Response(JSON.stringify(both))
+  })
+  // Node counts as a server, where TanStack retries nothing unless told to.
+  const client = new QueryClient({ defaultOptions: { queries: { retry: 1 } } })
+  t.after(() => client.clear())
+  const [nineties] = decades('1990s')
+  const { leave } = page(client, nineties)
+  for (let step = 0; step < 40; step++) {
+    await new Promise((resolve) => setImmediate(resolve))
+    t.mock.timers.tick(100)
+  }
+  leave()
+
+  assert.equal(sent.length, 2, `sent ${sent.length} requests over two tries`)
+  assert.deepEqual(client.getQueryData(trendingQuery().queryKey), [{ id: 1 }])
+  assert.deepEqual(client.getQueryData(eraQuery(nineties).queryKey), [{ id: 2 }])
+})
 
 test('switching lists keeps a request that was already sent, so its result is cached', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => {

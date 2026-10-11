@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { Browser } from './browser.ts'
+import { Browser, type Answer } from './browser.ts'
 
 let browser: Browser
 
@@ -145,9 +145,32 @@ before(async () => {
 after(() => browser?.close())
 
 describe('desktop (1440x900)', () => {
+  // What the page asks AniList for on its first load, a first visit: the profile is new.
+  const firstVisit: Answer['request'][] = []
   before(async () => {
-    await browser.load()
-    assert.ok(await browser.titlesShown(), 'trending and decade titles never appeared')
+    await browser.rewriteAniList(({ request }) => {
+      firstVisit.push(request)
+      return null
+    })
+    try {
+      await browser.load()
+      assert.ok(await browser.titlesShown(), 'trending and decade titles never appeared')
+    } finally {
+      await browser.rewriteAniList(null)
+    }
+  })
+
+  // AniList allows 30 requests a minute per IP address, and a class on one Wi-Fi shares one.
+  test('a first visit asks AniList for trending and the 1990s in one request', () => {
+    // Each request, as the lists it asks for. A decade is named by its first year: its `from`
+    // is the YYYYMMDD date just before it.
+    const lists = firstVisit.map(({ query, variables }) => [
+      ...(query.includes('TRENDING_DESC') ? ['trending'] : []),
+      ...(query.includes('POPULARITY_DESC')
+        ? [`${Math.ceil(Number(variables.from) / 10000)}s`]
+        : []),
+    ])
+    assert.deepEqual(lists, [['trending', '1990s']], 'the lists each request asked AniList for')
   })
 
   test('renders the header, intro, nine trending panels, the pull and the decades', async () => {

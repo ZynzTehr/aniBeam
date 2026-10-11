@@ -13,6 +13,7 @@ import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
 import {
   ERAS,
   eraQuery,
+  FIRST_ERA,
   isRefinement,
   searchQuery,
   trendingQuery,
@@ -49,8 +50,10 @@ export default function App() {
   const term = useDebounced(search, 300).text.trim()
   const searching = term.length >= 2
 
-  // Arrowing through the decade chips changes the choice once per chip; wait like search does.
-  const [eraId, setEraId] = useState('1990s')
+  // The page opens on FIRST_ERA, which a first visit asks AniList for in one request with
+  // trending. Arrowing through the decade chips changes the choice once per chip; wait like
+  // search does.
+  const [eraId, setEraId] = useState(FIRST_ERA.id)
   const shownEraId = useDebounced(eraId, 300)
   const era = ERAS.find((e) => e.id === shownEraId) ?? ERAS[0]
 
