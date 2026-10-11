@@ -8,6 +8,10 @@ import { build, type Rolldown } from 'vite'
 // checks every file in it, whatever folder its code came from. The development-only
 // prototypes do load Google Fonts, so this fails if a change ever lets them into production.
 test('the production build never loads anything from Google Fonts', async () => {
+  // Vite keeps a NODE_ENV that is already set, and builds for production only if it is
+  // "production". Under NODE_ENV=test or development, import.meta.env.DEV would be true and
+  // main.tsx would let the prototype in, so this would fail for a font load that never ships.
+  process.env.NODE_ENV = 'production'
   const { output } = (await build({
     root: fileURLToPath(new URL('../../', import.meta.url)),
     logLevel: 'silent',
