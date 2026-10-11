@@ -81,6 +81,18 @@ test('with no match for the vibe, a pull skips the title on screen too', () => {
   assert.equal(pickTitle(pool, ['Mecha'], new Set([5]), () => 0.99, 5)?.id, 4)
 })
 
+// PullMachine adds each title to `seen` before showing it, so in the app the title on screen has
+// always come up. pickTitle doesn't count on that.
+test('a pull skips the title on screen even if it hasn’t come up yet', () => {
+  // No genres means any title matches, and none has come up, so a pull draws from all five.
+  // Draw 0 takes the first and 0.99 the last, so whichever way round they are listed, one of
+  // them would land on title 1 without the skip.
+  for (const draw of [0, 0.99]) {
+    const pick = pickTitle(pool, [], new Set(), () => draw, 1)
+    assert.notEqual(pick?.id, 1, `landed on title 1, the one on screen (draw ${draw})`)
+  }
+})
+
 test('an empty pool gives nothing to pull', () => {
   assert.equal(pickTitle([], ['Action'], new Set(), Math.random), null)
 })
