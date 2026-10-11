@@ -303,19 +303,26 @@ function SearchResults({
 
   // A different search starts from the top of the page, where its heading and loading state
   // show. On wide screens the header stays put, so the box can be typed in from far down the
-  // results. Refining a search keeps the visitor's place while some of the results are in view;
+  // results. Refining a search keeps the visitor's place while some of its titles are in view;
   // typed from below them, the refined titles would change out of sight, so it starts from the
-  // top too. Before paint, so no frame shows the old place.
+  // top too, even with the results' empty end in view. The same check runs when the refined
+  // titles arrive: fewer than stood in for them fill fewer rows, which can end above the view
+  // (the results fill at least a screen, so their empty end is all that shows). Before paint,
+  // so no frame shows the old place.
   const lastTerm = useRef(term)
   const box = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
-    // In view: the results end below the header, or below the top of the screen once a phone's
-    // header has scrolled away.
+    // In view: a title ends below the header, or below the top of the screen once a phone's
+    // header has scrolled away. Each title's list item is measured, not its panel, which pops in
+    // from a smaller size.
     const header = document.querySelector('.ab-top')?.getBoundingClientRect().bottom ?? 0
-    const inView = (box.current?.getBoundingClientRect().bottom ?? 0) > Math.max(0, header)
+    const titles = box.current?.querySelectorAll('.ab-strip-row:not([aria-hidden]) > li') ?? []
+    const inView = Array.from(titles).some(
+      (title) => title.getBoundingClientRect().bottom > Math.max(0, header),
+    )
     if (!inView || !isRefinement(lastTerm.current, term)) window.scrollTo({ top: 0 })
     lastTerm.current = term
-  }, [term])
+  }, [term, results.data])
   return (
     <div ref={box} className="ab-results">
       <Strip

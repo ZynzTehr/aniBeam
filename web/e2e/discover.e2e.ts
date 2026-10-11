@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { SAMPLES } from '../src/features/anime/samples.ts'
 import { Browser, type Answer } from './browser.ts'
 
 let browser: Browser
@@ -46,6 +47,36 @@ const goOffline = (offline: boolean) =>
     downloadThroughput: -1,
     uploadThroughput: -1,
   })
+
+/**
+ * Answers the page's searches for these terms inside the page, each with that many of the sample
+ * titles, a moment after it is asked, as AniList would. No request reaches AniList, and each
+ * search gets as many titles as a check needs. Other requests go on as usual. It lasts until the
+ * page loads again, or until the function it returns puts the page's own fetch back.
+ */
+async function answerSearches(titles: Record<string, number>) {
+  const answers = Object.fromEntries(
+    Object.entries(titles).map(([term, count]) => [
+      term,
+      JSON.stringify({ data: { Page: { media: SAMPLES.slice(0, count) } } }),
+    ]),
+  )
+  await browser.evaluate(`(() => {
+    const answers = ${JSON.stringify(answers)}, fetch = window.fetch
+    window.fetch = function (url, init) {
+      const answer = url === 'https://graphql.anilist.co' && answers[JSON.parse(init.body).variables.search]
+      if (!answer) return fetch.apply(this, arguments)
+      const response = new Response(answer, { headers: { 'Content-Type': 'application/json' } })
+      return new Promise((resolve) => setTimeout(() => resolve(response), 300))
+    }
+    window.__stopAnswering = () => {
+      window.fetch = fetch
+      return true
+    }
+    return true
+  })()`)
+  return () => browser.evaluate('window.__stopAnswering()')
+}
 
 /** Waits until the decade row stops scrolling (snapping animates), so nothing is measured mid-slide. */
 async function rowSettled() {
@@ -446,8 +477,102 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('a refinement brings its titles into view when fewer arrive than stood in for them, and stays put while some show', async () => {
+    // These searches are answered inside the page with sample titles (see answerSearches), so
+    // this check sends no request, and each search gets the titles it needs: 20 fill three rows
+    // at this width, 8 fill one. Each answer comes a moment after its search, as AniList's does,
+    // and until then the titles of the search it refines stand in for it. A saved answer would
+    // show at once, with the search.
+    const stopAnswering = await answerSearches({
+      gundam: 20,
+      'gundam 00': 8,
+      'gundam wing': 3,
+      'gundam win': 4,
+    })
+    const titles = `[...document.querySelectorAll('.ab-results .ab-strip-panel[href]')]`
+    // Where each title ends up: its list item, as its panel pops in from a smaller size.
+    const items = `${titles}.map((panel) => panel.parentElement.getBoundingClientRect())`
+    const header = `document.querySelector('.ab-top').getBoundingClientRect().bottom`
+    // How many titles show in full between the header and the bottom of the screen, and where
+    // they all are.
+    type Shown = { whole: number; top: number; end: number; below: number; bottom: number }
+    const shown = `(() => {
+      const below = ${header}, all = ${items}
+      const whole = all.filter((r) => r.top >= below && r.bottom <= innerHeight).length
+      return { whole, top: all[0].top, end: all.at(-1).bottom, below, bottom: innerHeight }
+    })()`
+    // Types a search, then waits for its answer: that many titles.
+    const answered = async (term: string, count: number) => {
+      await browser.search(term)
+      return browser.waitFor(`${resultsFor(term)} && ${titles}.length === ${count}`, 5_000)
+    }
+    try {
+      assert.ok(await answered('gundam', 20), 'the titles for “gundam” never showed')
+      // 300px down, as in the refining check, the first row still shows under the header, and
+      // the 8 refined titles fill that row.
+      await browser.evaluate('scrollTo(0, 300); true')
+      assert.ok(await answered('gundam 00', 8), 'the titles for “gundam 00” never showed')
+      const stayed = await browser.evaluate<number>('scrollY')
+      // The last row just under the header, the rows above it out of view: a shorter answer's
+      // one row ends up where the first is, above the view. "gundam" is saved, so it shows at once.
+      assert.ok(await answered('gundam', 20), 'the titles for “gundam” never came back')
+      const lastRow = await browser.evaluate<{ first: number; below: number }>(`(() => {
+        scrollBy(0, ${items}.at(-1).top - ${header} - 32)
+        return { first: ${items}[0].bottom, below: ${header} }
+      })()`)
+      assert.ok(await answered('gundam wing', 3), 'the titles for “gundam wing” never showed')
+      const fewer = await browser.evaluate<Shown>(shown)
+      // The titles ending halfway behind the header: below it shows only the results' empty end
+      // (they fill at least a screen).
+      const behind = await browser.evaluate<{
+        end: number
+        results: number
+        below: number
+      }>(`(() => {
+        scrollBy(0, ${items}.at(-1).bottom - ${header} / 2)
+        return {
+          end: ${items}.at(-1).bottom,
+          results: document.querySelector('.ab-results').getBoundingClientRect().bottom,
+          below: ${header},
+        }
+      })()`)
+      assert.ok(await answered('gundam win', 4), 'the titles for “gundam win” never showed')
+      const hidden = await browser.evaluate<Shown>(shown)
+
+      assert.equal(
+        stayed,
+        300,
+        'refining the search moved the page by the time its titles arrived, though some were in view',
+      )
+      assert.ok(
+        lastRow.first <= lastRow.below,
+        `with the last row under the header, the first ends at ${Math.round(lastRow.first)}px, not above the header (${Math.round(lastRow.below)}px)`,
+      )
+      assert.ok(
+        behind.end > 0 && behind.end <= behind.below && behind.results > behind.below,
+        `the titles end at ${Math.round(behind.end)}px and the results at ${Math.round(behind.results)}px: not behind the header and below it (${Math.round(behind.below)}px)`,
+      )
+      const outOfView = [
+        {
+          typed: '“gundam wing” (3 titles) typed with the last row of 20 under the header',
+          ...fewer,
+        },
+        { typed: '“gundam win” typed with the titles ending behind the header', ...hidden },
+      ]
+        .filter((at) => !at.whole)
+        .map(
+          (at) =>
+            `${at.typed}: titles at ${Math.round(at.top)}px to ${Math.round(at.end)}px, view ${Math.round(at.below)}px to ${at.bottom}px`,
+        )
+      assert.deepEqual(outOfView, [], 'a refinement left its titles out of view once they arrived')
+    } finally {
+      await stopAnswering()
+      await browser.search('')
+    }
+  })
+
   test('a typed space restarts the search’s pause, so two words typed at an easy pace search once', async () => {
-    // Both searches were made by the check above, so this one sends no request.
+    // Both searches were made by the checks above, so this one sends no request.
     await browser.search('')
     assert.ok(await browser.waitFor(`!document.querySelector('.ab-results')`, 5_000))
     await recordHeadings()
