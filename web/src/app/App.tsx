@@ -306,9 +306,12 @@ function SearchResults({
   // results. Refining a search keeps the visitor's place while some of its titles are in view;
   // typed from below them, the refined titles would change out of sight, so it starts from the
   // top too, even with the results' empty end in view. The same check runs when the refined
-  // titles arrive: fewer than stood in for them fill fewer rows, which can end above the view
-  // (the results fill at least a screen, so their empty end is all that shows). Before paint,
-  // so no frame shows the old place.
+  // search's answer takes the place of the titles that stood in for it (isPlaceholderData turns
+  // false): fewer titles fill fewer rows, which can end above the view (the results fill at least
+  // a screen, so their empty end is all that shows). Only then: a new search's first answer can
+  // come late (after anilist()'s pause, a slow connection or a retry), and must leave the page
+  // where the visitor has gone since the search took it to the top. Before paint, so no frame
+  // shows the old place.
   const lastTerm = useRef(term)
   const box = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
@@ -322,7 +325,7 @@ function SearchResults({
     )
     if (!inView || !isRefinement(lastTerm.current, term)) window.scrollTo({ top: 0 })
     lastTerm.current = term
-  }, [term, results.data])
+  }, [term, results.isPlaceholderData])
   return (
     <div ref={box} className="ab-results">
       <Strip

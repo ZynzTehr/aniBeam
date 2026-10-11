@@ -52,9 +52,11 @@ const goOffline = (offline: boolean) =>
  * Answers the page's searches for these terms inside the page, each with that many of the sample
  * titles, a moment after it is asked, as AniList would. No request reaches AniList, and each
  * search gets as many titles as a check needs. Other requests go on as usual. It lasts until the
- * page loads again, or until the function it returns puts the page's own fetch back.
+ * page loads again, or until the function it returns puts the page's own fetch back. `held`
+ * answers wait for releaseAnswers(), as a late one waits out anilist()'s pause or a slow
+ * connection, so a check can stage what the visitor does meanwhile.
  */
-async function answerSearches(titles: Record<string, number>) {
+async function answerSearches(titles: Record<string, number>, { held = false } = {}) {
   const answers = Object.fromEntries(
     Object.entries(titles).map(([term, count]) => [
       term,
@@ -63,11 +65,18 @@ async function answerSearches(titles: Record<string, number>) {
   )
   await browser.evaluate(`(() => {
     const answers = ${JSON.stringify(answers)}, fetch = window.fetch
+    let release
+    const released = new Promise((resolve) => (release = resolve))
+    if (!${held}) release()
+    window.__releaseAnswers = () => {
+      release()
+      return true
+    }
     window.fetch = function (url, init) {
       const answer = url === 'https://graphql.anilist.co' && answers[JSON.parse(init.body).variables.search]
       if (!answer) return fetch.apply(this, arguments)
       const response = new Response(answer, { headers: { 'Content-Type': 'application/json' } })
-      return new Promise((resolve) => setTimeout(() => resolve(response), 300))
+      return released.then(() => new Promise((resolve) => setTimeout(() => resolve(response), 300)))
     }
     window.__stopAnswering = () => {
       window.fetch = fetch
@@ -76,6 +85,79 @@ async function answerSearches(titles: Record<string, number>) {
     return true
   })()`)
   return () => browser.evaluate('window.__stopAnswering()')
+}
+
+/** Lets the answers answerSearches holds go, each a moment later, as ever. */
+const releaseAnswers = () => browser.evaluate('window.__releaseAnswers()')
+
+/** Where the checked decade chip is on screen, and what else lateFirstAnswer looks at. */
+type Chip = { top: number; inView: boolean; focused: boolean; titles: number; scrollY: number }
+
+/**
+ * A new search whose first answer comes late, as after anilist()'s one-minute pause, a slow
+ * connection or a retry. The search starts at the top of the page, where its heading and loading
+ * state show. Meanwhile the visitor scrolls down to the decades and focuses the checked chip, as
+ * Tab would, and only then do the titles arrive. The answer is held inside the page until then
+ * (see answerSearches), so no request is sent. Returns the chip as it was just before the titles
+ * arrived and once they have.
+ */
+async function lateFirstAnswer(term: string) {
+  const stopAnswering = await answerSearches({ [term]: 20 }, { held: true })
+  const titles = `document.querySelectorAll('.ab-results .ab-strip-panel[href]').length`
+  // The chip's pill (its radio button is see-through), and the view under the header, or under
+  // the top of the screen once a phone's header has scrolled away.
+  const chip = `(() => {
+    const input = document.querySelector('.ab-eras input:checked'), r = input.nextElementSibling.getBoundingClientRect()
+    const below = Math.max(0, document.querySelector('.ab-top').getBoundingClientRect().bottom)
+    return { top: r.top, inView: r.top >= below && r.bottom <= innerHeight, focused: document.activeElement === input, titles: ${titles}, scrollY }
+  })()`
+  try {
+    // Pasted, not typed letter by letter: a shorter search run on the way would put its titles on
+    // screen to stand in for this one's, which would make this a refinement.
+    await browser.evaluate(
+      `(() => { const input = document.querySelector('.ab-search input'); input.focus(); input.select(); return true })()`,
+    )
+    await browser.send('Input.insertText', { text: term })
+    assert.ok(
+      await browser.waitFor(resultsFor(term), 5_000),
+      `the heading for “${term}” never showed`,
+    )
+    const before = await browser.evaluate<Chip>(`(() => {
+      document.getElementById('decades').scrollIntoView()
+      document.querySelector('.ab-eras input:checked').focus()
+      return ${chip}
+    })()`)
+    await releaseAnswers()
+    assert.ok(
+      await browser.waitFor(`${titles} === 20`, 5_000),
+      `the titles for “${term}” never came`,
+    )
+    // Two frames on, so whatever the answer set off has been drawn.
+    const after = await browser.evaluate<Chip>(
+      `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(${chip}))))`,
+    )
+    return { before, after }
+  } finally {
+    await releaseAnswers() // in case the check stopped before it let the answer go
+    await stopAnswering()
+    await browser.search('')
+  }
+}
+
+/**
+ * Checks a lateFirstAnswer() run: the chip kept focus and stayed where it was on screen. The
+ * titles arriving above it make the page taller, and Chrome scrolls on by as much to keep what
+ * the visitor sees in place, in whole pixels, so the chip may shift by a fraction of one.
+ */
+function assertPlaceKept({ before, after }: Awaited<ReturnType<typeof lateFirstAnswer>>) {
+  assert.ok(
+    before.titles === 0 && before.focused && before.inView,
+    `before the answer came: ${JSON.stringify(before)}, not 0 titles with the chip focused and in view`,
+  )
+  assert.ok(
+    after.focused && Math.abs(after.top - before.top) < 1,
+    `the late answer moved the page from ${Math.round(before.scrollY)} to ${Math.round(after.scrollY)}px, and the focused chip from ${Math.round(before.top)}px to ${Math.round(after.top)}px on screen${after.focused ? '' : ', and took its focus'}`,
+  )
 }
 
 /** Waits until the decade row stops scrolling (snapping animates), so nothing is measured mid-slide. */
@@ -569,6 +651,14 @@ describe('desktop (1440x900)', () => {
       await stopAnswering()
       await browser.search('')
     }
+  })
+
+  test('a new search’s first answer, arriving late, leaves the visitor’s place and focused chip where they were', async () => {
+    // Only a refinement's titles, arriving where others stood in for them, may move the page
+    // (see the check above). A new search started at the top when it was typed, and the visitor
+    // may have moved on since. Its answer is held inside the page (see lateFirstAnswer), so this
+    // check sends no request.
+    assertPlaceKept(await lateFirstAnswer('macross'))
   })
 
   test('a typed space restarts the search’s pause, so two words typed at an easy pace search once', async () => {
@@ -1932,6 +2022,12 @@ describe('phone (390x844)', () => {
     assert.ok(await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`))
     assert.ok(await browser.evaluate<boolean>(fits), 'the page is wider than the phone')
     await browser.search('')
+  })
+
+  test('on a phone, a new search’s first answer, arriving late, leaves the visitor’s place and focused chip where they were', async () => {
+    // As on desktop, with another title: the answer for "macross" is saved, so it would show at
+    // once. Here the header scrolls away with the page. No request is sent.
+    assertPlaceKept(await lateFirstAnswer('patlabor'))
   })
 })
 
