@@ -17,6 +17,17 @@ test('the first titles show at once, even on screen', () => {
   assert.equal(steadyList([], latest, true, 3), latest, 'the first titles waited')
 })
 
+test('an empty refresh shows at once, even on screen', () => {
+  // An empty list has no order to hold back, and the section's note then says "No titles found.":
+  // titles held on screen would show right under it.
+  const empty = titles()
+  const emptied = steadyList(shown, empty, true, 3)
+  assert.equal(emptied, empty, 'the old titles stayed under "No titles found."')
+  // Only an empty one: a shorter list in a new order still waits.
+  const shortened = steadyList(shown, titles(2, 1), true, 3)
+  assert.equal(shortened, shown, 'the titles in view took a shorter list’s order')
+})
+
 test('on screen, a new order of the titles in view waits', () => {
   const reordered = steadyList(shown, titles(2, 1, 3, 4), true, 3)
   assert.equal(reordered, shown, 'the titles in view took a new order')

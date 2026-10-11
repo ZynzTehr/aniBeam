@@ -5,7 +5,7 @@ import { useCallback, useState } from 'react'
  * refresh brought. Spec §3H: a visible list is never re-sorted when a background refresh arrives.
  * So while the list is on screen, a new order of its first `count` titles (the ones the page
  * shows) waits, and `shown` stays. Otherwise `latest` shows: off screen, when nothing was shown
- * yet, or when only details changed, such as a score.
+ * yet, when it has no titles at all, or when only details changed, such as a score.
  */
 export function steadyList<T extends { id: number }>(
   shown: T[],
@@ -13,6 +13,9 @@ export function steadyList<T extends { id: number }>(
   onScreen: boolean,
   count: number,
 ): T[] {
+  // An empty list has no order to hold back, and the section's note says "No titles found." as
+  // soon as it lands: titles held on screen would show right under it.
+  if (latest.length === 0) return latest
   const order = (list: T[]) =>
     list
       .slice(0, count)
