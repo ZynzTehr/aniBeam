@@ -7,7 +7,8 @@ export type NavLink = { href: string; label: string; current?: boolean; soon?: b
 /**
  * The logo, the section links and the title search. It publishes its own height as --top-h
  * on <html>, so the intro can fill exactly the rest of the first screen (one row on desktop,
- * three on phones).
+ * three on phones), and so what its links jump to lands below it from 900px, where it stays
+ * on screen, even when it takes a second row (see components.css).
  */
 export function SiteHeader({
   links,

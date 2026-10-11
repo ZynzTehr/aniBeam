@@ -1124,6 +1124,100 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('the header’s links land their targets below it, even when WCAG text spacing wraps it onto two rows', async () => {
+    // From 900px the header stays at the top of the screen, and what its links jump to stops
+    // 18px under it: 96px from the top, below its one 78px row. With WCAG 1.4.12's test
+    // spacing, the search takes a second row from 900 to about 978px (see the check above), and
+    // the header grows to 135 to 138px. A fixed 96px then left the top 46 to 49px of the
+    // focused Trending heading, focus ring included, under the header, and 38 to 42px of the
+    // Pull section. Without the spacing every target must still land at 96px, as it always
+    // has, and below 900px too, where the header scrolls away with the page.
+    const resize = (width: number) =>
+      browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 900,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+    const links = [
+      ['#ab-trending', 'the Trending heading'],
+      ['#pull', 'the Pull section'],
+    ] as const
+    // Presses Enter on a header link from the top of the page, as a keyboard user would. Once
+    // the page has jumped: the top of the link's target, and how much of it is under the header,
+    // with its focus ring (4px, 3px out) when it took focus, as the Trending heading does.
+    const jump = async (href: string) => {
+      await browser.evaluate(`(() => {
+        history.replaceState(null, '', location.pathname)
+        scrollTo(0, 0)
+        document.querySelector('.ab-nav a[href="${href}"]').focus()
+        return true
+      })()`)
+      await browser.press('Enter')
+      assert.ok(
+        await browser.waitFor(`location.hash === '${href}'`, 5_000),
+        `Enter on the header’s ${href} link went nowhere`,
+      )
+      await browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+      return browser.evaluate<{ top: number; hidden: number; ring: boolean }>(`(() => {
+        const target = document.querySelector('${href}'), top = target.getBoundingClientRect().top
+        const ring = document.activeElement === target
+        const header = document.querySelector('.ab-top').getBoundingClientRect().bottom
+        return { top, ring, hidden: Math.round(header - (ring ? top - 7 : top)) }
+      })()`)
+    }
+    const problems: string[] = []
+    try {
+      // Without the spacing: on one row, at this describe's width and at 900px, and at 899px,
+      // where the header scrolls away.
+      for (const width of [1440, 900, 899]) {
+        await resize(width)
+        await browser.animationsDone()
+        for (const [href, name] of links) {
+          const { top } = await jump(href)
+          if (Math.abs(top - 96) > 1)
+            problems.push(`${width}px: ${name} lands at ${Math.round(top)}px, not 96px`)
+        }
+      }
+      await browser.evaluate(`(() => {
+        const style = document.head.appendChild(document.createElement('style'))
+        style.id = 'text-spacing'
+        style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+        return true
+      })()`)
+      // With the spacing, on two rows.
+      for (const width of [900, 960]) {
+        await resize(width)
+        await browser.animationsDone()
+        for (const [href, name] of links) {
+          const { hidden, ring } = await jump(href)
+          if (hidden > 0)
+            problems.push(
+              `${width}px with text spacing: ${hidden}px of ${name}${ring ? ' and its focus ring' : ''} is under the header`,
+            )
+        }
+      }
+    } finally {
+      // Back to the normal view, at the top and on this describe's screen, before anything is
+      // asserted, even if a jump failed, so the checks after this one see the page they expect.
+      await browser.evaluate(`(() => {
+        document.getElementById('text-spacing')?.remove()
+        history.replaceState(null, '', location.pathname)
+        document.activeElement.blur()
+        scrollTo(0, 0)
+        return true
+      })()`)
+      await resize(1440)
+    }
+    assert.deepEqual(
+      problems,
+      [],
+      'a header link leaves its target under the header, or lands it somewhere new',
+    )
+  })
+
   test('every label on the pull machine reads at 4.5:1 or better', async () => {
     // WCAG contrast of every piece of text on the machine, text a ::before or ::after adds
     // included, so a label added later is measured too. Each is measured as the screen shows
