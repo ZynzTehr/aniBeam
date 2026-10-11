@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { AniListError } from '../lib/anilist.ts'
-import { noteFor, searchStatus, statusText, type QueryStatus } from './status.ts'
+import { noteFor, sampleNote, searchStatus, statusText, type QueryStatus } from './status.ts'
 
 const idle: QueryStatus = {
   data: undefined,
@@ -285,5 +285,25 @@ test('search announcements say why a search is held up', () => {
   assert.equal(
     searchStatus({ ...idle, data: twoTitles }, 'frieren', true),
     '2 titles found for “frieren”',
+  )
+})
+
+// A section that can't reach AniList shows sample titles instead (see App). Its line says what
+// they are, then why its own titles are held up.
+test('sample note: says what the samples are, then what AniList is doing', () => {
+  const favorites = 'These are fan favorites, not this week’s trending.'
+  assert.equal(
+    sampleNote(favorites, { ...idle, isFetching: true, failureReason: noConnection }, false),
+    'These are fan favorites, not this week’s trending. AniList isn’t responding right now. It’s not something you did. Trying again in a minute.',
+  )
+  assert.equal(
+    sampleNote(favorites, { ...idle, error: noConnection, failureReason: noConnection }, false),
+    'These are fan favorites, not this week’s trending. AniList, where AniBeam gets its anime, isn’t responding right now. It’s not something you did. Try again in a minute.',
+  )
+  // Try again: with no titles of its own, the list forgets the last failure, then waits out the
+  // pause that failure started.
+  assert.equal(
+    sampleNote(favorites, { ...idle, isFetching: true }, true),
+    'These are fan favorites, not this week’s trending. Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.',
   )
 })

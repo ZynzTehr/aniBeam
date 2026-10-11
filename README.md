@@ -90,7 +90,7 @@ Every `media(...)` query in the source must include the `SAFE` filter, which exc
 
 Saved results and the rate-limit pause belong to one browser tab. With several tabs open, the last tab to save wins.
 
-For when AniList can't be reached, `web/src/features/anime/samples.ts` bundles 30 well-known titles, 3 to 5 from each decade. `npm run samples --workspace web` rewrites it from the list of IDs in `web/scripts/refresh-samples.ts`, with one AniList request. Run it to change the titles, or when the type check fails after a change to the fields AniBeam asks for. It writes nothing if a title is missing, Ecchi, or has no cover color or year, and `npm test` checks the file again.
+For when AniList can't be reached, `web/src/features/anime/samples.ts` bundles 30 well-known titles, 3 to 5 from each decade. A section with no titles of its own shows them, labelled, once AniList refuses it (403), rate-limits it (429) or can't be reached, until AniList answers: trending becomes "Fan favorites", with the first 9 and no rank numbers, and the decade strip shows that decade's samples (Upcoming has none). They load only then, from a file of their own, and are never saved as AniList's titles. `npm run samples --workspace web` rewrites it from the list of IDs in `web/scripts/refresh-samples.ts`, with one AniList request. Run it to change the titles, or when the type check fails after a change to the fields AniBeam asks for. It writes nothing if a title is missing, Ecchi, or has no cover color or year, and `npm test` checks the file again.
 
 ### Design
 

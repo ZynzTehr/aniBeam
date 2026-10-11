@@ -10,6 +10,7 @@ import { MangaPage } from '../components/MangaPage.tsx'
 import { SiteHeader } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
+import { loadSamples, outOfReach, samplesFor } from '../features/anime/fallback.ts'
 import {
   ERAS,
   eraQuery,
@@ -17,18 +18,38 @@ import {
   isRefinement,
   searchQuery,
   trendingQuery,
+  type Era,
   type Media,
 } from '../features/anime/queries.ts'
 import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { isRateLimited } from '../lib/anilist.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
-import { noteFor, searchStatus } from './status.ts'
+import { noteFor, sampleNote, searchStatus } from './status.ts'
 
 const note = (query: UseQueryResult<Media[]>) => noteFor(query, isRateLimited())
 // A Try again button when a section's last attempt failed (see App's retryFailed).
 const retryFor = (query: UseQueryResult<Media[]>, retryFailed: () => void) =>
   query.isError && !query.isFetching ? retryFailed : undefined
+// "the 1990s", or "before 1970"
+const eraName = (era: Era) => (era.id === 'pre-1970' ? 'before 1970' : `the ${era.label}`)
+
+/**
+ * Whether a section shows the sample titles (spec §3H, see fallback.ts) in place of its own: from
+ * the moment it has no titles and a try can't reach AniList (outOfReach) until it gets titles.
+ * Placeholder titles, such as the last decade's while a new one loads, count as titles. It holds
+ * through the tries that follow, because TanStack clears a list's failure when it tries again:
+ * Try again would otherwise take the samples away while anilist() waits out its pause, for up to
+ * a minute.
+ */
+function useOutage(query: UseQueryResult<Media[]>) {
+  const [latched, setLatched] = useState(false)
+  const outage =
+    query.data === undefined && (latched || outOfReach(query.failureReason ?? query.error))
+  // React lets a component update its own state as it renders: it renders again at once.
+  if (outage !== latched) setLatched(outage)
+  return outage
+}
 
 /** AniBeam's page: the intro, this week's trending titles, the pull, and titles by decade. */
 export default function App() {
@@ -62,11 +83,34 @@ export default function App() {
   // flashing to empty cards.
   const decade = useQuery({ ...eraQuery(era), placeholderData: keepPreviousData })
 
+  // A section that can't reach AniList shows sample titles instead, labelled (see useOutage):
+  // trending the first 9, the strip the open decade's. They load the first time a section needs
+  // them, or are null if their file fails to load. They are swapped in here, as the page renders,
+  // never put in the query cache, which is saved for a day: they would come back on the next
+  // visit as AniList's answer, and pass for fresh.
+  const trendingOutage = useOutage(trending)
+  const decadeOutage = useOutage(decade)
+  const wantSamples = trendingOutage || decadeOutage
+  const [samples, setSamples] = useState<Media[] | null>()
+  useEffect(() => {
+    if (wantSamples) void loadSamples().then(setSamples, () => setSamples(null))
+  }, [wantSamples])
+  const trendingSamples = useMemo(
+    () => (trendingOutage && samples ? samples.slice(0, 9) : []),
+    [trendingOutage, samples],
+  )
+  const decadeSamples = useMemo(
+    () => (decadeOutage && samples ? samplesFor(samples, era) : []),
+    [decadeOutage, samples, era],
+  )
+  const trendingShown = trending.data ?? trendingSamples
+  const decadeShown = decade.data ?? decadeSamples
+
   // Pulls draw from titles already on the page, so a pull costs no request.
   const pool = useMemo(() => {
-    const all = [...(trending.data ?? []), ...(decade.data ?? [])]
+    const all = [...trendingShown, ...decadeShown]
     return all.filter((media, i) => all.findIndex((other) => other.id === media.id) === i)
-  }, [trending.data, decade.data])
+  }, [trendingShown, decadeShown])
 
   // Search results take the intro's place at the top of the page; bring them into view.
   useEffect(() => {
@@ -101,10 +145,15 @@ export default function App() {
           />
         ) : (
           <IntroHero
-            titles={trending.data ?? []}
+            titles={trendingShown}
             // Not once a try has failed or the browser is offline: covers that aren't coming
-            // would leave an empty band pushing the buttons off a phone's first screen.
-            loading={trending.isPending && !trending.isPaused && !trending.failureReason}
+            // would leave an empty band pushing the buttons off a phone's first screen. The
+            // samples' covers are coming, though, until their file fails to load.
+            loading={
+              trending.isPending &&
+              !trending.isPaused &&
+              (!trending.failureReason || (trendingOutage && samples === undefined))
+            }
             actions={[
               { href: '#ab-trending', label: 'See what’s trending', primary: true },
               { href: '#pull', label: 'Pull a random title' },
@@ -114,10 +163,20 @@ export default function App() {
         )}
         <MangaPage
           id="ab-trending"
-          heading="Trending now"
+          heading={trendingSamples.length ? 'Fan favorites' : 'Trending now'}
           sfx="ドン!"
-          titles={trending.data ?? []}
-          note={note(trending)}
+          titles={trendingShown}
+          // The samples have no rank: they are well-loved titles, not this week's trending.
+          ranked={!trendingSamples.length}
+          note={
+            trendingSamples.length
+              ? sampleNote(
+                  'These are fan favorites, not this week’s trending.',
+                  trending,
+                  isRateLimited(),
+                )
+              : note(trending)
+          }
           loading={trending.isPending}
           onRetry={retryFor(trending, retryFailed)}
           onOpen={open}
@@ -127,8 +186,16 @@ export default function App() {
           id="decades"
           heading="Browse by decade"
           sfx="バーン"
-          titles={decade.data ?? []}
-          note={note(decade)}
+          titles={decadeShown}
+          note={
+            decadeSamples.length
+              ? sampleNote(
+                  `A few fan favorites from ${eraName(era)}, not the full list.`,
+                  decade,
+                  isRateLimited(),
+                )
+              : note(decade)
+          }
           loading={decade.isPending || decade.isPlaceholderData}
           onRetry={retryFor(decade, retryFailed)}
           onOpen={open}

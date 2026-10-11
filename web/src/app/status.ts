@@ -60,6 +60,13 @@ export function noteFor(q: QueryStatus, rateLimited: boolean): string | null {
 }
 
 /**
+ * The status line of a section showing sample titles because it can't reach AniList (see App):
+ * `what` says what the titles are, then statusText says why the section's own are held up.
+ */
+export const sampleNote = (what: string, q: QueryStatus, rateLimited: boolean) =>
+  `${what} ${statusText(q, rateLimited)}`
+
+/**
  * What a screen reader hears about a search, from one status line that is always on the page.
  * The term is in every message, so two searches with the same outcome still change the text
  * and each one gets announced. Offline, waiting and failure read as in the section's own line.

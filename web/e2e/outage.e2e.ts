@@ -1,8 +1,11 @@
-// A first-time visitor while AniList is unreachable: friendly messages, then Try again.
-// Slow on purpose: after a failed connection the AniList client waits a minute before retrying.
+// A first-time visitor while AniList is unreachable: sample titles with friendly messages, then
+// Try again. Slow on purpose: after a failed connection the AniList client waits a minute before
+// retrying.
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { titleOf } from '../src/features/anime/format.ts'
+import { SAMPLES } from '../src/features/anime/samples.ts'
 import { Browser } from './browser.ts'
 
 let browser: Browser
@@ -15,15 +18,6 @@ const notes = `[...document.querySelectorAll('.ab-note')].map((note) => note.tex
 
 // Where the headline sits inside the intro: it must not move when the covers arrive.
 const headline = `document.querySelector('.ab-intro-title').getBoundingClientRect().top - document.querySelector('.ab-intro').getBoundingClientRect().top`
-const asPhone = async (phone: boolean) => {
-  await browser.send(
-    'Emulation.setDeviceMetricsOverride',
-    phone
-      ? { width: 390, height: 844, deviceScaleFactor: 2, mobile: true }
-      : { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false },
-  )
-  await sleep(400)
-}
 
 test('on a phone, the intro holds its covers’ place while they load, so the headline stays put', async () => {
   await browser.holdAniList(3_000)
@@ -102,50 +96,158 @@ test('covers that can’t load show no broken-image icon, and each panel shows i
   }
 })
 
+// Spec §3H: a section that can't reach AniList shows bundled sample titles instead of an empty
+// page, and says what they are. Trending shows the first 9; the decade strip, the open decade's.
 describe('AniList down on a first visit', () => {
+  const nineties = SAMPLES.filter(
+    ({ seasonYear }) => seasonYear !== null && seasonYear >= 1990 && seasonYear <= 1999,
+  )
+  const favorites = 'These are fan favorites, not this week’s trending.'
+  const fromThe1990s = 'A few fan favorites from the 1990s, not the full list.'
+  // What the visitor sees: the trending heading and its panels' titles, rank numbers, panels
+  // that say "Number 1 trending", the strip's titles and both sections' status lines.
+  const shown = `({
+    heading: document.getElementById('ab-trending').firstChild.textContent,
+    panels: [...document.querySelectorAll('.ab-grid .ab-caption b')].map((title) => title.textContent),
+    ranks: document.querySelectorAll('.ab-grid .ab-rank').length,
+    ranked: [...document.querySelectorAll('.ab-grid .ab-caption')].filter((caption) => caption.textContent.includes('trending')).length,
+    strip: [...document.querySelectorAll('.ab-strip-row .ab-strip-title')].map((title) => title.textContent),
+    notes: ${notes},
+  })`
+  type Shown = {
+    heading: string
+    panels: string[]
+    ranks: number
+    ranked: number
+    strip: string[]
+    notes: string[]
+  }
+  const samplesShown = (status: string) => ({
+    heading: 'Fan favorites',
+    panels: SAMPLES.slice(0, 9).map(titleOf),
+    ranks: 0,
+    ranked: 0,
+    strip: nineties.map(titleOf),
+    notes: [`${favorites} ${status}`, `${fromThe1990s} ${status}`],
+  })
+
   before(async () => {
     await browser.forget()
     await browser.blockAniList()
-    await browser.load()
   })
 
-  test('while it retries, each section says AniList is not responding and that it is not the visitor', async () => {
-    assert.ok(
+  test('on a phone, the intro holds its covers’ place while the sample titles load', async () => {
+    // Each height the cover band takes, a frame at a time from the start of the page.
+    const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `window.__band = []
+        requestAnimationFrame(function sample() {
+          const height = document.querySelector('.ab-intro-art')?.getBoundingClientRect().height
+          if (height !== undefined && window.__band.at(-1) !== Math.round(height))
+            window.__band.push(Math.round(height))
+          requestAnimationFrame(sample)
+        })`,
+    })
+    try {
+      await browser.load({ width: 390, height: 844, phone: true })
+      assert.ok(
+        await browser.waitFor(`document.querySelectorAll('.ab-intro-art img').length === 3`),
+        'the samples’ covers never came',
+      )
+      const band = await browser.evaluate<number[]>('window.__band')
+      // The first try fails at once, and the samples' file loads after it. Collapsing in between,
+      // the band would pull the headline up, then push it back down when their covers came.
+      assert.ok(
+        band.every((height) => height >= band.at(-1)! - 2),
+        `the cover band went ${band.join(' → ')}px`,
+      )
+    } finally {
+      await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+    }
+  })
+
+  // The samples are a file of their own (see fallback.ts), so they can fail to load as well.
+  test('on a phone, if the sample titles can’t load either, the intro holds no empty space for covers', async () => {
+    await browser.send('Network.enable')
+    await browser.send('Network.setBlockedURLs', { urls: ['*samples*'] })
+    try {
+      await browser.load({ width: 390, height: 844, phone: true })
+      assert.ok(
+        await browser.waitFor(
+          `${notes}.every((note) => note.includes('Trying again in a minute'))`,
+          15_000,
+        ),
+        'the sections never said AniList isn’t responding',
+      )
+      // The band holds the covers' place until the samples' file fails, which it does at once.
       await browser.waitFor(
-        `${notes}.every((note) => note.includes('Trying again in a minute'))`,
-        15_000,
+        `document.querySelector('.ab-intro-art').getBoundingClientRect().height < 100`,
+        5_000,
+      )
+      const state = await browser.evaluate<{ art: number; hint: string; off: boolean }>(`({
+        art: document.querySelector('.ab-intro-art').getBoundingClientRect().height,
+        hint: document.querySelector('.ab-hint').textContent,
+        off: document.querySelector('.ab-lever').disabled,
+      })`)
+      // Held for covers that aren't coming, the band pushed the buttons off a small phone's screen.
+      assert.ok(state.art < 100, `the intro holds ${Math.round(state.art)}px for covers`)
+      // With no titles on the page, the machine says why its lever is off.
+      assert.match(state.hint, /fills up with titles once AniList answers/)
+      assert.equal(state.off, true, 'the lever is on with nothing to pull')
+    } finally {
+      await browser.send('Network.setBlockedURLs', { urls: [] })
+      await browser.send('Network.disable')
+    }
+  })
+
+  test('while it retries, each section shows sample titles, says what they are and that it is not the visitor', async () => {
+    await browser.load() // still a first visit: an outage saves nothing
+    // The samples load once the first try has failed.
+    await browser.waitFor(
+      `${notes}.every((note) => note.endsWith('Trying again in a minute.')) && document.querySelectorAll('.ab-grid .ab-link').length && document.querySelectorAll('.ab-intro-art img').length`,
+      15_000,
+    )
+    const page = await browser.evaluate<Shown & { covers: number; off: boolean }>(`({
+      ...${shown},
+      covers: document.querySelectorAll('.ab-intro-art img').length,
+      off: document.querySelector('.ab-lever').disabled,
+    })`)
+    assert.deepEqual(page, {
+      ...samplesShown(
+        'AniList isn’t responding right now. It’s not something you did. Trying again in a minute.',
       ),
-    )
-    const hint = await browser.evaluate<string>(`document.querySelector('.ab-hint').textContent`)
-    assert.match(hint, /fills up with titles once AniList answers/)
-    assert.equal(await browser.evaluate('document.querySelector(".ab-lever").disabled'), true)
+      // The intro's fan and the pull use the samples too.
+      covers: 3,
+      off: false,
+    })
   })
 
-  test('on a phone, the intro holds no empty space for covers while AniList fails', async () => {
-    await asPhone(true)
-    const art = await browser.evaluate<number>(
-      `document.querySelector('.ab-intro-art').getBoundingClientRect().height`,
+  // They are swapped in as the page renders, never put in the query cache: that is saved for a
+  // day, so they would come back on the next visit as AniList's answer, and pass for fresh.
+  test('the sample titles are never saved as AniList’s', async () => {
+    await sleep(1_500) // the saved copy updates a second after the page's last change
+    const saved = await browser.evaluate<string[]>(
+      `(JSON.parse(localStorage.getItem('anibeam:cache'))?.clientState.queries ?? []).flatMap((query) => query.state.data ?? []).map((media) => media.title.romaji)`,
     )
-    await asPhone(false)
-    // Held for covers that aren't coming, the band pushed the buttons off a small phone's screen.
-    assert.ok(art < 100, `the intro holds ${Math.round(art)}px for covers`)
+    assert.deepEqual(saved, [], 'titles saved while the samples show')
   })
 
-  test('once retrying fails, every section offers Try again and stops showing loading panels', async () => {
+  test('once retrying fails, each section offers Try again over its samples, with no loading panels', async () => {
     assert.ok(
       await browser.waitFor(`document.querySelectorAll('.ab-retry').length === 2`, 150_000),
       'no Try again buttons',
     )
-    const state = await browser.evaluate<{ notes: string[]; placeholders: number }>(
-      `({ notes: ${notes}, placeholders: document.querySelectorAll('.ab-skeleton, .ab-skeleton-fill').length })`,
+    const page = await browser.evaluate<Shown & { placeholders: number }>(
+      `({ ...${shown}, placeholders: document.querySelectorAll('.ab-skeleton, .ab-skeleton-fill').length })`,
     )
-    for (const note of state.notes)
-      assert.match(note, /isn’t responding right now\. It’s not something you did/)
-    assert.equal(state.placeholders, 0)
+    assert.deepEqual(page, {
+      ...samplesShown(
+        'AniList, where AniBeam gets its anime, isn’t responding right now. It’s not something you did. Try again in a minute.',
+      ),
+      placeholders: 0,
+    })
   })
 
-  test('when AniList is back, one press of Try again brings every section back', async () => {
-    await browser.blockAniList(false)
+  test('Try again keeps the samples on screen while it runs', async () => {
     // Press it from the keyboard: the button disappears while retrying, so focus must land
     // somewhere useful (the section's heading), not fall back to the top of the page.
     await browser.evaluate(`document.querySelector('.ab-page .ab-retry').focus(); true`)
@@ -156,8 +258,34 @@ describe('AniList down on a first visit', () => {
       `document.activeElement.id || document.activeElement.tagName`,
     )
     assert.ok(landed, `focus went to ${focus}, not the section's heading`)
-    assert.ok(await browser.titlesShown(120_000), 'the titles did not come back')
-    assert.deepEqual(await browser.evaluate(notes), ['', ''])
-    assert.equal(await browser.evaluate('document.querySelector(".ab-lever").disabled'), false)
+    // TanStack clears the lists' failure as they try again, and the try waits out anilist()'s
+    // pause first.
+    assert.deepEqual(
+      await browser.evaluate<Shown>(shown),
+      samplesShown(
+        'Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.',
+      ),
+    )
+  })
+
+  test('once AniList answers, every section shows its own titles again', async () => {
+    await browser.blockAniList(false)
+    // Both lists come in one answer, and the 1990s outnumber their samples.
+    assert.ok(
+      await browser.waitFor(
+        `document.querySelectorAll('.ab-strip-row .ab-strip-panel[href]').length > ${nineties.length}`,
+        120_000,
+      ),
+      'AniList’s titles did not come back',
+    )
+    await browser.waitFor(
+      `document.querySelectorAll('.ab-grid .ab-rank').length === 9 && ${notes}.join('') === ''`,
+      5_000,
+    )
+    const page = await browser.evaluate<Shown>(shown)
+    assert.deepEqual(
+      { heading: page.heading, ranks: page.ranks, ranked: page.ranked, notes: page.notes },
+      { heading: 'Trending now', ranks: 9, ranked: 9, notes: ['', ''] },
+    )
   })
 })

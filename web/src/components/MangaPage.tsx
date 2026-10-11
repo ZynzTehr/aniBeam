@@ -30,6 +30,7 @@ export function MangaPage({
   titles,
   onOpen,
   level = 'h2',
+  ranked = true,
   note = null,
   loading = false,
   onRetry,
@@ -40,6 +41,8 @@ export function MangaPage({
   titles: Media[]
   onOpen?: OpenTitle
   level?: 'h1' | 'h2'
+  /** Number the panels by rank. Off for titles in no particular order, such as the samples. */
+  ranked?: boolean
   /** A status line (loading, error, rate limit), or null when there's nothing to say. */
   note?: string | null
   /** Show empty panels while the first load runs. */
@@ -59,7 +62,14 @@ export function MangaPage({
       {titles.length ? (
         <ol className="ab-grid">
           {titles.slice(0, LAYOUT.length).map((media, i) => (
-            <Panel key={media.id} media={media} rank={i + 1} span={LAYOUT[i]} onOpen={onOpen} />
+            <Panel
+              key={media.id}
+              media={media}
+              rank={i + 1}
+              ranked={ranked}
+              span={LAYOUT[i]}
+              onOpen={onOpen}
+            />
           ))}
         </ol>
       ) : (
@@ -85,11 +95,14 @@ export function MangaPage({
 function Panel({
   media,
   rank,
+  ranked,
   span,
   onOpen,
 }: {
   media: Media
+  /** The panel's place on the page, which sets its size; shown only when `ranked`. */
   rank: number
+  ranked: boolean
   span: [number, number]
   onOpen?: OpenTitle
 }) {
@@ -122,16 +135,18 @@ function Panel({
         </span>
         <span className="ab-tone" aria-hidden="true" />
         <span className="ab-speed" aria-hidden="true" />
-        <span className="ab-rank" aria-hidden="true">
-          {rank}
-        </span>
+        {ranked && (
+          <span className="ab-rank" aria-hidden="true">
+            {rank}
+          </span>
+        )}
         {media.averageScore !== null && (
           <span className="ab-bubble" aria-hidden="true">
             {media.averageScore}%
           </span>
         )}
         <span className="ab-caption">
-          <span className="sr-only">Number {rank} trending: </span>
+          {ranked && <span className="sr-only">Number {rank} trending: </span>}
           <b>{titleOf(media)}</b>
           <small>{meta}</small>
           {media.averageScore !== null && (
