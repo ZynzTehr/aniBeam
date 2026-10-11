@@ -6,6 +6,7 @@ import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { titleOf } from '../src/features/anime/format.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
+import { deriveAccent } from '../src/features/theming/deriveAccent.ts'
 import { Browser } from './browser.ts'
 
 let browser: Browser
@@ -35,7 +36,7 @@ test('on a phone, the intro holds its covers’ place while they load, so the he
 // Covers come from AniList's image server, which a school or office filter can block while its
 // API still answers. Chrome then draws its broken-image icon in each cover's box (alt="" doesn't
 // stop it). The titles come from the copy the check above saved, so this asks AniList for none.
-test('covers that can’t load show no broken-image icon, and each panel shows its title’s color instead', async () => {
+test('covers that can’t load show no broken-image icon, and each panel shows its title’s color instead, darkened so its rank stands out', async () => {
   await sleep(1_500) // the saved copy updates a second after the page's last change
   await browser.send('Network.enable')
   await browser.send('Network.setBlockedURLs', { urls: ['*s4.anilist.co*'] })
@@ -53,11 +54,15 @@ test('covers that can’t load show no broken-image icon, and each panel shows i
     await browser.waitFor(`document.querySelector('.ab-result.is-open img')?.complete`)
     await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
     await browser.waitFor(`document.querySelector('dialog.ab-card img')?.complete`)
+    // A pure blue cover's fill is among the darkest a title gets (lightened only to 4.5:1 on ink),
+    // so a rank in it stands out least. Panel 1 tries it too, in case today's titles are all light.
+    const blue = deriveAccent('#0000ff').accent
     // Two frames on, so every failed cover's error event has been handled.
     const covers = await browser.evaluate<{
       failed: string[]
       shown: string[]
-      grey: string[]
+      faint: string[]
+      unshaded: string[]
     }>(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))).then(() => {
       const place = (img) => img.parentElement.closest('[class]').classList[0]
       const failed = [...document.images].filter((img) => img.complete && img.naturalWidth === 0)
@@ -66,16 +71,41 @@ test('covers that can’t load show no broken-image icon, and each panel shows i
         swatch.style.color = color
         return getComputedStyle(swatch).color
       }
-      const grey = [...document.querySelectorAll('.ab-grid .ab-link')].flatMap((link, i) => {
+      // WCAG luminance, read from a pixel painted in the color, so any color syntax works.
+      const pixel = new OffscreenCanvas(1, 1).getContext('2d', { willReadFrequently: true })
+      const luminance = (color) => {
+        pixel.clearRect(0, 0, 1, 1)
+        pixel.fillStyle = color
+        pixel.fillRect(0, 0, 1, 1)
+        const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+        const [r, g, b] = pixel.getImageData(0, 0, 1, 1).data
+        return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+      }
+      // A rank is filled with its title's color, so the panel behind it must differ by 3:1.
+      const faintRank = (link, name) => {
+        const fill = getComputedStyle(link.querySelector('.ab-rank')).color
+        const panel = getComputedStyle(link).backgroundColor
+        const [light, dark] = [luminance(fill), luminance(panel)].sort((a, b) => b - a)
+        const ratio = (light + 0.05) / (dark + 0.05)
+        return ratio >= 3 ? [] : [name + ': ' + fill + ' on ' + panel + ', ' + ratio.toFixed(2) + ':1']
+      }
+      const links = [...document.querySelectorAll('.ab-grid .ab-link')]
+      const faint = links.flatMap((link, i) => faintRank(link, 'panel ' + (i + 1)))
+      links[0].style.setProperty('--anime-accent', '${blue}')
+      faint.push(...faintRank(links[0], 'panel 1 in ${blue}'))
+      links[0].style.removeProperty('--anime-accent')
+      // The shade is a third of the title's color, mixed with two thirds ink (see .ab-link).
+      const unshaded = links.flatMap((link, i) => {
         const fill = getComputedStyle(link).backgroundColor
-        const accent = rgb(getComputedStyle(link).getPropertyValue('--anime-accent'))
-        return fill === accent ? [] : ['panel ' + (i + 1) + ': ' + fill + ', not ' + accent]
+        const shade = rgb('color-mix(in oklab, ' + getComputedStyle(link).getPropertyValue('--anime-accent') + ' 33%, var(--ink))')
+        return fill === shade ? [] : ['panel ' + (i + 1) + ': ' + fill + ', not ' + shade]
       })
       swatch.remove()
       return {
         failed: [...new Set(failed.map(place))].sort(),
         shown: failed.filter((img) => img.checkVisibility({ visibilityProperty: true })).map(place),
-        grey,
+        faint,
+        unshaded,
       }
     })`)
     await browser.press('Escape')
@@ -85,7 +115,8 @@ test('covers that can’t load show no broken-image icon, and each panel shows i
       'places where no cover failed to load, so they went unchecked',
     )
     assert.deepEqual(covers.shown, [], 'covers that failed to load still show, as broken images')
-    assert.deepEqual(covers.grey, [], 'panels that show grey instead of their title’s color')
+    assert.deepEqual(covers.faint, [], 'rank numbers that don’t stand out from their panel at 3:1')
+    assert.deepEqual(covers.unshaded, [], 'panels that don’t show a shade of their title’s color')
   } finally {
     // Covers load again for the checks below.
     await browser.send('Network.setBlockedURLs', { urls: [] })

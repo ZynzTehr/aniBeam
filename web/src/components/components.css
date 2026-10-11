@@ -177,8 +177,11 @@
   /* Clip, not hidden: hidden makes the link a scroll container, and the splash cover's view()
      timeline (first motion block) would follow the link, which never scrolls, not the page. */
   overflow: clip;
-  /* The title's color, until its cover loads or in its place if it can't (see cover.ts). */
-  background: var(--anime-accent);
+  /* Until its cover loads, or in its place if it can't (see cover.ts): the title's color darkened
+     with ink, so the rank number, filled with the color itself, stands out from it at 3:1. A third
+     of the color is the most that does for every fill deriveAccent makes; its darkest fills, 4.5:1
+     on ink, come out at 3.03:1. */
+  background: color-mix(in oklab, var(--anime-accent) 33%, var(--ink));
   color: inherit;
   text-decoration: none;
 }
@@ -197,8 +200,8 @@
 }
 
 /* Any cover that can't load (see cover.ts) keeps its place but hides Chrome's broken-image icon.
-   What's behind it shows instead: the title's color on a panel or in the intro's fan, grey on a
-   strip card, ink in a pull, paper in a title card. */
+   What's behind it shows instead: a dark shade of the title's color on a panel, the color itself
+   in the intro's fan, grey on a strip card, ink in a pull, paper in a title card. */
 img[data-broken] {
   visibility: hidden;
 }
