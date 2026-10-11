@@ -557,6 +557,18 @@ img[data-broken] {
   margin-left: auto;
 }
 
+/* From 900px the header is one row. The search takes the room the logo and links leave, and
+   the bubble (max-width: 100%) stops at its edge instead of dropping to a second row, which
+   grew the sticky header and hid the headings its links jump to. max-content keeps the box
+   as narrow as the bubble, so it stays at the right. */
+@media (min-width: 900px) {
+  .ab-search {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: max-content;
+  }
+}
+
 /* At rest the bubble is just wide enough for "Search titles". --text-w is the measured width
    of the text (or of the placeholder while it's empty). The extra 66px covers the padding, the
    border, and the space Chrome keeps for its clear button even while the button is hidden. */
@@ -572,10 +584,11 @@ img[data-broken] {
   filter: drop-shadow(3px 3px 0 var(--ink));
 }
 
-/* Focused, or holding a query: it pops out and grows to fit the text, with the same 66px. */
+/* Focused, or holding a query: it pops out and grows to fit the text, with the same 66px, up
+   to 566px. From 900px it also stops at the room the links leave (see .ab-search above). */
 .ab-bubble-field:focus-within,
 .ab-bubble-field:has(input:not(:placeholder-shown)) {
-  width: clamp(196px, calc(var(--text-w, 120px) + 66px), min(566px, calc(100vw - 634px)));
+  width: clamp(196px, calc(var(--text-w, 120px) + 66px), 566px);
 }
 
 /* The lift onto a deeper ink shadow replaces the browser's focus ring. */

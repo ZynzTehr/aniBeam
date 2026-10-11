@@ -688,6 +688,91 @@ describe('desktop (1440x900)', () => {
     await browser.search('')
   })
 
+  test('from 900px up, a long search fills only the room beside the links, so the header stays one row', async () => {
+    // From 900px the logo, the links and the search share one row of the sticky header, and a
+    // long query's bubble fills the room the links leave. It used to drop onto a second row, so
+    // on windows up to about 1300px wide the header grew from 78 to 134px and hid the headings
+    // its links jump to. The check above searched this query, so this one sends no request.
+    const long =
+      'a very long search that keeps going and going past the width of the bubble and the screen '.repeat(
+        2,
+      )
+    const resize = (width: number) =>
+      browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 900,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+    // The header's height and content edges, the room its links leave, the top of the links,
+    // and the bubble's box, once the bubble has taken its text's measured width (a frame late)
+    // and eased there.
+    const measure = async () => {
+      await browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+      await browser.animationsDone()
+      return browser.evaluate<{
+        height: number
+        left: number
+        right: number
+        room: number
+        linksTop: number
+        bubble: { top: number; right: number; width: number }
+      }>(`(() => {
+        const top = document.querySelector('.ab-top'), box = top.getBoundingClientRect(), style = getComputedStyle(top)
+        const links = document.querySelector('.ab-nav').getBoundingClientRect()
+        const bubble = document.querySelector('.ab-bubble-field').getBoundingClientRect()
+        const right = box.right - parseFloat(style.paddingRight)
+        return {
+          height: box.height,
+          left: box.left + parseFloat(style.paddingLeft),
+          right,
+          room: right - links.right - parseFloat(style.columnGap),
+          linksTop: links.top,
+          bubble: { top: bubble.top, right: bubble.right, width: bubble.width },
+        }
+      })()`)
+    }
+    const rest = Math.round((await measure()).height)
+    await browser.search(long)
+    assert.ok(await browser.waitFor(resultsFor(long.trim())), 'the long search showed no results')
+    const problems: string[] = []
+    for (const width of [900, 1024, 1180, 1280]) {
+      await resize(width)
+      const held = await measure()
+      const below = Math.round(held.bubble.top - held.linksTop)
+      if (Math.abs(held.height - rest) > 1)
+        problems.push(`${width}px: the header is ${Math.round(held.height)}px tall, not ${rest}px`)
+      if (Math.abs(below) >= 30)
+        problems.push(`${width}px: the bubble sits ${below}px below the links`)
+      if (Math.abs(held.bubble.width - held.room) > 2)
+        problems.push(
+          `${width}px: the bubble is ${Math.round(held.bubble.width)}px wide, not the ${Math.round(held.room)}px the links leave`,
+        )
+    }
+    // Below 900px the header stacks, and the bubble fills a row of its own.
+    await resize(834)
+    const stacked = await measure()
+    const row = stacked.right - stacked.left
+    if (Math.abs(stacked.bubble.width - row) > 2)
+      problems.push(
+        `834px: the bubble is ${Math.round(stacked.bubble.width)}px wide, not the row’s ${Math.round(row)}px`,
+      )
+    // Empty and at rest, it still sits at the header's right end.
+    await resize(1024)
+    await browser.search('')
+    await browser.evaluate('document.activeElement.blur(); true')
+    const resting = await measure()
+    const short = Math.round(resting.right - resting.bubble.right)
+    if (Math.abs(short) > 1)
+      problems.push(`1024px, at rest: the bubble ends ${short}px short of the header’s right edge`)
+    // Back to this describe's screen before anything is asserted, so the checks after this one
+    // see the screen they expect.
+    await resize(1440)
+    assert.deepEqual(problems, [], 'a long search wraps the header, or the bubble leaves its place')
+  })
+
   test('every label on the pull machine reads at 4.5:1 or better', async () => {
     // WCAG contrast of every piece of text on the machine, so a label added later is measured
     // too. Each is measured against the first solid background behind it, plain and under each
