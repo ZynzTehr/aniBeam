@@ -120,6 +120,14 @@ export default function App() {
 
   const trendingShown = trending.data ? trendingTitles : trendingSamples
   const decadeShown = decade.data ?? decadeSamples
+  // Which list the strip shows, so it opens each new one at Ch.1 (see Strip's list): a decade's
+  // titles, or its samples, which are another list. A newly picked decade's list takes over once
+  // its titles or samples arrive, not while the last one's stand in for them. A refresh of the
+  // decade on screen is the same list, even one that reorders the titles. Set as the page renders,
+  // as in useOutage, so the strip gets the new list and its titles together.
+  const pickedList = decadeSamples.length ? `${era.id} samples` : era.id
+  const [decadeList, setDecadeList] = useState(pickedList)
+  if (!decade.isPlaceholderData && decadeList !== pickedList) setDecadeList(pickedList)
 
   // Pulls draw from titles already on the page, so a pull costs no request.
   const pool = useMemo(() => {
@@ -211,6 +219,7 @@ export default function App() {
           heading="Browse by decade"
           sfx="バーン"
           titles={decadeShown}
+          list={decadeList}
           note={
             decadeSamples.length
               ? sampleNote(

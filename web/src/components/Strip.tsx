@@ -14,6 +14,7 @@ export function Strip({
   heading,
   sfx,
   titles,
+  list,
   onOpen,
   level = 'h2',
   note = null,
@@ -27,6 +28,12 @@ export function Strip({
   heading: string
   sfx: string
   titles: Media[]
+  /**
+   * Which list the titles are, such as a decade. A different list opens at Ch.1, so change it as
+   * the new list's titles arrive, not while the last list's stand in for them. The same list is
+   * never sent back to Ch.1, even when a refresh reorders its titles.
+   */
+  list?: string
   onOpen?: OpenTitle
   /** The heading's level: h1 where the strip takes the intro's place, as search results do. */
   level?: 'h1' | 'h2'
@@ -44,15 +51,15 @@ export function Strip({
   children?: ReactNode
 }) {
   const row = grid ? 'ab-strip-row ab-strip-grid' : 'ab-strip-row'
-  // A new list starts at Ch.1. React keeps this row for the next list, which would otherwise
-  // open wherever the last one was scrolled. Keyed on the titles' ids, it runs when a new list's
-  // titles arrive (not while the last list stands in for them) and never when the same list
-  // renders again. Before paint, so no frame shows the new titles at the old place.
+  // A different list opens at Ch.1: React keeps this row for the next list, which would otherwise
+  // open wherever the last one was scrolled. Keyed on which list it is, not on its titles, so a
+  // refresh that reorders the list on screen doesn't send the visitor back to Ch.1, taking a
+  // panel focused by keyboard out of view. Before paint, so no frame shows the new titles at the
+  // old place.
   const titlesRow = useRef<HTMLOListElement>(null)
-  const ids = titles.map((media) => media.id).join()
   useLayoutEffect(() => {
     titlesRow.current?.scrollTo({ left: 0, behavior: 'instant' })
-  }, [ids])
+  }, [list])
   return (
     <section className="ab-strip" aria-labelledby={id}>
       <SfxHeading as={level} id={id} sfx={sfx} small>

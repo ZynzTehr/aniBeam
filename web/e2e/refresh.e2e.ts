@@ -1,7 +1,8 @@
-// A returning visitor's trending titles, refreshed while they are on screen. Spec §3H: a visible
-// list is never re-sorted when a background refresh arrives. Its own file, so the aged lists and
-// the reordered answers stay in a profile of their own. About 3 AniList requests: the first
-// visit, then one refresh in each check.
+// A returning visitor's lists, refreshed while they are on screen: trending's titles (spec §3H: a
+// visible list is never re-sorted when a background refresh arrives), and the decade row, which a
+// refresh never sends back to Ch.1. Its own file, so the aged lists and the reordered answers stay
+// in a profile of their own. About 4 AniList requests: the first visit, then one refresh in each
+// check.
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -33,6 +34,11 @@ const fan = (titles: Media[]) =>
 // Whether part of an element shows between the header and the bottom of the screen.
 const inView = (selector: string) =>
   `(() => { const r = document.querySelector('${selector}').getBoundingClientRect(); return r.bottom > document.querySelector('.ab-top').getBoundingClientRect().bottom && r.top < innerHeight })()`
+// The 1990s the page saved: the decade it opens on, and the only one this file shows. Their row
+// in the decade strip, and the ids of the titles in it, in order.
+const savedDecade = `JSON.parse(localStorage.getItem('anibeam:cache')).clientState.queries.find((query) => query.queryKey[1].includes('POPULARITY_DESC')).state.data`
+const decadeRow = `document.querySelector('[aria-labelledby="decades"] .ab-strip-row:not([aria-hidden])')`
+const decadePanels = `[...${decadeRow}.querySelectorAll('.ab-strip-panel')].map((link) => Number(link.hash.replace('#title-', '')))`
 
 /**
  * Comes back as a visitor would an hour later: trending goes out of date after 30 minutes, so
@@ -60,10 +66,13 @@ async function returnAnHourLater() {
   return { titles, refreshed }
 }
 
-/** Resolves once the page has saved the new order, a second after the refresh landed. */
-const landed = (refreshed: Media[]) =>
+/**
+ * Resolves once the page has saved the new order of trending (or of `list`), a second after the
+ * refresh landed.
+ */
+const landed = (refreshed: Media[], list = saved) =>
   browser.waitFor(
-    `${saved}.map((media) => media.id).join() === '${refreshed.map((media) => media.id).join()}'`,
+    `${list}.map((media) => media.id).join() === '${refreshed.map((media) => media.id).join()}'`,
     15_000,
   )
 
@@ -113,6 +122,80 @@ test('new covers for the intro wait while it is on screen, and show once it is s
     assert.deepEqual(after, before, 'the intro’s covers changed while on screen')
     assert.ok(away, 'the new covers did not come while the intro was out of sight')
     assert.deepEqual(back, fan(refreshed), 'the old covers came back with the intro')
+  } finally {
+    await browser.holdAniList(0)
+    await browser.rewriteAniList(null)
+  }
+})
+
+// Where the decade row is: its scrollLeft; the panel with keyboard focus, counted from Ch.1; how
+// much of that panel shows inside the row; and whether its focus ring (4px plus a 3px gap) is cut
+// off at either end. Read two frames on, once the page has drawn what came before.
+type Place = { left: number; panel: number; shown: number; ringCut: boolean }
+const place = `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => {
+  const row = ${decadeRow}, panel = document.activeElement
+  const r = row.getBoundingClientRect(), p = panel.getBoundingClientRect()
+  const shown = Math.max(0, Math.min(p.right, r.right) - Math.max(p.left, r.left)) / p.width
+  resolve({ left: row.scrollLeft, panel: [...row.children].indexOf(panel.parentElement) + 1, shown: Math.round(shown * 100) / 100, ringCut: p.left - 7 < r.left || p.right + 7 > r.right })
+})))`
+
+test('a refresh that reorders the decade on screen doesn’t send its row back to Ch.1, away from the focused panel', async () => {
+  // A newly picked decade opens at Ch.1 (see Strip). A refresh of the decade on screen used to
+  // count as a new one when it changed the titles' order: the row jumped back to Ch.1 while the
+  // visitor was using it, taking a panel they had tabbed to out of view, ring and all.
+  try {
+    // Seven hours on, the saved 1990s are out of date (after 6 hours), so the page shows them and
+    // asks AniList again. Only they are aged: trending stays fresh, so the page asks for the 1990s
+    // alone. The answer swaps their first two titles, as a shift in popularity would, and is held
+    // 3 seconds so the check can use the row first. Both are scrolled out of sight to the left, so
+    // the row should not move at all. (Chrome keeps a snapping row on the title at its start, so a
+    // refresh that moved that title would take the row with it.)
+    await sleep(1_500) // the saved copy updates a second after the page's last change
+    const titles = await browser.evaluate<Media[]>(`(() => {
+      const cache = JSON.parse(localStorage.getItem('anibeam:cache'))
+      for (const query of cache.clientState.queries)
+        if (query.queryKey[1].includes('POPULARITY_DESC')) query.state.dataUpdatedAt -= 7 * 60 * 60 * 1000
+      localStorage.setItem('anibeam:cache', JSON.stringify(cache))
+      return ${savedDecade}
+    })()`)
+    const [first, second, ...rest] = titles
+    const refreshed = [second, first, ...rest]
+    await browser.rewriteAniList(({ request, status }) =>
+      status === 200 && request.query.includes('POPULARITY_DESC')
+        ? { status, body: { data: { Page: { media: refreshed } } } }
+        : null,
+    )
+    await browser.holdAniList(3_000)
+    // With reduced motion nothing pops in, so the panels can be measured as soon as they show.
+    await browser.load({ reduceMotion: true })
+    assert.ok(
+      await browser.waitFor(`${decadePanels}.length === ${titles.length}`, 5_000),
+      'the saved 1990s did not show',
+    )
+    // From the chosen decade's chip, Tab to Ch.8: the row scrolls to show it in full.
+    await browser.evaluate(
+      `${decadeRow}.scrollIntoView({ block: 'center' }); document.querySelector('.ab-eras input:checked').focus(); true`,
+    )
+    for (let i = 0; i < 8; i++) await browser.press('Tab')
+    const before = await browser.evaluate<Place>(place)
+    assert.deepEqual(
+      await browser.evaluate<number[]>(decadePanels),
+      titles.map((media) => media.id),
+      'the new order came before the check could look',
+    )
+    assert.deepEqual(
+      { panel: before.panel, shown: before.shown, ringCut: before.ringCut },
+      { panel: 8, shown: 1, ringCut: false },
+      'Tab did not bring Ch.8 into full view, with its ring',
+    )
+    assert.ok(before.left > 0, 'the row did not scroll to show Ch.8')
+    assert.ok(await landed(refreshed, savedDecade), 'the refresh never landed')
+    const after = await browser.evaluate<Place>(place)
+    assert.deepEqual(
+      after,
+      before,
+      'the refresh moved the decade row under the visitor (its scrollLeft; the focused panel, how much of it shows, and whether its ring is cut)',
+    )
   } finally {
     await browser.holdAniList(0)
     await browser.rewriteAniList(null)
