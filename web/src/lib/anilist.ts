@@ -23,10 +23,16 @@ export class AniListError extends Error {
  * (Unix seconds, from AniList's clock) is trusted only if it falls within the next
  * minute on this computer's clock. Otherwise the header is missing or the two clocks
  * disagree, and waiting the full minute is always enough.
+ *
+ * A trusted reset gets up to 2 seconds more, picked with `random` (Math.random, or a
+ * stand-in in tests), so devices on one network, which share one limit and so one reset
+ * time, don't all ask again in the same instant. The full minute needs no spread, and
+ * neither does the pause after a failed connection: both count from this device's own
+ * request, so their times already differ from device to device.
  */
-export function retryAt(headers: Headers, now: number): number {
+export function retryAt(headers: Headers, now: number, random = Math.random): number {
   const reset = Number(headers.get('X-RateLimit-Reset')) * 1000
-  return reset > now && reset <= now + 60_000 ? reset : now + 60_000
+  return reset > now && reset <= now + 60_000 ? reset + Math.round(random() * 2000) : now + 60_000
 }
 
 // Shared by every request: after a 429, a failed connection, or when no requests
