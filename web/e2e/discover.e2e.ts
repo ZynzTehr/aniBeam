@@ -18,10 +18,10 @@ const resultsFor = (term: string) =>
 /**
  * From now on, lists each results heading the page shows, in order, in window.__headings, so a
  * check sees every search that ran, even one on screen for a moment. Calling it again starts a
- * new list.
+ * new list. In this file's browser, unless given another.
  */
-async function recordHeadings() {
-  await browser.evaluate(`(() => {
+async function recordHeadings(page = browser) {
+  await page.evaluate(`(() => {
     if (!window.__headings)
       new MutationObserver(() => {
         const heading = document.getElementById('results')?.firstChild?.textContent
@@ -572,36 +572,39 @@ describe('desktop (1440x900)', () => {
   })
 
   test('a typed space restarts the search’s pause, so two words typed at an easy pace search once', async () => {
-    // Both searches were made by the checks above, so this one sends no request.
-    await browser.search('')
-    assert.ok(await browser.waitFor(`!document.querySelector('.ab-results')`, 5_000))
-    await recordHeadings()
-    await browser.evaluate(`document.querySelector('.ab-search input').focus(); true`)
-    // "mushishi", 200 ms, a space, 200 ms, "zoku": each pause is shorter than the 300 ms one
-    // that starts a search, so nothing should be searched until "zoku" is in. A pause counts
-    // from when the last key was sent: a key takes 10 to 80 ms to come back, which would
-    // stretch the pauses toward 300 ms.
-    let sent = 0
-    const type = async (text: string) => {
-      for (const character of text) {
-        sent = performance.now()
-        await browser.send('Input.insertText', { text: character })
+    // "mushishi", 200 ms, a space, 200 ms, "zoku", then a second: each pause before "zoku" is
+    // shorter than the 300 ms one that starts a search, so only "mushishi zoku" should be
+    // searched. The pauses are timed on the page's own clock, stopped and moved on by the check:
+    // real pauses stretch and shrink on a busy machine, enough to miss a search that ran too
+    // soon in about 1 run of 6. A stopped clock can't start again (see Browser.stopClock), so
+    // the check opens a browser of its own. AniList is blocked there: the results heading shows
+    // as soon as a search starts, so no answer is needed, and no request is sent.
+    const own = await Browser.open()
+    try {
+      await own.blockAniList()
+      await own.load()
+      await own.animationsDone()
+      await recordHeadings(own)
+      await own.evaluate(`document.querySelector('.ab-search input').focus(); true`)
+      await own.stopClock()
+      const type = async (text: string) => {
+        for (const character of text) await own.send('Input.insertText', { text: character })
       }
+      await type('mushishi')
+      await own.tick(200)
+      await type(' ')
+      await own.tick(200)
+      await type('zoku')
+      await own.tick(1000)
+      assert.ok(await own.waitFor(resultsFor('mushishi zoku'), 5_000), 'the heading never showed')
+      assert.deepEqual(
+        await own.evaluate<string[]>('window.__headings'),
+        ['Results for “mushishi zoku”'],
+        'a search ran while the visitor was still typing',
+      )
+    } finally {
+      await own.close()
     }
-    const pause = (ms: number) => sleep(Math.max(0, sent + ms - performance.now()))
-    await type('mushishi')
-    await pause(200)
-    await type(' ')
-    await pause(200)
-    await type('zoku')
-    assert.ok(await browser.waitFor(resultsFor('mushishi zoku'), 5_000), 'the heading never showed')
-    const headings = await browser.evaluate<string[]>('window.__headings')
-    await browser.search('')
-    assert.deepEqual(
-      headings,
-      ['Results for “mushishi zoku”'],
-      'a search ran while the visitor was still typing',
-    )
   })
 
   test('with an input method, Japanese is searched once each word is converted, and Latin letters as they are typed', async () => {

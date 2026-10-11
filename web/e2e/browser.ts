@@ -42,6 +42,8 @@ export class Browser {
   #held = new Set<string>()
   #rewrite: Rewrite | null = null
   #answering = new Set<Promise<unknown>>()
+  // Called once Chrome has moved a stopped clock on as far as tick() asked.
+  #clockMoved: (() => void) | null = null
   /** Uncaught exceptions and console errors or warnings, for the "clean console" check. */
   problems: string[] = []
 
@@ -55,6 +57,7 @@ export class Browser {
         this.#pending.get(message.id)?.(message)
         this.#pending.delete(message.id)
       }
+      if (message.method === 'Emulation.virtualTimeBudgetExpired') this.#clockMoved?.()
       if (message.method === 'Runtime.exceptionThrown')
         this.problems.push(
           'exception: ' +
@@ -282,6 +285,40 @@ export class Browser {
     )
     if (!text) await this.press('Backspace')
     for (const character of text) await this.send('Input.insertText', { text: character })
+  }
+
+  /**
+   * Stops the page's clock: its timers, Date.now() and performance.now() then move only when
+   * tick() moves them, so a check's pauses last exactly as long as it says, however busy the
+   * machine is. Keys and rendering don't wait for it, unless the CPU is throttled as well
+   * (Emulation.setCPUThrottlingRate): then keys stop going in. Stop it once the page has
+   * settled: while its entrance animations run, the first tick can go 10 ms further than asked.
+   * Chrome can't start the real clock again, even for another page, so stop it only in a
+   * browser opened for that.
+   */
+  stopClock() {
+    return this.send('Emulation.setVirtualTimePolicy', { policy: 'pause' })
+  }
+
+  /**
+   * Moves a stopped clock on by `ms`, running each timer that comes due on the way. One due
+   * right as the tick ends may wait for the next one, so leave a margin.
+   */
+  async tick(ms: number) {
+    const moved = new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`The page's clock didn't move on by ${ms} ms within a minute.`)),
+        60_000,
+      )
+      this.#clockMoved = () => {
+        clearTimeout(timer)
+        resolve()
+      }
+    })
+    await Promise.all([
+      this.send('Emulation.setVirtualTimePolicy', { policy: 'advance', budget: ms }),
+      moved,
+    ])
   }
 
   /** Makes every request to AniList fail, as if it were down (`false` undoes it). */
