@@ -48,3 +48,35 @@ test('every package web/ imports is in web/package.json, so a web-only install b
   }
   assert.deepEqual(missing, [], 'imported but not declared in web/package.json')
 })
+
+// e2e/anilist/ holds AniList's answers, recorded for the browser checks and never to be shipped.
+// Yet tsc and Vite take an import of one from src without a word, and the build then carries it
+// in the app, as it does every file that import.meta.glob() or import(`…${name}`) can match and
+// the one new URL(…, import.meta.url) names. So every line of code is read for a path into e2e/,
+// not just the imports: the folder's name after a quote or a slash, as in '../e2e/…', '/e2e/…'
+// (Vite reads it from web/) or '@anibeam/web/e2e/…', in upper case too, which macOS also finds.
+function linesIntoE2e(file: string): string[] {
+  return readFileSync(join(web, file), 'utf8')
+    .split('\n')
+    .flatMap((line, i) =>
+      // Lines that start like a comment are skipped, as a comment can name a path without using
+      // it. That's judged by line, not by /* */ span: '../e2e/**/*.json' holds a /**/ too.
+      /^\s*(\/\/|\/?\*)/.test(line) || !/[/'"`]e2e\//i.test(line)
+        ? []
+        : [`${file}:${i + 1}: ${line.trim()}`],
+    )
+}
+
+test('nothing in src names a path into e2e/, so no recording can ship with the app', () => {
+  // The recorder in scripts/ imports from e2e/, as it may, so the reading must find that.
+  assert.ok(
+    linesIntoE2e('scripts/record-anilist.ts').length > 0,
+    "this reading misses the recorder's imports from e2e/",
+  )
+  // Tests in src too: they have no need of e2e/, which has tests of its own.
+  assert.deepEqual(
+    sources('src').flatMap(linesIntoE2e),
+    [],
+    'these lines in src name a path into e2e/, which must stay out of the app',
+  )
+})
