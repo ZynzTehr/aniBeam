@@ -124,7 +124,8 @@ test('a copy saved 23 hours ago comes back, and one saved 25 hours ago does not'
 
 test('when storage is full, the oldest results make way and the rest are still saved', async (t) => {
   // localStorage holds about 5 MB per site. A visitor who has searched a lot can fill it; then the
-  // oldest results go, as many as it takes, rather than the whole copy failing to save.
+  // oldest results go, as many as it takes, rather than the whole copy failing to save. Four of
+  // these six lists must go: with only two to drop, a save that gave up after two would pass.
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
   const now = Date.now()
   const storage = fakeStorage(25_000) // room for two of these lists, not three
@@ -132,6 +133,8 @@ test('when storage is full, the oldest results make way and the rest are still s
   const list = ['x'.repeat(10_000)]
   // Trending was asked for first but refreshed last, so the cache's order isn't the lists' age.
   client.setQueryData(['trending'], list, { updatedAt: now - MINUTE })
+  client.setQueryData(['1980s'], list, { updatedAt: now - 6 * MINUTE })
+  client.setQueryData(['mushishi'], list, { updatedAt: now - 5 * MINUTE })
   client.setQueryData(['1990s'], list, { updatedAt: now - 4 * MINUTE })
   client.setQueryData(['naruto'], list, { updatedAt: now - 3 * MINUTE })
   client.setQueryData(['frieren'], list, { updatedAt: now - 2 * MINUTE })
