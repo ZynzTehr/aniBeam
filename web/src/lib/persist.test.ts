@@ -35,10 +35,11 @@ function fakeStorage(room = Infinity) {
 }
 
 /**
- * The trending list holding `titles`, written out as today's app saves it at `savedAt`: the JSON it
- * stores under anibeam:cache, with buster v2 and each list as TanStack dehydrates it.
+ * The trending list holding `titles` from `answeredAt` (by default, `savedAt`), written out as
+ * today's app saves it at `savedAt`: the JSON it stores under anibeam:cache, with buster v2 and
+ * each list as TanStack dehydrates it.
  */
-function savedCopy(savedAt: number, titles: Media[]) {
+function savedCopy(savedAt: number, titles: Media[], answeredAt = savedAt) {
   const { queryKey } = trendingQuery()
   return JSON.stringify({
     buster: 'v2',
@@ -51,7 +52,7 @@ function savedCopy(savedAt: number, titles: Media[]) {
           state: {
             data: titles,
             dataUpdateCount: 1,
-            dataUpdatedAt: savedAt,
+            dataUpdatedAt: answeredAt,
             error: null,
             errorUpdateCount: 0,
             errorUpdatedAt: 0,
@@ -335,8 +336,9 @@ test('each change to a saved list is saved at once: new titles, being marked out
 
 // The persister the page itself uses. Every test above hands persistOptions a persister of its own,
 // cachePersister(storage), so none of them sees the one persistOptions builds for the page from
-// browserStorage(): built without the retry, or without the skip, it would pass them all. These
-// two run the full-storage and asking tests above through persistOptions as the page has it.
+// browserStorage(): built without the retry, or without the skip, it would pass them all. The
+// first two run the full-storage and asking tests above through persistOptions as the page has it;
+// the last reloads the page.
 
 /**
  * persistOptions as the page has it, persister and all, from a fresh copy of queryClient.ts
@@ -417,5 +419,45 @@ test('with the page’s own persister, asking for a search writes nothing', asyn
     writes.mock.callCount(),
     0,
     'with the page’s own persister, asking for a search wrote the whole copy again, with nothing new in it',
+  )
+})
+
+test('the first save after the page loads always goes on, so titles over a day old do not come back on the next reload', async (t) => {
+  // Restoring checks only when the copy was saved, not how old its lists are, so a copy saved two
+  // hours ago brings back trending's titles from 25 hours ago. The first save after the page loads
+  // must still go on, though all it writes is a copy with no lists (results over a day old are not
+  // saved again): were it skipped as changing nothing, the old copy would stay, and with AniList
+  // down those titles would come back on every reload until it expires, 22 hours on. Each load of
+  // the page builds its persister anew, and that one persister restores the copy and then saves
+  // each change; so does this test, with persistOptions from a fresh copy of queryClient.ts.
+  const storage = fakeStorage()
+  const options = await pageOptions(t, 'page-reload', storage)
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
+  const now = Date.now()
+  const { queryKey } = trendingQuery()
+  const titles = SAMPLES.slice(0, 2)
+  storage.items.set('anibeam:cache', savedCopy(now - 2 * HOUR, titles, now - 25 * HOUR))
+  const client = new QueryClient()
+  await persistQueryClientRestore({ ...options, queryClient: client })
+  assert.deepEqual(
+    client.getQueryData(queryKey),
+    titles,
+    'the titles in a copy saved 2 hours ago did not come back',
+  )
+  t.after(persistQueryClientSubscribe({ ...options, queryClient: client }))
+  // AniList is down: the refresh of those titles fails.
+  const offline = () => Promise.reject(new TypeError('Failed to fetch'))
+  void client.fetchQuery({ queryKey, queryFn: offline, retry: false }).catch(() => {})
+  await wait(t, 1000) // the copy is saved at most once a second, so any save is made by now
+  const next = new QueryClient() // the next reload
+  await persistQueryClientRestore({
+    ...persistOptions,
+    queryClient: next,
+    persister: cachePersister(storage),
+  })
+  assert.equal(
+    next.getQueryData(queryKey),
+    undefined,
+    'titles over a day old came back on the next reload: the first save after the page loaded left them in the copy',
   )
 })
