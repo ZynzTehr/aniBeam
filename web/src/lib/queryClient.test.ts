@@ -83,12 +83,14 @@ test('a list from 23 hours ago is still saved', () => {
   )
 })
 
-test('a list the visitor has left is still saved 10 minutes later', async (t) => {
+test('a list the visitor has left is still saved 23 hours later', async (t) => {
   // TanStack drops a list no component is using from the cache once gcTime is up, and the next
   // save leaves it out of the copy. Unless set, gcTime is 5 minutes in a browser: a search the
-  // visitor had moved on from would be gone when they came back while AniList is down. Node has no
-  // window, so query-core takes this test for a server, where gcTime is Infinity unless set: until
-  // the test ends, query-core is told it is in a browser.
+  // visitor had moved on from would be gone when they came back while AniList is down. Lists are
+  // saved for a day, so gcTime must last that day too: the list is held 23 hours, like the test
+  // above's, since at a day old it leaves the copy anyway. Node has no window, so query-core takes
+  // this test for a server, where gcTime is Infinity unless set: until the test ends, query-core is
+  // told it is in a browser.
   const wasServer = environmentManager.isServer()
   environmentManager.setIsServer(() => false)
   t.after(() => environmentManager.setIsServer(() => wasServer))
@@ -98,11 +100,11 @@ test('a list the visitor has left is still saved 10 minutes later', async (t) =>
   const search = searchQuery('frieren')
   const titles = SAMPLES.slice(0, 2)
   await queryClient.query({ ...search, queryFn: async () => titles })
-  t.mock.timers.tick(10 * 60_000) // ten minutes go by with the search off the page
+  t.mock.timers.tick(23 * HOUR) // 23 hours go by with the search off the page
   assert.deepEqual(
     saved(queryClient),
     [[search.queryKey, titles]],
-    'a list the visitor left 10 minutes ago was not saved: gcTime dropped it before its day was up',
+    'a list the visitor left 23 hours ago was not saved: gcTime dropped it before its day was up',
   )
 })
 
