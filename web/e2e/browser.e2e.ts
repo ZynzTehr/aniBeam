@@ -1,13 +1,14 @@
-// The browser helper itself: a Chrome that fails to start leaves nothing behind, and a browser
-// opened with recordings of AniList's answers gives the page those, and sends AniList nothing.
+// The browser helper itself: a Chrome that fails to start leaves nothing behind, a browser answers
+// AniList from recordings of its answers unless asked for AniList's own, and a recorded browser
+// gives the page those, and sends AniList nothing.
 import assert from 'node:assert/strict'
-import { readdirSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { test } from 'node:test'
 import { titleOf } from '../src/features/anime/format.ts'
 import { FIRST_ERA, QUERIES, type Media } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
-import { Browser, type Recording } from './browser.ts'
+import { Browser, type AniListMode, type Recording } from './browser.ts'
 
 const profiles = () => readdirSync(tmpdir()).filter((name) => name.startsWith('anibeam-e2e-'))
 
@@ -89,6 +90,95 @@ const failure = (promise: Promise<unknown>) =>
     () => null,
     (error: Error) => error.message,
   )
+
+// A browser whose check doesn't choose answers AniList from the recordings in anilist/, so a run
+// sends AniList's API nothing unless asked to. ANILIST=live asks for AniList's own answers in
+// every such browser, and ANILIST=off allows no live browser at all, even one a check asks for.
+// This check sets or unsets ANILIST for each case and puts it back after, so it passes in a live
+// run too, and the checks after it run as they would have.
+test('a browser answers from the recordings unless a check or ANILIST asks for live answers, ANILIST=off allows no live browser, and any other ANILIST throws', async () => {
+  const anilist = process.env.ANILIST
+  const setAniList = (value: string | undefined) => {
+    if (value === undefined) delete process.env.ANILIST
+    else process.env.ANILIST = value
+  }
+  // Where a browser's answers come from with ANILIST at `value`, when its check asks for
+  // `aniList` or for nothing; or what open() throws instead. None of them loads the app, so even
+  // a live one sends AniList nothing.
+  const opens = async (value: string | undefined, aniList?: AniListMode) => {
+    setAniList(value)
+    try {
+      const browser = await Browser.open({ aniList })
+      await browser.close()
+      return browser.aniList
+    } catch (error) {
+      return `throws: ${(error as Error).message}`
+    }
+  }
+  try {
+    assert.deepEqual(
+      {
+        'ANILIST unset': await opens(undefined),
+        'ANILIST=recorded': await opens('recorded'),
+        'ANILIST=live': await opens('live'),
+        'ANILIST=off': await opens('off'),
+        'ANILIST unset, the check asks for live': await opens(undefined, 'live'),
+        'ANILIST=live, the check asks for recorded': await opens('live', 'recorded'),
+        'ANILIST=off, the check asks for live': await opens('off', 'live'),
+        'ANILIST=Live': await opens('Live'),
+      },
+      {
+        'ANILIST unset': 'recorded',
+        'ANILIST=recorded': 'recorded',
+        'ANILIST=live': 'live',
+        'ANILIST=off': 'recorded',
+        'ANILIST unset, the check asks for live': 'live',
+        'ANILIST=live, the check asks for recorded': 'recorded',
+        'ANILIST=off, the check asks for live':
+          "throws: ANILIST=off allows no live browser, so that AniList's API gets nothing, but a check asked for one: run it without ANILIST=off, or have it skip under off.",
+        'ANILIST=Live':
+          'throws: ANILIST is "Live", but it can only be recorded (the default), live or off.',
+      },
+      'where each browser’s AniList answers came from',
+    )
+
+    // So a plain browser answers a first visit from first-visit.json, and can't reach AniList: a
+    // request that got past the recordings would fail to resolve its address (see the last check).
+    setAniList(undefined)
+    const recorded: Recording = JSON.parse(
+      readFileSync(new URL('./anilist/first-visit.json', import.meta.url), 'utf8'),
+    )
+    const browser = await Browser.open()
+    try {
+      await browser.load()
+      const titles = await browser.titlesShown(15_000)
+      const { heading, panels, notes } = await browser.evaluate<Shown>(shown)
+      assert.ok(titles, 'no titles came, not even the samples')
+      assert.deepEqual(
+        { heading, panels, notes },
+        {
+          heading: 'Trending now',
+          panels: recorded.body.data.trending.media.slice(0, 9).map(titleOf),
+          notes: ['', ''],
+        },
+        'a plain browser did not show first-visit.json’s titles, with quiet status lines',
+      )
+      await browser.send('Fetch.disable')
+      const { errorText } = await browser.send('Page.navigate', {
+        url: 'https://graphql.anilist.co/',
+      })
+      assert.equal(
+        errorText,
+        'net::ERR_NAME_NOT_RESOLVED',
+        'AniList’s address resolved in a plain browser',
+      )
+    } finally {
+      await browser.close()
+    }
+  } finally {
+    setAniList(anilist)
+  }
+})
 
 // AniList's address doesn't resolve in a recorded browser (see the last check), so a request, or
 // the CORS preflight Chrome sends before it, that got past the recordings would fail, and the page

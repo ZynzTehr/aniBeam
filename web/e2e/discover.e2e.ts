@@ -416,7 +416,7 @@ describe('desktop (1440x900)', () => {
   test('the page has one h1: the intro’s title, or the results heading while searching', async () => {
     // Screen readers jump to a page's h1 to learn what the page is about. Search results take
     // the intro's place, so they take its h1 too. The check above searched "frieren", so this
-    // one sends no request.
+    // one needs no recording of its own.
     const h1s = `[...document.querySelectorAll('h1')].map((h) => h.id)`
     await browser.search('')
     assert.ok(
@@ -507,7 +507,7 @@ describe('desktop (1440x900)', () => {
   })
 
   test('a refinement typed from below the results brings them back into view', async () => {
-    // Both searches were made by the check above, so this one sends no request.
+    // Both searches were made by the check above, so this one needs no recording of its own.
     // Where the results heading is, and the part of the view below the header.
     const heading = () =>
       browser.evaluate<{ top: number; below: number; bottom: number }>(`({
@@ -700,7 +700,7 @@ describe('desktop (1440x900)', () => {
   test('with an input method, Japanese is searched once each word is converted, and Latin letters as they are typed', async () => {
     // A Japanese input method shows a word as kana, then as candidate words, until the visitor
     // picks one. Searching any of those would be searching for a word nobody typed. The checks
-    // above searched "frieren", so only 進撃の巨人 and "進撃の巨人 final" cost a request each.
+    // above searched "frieren", so only 進撃の巨人 and "進撃の巨人 final" need a recording each.
     const box = `document.querySelector('.ab-search input')`
     // Each step is sent 100 ms after the one before: well within the 300 ms pause that starts a
     // search, while a run of steps lasts longer than that pause.
@@ -941,7 +941,8 @@ describe('desktop (1440x900)', () => {
     // From 900px the logo, the links and the search share one row of the sticky header, and a
     // long query's bubble fills the room the links leave. It used to drop onto a second row, so
     // on windows up to about 1300px wide the header grew from 78 to 134px and hid the headings
-    // its links jump to. The check above searched this query, so this one sends no request.
+    // its links jump to. The check above searched this query, so this one needs no recording of
+    // its own.
     const long =
       'a very long search that keeps going and going past the width of the bubble and the screen '.repeat(
         2,

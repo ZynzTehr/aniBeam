@@ -3,11 +3,16 @@
 //
 //   CHROME_BIN  path to Chrome or chrome-headless-shell (required)
 //   BASE_URL    the running app (default http://localhost:5173/, from `npm run dev`)
+//   ANILIST     recorded (the default), live or off: where AniList's answers come from
 //
-// The checks use the real AniList API, which allows 30 requests a minute per IP address.
-// One browser profile is kept for a whole test file, so its saved cache spares requests. A check
-// can open a browser that answers AniList from recordings of its answers instead, and sends it
-// nothing (see Browser.open).
+// AniList's API allows 30 requests a minute per IP address, and a run of every check would send
+// it about 30, 22 of them in its first minute. So by default the checks send it nothing: each
+// browser answers the page from recordings of AniList's answers, in anilist/ (see Browser.open
+// and recordings.ts). Covers still load from AniList's image server, so the checks still need the
+// internet. To go live, a check opens its browser with { aniList: 'live' }, or ANILIST=live does
+// that for every browser whose check doesn't choose: run that on its own, while nothing else on
+// this machine uses AniList. ANILIST=off allows no live browser, so a run sends AniList's API
+// nothing at all.
 import { spawn, type ChildProcess } from 'node:child_process'
 import { once } from 'node:events'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
@@ -37,6 +42,25 @@ type Rewrite = (answer: Answer) => { status: number; body: unknown } | null
 export type AniListMode = 'live' | 'recorded'
 /** An answer AniList gave, kept to answer the same request again. */
 export type Recording = Answer
+
+/**
+ * Where a browser's AniList answers come from: what its check asks for, or else what ANILIST
+ * says, or else the recordings. Throws for any ANILIST but recorded, live and off, and for a live
+ * browser while ANILIST is off: off allows none, so that a run sends AniList's API nothing.
+ */
+function modeOf(asked: AniListMode | undefined): AniListMode {
+  const set = process.env.ANILIST
+  if (set !== undefined && !['recorded', 'live', 'off'].includes(set))
+    throw new Error(
+      `ANILIST is ${JSON.stringify(set)}, but it can only be recorded (the default), live or off.`,
+    )
+  const mode = asked ?? (set === 'live' ? 'live' : 'recorded')
+  if (mode === 'live' && set === 'off')
+    throw new Error(
+      "ANILIST=off allows no live browser, so that AniList's API gets nothing, but a check asked for one: run it without ANILIST=off, or have it skip under off.",
+    )
+  return mode
+}
 
 // A recorded browser's recordings, unless the check hands it its own: one JSON file per request.
 const RECORDINGS = new URL('./anilist/', import.meta.url)
@@ -99,7 +123,8 @@ export class Browser {
   #socket: WebSocket
   #nextId = 0
   #pending = new Map<number, (message: Message) => void>()
-  #aniList: AniListMode
+  /** Where this browser's AniList answers come from (see open). */
+  readonly aniList: AniListMode
   // A recorded browser's recordings by keyOf, and where they came from, for messages.
   #recordings: Map<string, Recording>
   #where: string
@@ -126,7 +151,7 @@ export class Browser {
     this.#chrome = chrome
     this.#profile = profile
     this.#socket = socket
-    this.#aniList = aniList
+    this.aniList = aniList
     this.#recordings = new Map(
       (aniList === 'recorded' ? (recordings ?? readRecordings()) : []).map((recording) => [
         keyOf(recording.request),
@@ -165,19 +190,22 @@ export class Browser {
 
   /**
    * Starts Chrome with a fresh profile; port 0 lets Chrome pick a free debugging port. Its AniList
-   * answers come from AniList itself, unless `aniList` is 'recorded': then each request gets a
-   * copy of its recording, 200 ms after it is made, as AniList's answer would come. The
-   * recordings are the ones the check hands in as `recordings`, or else web/e2e/anilist/'s, which
-   * `npm run e2e:record` writes (see recordings.ts). A request with no recording gets a 404, not
-   * a failed connection, which would bring up the bundled samples that titlesShown() can't tell
-   * from AniList's titles; and the next waitFor() throws, naming it and saying how to record it.
-   * Nothing is sent to AniList: Chrome doesn't even resolve its address, so a request that got
-   * past the recordings would fail rather than reach it.
+   * answers come from recordings, unless the check asks for AniList's own with `aniList: 'live'`,
+   * or gives no `aniList` while ANILIST is live. ANILIST=off allows no live browser, and any other
+   * ANILIST throws. A recorded browser answers each request with a copy of its recording, 200 ms
+   * after it is made, as AniList's answer would come. The recordings are the ones the check hands
+   * in as `recordings`, or else web/e2e/anilist/'s, which `npm run e2e:record` writes (see
+   * recordings.ts). A request with no recording gets a 404, not a failed connection, which would
+   * bring up the bundled samples that titlesShown() can't tell from AniList's titles; and the next
+   * waitFor() throws, naming it and saying how to record it. Nothing is sent to AniList: Chrome
+   * doesn't even resolve its address, so a request that got past the recordings would fail rather
+   * than reach it.
    */
   static async open({
-    aniList = 'live',
+    aniList,
     recordings,
   }: { aniList?: AniListMode; recordings?: Recording[] } = {}): Promise<Browser> {
+    const mode = modeOf(aniList)
     const chromeBin = process.env.CHROME_BIN
     if (!chromeBin || !existsSync(chromeBin))
       throw new Error(
@@ -197,9 +225,7 @@ export class Browser {
         '--no-first-run',
         `--user-data-dir=${profile}`,
         '--remote-debugging-port=0',
-        ...(aniList === 'recorded'
-          ? ['--host-resolver-rules=MAP graphql.anilist.co ~NOTFOUND']
-          : []),
+        ...(mode === 'recorded' ? ['--host-resolver-rules=MAP graphql.anilist.co ~NOTFOUND'] : []),
         'about:blank',
       ],
       { stdio: 'ignore' },
@@ -234,10 +260,10 @@ export class Browser {
           once: true,
         })
       })
-      const browser = new Browser(chrome, profile, socket, aniList, recordings)
+      const browser = new Browser(chrome, profile, socket, mode, recordings)
       await browser.send('Page.enable')
       await browser.send('Runtime.enable')
-      if (aniList === 'recorded') await browser.#intercept()
+      if (mode === 'recorded') await browser.#intercept()
       return browser
     } catch (error) {
       await stop(chrome, profile)
@@ -456,14 +482,14 @@ export class Browser {
       this.#answering.add(answering)
     }
     // The CORS preflight Chrome sends before the page's request, answered as AniList answers it.
-    else if (this.#aniList === 'recorded' && request.method === 'OPTIONS')
+    else if (this.aniList === 'recorded' && request.method === 'OPTIONS')
       void this.#fulfill(requestId, 204, PREFLIGHT_HEADERS, '')
     else if (this.#blocking)
       void this.send('Fetch.failRequest', {
         requestId,
         errorReason: 'ConnectionRefused',
       }).catch(() => {})
-    else if (this.#aniList === 'recorded') {
+    else if (this.aniList === 'recorded') {
       const { status, body } = this.#recorded(request)
       this.#hold(requestId, this.#holdMs || ANSWER_MS, () =>
         this.#fulfill(requestId, status, ANSWER_HEADERS, JSON.stringify(body)),
@@ -585,7 +611,7 @@ export class Browser {
 
   async #intercept() {
     const urlPattern = 'https://graphql.anilist.co/*'
-    const recorded = this.#aniList === 'recorded'
+    const recorded = this.aniList === 'recorded'
     const patterns = [
       // A recorded browser answers every request itself, as it is made.
       ...(recorded || this.#blocking || this.#holdMs > 0

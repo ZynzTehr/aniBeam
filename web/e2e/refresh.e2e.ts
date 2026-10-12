@@ -1,8 +1,8 @@
 // A returning visitor's lists, refreshed while they are on screen: trending's titles (spec §3H: a
 // visible list is never re-sorted when a background refresh arrives), and the decade row, which a
 // refresh never sends back to Ch.1. Its own file, so the aged lists and the reordered answers stay
-// in a profile of their own. About 4 AniList requests: the first visit, then one refresh in each
-// check but the last, which answers its own inside the page.
+// in a profile of their own. It needs recordings of AniList's answers to the first visit, and to
+// one refresh in each check but the last, which answers its own inside the page.
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
