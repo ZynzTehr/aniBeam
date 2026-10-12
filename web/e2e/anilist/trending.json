@@ -1,0 +1,631 @@
+{
+  "request": {
+    "query": "query { Page(perPage: 20) { media(type: ANIME, sort: TRENDING_DESC, countryOfOrigin: \"JP\", isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "variables": {}
+  },
+  "status": 200,
+  "body": {
+    "data": {
+      "Page": {
+        "media": [
+          {
+            "id": 209219,
+            "title": {
+              "romaji": "Tensei Goblin Dakedo Shitsumon Aru?",
+              "english": "So What's Wrong with Getting Reborn as a Goblin?",
+              "native": "転生ゴブリンだけど質問ある？"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx209219-3yhKlRx0LX3p.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx209219-3yhKlRx0LX3p.jpg",
+              "color": "#a1c950"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy", "Romance"],
+            "averageScore": 67,
+            "format": "ONA",
+            "episodes": null,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "BAKKKA"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 4,
+              "airingAt": 1792414800
+            }
+          },
+          {
+            "id": 207191,
+            "title": {
+              "romaji": "Doumo, Suki na Hito ni Horegusuri wo Irai Sareta Majo desu.",
+              "english": "Hello, I am a Witch and my Crush Wants me to Make a Love Potion!",
+              "native": "どうも、好きな人に惚れ薬を依頼された魔女です。"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx207191-VgkIzfH92WoZ.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx207191-VgkIzfH92WoZ.jpg",
+              "color": "#aed6e4"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/207191-xYgpkCDnXc5m.jpg",
+            "genres": ["Fantasy", "Romance"],
+            "averageScore": 69,
+            "format": "TV",
+            "episodes": 12,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "diomedéa"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 3,
+              "airingAt": 1792413000
+            }
+          },
+          {
+            "id": 204011,
+            "title": {
+              "romaji": "PSYЯEN",
+              "english": "PSYREN",
+              "native": "PSYREN -サイレン-"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx204011-j45RZoqYbdZK.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx204011-j45RZoqYbdZK.jpg",
+              "color": "#0dd6e4"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/204011-hBOwte9MzykA.jpg",
+            "genres": ["Action", "Adventure", "Sci-Fi"],
+            "averageScore": 71,
+            "format": "TV",
+            "episodes": null,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Satelight"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 3,
+              "airingAt": 1792418400
+            }
+          },
+          {
+            "id": 212888,
+            "title": {
+              "romaji": "Tempal: Item no Chikara",
+              "english": "Overgeared",
+              "native": "テムパル～アイテムの力～"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx212888-NhyvqPt5aIuJ.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx212888-NhyvqPt5aIuJ.jpg",
+              "color": "#f19335"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/212888-ZsnNegBCKXQq.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy"],
+            "averageScore": 75,
+            "format": "ONA",
+            "episodes": 12,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "J.C.STAFF"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 4,
+              "airingAt": 1792333800
+            }
+          },
+          {
+            "id": 21,
+            "title": {
+              "romaji": "ONE PIECE",
+              "english": "ONE PIECE",
+              "native": "ONE PIECE"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21-ELSYx3yMPcKM.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx21-ELSYx3yMPcKM.jpg",
+              "color": "#e49335"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/21-wf37VakJmZqs.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy"],
+            "averageScore": 87,
+            "format": "TV",
+            "episodes": null,
+            "season": "FALL",
+            "seasonYear": 1999,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 1181,
+              "airingAt": 1798985760
+            }
+          },
+          {
+            "id": 97940,
+            "title": {
+              "romaji": "Black Clover",
+              "english": "Black Clover",
+              "native": "ブラッククローバー"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx97940-fyh8o7gNbha0.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx97940-fyh8o7gNbha0.png",
+              "color": "#d6c96b"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/97940-1URQdQ4U1a0b.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy"],
+            "averageScore": 79,
+            "format": "TV",
+            "episodes": 170,
+            "season": "FALL",
+            "seasonYear": 2017,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 195604,
+            "title": {
+              "romaji": "Black Clover 2nd Season",
+              "english": "Black Clover Season 2",
+              "native": "ブラッククローバー 第2期"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195604-tSZcfKbVqSEG.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx195604-tSZcfKbVqSEG.jpg",
+              "color": "#f1a143"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy"],
+            "averageScore": 86,
+            "format": "TV",
+            "episodes": null,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 3,
+              "airingAt": 1792245600
+            }
+          },
+          {
+            "id": 195516,
+            "title": {
+              "romaji": "Kusuriya no Hitorigoto 3rd Season",
+              "english": "The Apothecary Diaries Season 3",
+              "native": "薬屋のひとりごと 第3期"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195516-MJpUZlOberqH.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx195516-MJpUZlOberqH.jpg",
+              "color": "#e4a128"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195516-B5M0cPaQbQXI.jpg",
+            "genres": ["Drama", "Mystery"],
+            "averageScore": 85,
+            "format": "TV",
+            "episodes": 12,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "OLM"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 3,
+              "airingAt": 1792159200
+            }
+          },
+          {
+            "id": 206814,
+            "title": {
+              "romaji": "Dragon Ball Super: Beerus",
+              "english": "Dragon Ball Super: Beerus",
+              "native": "ドラゴンボール超 ビルス"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx206814-PVVzRbf1IQpe.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx206814-PVVzRbf1IQpe.jpg",
+              "color": "#e48643"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/206814-ARuwrZJAGONN.jpg",
+            "genres": ["Action", "Adventure", "Sci-Fi"],
+            "averageScore": 80,
+            "format": "TV",
+            "episodes": null,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 2,
+              "airingAt": 1792332960
+            }
+          },
+          {
+            "id": 191656,
+            "title": {
+              "romaji": "Seitokai ni mo Ana wa Aru!",
+              "english": "Even the Student Council Has Its Holes!",
+              "native": "生徒会にも穴はある！"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx191656-xFHtxM8SUTdU.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx191656-xFHtxM8SUTdU.png",
+              "color": "#5dbbe4"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/191656-JQILdzh3FQxN.jpg",
+            "genres": ["Comedy", "Ecchi", "Slice of Life"],
+            "averageScore": 73,
+            "format": "TV",
+            "episodes": 12,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Passione"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 3,
+              "airingAt": 1792251000
+            }
+          },
+          {
+            "id": 178789,
+            "title": {
+              "romaji": "Mushoku Tensei III: Isekai Ittara Honki Dasu",
+              "english": "Mushoku Tensei: Jobless Reincarnation Season 3",
+              "native": "無職転生Ⅲ ～異世界行ったら本気だす～"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx178789-hNXjKFzUq7mk.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx178789-hNXjKFzUq7mk.jpg",
+              "color": "#28bbe4"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/178789-9nHWmoRLlcLu.jpg",
+            "genres": ["Adventure", "Drama", "Ecchi", "Fantasy"],
+            "averageScore": 86,
+            "format": "TV",
+            "episodes": 14,
+            "season": "SUMMER",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Bind"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 189123,
+            "title": {
+              "romaji": "Ao no Hako Season 2",
+              "english": "Blue Box Season 2",
+              "native": "アオのハコ Season２"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx189123-0secXELIhkIW.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx189123-0secXELIhkIW.jpg",
+              "color": "#e4ae50"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/189123-s2oirY2r1Svy.jpg",
+            "genres": ["Romance", "Slice of Life", "Sports"],
+            "averageScore": 80,
+            "format": "TV",
+            "episodes": 12,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Electric Circus"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 3,
+              "airingAt": 1792308600
+            }
+          },
+          {
+            "id": 189046,
+            "title": {
+              "romaji": "Re:Zero kara Hajimeru Isekai Seikatsu 4th Season",
+              "english": "Re:ZERO -Starting Life in Another World- Season 4",
+              "native": "Re:ゼロから始める異世界生活 4th season"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx189046-yaHWtS5FII46.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx189046-yaHWtS5FII46.jpg",
+              "color": "#e49350"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/189046-MDk2CaVuRWpb.jpg",
+            "genres": [
+              "Action",
+              "Adventure",
+              "Drama",
+              "Fantasy",
+              "Psychological",
+              "Romance",
+              "Thriller"
+            ],
+            "averageScore": 90,
+            "format": "TV",
+            "episodes": 19,
+            "season": "SPRING",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WHITE FOX"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 185756,
+            "title": {
+              "romaji": "Tensei Kizoku, Kantei Skill de Nariagaru 3rd Season",
+              "english": "As a Reincarnated Aristocrat, I'll Use My Appraisal Skill to Rise in the World Season 3",
+              "native": "転生貴族、鑑定スキルで成り上がる 第3期"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx185756-xPCl0RyQ7fXD.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx185756-xPCl0RyQ7fXD.jpg",
+              "color": "#d6f1c9"
+            },
+            "bannerImage": null,
+            "genres": ["Adventure", "Fantasy"],
+            "averageScore": 70,
+            "format": "TV",
+            "episodes": null,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "GeyeG Pictures"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 4,
+              "airingAt": 1792333800
+            }
+          },
+          {
+            "id": 182205,
+            "title": {
+              "romaji": "Tensei Shitara Slime Datta Ken 4th Season Part 1 & 2",
+              "english": "That Time I Got Reincarnated as a Slime Season 4",
+              "native": "転生したらスライムだった件 第4期 第1&2クール"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx182205-q2AeO1owuQbO.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx182205-q2AeO1owuQbO.jpg",
+              "color": "#1abbd6"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/182205-fRUoKv6f2JAq.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy"],
+            "averageScore": 83,
+            "format": "TV",
+            "episodes": 24,
+            "season": "SPRING",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "8-bit"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 269,
+            "title": {
+              "romaji": "BLEACH",
+              "english": "Bleach",
+              "native": "BLEACH"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx269-d2GmRkJbMopq.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx269-d2GmRkJbMopq.png",
+              "color": "#f1a150"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/269-08ar2HJOUAuL.jpg",
+            "genres": ["Action", "Adventure", "Supernatural"],
+            "averageScore": 79,
+            "format": "TV",
+            "episodes": 366,
+            "season": "FALL",
+            "seasonYear": 2004,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 205909,
+            "title": {
+              "romaji": "Hotaru no Yomeiri",
+              "english": "Firefly Wedding",
+              "native": "ホタルの嫁入り"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx205909-DM0fAzNQulod.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx205909-DM0fAzNQulod.jpg",
+              "color": "#aebb35"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/205909-hGeuFYrdhf9S.jpg",
+            "genres": ["Drama", "Romance"],
+            "averageScore": 75,
+            "format": "TV",
+            "episodes": 12,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "david production"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 2,
+              "airingAt": 1792161000
+            }
+          },
+          {
+            "id": 208025,
+            "title": {
+              "romaji": "Dark Summoner to Dekiteiru",
+              "english": "I'm Dating a Dark Summoner",
+              "native": "ダークサモナーとデキている"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx208025-JKvqWNr8rz8l.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx208025-JKvqWNr8rz8l.jpg",
+              "color": "#fff1ae"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/208025-s7hcRQO7kwmH.jpg",
+            "genres": ["Comedy", "Ecchi", "Fantasy", "Romance"],
+            "averageScore": 68,
+            "format": "TV_SHORT",
+            "episodes": 12,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "AtoriE"
+                },
+                {
+                  "name": "Nyan Pollution-ω-"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 3,
+              "airingAt": 1792340400
+            }
+          },
+          {
+            "id": 186541,
+            "title": {
+              "romaji": "Mezametara Saikyou Soubi to Uchuusen-mochi datta node, Ikkodate Mezashite Youhei to shite Jiyuu ni Ikitai",
+              "english": "Reborn as a Space Mercenary: I Woke Up Piloting the Strongest Starship!",
+              "native": "目覚めたら最強装備と宇宙船持ちだったので、一戸建て目指して傭兵として自由に生きたい"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx186541-caYpLsLmbCh7.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx186541-caYpLsLmbCh7.jpg",
+              "color": "#d6bb78"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Comedy", "Drama", "Mecha", "Romance", "Sci-Fi"],
+            "averageScore": 68,
+            "format": "TV",
+            "episodes": 13,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "studio A-CAT"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 3,
+              "airingAt": 1792326600
+            }
+          },
+          {
+            "id": 205896,
+            "title": {
+              "romaji": "Shinja Zero no Megami-sama to Hajimeru Isekai Kouryaku",
+              "english": "Full Clearing Another World under a Goddess with Zero Believers",
+              "native": "信者ゼロの女神サマと始める異世界攻略"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx205896-ElrV8oVAsuax.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx205896-ElrV8oVAsuax.jpg",
+              "color": "#5dbbe4"
+            },
+            "bannerImage": null,
+            "genres": ["Adventure", "Fantasy"],
+            "averageScore": 62,
+            "format": "TV",
+            "episodes": null,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "HORNETS"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 2,
+              "airingAt": 1792333800
+            }
+          }
+        ]
+      }
+    }
+  }
+}

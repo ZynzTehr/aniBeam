@@ -1,0 +1,4 @@
+# AniList's answers for the browser checks, written by web/scripts/record-anilist.ts: GitHub folds
+# them in a pull request's diff (the recorder prints what changed in each), and leaves them out of
+# the language stats.
+web/e2e/anilist/*.json linguist-generated

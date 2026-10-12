@@ -1,0 +1,73 @@
+{
+  "request": {
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "variables": {
+      "search": "nar"
+    }
+  },
+  "status": 200,
+  "body": {
+    "data": {
+      "Page": {
+        "media": [
+          {
+            "id": 21027,
+            "title": {
+              "romaji": "Narudoma",
+              "english": null,
+              "native": "ナルどマ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/21027-crjLnR38RxKp.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/21027-crjLnR38RxKp.jpg",
+              "color": "#e46b1a"
+            },
+            "bannerImage": null,
+            "genres": ["Comedy"],
+            "averageScore": 40,
+            "format": "TV_SHORT",
+            "episodes": 26,
+            "season": "SPRING",
+            "seasonYear": 2015,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Kachidoki Studio"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 20555,
+            "title": {
+              "romaji": "Omoide no Marnie",
+              "english": "When Marnie Was There",
+              "native": "思い出のマーニー"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20555-QGbWQC3Kfpok.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx20555-QGbWQC3Kfpok.jpg",
+              "color": "#5daee4"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/20555-pJTKZKw8vDe8.jpg",
+            "genres": ["Drama", "Mystery", "Psychological"],
+            "averageScore": 78,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2014,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Ghibli"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          }
+        ]
+      }
+    }
+  }
+}

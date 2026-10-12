@@ -1,0 +1,594 @@
+{
+  "request": {
+    "query": "query ($from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus) { Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: \"JP\", startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "variables": {
+      "from": 19799999,
+      "to": 19900000,
+      "notStatus": "NOT_YET_RELEASED"
+    }
+  },
+  "status": 200,
+  "body": {
+    "data": {
+      "Page": {
+        "media": [
+          {
+            "id": 523,
+            "title": {
+              "romaji": "Tonari no Totoro",
+              "english": "My Neighbor Totoro",
+              "native": "となりのトトロ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx523-fErBvxOHP7IX.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx523-fErBvxOHP7IX.jpg",
+              "color": "#f19335"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/523-rl12Q0av1fCr.jpg",
+            "genres": ["Adventure", "Fantasy", "Slice of Life", "Supernatural"],
+            "averageScore": 81,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 1988,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Ghibli"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 813,
+            "title": {
+              "romaji": "Dragon Ball Z",
+              "english": "Dragon Ball Z",
+              "native": "ドラゴンボールZ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx813-ZhnFNOeCU5dQ.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx813-ZhnFNOeCU5dQ.png",
+              "color": "#e49343"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/813-03ZLvWJgR6Wd.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy", "Supernatural"],
+            "averageScore": 81,
+            "format": "TV",
+            "episodes": 291,
+            "season": "SPRING",
+            "seasonYear": 1989,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 223,
+            "title": {
+              "romaji": "Dragon Ball",
+              "english": "Dragon Ball",
+              "native": "ドラゴンボール"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx223-scE5uJfXqqj8.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx223-scE5uJfXqqj8.png",
+              "color": "#e48635"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/223-vyRuUBBYfcUb.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy", "Sci-Fi", "Supernatural"],
+            "averageScore": 78,
+            "format": "TV",
+            "episodes": 153,
+            "season": "WINTER",
+            "seasonYear": 1986,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 47,
+            "title": {
+              "romaji": "AKIRA",
+              "english": "Akira",
+              "native": "AKIRA"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx47-4CR68arv452h.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx47-4CR68arv452h.jpg",
+              "color": "#e45d50"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/47-fof8HqtNDtvx.jpg",
+            "genres": ["Action", "Adventure", "Horror", "Psychological", "Sci-Fi", "Supernatural"],
+            "averageScore": 79,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 1988,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Tokyo Movie Shinsha"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 578,
+            "title": {
+              "romaji": "Hotaru no Haka",
+              "english": "Grave of the Fireflies",
+              "native": "火垂るの墓"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx578-vU6XcOlb1XFU.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx578-vU6XcOlb1XFU.jpg",
+              "color": "#e4bb5d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/578.jpg",
+            "genres": ["Drama"],
+            "averageScore": 83,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 1988,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Ghibli"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 512,
+            "title": {
+              "romaji": "Majo no Takkyuubin",
+              "english": "Kiki's Delivery Service",
+              "native": "魔女の宅急便"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx512-UwP8X4BR8YoM.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx512-UwP8X4BR8YoM.png",
+              "color": "#50a1c9"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/512-Ssp3EE2NdeoA.jpg",
+            "genres": ["Adventure", "Drama", "Fantasy", "Slice of Life"],
+            "averageScore": 81,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 1989,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Ghibli"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 513,
+            "title": {
+              "romaji": "Tenkuu no Shiro Laputa",
+              "english": "Castle in the Sky",
+              "native": "天空の城ラピュタ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx513-yM7Dlt65N4Rl.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx513-yM7Dlt65N4Rl.jpg",
+              "color": "#e4c95d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/513-3zMLMyA0qH5n.jpg",
+            "genres": ["Adventure", "Fantasy", "Sci-Fi"],
+            "averageScore": 80,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 1986,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Ghibli"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 572,
+            "title": {
+              "romaji": "Kaze no Tani no Nausicaä",
+              "english": "Nausicaä of the Valley of the Wind",
+              "native": "風の谷のナウシカ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx572-ZE3kHBA6U0X1.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx572-ZE3kHBA6U0X1.jpg",
+              "color": "#e4785d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/572-8Lz6Wwy3ySHE.jpg",
+            "genres": ["Action", "Adventure", "Drama", "Fantasy", "Sci-Fi"],
+            "averageScore": 81,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "WINTER",
+            "seasonYear": 1984,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Topcraft"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 820,
+            "title": {
+              "romaji": "Ginga Eiyuu Densetsu",
+              "english": "Legend of the Galactic Heroes",
+              "native": "銀河英雄伝説"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx820-x5dNLNFeKb8B.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx820-x5dNLNFeKb8B.png",
+              "color": "#bb8628"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/820-FcKc3kvg60z8.jpg",
+            "genres": ["Drama", "Sci-Fi"],
+            "averageScore": 88,
+            "format": "OVA",
+            "episodes": 110,
+            "season": "WINTER",
+            "seasonYear": 1988,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Kitty Film"
+                },
+                {
+                  "name": "T.P.O"
+                },
+                {
+                  "name": "K-Factory"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 885,
+            "title": {
+              "romaji": "Tenshi no Tamago",
+              "english": "Angel's Egg",
+              "native": "天使のたまご"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx885-UqlerD6tJKxs.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx885-UqlerD6tJKxs.png",
+              "color": "#f1c9ae"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/885-T7WYeSNHEile.jpg",
+            "genres": ["Drama", "Fantasy", "Psychological"],
+            "averageScore": 76,
+            "format": "OVA",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 1985,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio DEEN"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 210,
+            "title": {
+              "romaji": "Ranma 1/2",
+              "english": "Ranma ½",
+              "native": "らんま1/2"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx210-qgahLDYT0t9b.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx210-qgahLDYT0t9b.png",
+              "color": "#e46b5d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/210-apebEUbenwLc.jpg",
+            "genres": ["Action", "Comedy", "Ecchi", "Romance", "Slice of Life"],
+            "averageScore": 75,
+            "format": "TV",
+            "episodes": 18,
+            "season": "SPRING",
+            "seasonYear": 1989,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio DEEN"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 949,
+            "title": {
+              "romaji": "Top wo Nerae! GunBuster",
+              "english": "Gunbuster",
+              "native": "トップをねらえ! GunBuster"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx949-LDCFxDufSwTQ.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx949-LDCFxDufSwTQ.png",
+              "color": "#e4bba1"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/949-SeKG5aRhF26j.jpg",
+            "genres": ["Action", "Drama", "Mecha", "Sci-Fi"],
+            "averageScore": 77,
+            "format": "OVA",
+            "episodes": 6,
+            "season": "FALL",
+            "seasonYear": 1988,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "GAINAX"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 1254,
+            "title": {
+              "romaji": "Saint Seiya",
+              "english": "Saint Seiya: Knights of the Zodiac",
+              "native": "聖闘士星矢"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/1254.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/1254.jpg",
+              "color": "#e4d643"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1254-8sEdD7gwYipm.jpg",
+            "genres": ["Action", "Adventure", "Fantasy", "Sci-Fi"],
+            "averageScore": 73,
+            "format": "TV",
+            "episodes": 114,
+            "season": "FALL",
+            "seasonYear": 1986,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 732,
+            "title": {
+              "romaji": "Vampire Hunter D",
+              "english": "VAMPIRE HUNTER D",
+              "native": "吸血鬼ハンターD"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx732-dksIxsja9LX7.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx732-dksIxsja9LX7.png",
+              "color": "#786b28"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/732-us0j3KVEjWMe.jpg",
+            "genres": ["Action", "Fantasy", "Horror", "Sci-Fi", "Supernatural"],
+            "averageScore": 66,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 1985,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Ashi Productions"
+                },
+                {
+                  "name": "Studio Live"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 967,
+            "title": {
+              "romaji": "Hokuto no Ken",
+              "english": "Fist of the North Star",
+              "native": "北斗の拳"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/n967-84jNBaInec98.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/n967-84jNBaInec98.png",
+              "color": "#e4a128"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/n967-3NFZ7XmuHhGf.jpg",
+            "genres": ["Action", "Drama", "Sci-Fi"],
+            "averageScore": 76,
+            "format": "TV",
+            "episodes": 109,
+            "season": "FALL",
+            "seasonYear": 1984,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 1088,
+            "title": {
+              "romaji": "Choujikuu Yousai Macross",
+              "english": "Macross",
+              "native": "超時空要塞マクロス"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1088-b2eAPvA5zmmi.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx1088-b2eAPvA5zmmi.png",
+              "color": "#ffd61a"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1088-qEDmlgWXrKH3.jpg",
+            "genres": ["Action", "Drama", "Mecha", "Music", "Romance", "Sci-Fi"],
+            "averageScore": 75,
+            "format": "TV",
+            "episodes": 36,
+            "season": "FALL",
+            "seasonYear": 1982,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Tatsunoko Production"
+                },
+                {
+                  "name": "Studio Nue"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 1293,
+            "title": {
+              "romaji": "Urusei Yatsura",
+              "english": "Urusei Yatsura",
+              "native": "うる星やつら"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1293-xohJFutZXimo.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx1293-xohJFutZXimo.jpg",
+              "color": "#f1c95d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1293-XmAkK3xVNmQh.jpg",
+            "genres": ["Comedy", "Drama", "Romance", "Sci-Fi", "Slice of Life"],
+            "averageScore": 74,
+            "format": "TV",
+            "episodes": 195,
+            "season": "FALL",
+            "seasonYear": 1981,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                },
+                {
+                  "name": "Studio DEEN"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 894,
+            "title": {
+              "romaji": "Dragon Ball Z: Ora no Gohan wo Kaese!!",
+              "english": "Dragon Ball Z: Dead Zone",
+              "native": "ドラゴンボールZ オラの悟飯をかえせッ!!"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/894-9eA7z7CyNMms.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/894-9eA7z7CyNMms.jpg",
+              "color": "#e4bb50"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/894-E53wr4IIwNuJ.jpg",
+            "genres": ["Action", "Adventure", "Sci-Fi"],
+            "averageScore": 62,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 1989,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 85,
+            "title": {
+              "romaji": "Kidou Senshi Ζ Gundam",
+              "english": "Mobile Suit Zeta Gundam",
+              "native": "機動戦士Ζガンダム"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx85-zdvoyoXDpjSs.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx85-zdvoyoXDpjSs.jpg",
+              "color": "#d6501a"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/85-DcFgPYUElRVu.jpg",
+            "genres": ["Drama", "Mecha", "Sci-Fi"],
+            "averageScore": 78,
+            "format": "TV",
+            "episodes": 50,
+            "season": "SPRING",
+            "seasonYear": 1985,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Sunrise"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 1470,
+            "title": {
+              "romaji": "City Hunter",
+              "english": null,
+              "native": "シティーハンター"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1470-V0Zr2VOc8eoK.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx1470-V0Zr2VOc8eoK.jpg",
+              "color": "#e45d93"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1470-fURymWaaBt33.jpg",
+            "genres": ["Action", "Comedy", "Mystery"],
+            "averageScore": 76,
+            "format": "TV",
+            "episodes": 51,
+            "season": "SPRING",
+            "seasonYear": 1987,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Sunrise"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          }
+        ]
+      }
+    }
+  }
+}

@@ -119,13 +119,21 @@ test('a browser opened with recordings shows their titles, answered a moment lat
   }
 })
 
-test('in a recorded browser, a request with no recording fails the check waiting on it, by name, unless a rewrite answers it', async () => {
+test('in a recorded browser, a request with no recording fails the check waiting on it, naming it and how to record it, unless a rewrite answers it', async () => {
   const browser = await Browser.open({
     aniList: 'recorded',
     recordings: [firstVisit, recordedSearch],
   })
-  const missed = (term: string) =>
-    `The page asked AniList for SEARCH_MATCH with {"search":"${term}"}, which has no recording among the ones the check gave Browser.open().`
+  // Whether a failure names the search with no recording, and says how to record it: list it in
+  // recordings.ts, then run the recorder. And that the search may have gone out mid-word, only
+  // when it is the start of a recorded one.
+  const missed = (message: string | null, term: string, midWord = false) =>
+    !!message?.startsWith(
+      `The page asked AniList for SEARCH_MATCH with {"search":"${term}"}, which has no recording among the ones the check gave Browser.open().`,
+    ) &&
+    message.includes('web/e2e/recordings.ts') &&
+    message.includes('npm run e2e:record') &&
+    message.includes('mid-word') === midWord
   let closed = false
   try {
     await browser.load()
@@ -139,21 +147,29 @@ test('in a recorded browser, a request with no recording fails the check waiting
       ),
       'the recorded search’s titles never came',
     )
+    // A search that is the start of a recorded one may have gone out mid-word, on a machine too
+    // busy to type in time, where a rerun needs no recording: the failure says so.
+    await paste(browser, 'recorded sea')
+    const midWord = await failure(browser.waitFor(retryFor('recorded sea'), 10_000))
+    assert.ok(
+      missed(midWord, 'recorded sea', true),
+      `waiting on a search that starts a recorded one: ${midWord}`,
+    )
     // The page gets a 404 for a search with no recording, and offers Try again: waiting for
     // that throws, naming the search.
     await paste(browser, 'zzqq no recording')
-    assert.equal(
-      await failure(browser.waitFor(retryFor('zzqq no recording'), 10_000)),
-      missed('zzqq no recording'),
-      'waiting on a search with no recording',
+    const unrecorded = await failure(browser.waitFor(retryFor('zzqq no recording'), 10_000))
+    assert.ok(
+      missed(unrecorded, 'zzqq no recording'),
+      `waiting on a search with no recording: ${unrecorded}`,
     )
     // A rewrite that passes every answer on, as a check can for all of its file's, can't hide one.
     await browser.rewriteAniList(({ status, body }) => ({ status, body }))
     await paste(browser, 'zzqq passed on')
-    assert.equal(
-      await failure(browser.waitFor(retryFor('zzqq passed on'), 10_000)),
-      missed('zzqq passed on'),
-      'waiting on a search with no recording, its 404 passed on by a rewrite',
+    const passedOn = await failure(browser.waitFor(retryFor('zzqq passed on'), 10_000))
+    assert.ok(
+      missed(passedOn, 'zzqq passed on'),
+      `waiting on a search with no recording, its 404 passed on by a rewrite: ${passedOn}`,
     )
     // A rewrite that answers with another status needs no recording, as with a search turned down.
     await browser.rewriteAniList(({ request }) => (request.variables.search ? BAD_REQUEST : null))
@@ -173,10 +189,10 @@ test('in a recorded browser, a request with no recording fails the check waiting
     })`)
     assert.ok(offered, 'the page got no 404 for the search nobody waits on')
     closed = true
-    assert.equal(
-      await failure(browser.close()),
-      missed('zzqq not waited on'),
-      'closing the browser after a search with no recording that nobody waited on',
+    const leftOver = await failure(browser.close())
+    assert.ok(
+      missed(leftOver, 'zzqq not waited on'),
+      `closing the browser after a search with no recording that nobody waited on: ${leftOver}`,
     )
   } finally {
     if (!closed) await browser.close().catch(() => {})

@@ -166,10 +166,11 @@ export class Browser {
   /**
    * Starts Chrome with a fresh profile; port 0 lets Chrome pick a free debugging port. Its AniList
    * answers come from AniList itself, unless `aniList` is 'recorded': then each request gets a
-   * copy of its recording, from `recordings` if the check hands some in, or else from
-   * web/e2e/anilist/, 200 ms after it is made, as AniList's answer would come. A request with no
-   * recording gets a 404, not a failed connection, which would bring up the bundled samples that
-   * titlesShown() can't tell from AniList's titles; and the next waitFor() throws, naming it.
+   * copy of its recording, 200 ms after it is made, as AniList's answer would come. The
+   * recordings are the ones the check hands in as `recordings`, or else web/e2e/anilist/'s, which
+   * `npm run e2e:record` writes (see recordings.ts). A request with no recording gets a 404, not
+   * a failed connection, which would bring up the bundled samples that titlesShown() can't tell
+   * from AniList's titles; and the next waitFor() throws, naming it and saying how to record it.
    * Nothing is sent to AniList: Chrome doesn't even resolve its address, so a request that got
    * past the recordings would fail rather than reach it.
    */
@@ -499,8 +500,30 @@ export class Browser {
     // A rewrite that tags or passes on every answer, as some checks have for a whole file, would
     // otherwise hide a request with no recording.
     if (!recording && (changed ?? answer).status === 404)
-      this.#misses.add(`The page asked AniList for ${name}, which has no recording ${this.#where}.`)
+      this.#misses.add(
+        `The page asked AniList for ${name}, which has no recording ${this.#where}.${this.#midWord(answer.request)} To record it, add it to SEARCHES or DECADES in web/e2e/recordings.ts unless it is there already, then run \`npm run e2e:record\` in web/.`,
+      )
     return changed ?? answer
+  }
+
+  /**
+   * For a search with no recording that is the start of one recorded for the same query, a hint.
+   * The page searches once typing stops for 300 ms, so on a machine too busy to type in time it
+   * can search mid-word, and then a rerun needs no new recording.
+   */
+  #midWord({ query, variables }: Answer['request']) {
+    const typed = variables.search
+    if (typeof typed !== 'string') return ''
+    const whole = [...this.#recordings.values()].find(
+      ({ request }) =>
+        request.query === query &&
+        typeof request.variables?.search === 'string' &&
+        request.variables.search !== typed &&
+        request.variables.search.startsWith(typed),
+    )
+    return whole
+      ? ` It is the start of the recorded search ${JSON.stringify(whole.request.variables.search)}: the page may have searched mid-word, on a machine too busy to type in time, so run the check again before recording it.`
+      : ''
   }
 
   /** Throws for the requests a recorded browser had no recording for, each once. */

@@ -1,0 +1,576 @@
+{
+  "request": {
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "variables": {
+      "search": "dragon ball"
+    }
+  },
+  "status": 200,
+  "body": {
+    "data": {
+      "Page": {
+        "media": [
+          {
+            "id": 223,
+            "title": {
+              "romaji": "Dragon Ball",
+              "english": "Dragon Ball",
+              "native": "ドラゴンボール"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx223-scE5uJfXqqj8.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx223-scE5uJfXqqj8.png",
+              "color": "#e48635"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/223-vyRuUBBYfcUb.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy", "Sci-Fi", "Supernatural"],
+            "averageScore": 78,
+            "format": "TV",
+            "episodes": 153,
+            "season": "WINTER",
+            "seasonYear": 1986,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 813,
+            "title": {
+              "romaji": "Dragon Ball Z",
+              "english": "Dragon Ball Z",
+              "native": "ドラゴンボールZ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx813-ZhnFNOeCU5dQ.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx813-ZhnFNOeCU5dQ.png",
+              "color": "#e49343"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/813-03ZLvWJgR6Wd.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy", "Supernatural"],
+            "averageScore": 81,
+            "format": "TV",
+            "episodes": 291,
+            "season": "SPRING",
+            "seasonYear": 1989,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 21175,
+            "title": {
+              "romaji": "Dragon Ball Super",
+              "english": "Dragon Ball Super",
+              "native": "ドラゴンボール超"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21175-EH06qlfF8TnB.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx21175-EH06qlfF8TnB.jpg",
+              "color": "#e48628"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/21175-Qo9gdGPUm4Im.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy", "Sci-Fi"],
+            "averageScore": 73,
+            "format": "TV",
+            "episodes": 131,
+            "season": "SUMMER",
+            "seasonYear": 2015,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 225,
+            "title": {
+              "romaji": "Dragon Ball GT",
+              "english": "Dragon Ball GT",
+              "native": "ドラゴンボールGT"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx225-pzkDUVy7tKxH.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx225-pzkDUVy7tKxH.png",
+              "color": "#e4ae50"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/225-gMgT7ZPEFvQ7.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Sci-Fi"],
+            "averageScore": 63,
+            "format": "TV",
+            "episodes": 64,
+            "season": "WINTER",
+            "seasonYear": 1996,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 6033,
+            "title": {
+              "romaji": "Dragon Ball Kai",
+              "english": "Dragon Ball Z Kai",
+              "native": "ドラゴンボール改"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx6033-TKDWyjZN3dXk.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx6033-TKDWyjZN3dXk.png",
+              "color": "#f1e45d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/6033-oyoKAT6qBUba.png",
+            "genres": ["Action", "Adventure", "Comedy"],
+            "averageScore": 77,
+            "format": "TV",
+            "episodes": 97,
+            "season": "SPRING",
+            "seasonYear": 2009,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 20635,
+            "title": {
+              "romaji": "Dragon Ball Kai (2014)",
+              "english": "Dragon Ball Z Kai: The Final Chapters",
+              "native": "ドラゴンボール改 (2014)"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20635-gUYy4KZfYRb0.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx20635-gUYy4KZfYRb0.jpg",
+              "color": "#f1bb28"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/20635-2eB3QP44dM1M.jpg",
+            "genres": ["Action", "Adventure", "Comedy"],
+            "averageScore": 76,
+            "format": "TV",
+            "episodes": 69,
+            "season": "SPRING",
+            "seasonYear": 2014,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 170083,
+            "title": {
+              "romaji": "Dragon Ball DAIMA",
+              "english": "Dragon Ball DAIMA",
+              "native": "ドラゴンボールDAIMA"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx170083-GTwRrhTApcLR.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx170083-GTwRrhTApcLR.png",
+              "color": "#e45d43"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/170083-SYCCWWlq3hqF.jpg",
+            "genres": ["Action", "Adventure"],
+            "averageScore": 75,
+            "format": "TV",
+            "episodes": 20,
+            "season": "FALL",
+            "seasonYear": 2024,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 102352,
+            "title": {
+              "romaji": "Super Dragon Ball Heroes",
+              "english": null,
+              "native": "スーパードラゴンボールヒーローズ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b102352-iTBUsIV9x7KH.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b102352-iTBUsIV9x7KH.jpg",
+              "color": "#f1c928"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Adventure"],
+            "averageScore": 53,
+            "format": "ONA",
+            "episodes": 56,
+            "season": "SUMMER",
+            "seasonYear": 2018,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 906,
+            "title": {
+              "romaji": "Dragon Ball Z: Ryuuken Bakuhatsu!! Goku ga Yaraneba Dare ga Yaru",
+              "english": "Dragon Ball Z: Wrath of the Dragon",
+              "native": "ドラゴンボールＺ 龍拳爆発!!悟空がやらねば誰がやる"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/906-TmrkEiLnm9nR.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/906-TmrkEiLnm9nR.jpg",
+              "color": "#e4c943"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/906-U6OaVwykG1bc.jpg",
+            "genres": ["Action", "Adventure", "Sci-Fi"],
+            "averageScore": 71,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 1995,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 2520,
+            "title": {
+              "romaji": "Dragon Ball Specials",
+              "english": "Dragon Ball Specials",
+              "native": "ドラゴンボール"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b2520-eqphP91bPMGQ.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b2520-eqphP91bPMGQ.png",
+              "color": "#c99350"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Adventure"],
+            "averageScore": 62,
+            "format": "SPECIAL",
+            "episodes": 2,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 14837,
+            "title": {
+              "romaji": "Dragon Ball Z: Kami to Kami",
+              "english": "Dragon Ball Z: Battle of Gods",
+              "native": "ドラゴンボールZ: 神と神"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/14837.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/14837.jpg",
+              "color": "#d6931a"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/14837-dMPlW45GA8BE.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Sci-Fi"],
+            "averageScore": 72,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 2013,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 6714,
+            "title": {
+              "romaji": "Dragon Ball Z: Atsumare! Goku's World",
+              "english": null,
+              "native": "ドラゴンボールZ あつまれ! 悟空ワールド"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx6714-fWcL9Im2l0zE.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx6714-fWcL9Im2l0zE.jpg",
+              "color": "#f1ae50"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Adventure", "Comedy"],
+            "averageScore": 58,
+            "format": "OVA",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 206814,
+            "title": {
+              "romaji": "Dragon Ball Super: Beerus",
+              "english": "Dragon Ball Super: Beerus",
+              "native": "ドラゴンボール超 ビルス"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx206814-PVVzRbf1IQpe.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx206814-PVVzRbf1IQpe.jpg",
+              "color": "#e48643"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/206814-ARuwrZJAGONN.jpg",
+            "genres": ["Action", "Adventure", "Sci-Fi"],
+            "averageScore": 80,
+            "format": "TV",
+            "episodes": null,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 2,
+              "airingAt": 1792332960
+            }
+          },
+          {
+            "id": 12231,
+            "title": {
+              "romaji": "Dragon Ball: Episode of Bardock",
+              "english": "Dragon Ball: Episode of Bardock",
+              "native": "ドラゴンボール エピソード オブ バーダック"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/12231.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/12231.jpg",
+              "color": "#f1ae28"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/12231-qzlYJvnserD9.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Sci-Fi"],
+            "averageScore": 68,
+            "format": "SPECIAL",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 2011,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 894,
+            "title": {
+              "romaji": "Dragon Ball Z: Ora no Gohan wo Kaese!!",
+              "english": "Dragon Ball Z: Dead Zone",
+              "native": "ドラゴンボールZ オラの悟飯をかえせッ!!"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/894-9eA7z7CyNMms.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/894-9eA7z7CyNMms.jpg",
+              "color": "#e4bb50"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/894-E53wr4IIwNuJ.jpg",
+            "genres": ["Action", "Adventure", "Sci-Fi"],
+            "averageScore": 62,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 1989,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 905,
+            "title": {
+              "romaji": "Dragon Ball Z: Fukkatsu no Fusion!! Goku to Vegeta",
+              "english": "Dragon Ball Z: Fusion Reborn",
+              "native": "ドラゴンボールＺ 復活のフュージョン!!悟空とベジータ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/905-T97prwPOeyxm.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/905-T97prwPOeyxm.jpg",
+              "color": "#e48650"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/905-Ju8CK3YGZigN.jpg",
+            "genres": ["Action", "Adventure", "Sci-Fi"],
+            "averageScore": 74,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 1995,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 892,
+            "title": {
+              "romaji": "Dragon Ball: Makafushigi Daibouken",
+              "english": "Dragon Ball: Mystical Adventure",
+              "native": "ドラゴンボール 摩訶不思議大冒険"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx892-qSAVWaHQzBwE.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/nx892-qSAVWaHQzBwE.jpg",
+              "color": "#d6931a"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/892-EDe7UtQcvEab.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Sci-Fi"],
+            "averageScore": 64,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 1988,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 502,
+            "title": {
+              "romaji": "Dragon Ball: Shen Long no Densetsu",
+              "english": "Dragon Ball: Curse of the Blood Rubies",
+              "native": "ドラゴンボール 神龍の伝説"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/502-qMhEQOjbNK0w.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/502-qMhEQOjbNK0w.jpg",
+              "color": "#e4bb0d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/502-xNziMcLtegvj.jpg",
+            "genres": ["Action", "Adventure", "Comedy"],
+            "averageScore": 63,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 1986,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 101302,
+            "title": {
+              "romaji": "Dragon Ball Super: Broly",
+              "english": "Dragon Ball Super: Broly",
+              "native": "ドラゴンボール超 ブロリー"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx101302-7L0lcwYeFQQM.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx101302-7L0lcwYeFQQM.jpg",
+              "color": "#e4e450"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/101302-2ix6Nti3Y11Q.jpg",
+            "genres": ["Action", "Adventure", "Fantasy", "Sci-Fi"],
+            "averageScore": 81,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 2018,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 893,
+            "title": {
+              "romaji": "Dragon Ball: Saikyou e no Michi",
+              "english": "Dragon Ball: The Path to Power",
+              "native": "ドラゴンボール 最強への道"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b893-bzc4Y5KYngZJ.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b893-bzc4Y5KYngZJ.jpg",
+              "color": "#e4a143"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/893-VvdQWCOh5Ipz.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Sci-Fi"],
+            "averageScore": 68,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 1996,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,560 @@
+{
+  "request": {
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "variables": {
+      "search": "one piece"
+    }
+  },
+  "status": 200,
+  "body": {
+    "data": {
+      "Page": {
+        "media": [
+          {
+            "id": 21,
+            "title": {
+              "romaji": "ONE PIECE",
+              "english": "ONE PIECE",
+              "native": "ONE PIECE"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21-ELSYx3yMPcKM.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx21-ELSYx3yMPcKM.jpg",
+              "color": "#e49335"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/21-wf37VakJmZqs.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy"],
+            "averageScore": 87,
+            "format": "TV",
+            "episodes": null,
+            "season": "FALL",
+            "seasonYear": 1999,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 1181,
+              "airingAt": 1798985760
+            }
+          },
+          {
+            "id": 171630,
+            "title": {
+              "romaji": "THE ONE PIECE",
+              "english": "THE ONE PIECE",
+              "native": "THE ONE PIECE"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx171630-2U7Y5OIWwXJJ.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx171630-2U7Y5OIWwXJJ.jpg",
+              "color": "#28aef1"
+            },
+            "bannerImage": null,
+            "genres": ["Adventure"],
+            "averageScore": null,
+            "format": null,
+            "episodes": 7,
+            "season": "WINTER",
+            "seasonYear": 2027,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 459,
+            "title": {
+              "romaji": "ONE PIECE (Movie)",
+              "english": "ONE PIECE: The Movie",
+              "native": "ONE PIECE (Movie)"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx459-Ivw65mUXackh.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx459-Ivw65mUXackh.png",
+              "color": "#e40d0d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/459-JqlCjcwxxFrr.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy"],
+            "averageScore": 68,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "WINTER",
+            "seasonYear": 2000,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 19123,
+            "title": {
+              "romaji": "ONE PIECE: Episode of Merry - Mou Hitori no Nakama no Monogatari",
+              "english": "One Piece: Episode of Merry - The Tale of One More Friend",
+              "native": "ONE PIECE エピソードオブメリー 〜もうひとりの仲間の物語〜"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx19123-leET1CrSJknT.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/nx19123-leET1CrSJknT.jpg",
+              "color": "#e4c95d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/19123-QyRShJCfnIWD.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy"],
+            "averageScore": 78,
+            "format": "SPECIAL",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2013,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 188668,
+            "title": {
+              "romaji": "Koisuru ONE PIECE",
+              "english": null,
+              "native": "恋するワンピース"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx188668-rOB7rkgOz89w.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx188668-rOB7rkgOz89w.jpg",
+              "color": "#35bbf1"
+            },
+            "bannerImage": null,
+            "genres": ["Comedy", "Romance"],
+            "averageScore": 66,
+            "format": "ONA",
+            "episodes": 5,
+            "season": "SPRING",
+            "seasonYear": 2025,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 15323,
+            "title": {
+              "romaji": "ONE PIECE: Episode of Nami - Koukaishi no Namida to Nakama no Kizuna",
+              "english": null,
+              "native": "ONE PIECE エピソードオブナミ 〜航海士の涙と仲間の絆〜"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/15323.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/15323.jpg",
+              "color": "#fed628"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/15323-zrax5OGlGepE.png",
+            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy"],
+            "averageScore": 78,
+            "format": "SPECIAL",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2012,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 116054,
+            "title": {
+              "romaji": "Noroi no One Piece",
+              "english": null,
+              "native": "呪いのワンピース"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx116054-FD9QZRypg2Ot.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx116054-FD9QZRypg2Ot.jpg",
+              "color": "#e47835"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/116054-it2LGF3XpwkV.jpg",
+            "genres": ["Drama", "Horror", "Psychological", "Romance", "Supernatural"],
+            "averageScore": 57,
+            "format": "SPECIAL",
+            "episodes": 3,
+            "season": "SUMMER",
+            "seasonYear": 1992,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Kyoto Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 105143,
+            "title": {
+              "romaji": "ONE PIECE STAMPEDE",
+              "english": "One Piece: Stampede",
+              "native": "ONE PIECE STAMPEDE"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx105143-5uBDmhvMr6At.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx105143-5uBDmhvMr6At.png",
+              "color": "#e4e450"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/105143-y8oSKa8PSsgK.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy"],
+            "averageScore": 80,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2019,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 197178,
+            "title": {
+              "romaji": "ONE PIECE HEROINES",
+              "english": "ONE PIECE HEROINES",
+              "native": "ONE PIECE HEROINES"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx197178-Ui8PY9HQbNgu.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx197178-Ui8PY9HQbNgu.jpg",
+              "color": "#e45d86"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/197178-kVx0Zt3P0MvD.jpg",
+            "genres": ["Action", "Adventure", "Drama", "Fantasy"],
+            "averageScore": 77,
+            "format": "SPECIAL",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 5252,
+            "title": {
+              "romaji": "ONE PIECE: ROMANCE DAWN STORY",
+              "english": "One Piece: Romance Dawn Story",
+              "native": "ONE PIECE ロマンス ドーン ストーリー"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/5252.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/5252.jpg",
+              "color": "#43a1e4"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/5252-tlTORLa2dR2u.jpg",
+            "genres": ["Action", "Comedy", "Fantasy"],
+            "averageScore": 70,
+            "format": "OVA",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 2008,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 21831,
+            "title": {
+              "romaji": "ONE PIECE: Heart of Gold",
+              "english": "One Piece: Heart of Gold",
+              "native": "ONE PIECE 〜ハートオブゴールド〜"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21831-qj5IKYiPOupF.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx21831-qj5IKYiPOupF.jpg",
+              "color": "#f1a10d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/21831-Xl4r2uBaaKU4.png",
+            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy"],
+            "averageScore": 73,
+            "format": "SPECIAL",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2016,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 12859,
+            "title": {
+              "romaji": "ONE PIECE FILM: Z",
+              "english": "One Piece Film: Z",
+              "native": "ONE PIECE FILM Z"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx12859-uQFENDPzMWz6.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx12859-uQFENDPzMWz6.jpg",
+              "color": "#f1ae5d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/12859-XjlBW6o2YwUb.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Drama"],
+            "averageScore": 79,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 2012,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 141902,
+            "title": {
+              "romaji": "ONE PIECE FILM: RED",
+              "english": "One Piece Film: Red",
+              "native": "ONE PIECE FILM RED"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx141902-fTyoTk8F8qOl.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx141902-fTyoTk8F8qOl.jpg",
+              "color": "#f1c950"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/141902-SvnRSXnN7DWC.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy", "Music"],
+            "averageScore": 78,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2022,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 215855,
+            "title": {
+              "romaji": "ONE PIECE FILM: GOD VALLEY",
+              "english": null,
+              "native": "ONE PIECE FILM GOD VALLEY"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b215855-z86bqRqVcr13.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b215855-z86bqRqVcr13.png",
+              "color": null
+            },
+            "bannerImage": null,
+            "genres": [],
+            "averageScore": null,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2027,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 464,
+            "title": {
+              "romaji": "ONE PIECE THE MOVIE: Omatsuri Danshaku to Himitsu no Shima",
+              "english": "One Piece: Baron Omatsuri and the Secret Island",
+              "native": "ONE PIECE THE MOVIE オマツリ男爵と秘密の島"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx464-g4wcZPjbhY5j.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx464-g4wcZPjbhY5j.png",
+              "color": "#e4a15d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/464-wmQoE1Ywxghs.jpg",
+            "genres": ["Adventure", "Comedy", "Fantasy"],
+            "averageScore": 78,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 2005,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 21335,
+            "title": {
+              "romaji": "ONE PIECE FILM: GOLD",
+              "english": "One Piece Film: Gold",
+              "native": "ONE PIECE FILM GOLD"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx21335-XsXdE0AeOkkZ.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/nx21335-XsXdE0AeOkkZ.jpg",
+              "color": "#f1bb35"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/21335-ps20iVSGUXbD.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy"],
+            "averageScore": 77,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2016,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 215856,
+            "title": {
+              "romaji": "ONE PIECE FILM: BAAD",
+              "english": null,
+              "native": "ONE PIECE FILM BAAD"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b215856-0V3mzYbhODqZ.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b215856-0V3mzYbhODqZ.png",
+              "color": null
+            },
+            "bannerImage": null,
+            "genres": [],
+            "averageScore": null,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 4155,
+            "title": {
+              "romaji": "ONE PIECE FILM: STRONG WORLD",
+              "english": "One Piece Film: Strong World",
+              "native": "ONE PIECE FILM STRONG WORLD"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx4155-P5TDf6t6qFwX.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx4155-P5TDf6t6qFwX.png",
+              "color": "#e4ae50"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/4155-2PkLjTHddz2s.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy"],
+            "averageScore": 78,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 2009,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 465,
+            "title": {
+              "romaji": "ONE PIECE THE MOVIE: Karakuri-jou no Mecha Kyohei",
+              "english": "One Piece: Mega Mecha Soldier of Karakuri Castle",
+              "native": "ONE PIECE THE MOVIE カラクリ城のメカ巨兵"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx465-qSRr0MKYhS0I.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx465-qSRr0MKYhS0I.jpg",
+              "color": "#43aeff"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/465-dYMZ6SHNeOkL.jpg",
+            "genres": ["Adventure", "Comedy", "Fantasy"],
+            "averageScore": 67,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 2006,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 3848,
+            "title": {
+              "romaji": "ONE PIECE THE MOVIE: Episode of Chopper Plus - Fuyu ni Saku, Kiseki no Sakura",
+              "english": "One Piece: Episode Of Chopper +: The Miracle Winter Cherry Blossom",
+              "native": "ONE PIECE THE MOVIE エピソードオブチョッパー+ 冬に咲く、奇跡の桜"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx3848-SCnYGTn34Llt.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx3848-SCnYGTn34Llt.jpg",
+              "color": "#e4e450"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/3848-LXsSQtSFu4e9.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy"],
+            "averageScore": 71,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 2008,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          }
+        ]
+      }
+    }
+  }
+}

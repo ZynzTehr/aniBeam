@@ -1,0 +1,557 @@
+{
+  "request": {
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "variables": {
+      "search": "naruto"
+    }
+  },
+  "status": 200,
+  "body": {
+    "data": {
+      "Page": {
+        "media": [
+          {
+            "id": 20,
+            "title": {
+              "romaji": "NARUTO",
+              "english": "Naruto",
+              "native": "NARUTO -ナルト-"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20-dE6UHbFFg1A5.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx20-dE6UHbFFg1A5.jpg",
+              "color": "#e47850"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/20-HHxhPj5JD13a.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy", "Supernatural"],
+            "averageScore": 80,
+            "format": "TV",
+            "episodes": 220,
+            "season": "FALL",
+            "seasonYear": 2002,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 10075,
+            "title": {
+              "romaji": "NARUTO×UT",
+              "english": null,
+              "native": "NARUTO×UT"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/10075.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/10075.jpg",
+              "color": "#0d6bf1"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Comedy"],
+            "averageScore": 69,
+            "format": "OVA",
+            "episodes": 1,
+            "season": "WINTER",
+            "seasonYear": 2011,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 162561,
+            "title": {
+              "romaji": "NARUTO×NINKU",
+              "english": null,
+              "native": "NARUTO-ナルト-×NINKU-忍空-"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx162561-Uk4eZAwcmcWk.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx162561-Uk4eZAwcmcWk.jpg",
+              "color": "#43bbe4"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Adventure", "Comedy"],
+            "averageScore": null,
+            "format": "TV",
+            "episodes": 4,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "PIERROT FILMS"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 155348,
+            "title": {
+              "romaji": "ROAD OF NARUTO",
+              "english": null,
+              "native": "ROAD OF NARUTO"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx155348-4ipji8SvTjyh.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx155348-4ipji8SvTjyh.jpg",
+              "color": "#f18650"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/155348-I6f4TQKslVx2.jpg",
+            "genres": ["Action", "Adventure", "Drama", "Fantasy", "Supernatural"],
+            "averageScore": 82,
+            "format": "SPECIAL",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 2022,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 1735,
+            "title": {
+              "romaji": "NARUTO: Shippuuden",
+              "english": "Naruto: Shippuden",
+              "native": "NARUTO -ナルト- 疾風伝"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1735-kGfVm0YqCPcu.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx1735-kGfVm0YqCPcu.png",
+              "color": "#e4865d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1735.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy", "Supernatural"],
+            "averageScore": 82,
+            "format": "TV",
+            "episodes": 500,
+            "season": "WINTER",
+            "seasonYear": 2007,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 936,
+            "title": {
+              "romaji": "NARUTO: Dai Gekitotsu! Maboroshi no Chitei Iseki Dattebayo",
+              "english": "Naruto the Movie: Legend of the Stone of Gelel",
+              "native": "劇場版 NARUTO -ナルト- 大激突!幻の地底遺跡だってばよ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx936-P1ogcIs07UR8.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx936-P1ogcIs07UR8.jpg",
+              "color": "#f18643"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/936-q1NJoF3NDEjF.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy", "Supernatural"],
+            "averageScore": 65,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2005,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 10659,
+            "title": {
+              "romaji": "NARUTO: Soyokazeden - Naruto to Mashin to Mitsu no Onegai Dattebayo!!",
+              "english": "Naruto, the Genie, and the Three Wishes, Believe It!",
+              "native": "劇場版 NARUTO -ナルト- そよかぜ伝 ナルトと魔神と3つのお願いだってばよ!!"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/10659.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/10659.jpg",
+              "color": "#e48650"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Comedy"],
+            "averageScore": 65,
+            "format": "SPECIAL",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2010,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 21579,
+            "title": {
+              "romaji": "BORUTO: NARUTO THE MOVIE - Naruto ga Hokage ni Natta Hi",
+              "english": "Boruto: Naruto the Movie - The Day Naruto Became Hokage",
+              "native": "BORUTO -NARUTO THE MOVIE- ナルトが火影になった日"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/21579-AKxouF9BidMD.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/21579-AKxouF9BidMD.jpg",
+              "color": "#35aee4"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/21579-yXgNYDhYev70.jpg",
+            "genres": ["Action", "Comedy"],
+            "averageScore": 69,
+            "format": "SPECIAL",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2016,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 8246,
+            "title": {
+              "romaji": "NARUTO: Shippuuden - The Lost Tower",
+              "english": "Naruto Shippuden the Movie: The Lost Tower",
+              "native": "劇場版 NARUTO -ナルト- 疾風伝 ザ・ロストタワー"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx8246-KAi3bLLdJ4OI.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx8246-KAi3bLLdJ4OI.jpg",
+              "color": "#d6936b"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/8246-FfSs0aXwJpPV.jpg",
+            "genres": ["Action", "Comedy"],
+            "averageScore": 71,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2010,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 6325,
+            "title": {
+              "romaji": "NARUTO: Shippuuden - Hi no Ishi wo Tsugu Mono",
+              "english": "Naruto Shippuden the Movie: The Will of Fire",
+              "native": "劇場版 NARUTO -ナルト- 疾風伝 火の意志を継ぐ者"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx6325-WaJPWmdnzgiI.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx6325-WaJPWmdnzgiI.jpg",
+              "color": "#f1a15d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/6325-DpxNXjgp7BPz.jpg",
+            "genres": ["Action", "Comedy"],
+            "averageScore": 71,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2009,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 2472,
+            "title": {
+              "romaji": "NARUTO: Shippuuden Movie",
+              "english": "Naruto Shippuden the Movie",
+              "native": "劇場版 NARUTO -ナルト- 疾風伝"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx2472-mYApVxceStn5.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx2472-mYApVxceStn5.png",
+              "color": "#f1e450"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2472-yKoD8rvll5al.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy"],
+            "averageScore": 70,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2007,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 10589,
+            "title": {
+              "romaji": "NARUTO: Blood Prison",
+              "english": "Naruto Shippuden the Movie: Blood Prison",
+              "native": "劇場版 NARUTO -ナルト- ブラッド・プリズン"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx10589-VhXWWMm24Dso.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx10589-VhXWWMm24Dso.jpg",
+              "color": "#e45d6b"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/10589-s5r2dzqohuU7.jpg",
+            "genres": ["Action", "Adventure", "Mystery"],
+            "averageScore": 72,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2011,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 13667,
+            "title": {
+              "romaji": "ROAD TO NINJA: NARUTO THE MOVIE",
+              "english": "Road to Ninja: Naruto the Movie",
+              "native": "ROAD TO NINJA -NARUTO THE MOVIE-"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx13667-gAKuIXI2avRq.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx13667-gAKuIXI2avRq.jpg",
+              "color": "#e48650"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/13667-7Cpxg5sCOVpw.jpg",
+            "genres": ["Action", "Adventure"],
+            "averageScore": 74,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2012,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 21220,
+            "title": {
+              "romaji": "BORUTO: NARUTO THE MOVIE",
+              "english": "Boruto: Naruto the Movie",
+              "native": "BORUTO -NARUTO THE MOVIE-"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21220-3cWAUtR1Ih5h.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx21220-3cWAUtR1Ih5h.jpg",
+              "color": "#e46b50"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/21220-tdeNPd6YFzIo.jpg",
+            "genres": ["Action", "Adventure", "Comedy"],
+            "averageScore": 70,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2015,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 16870,
+            "title": {
+              "romaji": "THE LAST: NARUTO THE MOVIE",
+              "english": "The Last: Naruto the Movie",
+              "native": "THE LAST -NARUTO THE MOVIE-"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx16870-BD4K9rzlhCP4.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx16870-BD4K9rzlhCP4.jpg",
+              "color": "#e45d6b"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/16870-xz6KbaGC0jas.jpg",
+            "genres": ["Action", "Adventure", "Drama", "Fantasy", "Romance", "Supernatural"],
+            "averageScore": 76,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 2014,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 594,
+            "title": {
+              "romaji": "NARUTO: Takigakure no Shitou - Ore ga Eiyuu Dattebayo!",
+              "english": "Naruto: The Lost Story - Mission: Protect the Waterfall Village",
+              "native": "NARUTO -ナルト- 滝隠れの死闘 オレが英雄だってばよ！"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/594.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/594.jpg",
+              "color": "#d6ae5d"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Adventure", "Comedy"],
+            "averageScore": 64,
+            "format": "SPECIAL",
+            "episodes": 1,
+            "season": "WINTER",
+            "seasonYear": 2003,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 4437,
+            "title": {
+              "romaji": "NARUTO: Shippuuden - Kizuna",
+              "english": "Naruto Shippuden the Movie: Bonds",
+              "native": "劇場版 NARUTO -ナルト- 疾風伝 絆"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx4437-8LQbBZo4N6yi.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx4437-8LQbBZo4N6yi.jpg",
+              "color": "#f1935d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/4437-iYmkXFEF3ybw.jpg",
+            "genres": ["Action", "Supernatural"],
+            "averageScore": 69,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2008,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 10686,
+            "title": {
+              "romaji": "NARUTO: Honoo no Chuunin Shiken! Naruto vs Konohamaru!!",
+              "english": null,
+              "native": "NARUTO -ナルト- 炎の中忍試験! ナルトvs木ノ葉丸!!"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx10686-8ix95Jans8z6.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx10686-8ix95Jans8z6.png",
+              "color": "#f1865d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/10686-vZyAucW8rY7g.jpg",
+            "genres": ["Action", "Adventure"],
+            "averageScore": 68,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2011,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 7367,
+            "title": {
+              "romaji": "NARUTO: THE CROSS ROADS",
+              "english": null,
+              "native": "NARUTO -ナルト- THE CROSS ROADS"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/7367.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/7367.jpg",
+              "color": "#e4780d"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Adventure", "Comedy"],
+            "averageScore": 64,
+            "format": "SPECIAL",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 2009,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 97938,
+            "title": {
+              "romaji": "BORUTO: NARUTO NEXT GENERATIONS",
+              "english": "Boruto: Naruto Next Generations",
+              "native": "BORUTO-ボルト- NARUTO NEXT GENERATIONS"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx97938-BnF6M5yTaNB1.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx97938-BnF6M5yTaNB1.jpg",
+              "color": "#00c9ff"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/97938-cT6wkSRifTEC.jpg",
+            "genres": ["Action", "Adventure", "Fantasy"],
+            "averageScore": 56,
+            "format": "TV",
+            "episodes": 293,
+            "season": "SPRING",
+            "seasonYear": 2017,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          }
+        ]
+      }
+    }
+  }
+}
