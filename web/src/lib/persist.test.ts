@@ -337,10 +337,10 @@ test('each change to a saved list is saved at once: new titles, being marked out
 test('the saved copy expires a day after its last change, not a day after the visitor’s last search', async (t) => {
   // A save that would change nothing is skipped (see queryClient.ts), so it leaves the copy's
   // timestamp, which maxAge counts from, as it was. While AniList is down, every search the visitor
-  // makes fails and changes nothing that is saved: after an hour of them, the copy still expires a
+  // makes fails and changes nothing that is saved: after 23 hours of them, the copy still expires a
   // day after the last answer. That is on purpose: by then the answer is over a day old, and lists
-  // that old are not saved again either. Were such saves let through every ten minutes or so, to
-  // stamp the copy anew, the answer would come back 24.5 hours after it arrived.
+  // that old are not saved again either. Were such saves let through to stamp the copy anew, even
+  // hours apart, the answer would come back 24.5 hours after it arrived.
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
   const answeredAt = Date.now()
   const storage = fakeStorage()
@@ -349,20 +349,20 @@ test('the saved copy expires a day after its last change, not a day after the vi
   const titles = SAMPLES.slice(0, 2)
   ask(client, 'frieren')(titles)
   await wait(t, 1000) // the copy is saved at most once a second, so the answer is saved by now
-  // AniList goes down. For an hour, the visitor searches every 10 minutes, and each search fails.
+  // AniList goes down. For 23 hours, the visitor searches every hour, and each search fails.
   const offline = () => Promise.reject(new TypeError('Failed to fetch'))
-  for (const term of ['mushishi', 'naruto', 'monster', 'trigun', 'haikyu', 'bleach']) {
-    t.mock.timers.tick(10 * MINUTE)
-    void client.prefetchQuery({ ...searchQuery(term), queryFn: offline, retry: false })
+  for (let hour = 1; hour <= 23; hour++) {
+    t.mock.timers.tick(HOUR)
+    void client.prefetchQuery({ ...searchQuery(`search ${hour}`), queryFn: offline, retry: false })
     await wait(t) // no time passes
   }
   await wait(t, 1000) // any save is made by now
   assert.deepEqual(
     savedSearches(storage),
     { frieren: titles },
-    'after an hour of searches that failed, the saved copy did not hold the answer',
+    'after 23 hours of searches that failed, the saved copy did not hold the answer',
   )
-  // The next visit, 24.5 hours after the answer and 23.5 hours after the last search.
+  // The next visit, 24.5 hours after the answer and an hour and a half after the last search.
   t.mock.timers.setTime(answeredAt + 24 * HOUR + 30 * MINUTE)
   const next = new QueryClient()
   await persistQueryClientRestore({
