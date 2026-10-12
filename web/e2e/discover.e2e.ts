@@ -821,7 +821,7 @@ describe('desktop (1440x900)', () => {
   test('Try again hands focus to the heading only when it goes while focused, never while it stays', async () => {
     // A returning visitor whose saved trending titles are over 30 minutes old: the page
     // refreshes them, and AniList turns the refresh down. The saved titles stay on screen.
-    await sleep(1_500) // the saved copy updates a second after the page's last change
+    await sleep(1_500) // the saved copy updates within a second of the page's last change
     await browser.evaluate(`(() => {
       const saved = JSON.parse(localStorage.getItem('anibeam:cache'))
       for (const query of saved.clientState.queries) query.state.dataUpdatedAt -= 60 * 60 * 1000

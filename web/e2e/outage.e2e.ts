@@ -1,10 +1,12 @@
-// A first-time visitor while AniList is unreachable: sample titles with friendly messages, then
-// Try again. Slow on purpose: after a failed connection the AniList client waits a minute before
-// retrying.
+// A visitor while AniList is unreachable: a returning visitor keeps last visit's titles, and a
+// first-time visitor gets sample titles with friendly messages, then Try again. Slow on purpose:
+// after a failed connection the AniList client waits a minute before retrying.
+import { hashKey, type QueryKey } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { titleOf } from '../src/features/anime/format.ts'
+import { eraQuery, FIRST_ERA, trendingQuery, type Media } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { deriveAccent } from '../src/features/theming/deriveAccent.ts'
 import { Browser } from './browser.ts'
@@ -16,6 +18,38 @@ before(async () => {
 after(() => browser?.close())
 
 const notes = `[...document.querySelectorAll('.ab-note')].map((note) => note.textContent)`
+// What the visitor sees: the trending heading and the intro's button that leads to it, the
+// panels' titles, rank numbers, panels that say "Number 1 trending", the strip's titles and
+// both sections' status lines.
+const shown = `({
+  heading: document.getElementById('ab-trending').firstChild.textContent,
+  button: document.querySelector('.ab-intro-actions a[href="#ab-trending"]').textContent,
+  panels: [...document.querySelectorAll('.ab-grid .ab-caption b')].map((title) => title.textContent),
+  ranks: document.querySelectorAll('.ab-grid .ab-rank').length,
+  ranked: [...document.querySelectorAll('.ab-grid .ab-caption')].filter((caption) => caption.textContent.includes('trending')).length,
+  strip: [...document.querySelectorAll('.ab-strip-row .ab-strip-title')].map((title) => title.textContent),
+  notes: ${notes},
+})`
+type Shown = {
+  heading: string
+  button: string
+  panels: string[]
+  ranks: number
+  ranked: number
+  strip: string[]
+  notes: string[]
+}
+
+// Counts the page's requests to AniList in window.__asked, from the next load on (added before
+// it with Page.addScriptToEvaluateOnNewDocument).
+const countRequests = `(() => {
+  const fetch = window.fetch
+  window.__asked = 0
+  window.fetch = function (url) {
+    if (url === 'https://graphql.anilist.co') window.__asked++
+    return fetch.apply(this, arguments)
+  }
+})()`
 
 // Where the headline sits inside the intro: it must not move when the covers arrive.
 const headline = `document.querySelector('.ab-intro-title').getBoundingClientRect().top - document.querySelector('.ab-intro').getBoundingClientRect().top`
@@ -37,7 +71,7 @@ test('on a phone, the intro holds its covers’ place while they load, so the he
 // API still answers. Chrome then draws its broken-image icon in each cover's box (alt="" doesn't
 // stop it). The titles come from the copy the check above saved, so this asks AniList for none.
 test('covers that can’t load show no broken-image icon, and each panel shows its title’s color instead, darkened so its rank stands out', async () => {
-  await sleep(1_500) // the saved copy updates a second after the page's last change
+  await sleep(1_500) // the saved copy updates within a second of the page's last change
   await browser.send('Network.enable')
   await browser.send('Network.setBlockedURLs', { urls: ['*s4.anilist.co*'] })
   try {
@@ -184,6 +218,131 @@ test('on a phone, intro covers that can’t load keep their place in their title
   }
 })
 
+// Phase 1's "done when": a reload with AniList blocked still shows saved results. The page saves
+// AniList's answers (see queryClient.ts), so a returning visitor sees last visit's titles, not the
+// samples a first visit gets, without the page asking AniList for them. The last visit loads the
+// copy the first check saved, so this asks AniList for none; run alone, it asks for one.
+test('a returning visitor sees last visit’s titles while AniList is down, not the samples', async () => {
+  await browser.load() // the last visit
+  assert.ok(await browser.titlesShown(), 'the titles never came')
+  const last = await browser.evaluate<Shown>(shown)
+  assert.equal(
+    last.heading,
+    'Trending now',
+    'AniList’s titles never came, so there is nothing to check',
+  )
+  await sleep(1_500) // the saved copy updates within a second of the page's last change
+  // From the next load on, counts the page's requests to AniList.
+  const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: countRequests,
+  })
+  await browser.blockAniList()
+  try {
+    await browser.load()
+    // Without saved titles, the samples would show once the first try had failed.
+    assert.ok(await browser.titlesShown(15_000), 'no titles came, not even the samples')
+    const { asked, ...page } = await browser.evaluate<Shown & { asked: number }>(
+      `({ ...${shown}, asked: window.__asked })`,
+    )
+    assert.deepEqual(page, last, 'with AniList down, the page did not show last visit’s titles')
+    assert.equal(asked, 0, 'the page asked AniList for titles it had saved')
+  } finally {
+    await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+    await browser.blockAniList(false)
+  }
+})
+
+/**
+ * The JSON the last release saved under anibeam:cache, with buster v2: each of `lists` as TanStack
+ * dehydrates it, saved at `savedAt`. Each list goes under the hash TanStack's hashKey makes of its
+ * key, which the page looks it up by: hashKey sorts the variables, so for the 1990s it isn't the
+ * key's JSON.
+ */
+function lastReleaseCopy(savedAt: number, lists: [QueryKey, Media[]][]) {
+  return JSON.stringify({
+    buster: 'v2',
+    timestamp: savedAt,
+    clientState: {
+      mutations: [],
+      queries: lists.map(([queryKey, data]) => ({
+        dehydratedAt: savedAt,
+        state: {
+          data,
+          dataUpdateCount: 1,
+          dataUpdatedAt: savedAt,
+          error: null,
+          errorUpdateCount: 0,
+          errorUpdatedAt: 0,
+          fetchFailureCount: 0,
+          fetchFailureReason: null,
+          fetchMeta: null,
+          isInvalidated: false,
+          status: 'success',
+          fetchStatus: 'idle',
+        },
+        queryKey,
+        queryHash: hashKey(queryKey),
+      })),
+    },
+  })
+}
+
+// Titles the bundled samples don't have, so the samples can't pass for them: the samples, renamed.
+const renamed = (titles: Media[], name: string): Media[] =>
+  titles.map((media, i) => ({
+    ...media,
+    title: { romaji: `${name} ${i + 1}`, english: null, native: null },
+  }))
+
+// The check above saves the copy and reads it back with one build, so a change that build makes
+// to both sides passes it: main.tsx giving the provider another buster, say, or the copy kept in
+// sessionStorage. Yet a visitor back from the last release would lose every title it saved. Here
+// that release's copy is in place before the page's own scripts run, so it comes back only
+// through the persister the page builds: its key, buster and storage, and main.tsx's wiring. No
+// unit test sees those: none loads main.tsx, and those that restore a copy build a persister of
+// their own. Saved a minute ago, its lists are fresh, and AniList is kept away, so this asks
+// AniList for none. A change meant to drop that copy, such as a new buster, must change this too.
+test('a visitor back from the last release sees the titles it saved while AniList is down', async () => {
+  // Twenty for trending, as many as AniList sends, and the other ten for the 1990s, the decade
+  // the page opens on.
+  const trending = renamed(SAMPLES.slice(0, 20), 'Saved trending title')
+  const nineties = renamed(SAMPLES.slice(20), 'Saved 1990s title')
+  const copy = lastReleaseCopy(Date.now() - 60_000, [
+    [trendingQuery().queryKey, trending],
+    [eraQuery(FIRST_ERA).queryKey, nineties],
+  ])
+  const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `${countRequests}
+      localStorage.setItem('anibeam:cache', ${JSON.stringify(copy)})`,
+  })
+  await browser.blockAniList()
+  try {
+    await browser.load()
+    // Without the saved titles, the samples would show once the first try had failed.
+    assert.ok(await browser.titlesShown(15_000), 'no titles came, not even the samples')
+    const { asked, ...page } = await browser.evaluate<Shown & { asked: number }>(
+      `({ ...${shown}, asked: window.__asked })`,
+    )
+    assert.deepEqual(
+      page,
+      {
+        heading: 'Trending now',
+        button: 'See what’s trending',
+        panels: trending.slice(0, 9).map(titleOf),
+        ranks: 9,
+        ranked: 9,
+        strip: nineties.map(titleOf),
+        notes: ['', ''],
+      },
+      'with AniList down, the page did not show the titles the last release saved',
+    )
+    assert.equal(asked, 0, 'the page asked AniList for titles the last release saved')
+  } finally {
+    await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+    await browser.blockAniList(false)
+  }
+})
+
 // From 900px wide the splash panel shows its title's banner, and below that its cover, in the
 // same img: narrowing the window or turning a tablet swaps one file for the other. A banner that
 // failed must not keep the cover hidden once it loads. With AniList kept away, the panels show
@@ -233,27 +392,6 @@ describe('AniList down on a first visit', () => {
   )
   const favorites = 'These are fan favorites, not this week’s trending.'
   const fromThe1990s = 'A few fan favorites from the 1990s, not the full list.'
-  // What the visitor sees: the trending heading and the intro's button that leads to it, the
-  // panels' titles, rank numbers, panels that say "Number 1 trending", the strip's titles and
-  // both sections' status lines.
-  const shown = `({
-    heading: document.getElementById('ab-trending').firstChild.textContent,
-    button: document.querySelector('.ab-intro-actions a[href="#ab-trending"]').textContent,
-    panels: [...document.querySelectorAll('.ab-grid .ab-caption b')].map((title) => title.textContent),
-    ranks: document.querySelectorAll('.ab-grid .ab-rank').length,
-    ranked: [...document.querySelectorAll('.ab-grid .ab-caption')].filter((caption) => caption.textContent.includes('trending')).length,
-    strip: [...document.querySelectorAll('.ab-strip-row .ab-strip-title')].map((title) => title.textContent),
-    notes: ${notes},
-  })`
-  type Shown = {
-    heading: string
-    button: string
-    panels: string[]
-    ranks: number
-    ranked: number
-    strip: string[]
-    notes: string[]
-  }
   const samplesShown = (status: string) => ({
     heading: 'Fan favorites',
     // The button must not promise this week's trending either.
@@ -333,6 +471,54 @@ describe('AniList down on a first visit', () => {
     }
   })
 
+  // A browser can block a site's storage altogether ("block all site data"): reading localStorage
+  // or sessionStorage then throws, and the page must still work, just without a saved copy.
+  // storage.test.ts checks that for queryClient.ts alone, and in Node: storage read anywhere else
+  // as the page loads, such as main.tsx clearing an old copy, would throw in such a browser and
+  // leave the page blank, yet pass every unit test. Here the whole page loads in Chrome with its
+  // storage blocked. Nothing can be restored, so it is a first visit like the rest of this
+  // group's, with AniList kept away: the samples show, and it asks AniList for none.
+  test('when the browser blocks storage, the page still loads, shows the sample titles and throws nothing', async () => {
+    // What Chrome does when site data is blocked: reading either storage throws a SecurityError.
+    const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `for (const name of ['localStorage', 'sessionStorage'])
+        Object.defineProperty(window, name, {
+          configurable: true,
+          get() {
+            throw new DOMException("Failed to read the '" + name + "' property from 'Window': Access is denied for this document.", 'SecurityError')
+          },
+        })`,
+    })
+    // The checks above may have left problems of their own: only this load's count here.
+    const earlier = browser.problems.length
+    try {
+      await browser.load()
+      const titles = await browser.titlesShown(15_000)
+      const storage = await browser.evaluate<string[]>(
+        `['localStorage', 'sessionStorage'].map((name) => { try { return typeof window[name] } catch (error) { return error.name } })`,
+      )
+      assert.deepEqual(
+        storage,
+        ['SecurityError', 'SecurityError'],
+        'the page could read its storage, so there is nothing to check',
+      )
+      assert.deepEqual(
+        browser.problems.slice(earlier).filter((problem) => problem.startsWith('exception')),
+        [],
+        'with storage blocked, the page threw',
+      )
+      assert.ok(titles, 'with storage blocked, no titles came, not even the samples')
+      const page = await browser.evaluate<Shown>(shown)
+      assert.deepEqual(
+        { panels: page.panels, strip: page.strip },
+        { panels: SAMPLES.slice(0, 9).map(titleOf), strip: nineties.map(titleOf) },
+        'with storage blocked, the page did not show the sample titles',
+      )
+    } finally {
+      await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+    }
+  })
+
   test('while it retries, each section shows sample titles, says what they are and that it is not the visitor', async () => {
     await browser.load() // still a first visit: an outage saves nothing
     // The samples load once the first try has failed.
@@ -358,7 +544,7 @@ describe('AniList down on a first visit', () => {
   // They are swapped in as the page renders, never put in the query cache: that is saved for a
   // day, so they would come back on the next visit as AniList's answer, and pass for fresh.
   test('the sample titles are never saved as AniList’s', async () => {
-    await sleep(1_500) // the saved copy updates a second after the page's last change
+    await sleep(1_500) // the saved copy updates within a second of the page's last change
     const saved = await browser.evaluate<string[]>(
       `(JSON.parse(localStorage.getItem('anibeam:cache'))?.clientState.queries ?? []).flatMap((query) => query.state.data ?? []).map((media) => media.title.romaji)`,
     )

@@ -1,11 +1,13 @@
-import { dehydrate, QueryClient, QueryObserver } from '@tanstack/react-query'
+import { dehydrate, environmentManager, QueryClient, QueryObserver } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { AniListError } from './anilist.ts'
 import { ERAS, eraQuery, searchQuery, trendingQuery } from '../features/anime/queries.ts'
+import { SAMPLES } from '../features/anime/samples.ts'
 import { persistOptions, queryClient, refetchFailed, shouldRetry } from './queryClient.ts'
 
-const DAY = 24 * 60 * 60 * 1000
+const HOUR = 60 * 60 * 1000
+const DAY = 24 * HOUR
 
 test('retries rate limits and server errors up to 3 times, network failures once', () => {
   // Every retry of a rate limit or a network failure first waits out a one-minute pause.
@@ -66,6 +68,44 @@ test('results older than a day are not saved again', () => {
   client.setQueryData(['fresh'], [{ id: 1 }])
   client.setQueryData(['old'], [{ id: 2 }], { updatedAt: Date.now() - DAY - 1 })
   assert.deepEqual(saved(client), [[['fresh'], [{ id: 1 }]]])
+})
+
+test('a list from 23 hours ago is still saved', () => {
+  // The other side of the test above, which passes even if lists stop being saved after an hour.
+  // Each list is saved until its answer is a day old, so a visitor back the next evening while
+  // AniList is down still has last night's titles after a reload.
+  const client = new QueryClient()
+  client.setQueryData(['yesterday'], [{ id: 1 }], { updatedAt: Date.now() - 23 * HOUR })
+  assert.deepEqual(
+    saved(client),
+    [[['yesterday'], [{ id: 1 }]]],
+    'a list from 23 hours ago was not saved: lists leave the saved copy before their day is up',
+  )
+})
+
+test('a list the visitor has left is still saved 23 hours later', async (t) => {
+  // TanStack drops a list no component is using from the cache once gcTime is up, and the next
+  // save leaves it out of the copy. Unless set, gcTime is 5 minutes in a browser: a search the
+  // visitor had moved on from would be gone when they came back while AniList is down. Lists are
+  // saved for a day, so gcTime must last that day too: the list is held 23 hours, like the test
+  // above's, since at a day old it leaves the copy anyway. Node has no window, so query-core takes
+  // this test for a server, where gcTime is Infinity unless set: until the test ends, query-core is
+  // told it is in a browser.
+  const wasServer = environmentManager.isServer()
+  environmentManager.setIsServer(() => false)
+  t.after(() => environmentManager.setIsServer(() => wasServer))
+  // The real app client and query, for their gcTime; only the answer and the clock are fake.
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
+  t.after(() => queryClient.clear())
+  const search = searchQuery('frieren')
+  const titles = SAMPLES.slice(0, 2)
+  await queryClient.query({ ...search, queryFn: async () => titles })
+  t.mock.timers.tick(23 * HOUR) // 23 hours go by with the search off the page
+  assert.deepEqual(
+    saved(queryClient),
+    [[search.queryKey, titles]],
+    'a list the visitor left 23 hours ago was not saved: gcTime dropped it before its day was up',
+  )
 })
 
 test('Try again refetches every failed list on the page, and nothing else', async (t) => {
