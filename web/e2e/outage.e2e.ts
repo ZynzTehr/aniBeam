@@ -471,6 +471,54 @@ describe('AniList down on a first visit', () => {
     }
   })
 
+  // A browser can block a site's storage altogether ("block all site data"): reading localStorage
+  // or sessionStorage then throws, and the page must still work, just without a saved copy.
+  // storage.test.ts checks that for queryClient.ts alone, and in Node: storage read anywhere else
+  // as the page loads, such as main.tsx clearing an old copy, would throw in such a browser and
+  // leave the page blank, yet pass every unit test. Here the whole page loads in Chrome with its
+  // storage blocked. Nothing can be restored, so it is a first visit like the rest of this
+  // group's, with AniList kept away: the samples show, and it asks AniList for none.
+  test('when the browser blocks storage, the page still loads, shows the sample titles and throws nothing', async () => {
+    // What Chrome does when site data is blocked: reading either storage throws a SecurityError.
+    const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `for (const name of ['localStorage', 'sessionStorage'])
+        Object.defineProperty(window, name, {
+          configurable: true,
+          get() {
+            throw new DOMException("Failed to read the '" + name + "' property from 'Window': Access is denied for this document.", 'SecurityError')
+          },
+        })`,
+    })
+    // The checks above may have left problems of their own: only this load's count here.
+    const earlier = browser.problems.length
+    try {
+      await browser.load()
+      const titles = await browser.titlesShown(15_000)
+      const storage = await browser.evaluate<string[]>(
+        `['localStorage', 'sessionStorage'].map((name) => { try { return typeof window[name] } catch (error) { return error.name } })`,
+      )
+      assert.deepEqual(
+        storage,
+        ['SecurityError', 'SecurityError'],
+        'the page could read its storage, so there is nothing to check',
+      )
+      assert.deepEqual(
+        browser.problems.slice(earlier).filter((problem) => problem.startsWith('exception')),
+        [],
+        'with storage blocked, the page threw',
+      )
+      assert.ok(titles, 'with storage blocked, no titles came, not even the samples')
+      const page = await browser.evaluate<Shown>(shown)
+      assert.deepEqual(
+        { panels: page.panels, strip: page.strip },
+        { panels: SAMPLES.slice(0, 9).map(titleOf), strip: nineties.map(titleOf) },
+        'with storage blocked, the page did not show the sample titles',
+      )
+    } finally {
+      await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+    }
+  })
+
   test('while it retries, each section shows sample titles, says what they are and that it is not the visitor', async () => {
     await browser.load() // still a first visit: an outage saves nothing
     // The samples load once the first try has failed.
