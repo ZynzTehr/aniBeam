@@ -58,7 +58,7 @@ test('on a phone, the intro holds its covers’ place while they load, so the he
 // API still answers. Chrome then draws its broken-image icon in each cover's box (alt="" doesn't
 // stop it). The titles come from the copy the check above saved, so this asks AniList for none.
 test('covers that can’t load show no broken-image icon, and each panel shows its title’s color instead, darkened so its rank stands out', async () => {
-  await sleep(1_500) // the saved copy updates a second after the page's last change
+  await sleep(1_500) // the saved copy updates within a second of the page's last change
   await browser.send('Network.enable')
   await browser.send('Network.setBlockedURLs', { urls: ['*s4.anilist.co*'] })
   try {
@@ -218,7 +218,7 @@ test('a returning visitor sees last visit’s titles while AniList is down, not 
     'Trending now',
     'AniList’s titles never came, so there is nothing to check',
   )
-  await sleep(1_500) // the saved copy updates a second after the page's last change
+  await sleep(1_500) // the saved copy updates within a second of the page's last change
   // From the next load on, counts the page's requests to AniList.
   const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
     source: `(() => {
@@ -399,7 +399,7 @@ describe('AniList down on a first visit', () => {
   // They are swapped in as the page renders, never put in the query cache: that is saved for a
   // day, so they would come back on the next visit as AniList's answer, and pass for fresh.
   test('the sample titles are never saved as AniList’s', async () => {
-    await sleep(1_500) // the saved copy updates a second after the page's last change
+    await sleep(1_500) // the saved copy updates within a second of the page's last change
     const saved = await browser.evaluate<string[]>(
       `(JSON.parse(localStorage.getItem('anibeam:cache'))?.clientState.queries ?? []).flatMap((query) => query.state.data ?? []).map((media) => media.title.romaji)`,
     )

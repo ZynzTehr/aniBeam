@@ -47,7 +47,7 @@ const decadePanels = `[...${decadeRow}.querySelectorAll('.ab-strip-panel')].map(
  * titles and the new order.
  */
 async function returnAnHourLater() {
-  await sleep(1_500) // the saved copy updates a second after the page's last change
+  await sleep(1_500) // the saved copy updates within a second of the page's last change
   const titles = await browser.evaluate<Media[]>(`(() => {
     const cache = JSON.parse(localStorage.getItem('anibeam:cache'))
     for (const query of cache.clientState.queries) query.state.dataUpdatedAt -= 60 * 60 * 1000
@@ -67,8 +67,8 @@ async function returnAnHourLater() {
 }
 
 /**
- * Resolves once the page has saved the new order of trending (or of `list`), a second after the
- * refresh landed.
+ * Resolves once the page has saved the new order of trending (or of `list`), within a second of
+ * the refresh landing.
  */
 const landed = (refreshed: Media[], list = saved) =>
   browser.waitFor(
@@ -150,7 +150,7 @@ test('a refresh that reorders the decade on screen doesn’t send its row back t
     // 3 seconds so the check can use the row first. Both are scrolled out of sight to the left, so
     // the row should not move at all. (Chrome keeps a snapping row on the title at its start, so a
     // refresh that moved that title would take the row with it.)
-    await sleep(1_500) // the saved copy updates a second after the page's last change
+    await sleep(1_500) // the saved copy updates within a second of the page's last change
     const titles = await browser.evaluate<Media[]>(`(() => {
       const cache = JSON.parse(localStorage.getItem('anibeam:cache'))
       for (const query of cache.clientState.queries)
@@ -208,7 +208,7 @@ test('a refresh that reorders the decade on screen doesn’t send its row back t
 // AniList rarely sends an empty list, so the refresh is answered inside the page, and no request
 // is sent. Last in this file: it leaves trending saved with no titles.
 test('on a phone, a trending refresh with no titles empties the panels but keeps the intro’s covers, so the headline stays put', async () => {
-  await sleep(1_500) // the saved copy updates a second after the page's last change
+  await sleep(1_500) // the saved copy updates within a second of the page's last change
   // An hour on, as in returnAnHourLater, but only trending: the 1990s stay fresh, so the page asks
   // for trending alone.
   await browser.evaluate(`(() => {

@@ -1,4 +1,4 @@
-import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
+import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
 import { QueryClient, type Query } from '@tanstack/react-query'
 import { removeOldestQuery } from '@tanstack/react-query-persist-client'
 import { AniListError } from './anilist.ts'
@@ -40,10 +40,12 @@ function browserStorage() {
 // localStorage holds about 5 MB per site; removeOldestQuery drops the oldest
 // result when it is full. Upgrade path if that ever limits us: an IndexedDB persister.
 // The storage is an argument so tests can hand it a stand-in (see persist.test.ts).
+// The persister saves at most once a second (its default), and at once after a quiet
+// second, so an answer that comes late is kept even if the tab closes as soon as it shows.
 export const cachePersister = (
   storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined,
 ) =>
-  createSyncStoragePersister({
+  createAsyncStoragePersister({
     storage,
     key: 'anibeam:cache',
     retry: removeOldestQuery,
