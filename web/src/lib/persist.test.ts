@@ -14,6 +14,7 @@ import { SAMPLES } from '../features/anime/samples.ts'
 import { cachePersister, persistOptions } from './queryClient.ts'
 
 const MINUTE = 60_000
+const HOUR = 60 * MINUTE
 
 /**
  * localStorage, as far as the saved cache uses it, holding `room` characters at most: a bigger
@@ -33,45 +34,49 @@ function fakeStorage(room = Infinity) {
   }
 }
 
+/**
+ * The trending list holding `titles`, written out as today's app saves it at `savedAt`: the JSON it
+ * stores under anibeam:cache, with buster v2 and each list as TanStack dehydrates it.
+ */
+function savedCopy(savedAt: number, titles: Media[]) {
+  const { queryKey } = trendingQuery()
+  return JSON.stringify({
+    buster: 'v2',
+    timestamp: savedAt,
+    clientState: {
+      mutations: [],
+      queries: [
+        {
+          dehydratedAt: savedAt,
+          state: {
+            data: titles,
+            dataUpdateCount: 1,
+            dataUpdatedAt: savedAt,
+            error: null,
+            errorUpdateCount: 0,
+            errorUpdatedAt: 0,
+            fetchFailureCount: 0,
+            fetchFailureReason: null,
+            fetchMeta: null,
+            isInvalidated: false,
+            status: 'success',
+            fetchStatus: 'idle',
+          },
+          queryKey,
+          queryHash: JSON.stringify(queryKey),
+        },
+      ],
+    },
+  })
+}
+
 test('a copy today’s app saved comes back an hour later, titles and all', async () => {
-  // Written out as today's app stores it: JSON under anibeam:cache, with buster v2 and each list as
-  // TanStack dehydrates it. Every returning visitor's titles are saved this way, so a change to the
+  // Every returning visitor's titles are saved as savedCopy() writes them out, so a change to the
   // key, the buster or how the copy is read would throw them all away.
   const storage = fakeStorage()
-  const savedAt = Date.now() - 60 * MINUTE
   const { queryKey } = trendingQuery()
   const titles = SAMPLES.slice(0, 2)
-  storage.items.set(
-    'anibeam:cache',
-    JSON.stringify({
-      buster: 'v2',
-      timestamp: savedAt,
-      clientState: {
-        mutations: [],
-        queries: [
-          {
-            dehydratedAt: savedAt,
-            state: {
-              data: titles,
-              dataUpdateCount: 1,
-              dataUpdatedAt: savedAt,
-              error: null,
-              errorUpdateCount: 0,
-              errorUpdatedAt: 0,
-              fetchFailureCount: 0,
-              fetchFailureReason: null,
-              fetchMeta: null,
-              isInvalidated: false,
-              status: 'success',
-              fetchStatus: 'idle',
-            },
-            queryKey,
-            queryHash: JSON.stringify(queryKey),
-          },
-        ],
-      },
-    }),
-  )
+  storage.items.set('anibeam:cache', savedCopy(Date.now() - HOUR, titles))
 
   const client = new QueryClient()
   await persistQueryClientRestore({
@@ -83,6 +88,37 @@ test('a copy today’s app saved comes back an hour later, titles and all', asyn
     client.getQueryData(queryKey),
     titles,
     'the saved trending titles did not come back',
+  )
+})
+
+test('a copy saved 23 hours ago comes back, and one saved 25 hours ago does not', async (t) => {
+  // persistOptions keeps a copy for a day (maxAge), so a visitor back the next evening still has
+  // last night's titles. The test above sees only a maxAge under an hour, and every browser check
+  // reads a copy saved seconds before. PR 14 changes the day on purpose; until then, this pins it.
+  t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2030, 0, 1) })
+  const { queryKey } = trendingQuery()
+  const titles = SAMPLES.slice(0, 2)
+  // The trending titles the page has once it has restored a copy saved `hours` ago.
+  const restored = async (hours: number) => {
+    const storage = fakeStorage()
+    storage.items.set('anibeam:cache', savedCopy(Date.now() - hours * HOUR, titles))
+    const client = new QueryClient()
+    await persistQueryClientRestore({
+      ...persistOptions,
+      queryClient: client,
+      persister: cachePersister(storage),
+    })
+    return client.getQueryData(queryKey)
+  }
+  assert.deepEqual(
+    await restored(23),
+    titles,
+    'a copy saved 23 hours ago did not come back: the saved titles last less than a day',
+  )
+  assert.equal(
+    await restored(25),
+    undefined,
+    'a copy saved 25 hours ago came back: the saved titles last more than a day',
   )
 })
 
