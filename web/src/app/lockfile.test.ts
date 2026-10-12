@@ -36,6 +36,22 @@ test('the check sees every TanStack package web/package.json asks for', () => {
   )
 })
 
+test('package-lock.json was written for web/package.json as it is now', () => {
+  // The check above catches a lockfile that has fallen behind only when a package is missing from
+  // it. Raise a range in web/package.json past the version the lockfile holds (the async persister
+  // to ^5.104.2, say) and every package is still there, so the other checks here pass, yet Vercel's
+  // npm install resolves that package afresh, with a query-core of its own. This check sees that
+  // too: npm install copies web/package.json's dependencies and devDependencies into the lockfile's
+  // record of web, so the two differ once web/package.json changes and the lockfile doesn't.
+  const manifest = read('../../package.json')
+  const recorded = lockfile.packages.web
+  assert.deepEqual(
+    { dependencies: recorded.dependencies, devDependencies: recorded.devDependencies },
+    { dependencies: manifest.dependencies, devDependencies: manifest.devDependencies },
+    'package-lock.json (+) doesn’t match web/package.json (-): run npm install from the repo root',
+  )
+})
+
 test('package-lock.json installs one copy of TanStack’s query-core', () => {
   const copies = tanstack.filter(({ name }) => name === '@tanstack/query-core')
   assert.equal(
