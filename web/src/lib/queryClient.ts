@@ -72,6 +72,10 @@ const signature = ({ clientState }: PersistedClient) =>
 // a second earlier, and is kept even if the tab closes as soon as it shows; otherwise it is saved
 // as that second ends. The persister times its second by the wall clock, so saving pauses for as
 // long as the computer's clock steps back (TanStack's own behavior, and rare enough to accept).
+// A skipped save leaves the copy's timestamp as it was, so after the page's first save, the copy's
+// day (maxAge) counts from the last change to what is saved, not from the visitor's last activity,
+// such as searches that fail while AniList is down: by the time that day is up, every list in the
+// copy is over a day old, too old to be saved again anyway (see persistOptions).
 export const cachePersister = (
   storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined,
 ): Persister => {
