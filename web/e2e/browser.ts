@@ -5,10 +5,12 @@
 //   BASE_URL    the running app (default http://localhost:5173/, from `npm run dev`)
 //
 // The checks use the real AniList API, which allows 30 requests a minute per IP address.
-// One browser profile is kept for a whole test file, so its saved cache spares requests.
+// One browser profile is kept for a whole test file, so its saved cache spares requests. A check
+// can open a browser that answers AniList from recordings of its answers instead, and sends it
+// nothing (see Browser.open).
 import { spawn, type ChildProcess } from 'node:child_process'
 import { once } from 'node:events'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -31,26 +33,109 @@ export type Answer = {
 }
 type Rewrite = (answer: Answer) => { status: number; body: unknown } | null
 
+/** Where a browser's AniList answers come from: AniList itself, or recordings (see open). */
+export type AniListMode = 'live' | 'recorded'
+/** An answer AniList gave, kept to answer the same request again. */
+export type Recording = Answer
+
+// A recorded browser's recordings, unless the check hands it its own: one JSON file per request.
+const RECORDINGS = new URL('./anilist/', import.meta.url)
+const readRecordings = (): Recording[] =>
+  existsSync(RECORDINGS)
+    ? readdirSync(RECORDINGS)
+        .filter((file) => file.endsWith('.json'))
+        .map((file) => JSON.parse(readFileSync(new URL(file, RECORDINGS), 'utf8')))
+    : []
+
+// JSON keeps variables in the order they were written, which says nothing about the request.
+const sorted = (variables: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.keys(variables)
+      .sort()
+      .map((name) => [name, variables[name]]),
+  )
+// A recording answers only a request with its exact query text and variables, as the page's
+// cache keys a list (['anilist', query, variables]): a query edited since it was recorded misses,
+// rather than getting an answer without the fields it now asks for.
+const keyOf = ({ query, variables = {} }: Answer['request']) =>
+  JSON.stringify([query, sorted(variables)])
+// A request in a few words, for messages: how it sorts each list it asks for (or, with no list,
+// how its query starts), and its variables.
+const nameOf = ({ query, variables = {} }: Answer['request']) => {
+  const lists = [...query.matchAll(/sort: (\w+)/g)].map(([, sort]) => sort).join(' + ')
+  return `${lists || JSON.stringify(query.slice(0, 60))} with ${JSON.stringify(sorted(variables))}`
+}
+
+// What AniList sends with its answer to a CORS preflight, and with its answer to a request, as a
+// live run's network log shows them. The page may send only the headers AniList allows, and read
+// only those it exposes, so a recorded browser lets the page do no more than AniList does.
+const PREFLIGHT_HEADERS = [
+  { name: 'Access-Control-Allow-Origin', value: '*' },
+  {
+    name: 'Access-Control-Allow-Headers',
+    value:
+      'Authorization,Accept,DNT,X-CustomHeader,Keep-Alive,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Content-Range,Range',
+  },
+  { name: 'Access-Control-Allow-Methods', value: 'GET, POST, OPTIONS' },
+]
+const ANSWER_HEADERS = [
+  { name: 'Content-Type', value: 'application/json' },
+  { name: 'Access-Control-Allow-Origin', value: '*' },
+  {
+    name: 'Access-Control-Expose-Headers',
+    value:
+      'X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset, Content-Length, Content-Range',
+  },
+  { name: 'X-RateLimit-Limit', value: '30' },
+  { name: 'X-RateLimit-Remaining', value: '29' },
+]
+// AniList answers in about 230 ms (the median in a gate's network logs), and the checks were made
+// against that: some look at the page while a request is out. So a recorded answer comes as late.
+const ANSWER_MS = 200
+
 export class Browser {
   #chrome: ChildProcess
   #profile: string
   #socket: WebSocket
   #nextId = 0
   #pending = new Map<number, (message: Message) => void>()
+  #aniList: AniListMode
+  // A recorded browser's recordings by keyOf, and where they came from, for messages.
+  #recordings: Map<string, Recording>
+  #where: string
   #blocking = false
   #holdMs = 0
-  #held = new Set<string>()
+  // What each request on hold does once let go: go on to AniList, or get its recorded answer.
+  #held = new Map<string, () => Promise<unknown>>()
   #rewrite: Rewrite | null = null
   #answering = new Set<Promise<unknown>>()
+  // Requests a recorded browser had no recording for, until waitFor() or close() throws them.
+  #misses = new Set<string>()
   // Called once Chrome has moved a stopped clock on as far as tick() asked.
   #clockMoved: (() => void) | null = null
   /** Uncaught exceptions and console errors or warnings, for the "clean console" check. */
   problems: string[] = []
 
-  private constructor(chrome: ChildProcess, profile: string, socket: WebSocket) {
+  private constructor(
+    chrome: ChildProcess,
+    profile: string,
+    socket: WebSocket,
+    aniList: AniListMode,
+    recordings: Recording[] | undefined,
+  ) {
     this.#chrome = chrome
     this.#profile = profile
     this.#socket = socket
+    this.#aniList = aniList
+    this.#recordings = new Map(
+      (aniList === 'recorded' ? (recordings ?? readRecordings()) : []).map((recording) => [
+        keyOf(recording.request),
+        recording,
+      ]),
+    )
+    this.#where = recordings
+      ? 'among the ones the check gave Browser.open()'
+      : 'in web/e2e/anilist/'
     socket.addEventListener('message', (event) => {
       const message: Message = JSON.parse(String(event.data))
       if (message.id !== undefined) {
@@ -74,30 +159,24 @@ export class Browser {
           `console.${message.params.type}: ` +
             message.params.args.map((arg: any) => arg.value ?? arg.description ?? '').join(' '),
         )
-      if (message.method === 'Fetch.requestPaused') {
-        const { requestId } = message.params
-        const { responseStatusCode, responseErrorReason } = message.params
-        // Paused again once the answer (or a failure) is in (see rewriteAniList).
-        if (responseStatusCode !== undefined || responseErrorReason !== undefined) {
-          const answering = this.#answer(message.params).finally(() =>
-            this.#answering.delete(answering),
-          )
-          this.#answering.add(answering)
-        } else if (this.#blocking)
-          void this.send('Fetch.failRequest', {
-            requestId,
-            errorReason: 'ConnectionRefused',
-          }).catch(() => {})
-        else {
-          this.#held.add(requestId)
-          setTimeout(() => void this.#release(requestId), this.#holdMs)
-        }
-      }
+      if (message.method === 'Fetch.requestPaused') this.#paused(message.params)
     })
   }
 
-  /** Starts Chrome with a fresh profile; port 0 lets Chrome pick a free debugging port. */
-  static async open(): Promise<Browser> {
+  /**
+   * Starts Chrome with a fresh profile; port 0 lets Chrome pick a free debugging port. Its AniList
+   * answers come from AniList itself, unless `aniList` is 'recorded': then each request gets a
+   * copy of its recording, from `recordings` if the check hands some in, or else from
+   * web/e2e/anilist/, 200 ms after it is made, as AniList's answer would come. A request with no
+   * recording gets a 404, not a failed connection, which would bring up the bundled samples that
+   * titlesShown() can't tell from AniList's titles; and the next waitFor() throws, naming it.
+   * Nothing is sent to AniList: Chrome doesn't even resolve its address, so a request that got
+   * past the recordings would fail rather than reach it.
+   */
+  static async open({
+    aniList = 'live',
+    recordings,
+  }: { aniList?: AniListMode; recordings?: Recording[] } = {}): Promise<Browser> {
     const chromeBin = process.env.CHROME_BIN
     if (!chromeBin || !existsSync(chromeBin))
       throw new Error(
@@ -117,6 +196,9 @@ export class Browser {
         '--no-first-run',
         `--user-data-dir=${profile}`,
         '--remote-debugging-port=0',
+        ...(aniList === 'recorded'
+          ? ['--host-resolver-rules=MAP graphql.anilist.co ~NOTFOUND']
+          : []),
         'about:blank',
       ],
       { stdio: 'ignore' },
@@ -151,9 +233,10 @@ export class Browser {
           once: true,
         })
       })
-      const browser = new Browser(chrome, profile, socket)
+      const browser = new Browser(chrome, profile, socket, aniList, recordings)
       await browser.send('Page.enable')
       await browser.send('Runtime.enable')
+      if (aniList === 'recorded') await browser.#intercept()
       return browser
     } catch (error) {
       await stop(chrome, profile)
@@ -188,12 +271,17 @@ export class Browser {
     return result.result?.value as T
   }
 
-  /** Polls a true/false expression until it is true or the time runs out; returns the last answer. */
+  /**
+   * Polls a true/false expression until it is true or the time runs out; returns the last answer.
+   * Throws instead once the page has asked a recorded browser for anything with no recording.
+   */
   async waitFor(expression: string, ms = 20_000): Promise<boolean> {
     for (let waited = 0; waited < ms; waited += 250) {
+      this.#throwMisses()
       if (await this.evaluate<boolean>(`Boolean(${expression})`)) return true
       await sleep(250)
     }
+    this.#throwMisses()
     return false
   }
 
@@ -294,7 +382,9 @@ export class Browser {
    * (Emulation.setCPUThrottlingRate): then keys stop going in. Stop it once the page has
    * settled: while its entrance animations run, the first tick can go 10 ms further than asked.
    * Chrome can't start the real clock again, even for another page, so stop it only in a
-   * browser opened for that.
+   * browser opened for that. A recorded AniList answer comes on Node's clock, 200 ms (or a hold)
+   * after the page asks: with the page's clock stopped, the page takes it in only during a tick,
+   * so tick once it is due.
    */
   stopClock() {
     return this.send('Emulation.setVirtualTimePolicy', { policy: 'pause' })
@@ -321,34 +411,126 @@ export class Browser {
     ])
   }
 
-  /** Makes every request to AniList fail, as if it were down (`false` undoes it). */
+  /**
+   * Makes every request to AniList fail, as if it were down (`false` undoes it), in a recorded
+   * browser too. There, Network.emulateNetworkConditions offline doesn't: its AniList requests
+   * are answered before they reach the network. So a check that needs AniList to fail uses this.
+   */
   async blockAniList(blocked = true) {
     this.#blocking = blocked
     return this.#intercept()
   }
 
-  /** Delays every AniList answer by `ms`, to look at loading states (0 undoes it). */
+  /**
+   * Delays every AniList answer by `ms`, to look at loading states (0 undoes it). A recorded
+   * answer comes after the hold, in place of its usual 200 ms.
+   */
   async holdAniList(ms: number) {
     this.#holdMs = ms
     // Requests still on hold go through now: switching interception off would drop them.
-    if (ms === 0) await Promise.all([...this.#held].map((id) => this.#release(id)))
+    if (ms === 0) await Promise.all([...this.#held.keys()].map((id) => this.#release(id)))
     return this.#intercept()
   }
 
   /**
    * Changes AniList's answers before the page sees them, to stage what AniList rarely does.
    * `rewrite` gets each answer and returns a new status and body, or null to pass it on as
-   * it is. The requests still go to AniList (and count toward its limit); the answers keep
-   * its headers. `null` stops rewriting.
+   * it is. `null` stops rewriting. In a live browser the requests still go to AniList (and count
+   * toward its limit), and the answers keep its headers. In a recorded browser the rewrite gets a
+   * copy of the request's recording, so it can change it where it is. A request with no recording
+   * comes as a 404: a rewrite that answers it with another status needs no recording, but a 404
+   * passed on, or changed and still a 404, leaves it a request with no recording (see open).
    */
   async rewriteAniList(rewrite: Rewrite | null) {
     this.#rewrite = rewrite
     return this.#intercept()
   }
 
+  /** Answers, fails, holds or lets go a request to AniList that Chrome has paused. */
+  #paused(params: any) {
+    const { requestId, request, responseStatusCode, responseErrorReason } = params
+    // Paused again once the answer (or a failure) is in (see rewriteAniList).
+    if (responseStatusCode !== undefined || responseErrorReason !== undefined) {
+      const answering = this.#answer(params).finally(() => this.#answering.delete(answering))
+      this.#answering.add(answering)
+    }
+    // The CORS preflight Chrome sends before the page's request, answered as AniList answers it.
+    else if (this.#aniList === 'recorded' && request.method === 'OPTIONS')
+      void this.#fulfill(requestId, 204, PREFLIGHT_HEADERS, '')
+    else if (this.#blocking)
+      void this.send('Fetch.failRequest', {
+        requestId,
+        errorReason: 'ConnectionRefused',
+      }).catch(() => {})
+    else if (this.#aniList === 'recorded') {
+      const { status, body } = this.#recorded(request)
+      this.#hold(requestId, this.#holdMs || ANSWER_MS, () =>
+        this.#fulfill(requestId, status, ANSWER_HEADERS, JSON.stringify(body)),
+      )
+    } else
+      this.#hold(requestId, this.#holdMs, () =>
+        this.send('Fetch.continueRequest', { requestId }).catch(() => {}),
+      )
+  }
+
+  /**
+   * A recorded browser's answer to a request: a copy of its recording, then any rewrite. With no
+   * recording, a 404; unless a rewrite answers it with another status, it is noted for
+   * waitFor() and close() to throw.
+   */
+  #recorded(request: { method: string; url: string; postData?: string }) {
+    let graphql: Answer['request'] | undefined
+    try {
+      graphql = JSON.parse(request.postData ?? '')
+    } catch {}
+    const name = graphql?.query ? nameOf(graphql) : `${request.method} ${request.url}`
+    const recording = graphql?.query ? this.#recordings.get(keyOf(graphql)) : undefined
+    const answer: Answer = {
+      request: { query: graphql?.query ?? '', variables: graphql?.variables ?? {} },
+      status: recording?.status ?? 404,
+      body: recording
+        ? structuredClone(recording.body)
+        : { data: null, errors: [{ message: `No recording for ${name}`, status: 404 }] },
+    }
+    let changed: { status: number; body: unknown } | null = null
+    try {
+      changed = this.#rewrite?.(answer) ?? null
+    } catch {}
+    // A rewrite that tags or passes on every answer, as some checks have for a whole file, would
+    // otherwise hide a request with no recording.
+    if (!recording && (changed ?? answer).status === 404)
+      this.#misses.add(`The page asked AniList for ${name}, which has no recording ${this.#where}.`)
+    return changed ?? answer
+  }
+
+  /** Throws for the requests a recorded browser had no recording for, each once. */
+  #throwMisses() {
+    if (!this.#misses.size) return
+    const message = [...this.#misses].join('\n')
+    this.#misses.clear()
+    throw new Error(message)
+  }
+
+  #fulfill(requestId: string, status: number, headers: object[], body: string) {
+    return this.send('Fetch.fulfillRequest', {
+      requestId,
+      responseCode: status,
+      responseHeaders: headers,
+      body: Buffer.from(body).toString('base64'),
+    }).catch(() => {})
+  }
+
+  /** Lets a paused request go its way, `release`, once `ms` is up or holdAniList(0) says so. */
+  #hold(requestId: string, ms: number, release: () => Promise<unknown>) {
+    this.#held.set(requestId, release)
+    setTimeout(() => void this.#release(requestId), ms)
+  }
+
   async #release(requestId: string) {
-    if (!this.#held.delete(requestId)) return
-    await this.send('Fetch.continueRequest', { requestId }).catch(() => {})
+    const release = this.#held.get(requestId)
+    if (!release) return
+    this.#held.delete(requestId)
+    await release()
   }
 
   async #answer({ requestId, request, responseStatusCode, responseHeaders }: any) {
@@ -380,18 +562,27 @@ export class Browser {
 
   async #intercept() {
     const urlPattern = 'https://graphql.anilist.co/*'
+    const recorded = this.#aniList === 'recorded'
     const patterns = [
-      ...(this.#blocking || this.#holdMs > 0 ? [{ urlPattern, requestStage: 'Request' }] : []),
-      ...(this.#rewrite ? [{ urlPattern, requestStage: 'Response' }] : []),
+      // A recorded browser answers every request itself, as it is made.
+      ...(recorded || this.#blocking || this.#holdMs > 0
+        ? [{ urlPattern, requestStage: 'Request' }]
+        : []),
+      ...(!recorded && this.#rewrite ? [{ urlPattern, requestStage: 'Response' }] : []),
     ]
     // Answers still being rewritten go through first: switching interception off drops them.
     await Promise.all(this.#answering)
     return patterns.length ? this.send('Fetch.enable', { patterns }) : this.send('Fetch.disable')
   }
 
+  /**
+   * Ends Chrome. Then throws if the page asked a recorded browser for anything with no recording
+   * that no waitFor() has thrown for: in after(), that fails the file.
+   */
   async close() {
     this.#socket.close()
     await stop(this.#chrome, this.#profile)
+    this.#throwMisses()
   }
 }
 
