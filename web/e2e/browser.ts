@@ -6,13 +6,13 @@
 //   ANILIST     recorded (the default), live or off: where AniList's answers come from
 //
 // AniList's API allows 30 requests a minute per IP address, and a run of every check would send
-// it about 30, 22 of them in its first minute. So by default the checks send it nothing: each
-// browser answers the page from recordings of AniList's answers, in anilist/ (see Browser.open
-// and recordings.ts). Covers still load from AniList's image server, so the checks still need the
-// internet. To go live, a check opens its browser with { aniList: 'live' }, or ANILIST=live does
-// that for every browser whose check doesn't choose: run that on its own, while nothing else on
-// this machine uses AniList. ANILIST=off allows no live browser, so a run sends AniList's API
-// nothing at all.
+// it about 30, 22 of them in its first minute. So by default a run sends it 2, from the checks in
+// live.e2e.ts that watch its API: every other browser answers the page from recordings of
+// AniList's answers, in anilist/ (see Browser.open and recordings.ts). Covers still load from
+// AniList's image server, so the checks still need the internet. To go live, a check opens its
+// browser with { aniList: 'live' }, as live.e2e.ts does, or ANILIST=live does that for every
+// browser whose check doesn't choose: run that on its own, while nothing else on this machine
+// uses AniList. ANILIST=off allows no live browser, so a run sends AniList's API nothing at all.
 import { spawn, type ChildProcess } from 'node:child_process'
 import { once } from 'node:events'
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
@@ -138,6 +138,8 @@ export class Browser {
   #misses = new Set<string>()
   // Called once Chrome has moved a stopped clock on as far as tick() asked.
   #clockMoved: (() => void) | null = null
+  // The DevTools events a check listens for (see onEvent), each with its listener.
+  #listeners: [method: string, listener: (params: any) => void][] = []
   /** Uncaught exceptions and console errors or warnings, for the "clean console" check. */
   problems: string[] = []
 
@@ -185,6 +187,8 @@ export class Browser {
             message.params.args.map((arg: any) => arg.value ?? arg.description ?? '').join(' '),
         )
       if (message.method === 'Fetch.requestPaused') this.#paused(message.params)
+      for (const [method, listener] of this.#listeners)
+        if (method === message.method) listener(message.params)
     })
   }
 
@@ -282,6 +286,14 @@ export class Browser {
       })
       this.#socket.send(JSON.stringify({ id, method, params }))
     })
+  }
+
+  /**
+   * Calls `listener` with the params of each `method` event Chrome sends from now on, such as
+   * Network.loadingFailed. Most come only once their domain is on (Network.enable, say).
+   */
+  onEvent(method: string, listener: (params: any) => void) {
+    this.#listeners.push([method, listener])
   }
 
   /** Runs an expression in the page and returns its JSON value. */
