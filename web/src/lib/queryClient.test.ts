@@ -5,7 +5,8 @@ import { AniListError } from './anilist.ts'
 import { ERAS, eraQuery, searchQuery, trendingQuery } from '../features/anime/queries.ts'
 import { persistOptions, queryClient, refetchFailed, shouldRetry } from './queryClient.ts'
 
-const DAY = 24 * 60 * 60 * 1000
+const HOUR = 60 * 60 * 1000
+const DAY = 24 * HOUR
 
 test('retries rate limits and server errors up to 3 times, network failures once', () => {
   // Every retry of a rate limit or a network failure first waits out a one-minute pause.
@@ -66,6 +67,19 @@ test('results older than a day are not saved again', () => {
   client.setQueryData(['fresh'], [{ id: 1 }])
   client.setQueryData(['old'], [{ id: 2 }], { updatedAt: Date.now() - DAY - 1 })
   assert.deepEqual(saved(client), [[['fresh'], [{ id: 1 }]]])
+})
+
+test('a list from 23 hours ago is still saved', () => {
+  // The other side of the test above, which passes even if lists stop being saved after an hour.
+  // Each list is saved until its answer is a day old, so a visitor back the next evening while
+  // AniList is down still has last night's titles after a reload.
+  const client = new QueryClient()
+  client.setQueryData(['yesterday'], [{ id: 1 }], { updatedAt: Date.now() - 23 * HOUR })
+  assert.deepEqual(
+    saved(client),
+    [[['yesterday'], [{ id: 1 }]]],
+    'a list from 23 hours ago was not saved: lists leave the saved copy before their day is up',
+  )
 })
 
 test('Try again refetches every failed list on the page, and nothing else', async (t) => {
