@@ -1,8 +1,9 @@
-import { dehydrate, QueryClient, QueryObserver } from '@tanstack/react-query'
+import { dehydrate, environmentManager, QueryClient, QueryObserver } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { AniListError } from './anilist.ts'
 import { ERAS, eraQuery, searchQuery, trendingQuery } from '../features/anime/queries.ts'
+import { SAMPLES } from '../features/anime/samples.ts'
 import { persistOptions, queryClient, refetchFailed, shouldRetry } from './queryClient.ts'
 
 const HOUR = 60 * 60 * 1000
@@ -79,6 +80,29 @@ test('a list from 23 hours ago is still saved', () => {
     saved(client),
     [[['yesterday'], [{ id: 1 }]]],
     'a list from 23 hours ago was not saved: lists leave the saved copy before their day is up',
+  )
+})
+
+test('a list the visitor has left is still saved 10 minutes later', async (t) => {
+  // TanStack drops a list no component is using from the cache once gcTime is up, and the next
+  // save leaves it out of the copy. Unless set, gcTime is 5 minutes in a browser: a search the
+  // visitor had moved on from would be gone when they came back while AniList is down. Node has no
+  // window, so query-core takes this test for a server, where gcTime is Infinity unless set: until
+  // the test ends, query-core is told it is in a browser.
+  const wasServer = environmentManager.isServer()
+  environmentManager.setIsServer(() => false)
+  t.after(() => environmentManager.setIsServer(() => wasServer))
+  // The real app client and query, for their gcTime; only the answer and the clock are fake.
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
+  t.after(() => queryClient.clear())
+  const search = searchQuery('frieren')
+  const titles = SAMPLES.slice(0, 2)
+  await queryClient.query({ ...search, queryFn: async () => titles })
+  t.mock.timers.tick(10 * 60_000) // ten minutes go by with the search off the page
+  assert.deepEqual(
+    saved(queryClient),
+    [[search.queryKey, titles]],
+    'a list the visitor left 10 minutes ago was not saved: gcTime dropped it before its day was up',
   )
 })
 
