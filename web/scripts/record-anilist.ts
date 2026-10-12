@@ -7,8 +7,9 @@
 // AniList allows 30 requests a minute per IP address, and whatever else runs on this machine shares
 // them. So it asks one request at a time, at least 6.5 s apart: never more than 10 in a minute, and
 // about two minutes for all 20. It writes nothing unless every answer is a 200 with no errors and a
-// list of titles for each list asked for (empty for a search that matches nothing), and it prints
-// a line for each recording saying what changed in it.
+// list of titles for each list asked for (empty for a search that matches nothing), and the
+// recordings, the new ones in, hold what the checks rely on AniList's titles for (see problems()
+// in e2e/recordings.ts). It prints a line for each recording saying what changed in it.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -17,7 +18,7 @@ import { format, resolveConfig } from 'prettier'
 import { titleOf } from '../src/features/anime/format.ts'
 import type { Media } from '../src/features/anime/queries.ts'
 import type { Recording } from '../e2e/browser.ts'
-import { compare, FOLDER, recordings, requests } from '../e2e/recordings.ts'
+import { compare, FOLDER, listsOf, problems, recordings, requests } from '../e2e/recordings.ts'
 
 const GAP_MS = 6_500
 const TRIES = 3
@@ -70,28 +71,6 @@ async function ask(request: Recording['request']): Promise<Recording> {
     process.stdout.write(` ${why}, asking again in ${Math.round((next - Date.now()) / 1000)} s;`)
   }
 }
-
-/**
- * Why an answer can't be kept as a recording, or '' when it can: it must be a 200 with no errors
- * and a list of titles for each list asked for, empty for a search that matches nothing.
- */
-function unusable({ status, body }: Recording): string {
-  if (status !== 200 || body?.errors)
-    return `AniList answered ${status}${body?.errors ? ` with errors: ${JSON.stringify(body.errors)}` : ''}`
-  const lists = Object.values(body?.data ?? {})
-  if (!lists.length || lists.some((list: any) => !Array.isArray(list?.media)))
-    return `AniList answered ${status} with no list of titles`
-  return ''
-}
-
-/** The lists of titles in an answer, by name: data.Page, or a first visit's trending and era. */
-const listsOf = ({ body }: Recording): Record<string, Media[]> =>
-  Object.fromEntries(
-    Object.entries(body?.data ?? {}).map(([name, list]: [string, any]) => [
-      name,
-      Array.isArray(list?.media) ? list.media : [],
-    ]),
-  )
 
 /** What changed in a recording, in a line: titles in and out, their order, and fields by name. */
 function changes(before: Recording | undefined, after: Recording): string {
@@ -157,12 +136,20 @@ for (const { name, request } of todo) {
   process.stdout.write(`${name}:`)
   const recording = await ask(request)
   // Stopping here spares the rest: an answer that can't be kept (a query AniList turns down, say)
-  // usually means the next ones can't be either.
-  const why = unusable(recording)
-  if (why) stop(`${name}: ${why}`)
+  // usually means the next ones can't be either. Judged on its own: a rule that compares it with
+  // another recording waits for the end, when every answer is in.
+  const why = problems(new Map([[name, recording]])).join('\n')
+  if (why) stop(why)
   console.log(` ${changes(saved.get(name), recording)}`)
   fresh.set(name, recording)
 }
+
+// The folder as it would be: what it holds, with the new answers in and the unused gone. Saved
+// recordings count too, as the checks would get them all.
+const after = new Map([...saved, ...fresh])
+for (const name of unused) after.delete(name)
+const found = problems(after)
+if (found.length) stop(`these recordings would lack what the checks rely on:\n${found.join('\n')}`)
 
 mkdirSync(FOLDER, { recursive: true })
 for (const name of unused) rmSync(join(FOLDER, `${name}.json`))
