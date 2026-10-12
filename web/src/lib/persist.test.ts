@@ -244,3 +244,91 @@ test('lists that arrive close together are saved at most once a second, and none
     'the next list waited more than a second to be saved',
   )
 })
+
+test('asking for a search writes nothing until its answer comes', async (t) => {
+  // A list is saved only once it has titles, so a save as a search is asked for would write the
+  // whole copy, which can be megabytes, with nothing new in it, while the page draws the search.
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
+  const storage = fakeStorage()
+  const client = new QueryClient()
+  t.after(saveChanges(client, storage))
+  ask(client, 'frieren')(SAMPLES.slice(0, 2))
+  await wait(t, 2000) // frieren is saved, then a second goes by with nothing new to save
+  const writes = t.mock.method(storage, 'setItem')
+  ask(client, 'mushishi') // its answer never comes
+  await wait(t) // no time passes
+  assert.equal(
+    writes.mock.callCount(),
+    0,
+    'asking for a search wrote the whole copy again, with nothing new in it',
+  )
+})
+
+test('a search answered 1.5 seconds after it was asked is saved at once', async (t) => {
+  // Neither asking nor the fetch starting saves anything (see the test above), so neither starts a
+  // second that the answer must then wait out: it is saved as it arrives, since nothing was saved
+  // in the second before.
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
+  const storage = fakeStorage()
+  const client = new QueryClient()
+  t.after(saveChanges(client, storage))
+  ask(client, 'frieren')(SAMPLES.slice(0, 2))
+  await wait(t, 2000) // frieren is saved, then a second goes by with nothing new to save
+  const answer = ask(client, 'mushishi')
+  await wait(t, 1500)
+  const titles = SAMPLES.slice(2, 4)
+  answer(titles)
+  await wait(t) // no time passes
+  assert.deepEqual(
+    savedSearches(storage).mushishi,
+    titles,
+    'the answer, 1.5 s after its search, was not saved as it arrived: a tab closed now would lose it',
+  )
+})
+
+test('each change to a saved list is saved at once: new titles, being marked out of date, a failed refresh, removal', async (t) => {
+  // A save goes on only when the lists it would save have changed (see queryClient.ts). Each of
+  // these changes what a visitor gets back on their next visit, so none may pass for no change.
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
+  const storage = fakeStorage()
+  const client = new QueryClient()
+  t.after(saveChanges(client, storage))
+  ask(client, 'frieren')(SAMPLES.slice(0, 2))
+  await wait(t, 2000) // frieren is saved, then a second goes by with nothing new to save
+  const { queryKey } = searchQuery('frieren')
+  const titles = SAMPLES.slice(2, 4)
+  const offline = () => Promise.reject(new TypeError('Failed to fetch'))
+  // What the saved copy holds of the search, the only list in it.
+  const saved = () => {
+    const state = JSON.parse(storage.items.get('anibeam:cache')!).clientState.queries[0]?.state
+    return state && { titles: state.data, status: state.status, outOfDate: state.isInvalidated }
+  }
+  const changes = [
+    {
+      change: 'new titles from a refresh',
+      make: () => client.fetchQuery({ queryKey, queryFn: async () => titles }),
+      holds: { titles, status: 'success', outOfDate: false },
+    },
+    {
+      change: 'marking the list out of date',
+      make: () => client.invalidateQueries({ queryKey }),
+      holds: { titles, status: 'success', outOfDate: true },
+    },
+    {
+      change: 'a failed refresh',
+      make: () => client.fetchQuery({ queryKey, queryFn: offline, retry: false }).catch(() => {}),
+      holds: { titles, status: 'error', outOfDate: true },
+    },
+    {
+      change: 'removing the list',
+      make: () => client.removeQueries({ queryKey }),
+      holds: undefined,
+    },
+  ]
+  for (const { change, make, holds } of changes) {
+    void make()
+    await wait(t) // no time passes
+    assert.deepEqual(saved(), holds, `${change} did not reach the saved copy at once`)
+    await wait(t, 1000) // a quiet second, so the next change is saved at once too
+  }
+})
