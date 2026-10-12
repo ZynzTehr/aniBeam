@@ -39,12 +39,18 @@ function browserStorage() {
 
 // localStorage holds about 5 MB per site; removeOldestQuery drops the oldest
 // result when it is full. Upgrade path if that ever limits us: an IndexedDB persister.
-export const persistOptions = {
-  persister: createSyncStoragePersister({
-    storage: browserStorage(),
+// The storage is an argument so tests can hand it a stand-in (see persist.test.ts).
+export const cachePersister = (
+  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined,
+) =>
+  createSyncStoragePersister({
+    storage,
     key: 'anibeam:cache',
     retry: removeOldestQuery,
-  }),
+  })
+
+export const persistOptions = {
+  persister: cachePersister(browserStorage()),
   maxAge: DAY,
   dehydrateOptions: {
     // By default TanStack saves only queries whose last fetch succeeded, so a failed

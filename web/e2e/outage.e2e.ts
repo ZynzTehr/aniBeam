@@ -1,6 +1,6 @@
-// A first-time visitor while AniList is unreachable: sample titles with friendly messages, then
-// Try again. Slow on purpose: after a failed connection the AniList client waits a minute before
-// retrying.
+// A visitor while AniList is unreachable: a returning visitor keeps last visit's titles, and a
+// first-time visitor gets sample titles with friendly messages, then Try again. Slow on purpose:
+// after a failed connection the AniList client waits a minute before retrying.
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -16,6 +16,27 @@ before(async () => {
 after(() => browser?.close())
 
 const notes = `[...document.querySelectorAll('.ab-note')].map((note) => note.textContent)`
+// What the visitor sees: the trending heading and the intro's button that leads to it, the
+// panels' titles, rank numbers, panels that say "Number 1 trending", the strip's titles and
+// both sections' status lines.
+const shown = `({
+  heading: document.getElementById('ab-trending').firstChild.textContent,
+  button: document.querySelector('.ab-intro-actions a[href="#ab-trending"]').textContent,
+  panels: [...document.querySelectorAll('.ab-grid .ab-caption b')].map((title) => title.textContent),
+  ranks: document.querySelectorAll('.ab-grid .ab-rank').length,
+  ranked: [...document.querySelectorAll('.ab-grid .ab-caption')].filter((caption) => caption.textContent.includes('trending')).length,
+  strip: [...document.querySelectorAll('.ab-strip-row .ab-strip-title')].map((title) => title.textContent),
+  notes: ${notes},
+})`
+type Shown = {
+  heading: string
+  button: string
+  panels: string[]
+  ranks: number
+  ranked: number
+  strip: string[]
+  notes: string[]
+}
 
 // Where the headline sits inside the intro: it must not move when the covers arrive.
 const headline = `document.querySelector('.ab-intro-title').getBoundingClientRect().top - document.querySelector('.ab-intro').getBoundingClientRect().top`
@@ -184,6 +205,47 @@ test('on a phone, intro covers that can’t load keep their place in their title
   }
 })
 
+// Phase 1's "done when": a reload with AniList blocked still shows saved results. The page saves
+// AniList's answers (see queryClient.ts), so a returning visitor sees last visit's titles, not the
+// samples a first visit gets, without the page asking AniList for them. The last visit loads the
+// copy the first check saved, so this asks AniList for none; run alone, it asks for one.
+test('a returning visitor sees last visit’s titles while AniList is down, not the samples', async () => {
+  await browser.load() // the last visit
+  assert.ok(await browser.titlesShown(), 'the titles never came')
+  const last = await browser.evaluate<Shown>(shown)
+  assert.equal(
+    last.heading,
+    'Trending now',
+    'AniList’s titles never came, so there is nothing to check',
+  )
+  await sleep(1_500) // the saved copy updates a second after the page's last change
+  // From the next load on, counts the page's requests to AniList.
+  const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `(() => {
+      const fetch = window.fetch
+      window.__asked = 0
+      window.fetch = function (url) {
+        if (url === 'https://graphql.anilist.co') window.__asked++
+        return fetch.apply(this, arguments)
+      }
+    })()`,
+  })
+  await browser.blockAniList()
+  try {
+    await browser.load()
+    // Without saved titles, the samples would show once the first try had failed.
+    assert.ok(await browser.titlesShown(15_000), 'no titles came, not even the samples')
+    const { asked, ...page } = await browser.evaluate<Shown & { asked: number }>(
+      `({ ...${shown}, asked: window.__asked })`,
+    )
+    assert.deepEqual(page, last, 'with AniList down, the page did not show last visit’s titles')
+    assert.equal(asked, 0, 'the page asked AniList for titles it had saved')
+  } finally {
+    await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+    await browser.blockAniList(false)
+  }
+})
+
 // From 900px wide the splash panel shows its title's banner, and below that its cover, in the
 // same img: narrowing the window or turning a tablet swaps one file for the other. A banner that
 // failed must not keep the cover hidden once it loads. With AniList kept away, the panels show
@@ -233,27 +295,6 @@ describe('AniList down on a first visit', () => {
   )
   const favorites = 'These are fan favorites, not this week’s trending.'
   const fromThe1990s = 'A few fan favorites from the 1990s, not the full list.'
-  // What the visitor sees: the trending heading and the intro's button that leads to it, the
-  // panels' titles, rank numbers, panels that say "Number 1 trending", the strip's titles and
-  // both sections' status lines.
-  const shown = `({
-    heading: document.getElementById('ab-trending').firstChild.textContent,
-    button: document.querySelector('.ab-intro-actions a[href="#ab-trending"]').textContent,
-    panels: [...document.querySelectorAll('.ab-grid .ab-caption b')].map((title) => title.textContent),
-    ranks: document.querySelectorAll('.ab-grid .ab-rank').length,
-    ranked: [...document.querySelectorAll('.ab-grid .ab-caption')].filter((caption) => caption.textContent.includes('trending')).length,
-    strip: [...document.querySelectorAll('.ab-strip-row .ab-strip-title')].map((title) => title.textContent),
-    notes: ${notes},
-  })`
-  type Shown = {
-    heading: string
-    button: string
-    panels: string[]
-    ranks: number
-    ranked: number
-    strip: string[]
-    notes: string[]
-  }
   const samplesShown = (status: string) => ({
     heading: 'Fan favorites',
     // The button must not promise this week's trending either.
