@@ -139,15 +139,18 @@ export async function requests(): Promise<{ name: string; request: Request }[]> 
   return wanted
 }
 
-/** The recordings in anilist/, by name: the file's, without .json. */
-export function recordings(): Map<string, Recording> {
-  if (!existsSync(FOLDER)) return new Map()
+/**
+ * The recordings in anilist/, or in the folder given (the recorder's, when a test hands it one), by
+ * name: the file's, without .json.
+ */
+export function recordings(folder = FOLDER): Map<string, Recording> {
+  if (!existsSync(folder)) return new Map()
   return new Map(
-    readdirSync(FOLDER)
+    readdirSync(folder)
       .filter((file) => file.endsWith('.json'))
       .map((file) => [
         file.slice(0, -'.json'.length),
-        JSON.parse(readFileSync(join(FOLDER, file), 'utf8')),
+        JSON.parse(readFileSync(join(folder, file), 'utf8')),
       ]),
   )
 }
