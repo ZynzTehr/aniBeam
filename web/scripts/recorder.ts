@@ -5,19 +5,20 @@
 // manners towards AniList are then tried with no request sent and no time spent.
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import * as timers from 'node:timers/promises'
 import { isDeepStrictEqual } from 'node:util'
 import { format, resolveConfig } from 'prettier'
 import { titleOf } from '../src/features/anime/format.ts'
 import type { Media } from '../src/features/anime/queries.ts'
 import type { Recording } from '../e2e/browser.ts'
-import { compare, listsOf, problems, recordings, requests } from '../e2e/recordings.ts'
+import { compare, FOLDER, listsOf, problems, recordings, requests } from '../e2e/recordings.ts'
 
 const GAP_MS = 6_500
 const TRIES = 3
 
 /**
- * What a run reaches outside itself through. record-anilist.ts hands it the real ones: fetch, a
- * sleep from node:timers/promises, Date.now, e2e/anilist/, and process.stdout and stderr.
+ * What a run reaches outside itself through: the real ones, from realWorld(), when
+ * record-anilist.ts runs it, and stand-ins when recorder.test.ts does.
  */
 export type World = {
   fetch: typeof fetch
@@ -29,6 +30,26 @@ export type World = {
   /** Where it says what it does, and where it says why it stopped. */
   stdout: { write: (text: string) => unknown }
   stderr: { write: (text: string) => unknown }
+}
+
+/**
+ * The real World, which record-anilist.ts hands record(): fetch, a sleep from
+ * node:timers/promises, Date.now, e2e/anilist/, and process.stdout and stderr. It is put together
+ * here, not in the script, so that recorder.test.ts can check it: a slip in it, such as a sleep
+ * that waits 6.5 ms where the recorder asks for 6,500, would pass every other check and send
+ * AniList's requests back to back. A function, not a constant, so that it takes the global fetch
+ * as it is when called: recorder.test.ts swaps that for one that refuses while record() runs on
+ * stand-ins, so a run that reached for the real World would be refused, not sent to AniList.
+ */
+export function realWorld(): World {
+  return {
+    fetch,
+    sleep: timers.setTimeout,
+    now: () => Date.now(),
+    folder: FOLDER,
+    stdout: process.stdout,
+    stderr: process.stderr,
+  }
 }
 
 /** Why a run stopped, on its way out to record(), which says so. */

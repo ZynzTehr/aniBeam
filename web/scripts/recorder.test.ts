@@ -11,11 +11,12 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { isDeepStrictEqual } from 'node:util'
 import type { Recording } from '../e2e/browser.ts'
 import { compare, FOLDER, recordings, requests } from '../e2e/recordings.ts'
-import { record } from './recorder.ts'
+import { realWorld, record } from './recorder.ts'
 
 // The recorder sends AniList real requests, from a machine whose 30 a minute everything on it
 // shares, so its manners matter as much as what it writes: one request at a time, 6.5 s apart; as
@@ -24,7 +25,8 @@ import { record } from './recorder.ts'
 // record() runs on stand-ins (see World in recorder.ts): an AniList that answers each request with
 // today's recording made for it, unless a test says otherwise; a clock that moves only when the
 // recorder waits, so each wait is seen to the millisecond and takes no time; and a copy of
-// e2e/anilist/ in a temporary folder.
+// e2e/anilist/ in a temporary folder. The tests at the end check the real ones, which
+// record-anilist.ts runs it on: realWorld() in recorder.ts.
 
 const wanted = await requests()
 const today = recordings()
@@ -375,4 +377,52 @@ test('an option other than --all, or a name no check sends, stops the run before
   const name = await recorder(['search-frieren', 'search-nope'])
   sentAsExpected(name, 'none', 'a name no check sends sends nothing')
   stoppedSaying(name, /^no request is named search-nope\. The names: first-visit, trending, /)
+})
+
+// The stand-ins above hold the recorder to its waits only if the real sleep waits as many
+// milliseconds as it is handed, and the real clock counts them as Date.now() does. A sleep that
+// waited 6.5 ms where the recorder asks for 6,500 would pass every test above, and send AniList's
+// requests back to back the next time someone records. So the real ones are put together in one
+// place, realWorld() in recorder.ts, which record-anilist.ts hands record(), and checked here.
+
+test('the real World’s sleep waits as many milliseconds as it is handed', async () => {
+  const start = Date.now()
+  await realWorld().sleep(50)
+  const waited = Date.now() - start
+  // 45, not 50: a timer and Date.now() each count whole milliseconds, on clocks of their own, so a
+  // wait of 50 can read as 49.
+  assert.ok(
+    waited >= 45,
+    `sleep(50) waited ${waited} ms, not 50, so the recorder would send AniList’s requests less than 6.5 s apart`,
+  )
+})
+
+test('the real World’s clock is Date.now(), and moves with it', async () => {
+  const { now } = realWorld()
+  // Read twice, 20 ms apart, so that a clock that stands still fails as well as one that is off.
+  for (const read of ['first', 'second']) {
+    const before = Date.now()
+    const time = now()
+    const after = Date.now()
+    assert.ok(
+      before <= time && time <= after,
+      `now() read ${time} the ${read} time, where Date.now() read ${before} to ${after}: the recorder counts its waits in Date.now()’s milliseconds`,
+    )
+    await sleep(20)
+  }
+})
+
+test('the real World keeps the recordings in e2e/anilist/, asks AniList with the real fetch and writes to the terminal', () => {
+  const world = realWorld()
+  assert.equal(
+    world.folder,
+    FOLDER,
+    `the recorder must keep the recordings where the checks read them, ${FOLDER}, not ${world.folder}`,
+  )
+  assert.ok(
+    world.fetch === globalThis.fetch,
+    'the recorder must ask AniList with the real fetch, as it is',
+  )
+  assert.ok(world.stdout === process.stdout, 'the recorder must say what it does on stdout')
+  assert.ok(world.stderr === process.stderr, 'the recorder must say why it stopped on stderr')
 })

@@ -11,19 +11,11 @@
 // recordings, the new ones in, hold what the checks rely on AniList's titles for (see problems()
 // in e2e/recordings.ts). It prints a line for each recording saying what changed in it.
 //
-// The work is record() in recorder.ts. Here it is handed AniList, the clock, e2e/anilist/ and the
-// terminal; recorder.test.ts hands it stand-ins for them.
-import { setTimeout as sleep } from 'node:timers/promises'
-import { FOLDER } from '../e2e/recordings.ts'
-import { record } from './recorder.ts'
+// The work is record() in recorder.ts, and so is the World it runs in here, realWorld(): AniList,
+// the clock, e2e/anilist/ and the terminal. recorder.test.ts runs record() on stand-ins for them,
+// and checks that realWorld()'s are the real ones.
+import { realWorld, record } from './recorder.ts'
 
-const code = await record(process.argv.slice(2), {
-  fetch,
-  sleep,
-  now: () => Date.now(),
-  folder: FOLDER,
-  stdout: process.stdout,
-  stderr: process.stderr,
-})
+const code = await record(process.argv.slice(2), realWorld())
 // A run that stopped exits there and then, as it always has.
 if (code) process.exit(code)

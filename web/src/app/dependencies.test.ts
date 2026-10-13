@@ -92,7 +92,7 @@ test('the scan finds a path into e2e/ however a line of code names it', () => {
 test('nothing in src names a path into e2e/, which must stay out of the app', () => {
   // The recorder in scripts/ imports from e2e/, as it may, so the reading must find that.
   assert.ok(
-    linesIntoE2eIn('scripts/record-anilist.ts').length > 0,
+    linesIntoE2eIn('scripts/recorder.ts').length > 0,
     "this reading misses the recorder's imports from e2e/",
   )
   // Every file in src, tests too: they have no need of e2e/, which has tests of its own. A scan of
