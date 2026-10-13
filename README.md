@@ -176,13 +176,13 @@ AniList replaces covers now and then, and an old file can disappear. A cover tha
 
 #### The two live checks
 
-`web/e2e/live.e2e.ts` has the app send AniList's API two of its own requests: a first visit's one request for trending and the 1990s, then a search for the first trending title by its name. A run sends AniList these 2 requests and a CORS preflight. The checks judge AniList's answer as it came over the network, by the rules in `web/e2e/live.ts`:
+`web/e2e/live.e2e.ts` has the app send AniList's API two of its own requests: a first visit's one request for trending and the 1990s, then a search for the first trending title by its name. A run sends AniList these 2 requests and a CORS preflight, and one more of each when the first-visit check asks again (see below). The checks judge AniList's answer as it came over the network, by the rules in `web/e2e/live.ts`:
 
-- While AniList's API is down or busy, they skip, saying why and that it's not the app. That covers a 429, a 403, no connection, no answer within 20 seconds, and a 5xx that a one-line health query confirms. Node's test runner lists each skipped check with its reason. While the live checks skip, nothing checks AniList's API, so look out for skips.
+- While AniList's API is down or busy, they skip, saying why and that it's not the app. That covers a 429, a 403, no connection, no answer within 20 seconds, a 5xx that a one-line health query confirms, and a first visit's trending or 1990s list sent empty twice. Node's test runner lists each skipped check with its reason. While the live checks skip, nothing checks AniList's API, so look out for skips.
 - When AniList answers in a way the app can't use, they fail, in AniList's words when it gave some. That covers a query it turns down, a missing field, a field in a format the app can't read, and CORS headers that keep the answer from the page.
 - They also rely on AniList's data: enough trending and 1990s titles for the page to show, 1990s titles from the 1990s, and a search that finds the title it searched for. If the data breaks one of these, they fail with "That's AniList's data, not its API or the app". If it lasts, every run fails until AniList's data or the rule in `live.ts` changes.
 
-Before changing a rule, run the checks again. Twice, AniList took about 13 seconds to answer a first visit and sent no trending titles, and a run 2 minutes later passed.
+AniList always has trending and 1990s titles, but while busy it can send a list of them empty. Twice, AniList took about 13 seconds to answer a first visit and sent no trending titles, and a run 2 minutes later passed. So when either list comes back empty, the first-visit check asks once more, 20 seconds later, from a fresh first visit. If the second answer has the titles, the check goes on with it, and its output says that AniList's first answer was empty. If a list comes back empty again, the check skips: "AniList answered the app's first-visit request twice, 20 seconds apart, with no titles in data.trending.media, a list it always fills: it isn't answering in full right now. It's not the app." A list with some titles, but fewer than the page shows, still fails at once as AniList's data. Before changing a rule for it, run the checks again.
 
 ### Tailwind CSS v4 and custom CSS
 

@@ -5,17 +5,22 @@
 // on purpose.
 //
 // While AniList itself is down or busy, nothing can be learnt about the app, so a check skips,
-// saying so (verdict). Anything else that keeps the app from using AniList's answer fails it, in
-// AniList's own words when it gave some: a query it turns down, an answer the browser keeps from
-// the page, a title in another format (answerProblems). A check also needs things of AniList's
-// data, such as enough titles for the page to show. When the data lacks one while the API answers
-// as the app reads it, the failure says so: then it is the check's rule that has to change, not
-// the app.
+// saying so (verdict). Busy, AniList has also answered a first visit with a list it always fills
+// sent empty: the check of a first visit then asks once more, rather than fail (emptyLists), and
+// skips if the list comes empty again (askedAgain). Anything else that keeps the app from using
+// AniList's answer fails it, in AniList's own words when it gave some: a query it turns down, an
+// answer the browser keeps from the page, a title in another format (answerProblems). A check also
+// needs things of AniList's data, such as enough titles for the page to show. When the data lacks
+// one while the API answers as the app reads it, the failure says so: then it is the check's rule
+// that has to change, not the app.
 import type { Answer } from './browser.ts'
 import { QUERIES, type Media } from '../src/features/anime/queries.ts'
 
 /** How long a live check waits for AniList to answer a request, before it calls AniList silent. */
 export const WAIT_MS = 20_000
+
+/** How long the live check of a first visit waits to ask again, after AniList sent a list empty. */
+export const AGAIN_MS = 20_000
 
 /** What a live check saw of one of the app's requests to AniList, from Chrome and from the page. */
 export type Seen = {
@@ -259,6 +264,40 @@ function titleProblems(media: any, where: string, fields: string[]): string[] {
 // panels and four in the decade strip, and the live check of a first visit waits for that too.
 const SHOWN: Record<string, number> = { trending: 9, era: 4 }
 
+/**
+ * The lists of a first visit (see SHOWN) that `answer` has with no titles, by name. AniList always
+ * has titles for both, so a list sent empty is AniList busy, not its data: twice on 2026-10-12 it
+ * took about 13 seconds to answer a first visit, with no trending titles, and 2 minutes later
+ * answered in full. So the live check of a first visit asks again rather than fail (see
+ * askedAgain). A list with titles, but fewer than the page shows, is AniList's data
+ * (answerProblems).
+ */
+export function emptyLists({ body }: Pick<Answer, 'body'>): string[] {
+  return Object.keys(SHOWN).filter((name) => {
+    const list = body?.data?.[name]?.media
+    return Array.isArray(list) && list.length === 0
+  })
+}
+
+/**
+ * What the live check of a first visit makes of AniList's answer to its request asked again, from
+ * a fresh first visit AGAIN_MS after AniList sent the lists `first` empty: `again` names the lists
+ * the second answer has empty (see emptyLists). With any, AniList is still busy, so the check
+ * skips. With none, it goes on with the second answer, noting in its output that the first was
+ * empty.
+ */
+export function askedAgain(first: string[], again: string[]): { skip: string } | { note: string } {
+  const paths = (lists: string[]) => lists.map((name) => `data.${name}.media`).join(' or ')
+  const both = [...new Set([...first, ...again])]
+  return again.length
+    ? {
+        skip: `AniList answered the app's first-visit request twice, ${AGAIN_MS / 1000} seconds apart, with no titles in ${paths(both)}, ${both.length > 1 ? 'lists' : 'a list'} it always fills: it isn't answering in full right now. It's not the app. Run the live checks again in a few minutes.`,
+      }
+    : {
+        note: `AniList's first answer had no titles in ${paths(first)}; asked again ${AGAIN_MS / 1000} seconds later, from a fresh first visit, it sent them`,
+      }
+}
+
 /** A rule AniList's data breaks while its API answers as the app reads it, said to be so. */
 const data = (problem: string) =>
   `${problem}. That's AniList's data, not its API or the app: if it lasts, the rule in web/e2e/live.ts has to change.`
@@ -268,8 +307,9 @@ const data = (problem: string) =>
  * the app reads it. The lists and fields it should hold come from the app's own query for the
  * request (QUERIES in queries.ts), and each title's fields must be in the formats the app reads
  * (see FORMATS), with none twice in a list and none that the app's queries leave out. A first
- * visit's lists must also have as many titles as the page shows, the decade's from that decade,
- * and a search must find `wanted`, the title whose romaji it searched for, if it is given.
+ * visit's lists must also have as many titles as the page shows (the live check asks again for one
+ * sent empty before it comes to this: see emptyLists), the decade's from that decade, and a search
+ * must find `wanted`, the title whose romaji it searched for, if it is given.
  */
 export function answerProblems(
   { request, body }: Pick<Answer, 'request' | 'body'>,

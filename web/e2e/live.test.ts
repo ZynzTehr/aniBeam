@@ -1,13 +1,21 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { QUERIES } from '../src/features/anime/queries.ts'
-import { answerProblems, limitProblems, listsAsked, verdict, type Seen } from './live.ts'
+import {
+  answerProblems,
+  askedAgain,
+  emptyLists,
+  limitProblems,
+  listsAsked,
+  verdict,
+  type Seen,
+} from './live.ts'
 import { recordings } from './recordings.ts'
 
 // The live checks judge what AniList does with the app's requests by live.ts alone, so its
 // judgement is tried here, offline: AniList's recorded answers must pass, and answers broken as an
-// API change would break them, data short of what a check needs, and AniList's outages must each
-// be told for what they are.
+// API change would break them, data short of what a check needs, a first visit's list sent empty,
+// and AniList's outages must each be told for what they are.
 
 const saved = recordings()
 /** A recording, as a fresh copy, so a test can break it where it is. */
@@ -215,6 +223,108 @@ for (const [name, problems, words] of shortfalls)
     assert.ok(problem, `not caught; found: ${JSON.stringify(found)}`)
     assert.ok(problem.includes(DATA), `not said to be AniList’s data: ${problem}`)
   })
+
+// AniList always has a first visit's trending and 1990s titles, but while busy it has sent a list
+// of them empty. So a list sent empty is not AniList's data: the check asks once more, from a fresh
+// first visit, and goes on if the second answer has its titles, or skips if one comes empty again.
+// A list with titles, but fewer than the page shows, is still AniList's data, failed at once.
+
+/** AniList's answer to a first visit, with the `lists` named (trending, era) sent empty. */
+function emptied(...lists: string[]) {
+  const answer = recorded('first-visit')
+  for (const name of lists) answer.body.data[name].media = []
+  return answer
+}
+
+test('a first visit’s list that AniList sends empty is asked for again, not failed as its data', () => {
+  assert.deepEqual(emptyLists(recorded('first-visit')), [], 'a full answer is asked for again')
+  assert.deepEqual(
+    emptyLists(emptied('trending')),
+    ['trending'],
+    'trending sent empty is not asked for again',
+  )
+  assert.deepEqual(
+    emptyLists(emptied('era')),
+    ['era'],
+    'the 1990s sent empty are not asked for again',
+  )
+  assert.deepEqual(
+    emptyLists(emptied('trending', 'era')),
+    ['trending', 'era'],
+    'trending and the 1990s sent empty are not both asked for again',
+  )
+  // A list gone, or no data at all, is AniList's API changed, not a list sent empty: asked for
+  // again, it would skip as AniList busy where it must fail (see 'a list gone' above).
+  const gone = recorded('first-visit')
+  delete gone.body.data.era
+  assert.deepEqual(emptyLists(gone), [], 'a list gone is asked for again')
+  assert.deepEqual(emptyLists({ body: { data: null } }), [], 'no data is asked for again')
+})
+
+test('a first visit’s list sent empty, then full when asked again, passes, saying the first was empty', () => {
+  const second = recorded('first-visit')
+  const said = askedAgain(emptyLists(emptied('trending')), emptyLists(second))
+  assert.ok('note' in said, `not passed: ${JSON.stringify(said)}`)
+  assert.match(
+    said.note,
+    /^AniList's first answer had no titles in data\.trending\.media; asked again 20 seconds later, from a fresh first visit, it sent them$/,
+  )
+  assert.deepEqual(answerProblems(second), [])
+})
+
+// [what, the lists empty in the first answer, and in the second, the words].
+const emptyTwice: [string, string[], string[], string][] = [
+  [
+    'trending sent empty twice',
+    ['trending'],
+    ['trending'],
+    'with no titles in data.trending.media, a list it always fills',
+  ],
+  [
+    'the 1990s sent empty twice',
+    ['era'],
+    ['era'],
+    'with no titles in data.era.media, a list it always fills',
+  ],
+  [
+    'trending sent empty, then the 1990s',
+    ['trending'],
+    ['era'],
+    'with no titles in data.trending.media or data.era.media, lists it always fills',
+  ],
+]
+for (const [name, first, again, words] of emptyTwice)
+  test(`AniList down or busy skips, saying it’s not the app: ${name}, 20 seconds apart`, () => {
+    const said = askedAgain(first, again)
+    assert.ok('skip' in said, `not skipped: ${JSON.stringify(said)}`)
+    assert.match(
+      said.skip,
+      /^AniList answered the app's first-visit request twice, 20 seconds apart/,
+    )
+    assert.ok(said.skip.includes(words), `not in its words: ${said.skip}`)
+    assert.match(said.skip, /It's not the app/)
+  })
+
+test('a first visit’s list with titles, but too few, is not asked for again: it fails as AniList’s data', () => {
+  for (const [name, length] of [
+    ['trending', 8],
+    ['trending', 1],
+    ['era', 3],
+  ] as const) {
+    const answer = recorded('first-visit')
+    answer.body.data[name].media.length = length
+    assert.deepEqual(emptyLists(answer), [], `${name} cut to ${length} titles is asked for again`)
+    const found = answerProblems(answer)
+    assert.ok(
+      found.some(
+        (problem) =>
+          problem.startsWith(`data.${name}.media has ${length} titles, fewer than`) &&
+          problem.includes(DATA),
+      ),
+      `${name} cut to ${length} titles not failed as AniList’s data: ${JSON.stringify(found)}`,
+    )
+  }
+})
 
 test('a search that finds the title whose romaji it searched for passes', () => {
   assert.deepEqual(answerProblems(recorded('search-frieren'), frieren()), [])

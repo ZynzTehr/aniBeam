@@ -1,6 +1,7 @@
 // Two checks on the real AniList, as every other check answers from recordings (see browser.ts):
 // a first visit's one request, for trending and the 1990s, and a search, each sent by the app in
-// this file's own live browser, so a run costs AniList 2 requests and a CORS preflight. They judge
+// this file's own live browser, so a run costs AniList 2 requests and a CORS preflight, and one
+// more of each when AniList sends a first visit's list empty and the check asks again. They judge
 // AniList's answer as it came over the network, by live.ts, never by the page's status lines,
 // which read the same for a query AniList turns down and for a dead connection: while AniList
 // itself is down or busy they skip, saying so, and when it answers in a way the app can't use
@@ -13,7 +14,16 @@ import { isDeepStrictEqual } from 'node:util'
 import { titleOf } from '../src/features/anime/format.ts'
 import { FIRST_ERA, QUERIES, searchQuery, type Media } from '../src/features/anime/queries.ts'
 import { Browser, type Answer } from './browser.ts'
-import { answerProblems, limitProblems, verdict, WAIT_MS, type Seen } from './live.ts'
+import {
+  AGAIN_MS,
+  answerProblems,
+  askedAgain,
+  emptyLists,
+  limitProblems,
+  verdict,
+  WAIT_MS,
+  type Seen,
+} from './live.ts'
 
 const ENDPOINT = 'https://graphql.anilist.co'
 // Why both checks skip under ANILIST=off; false otherwise.
@@ -188,9 +198,34 @@ test(
   { skip: off },
   async (t) => {
     await browser.load()
-    const { seen, answer, page } = await sawRequest(1, 'a first visit’s lists')
-    skipped = await judge(t, 'first-visit', seen)
+    let visit = await sawRequest(1, 'a first visit’s lists')
+    skipped = await judge(t, 'first-visit', visit.seen)
     if (skipped) return
+    // AniList always has trending and 1990s titles, but while busy it has sent a first visit's
+    // list empty. So the check asks once more, from a fresh first visit, and skips if a list
+    // comes empty again (see askedAgain).
+    const empty = visit.answer ? emptyLists(visit.answer) : []
+    if (empty.length) {
+      await browser.forget() // away from the app at once, so it asks AniList nothing meanwhile
+      await sleep(AGAIN_MS)
+      // sawRequest() finds AniList's answer by what it was asked, the same both times, so the
+      // first answer would stand in for a second that isn't in JSON.
+      answers.length = 0
+      await browser.load()
+      visit = await sawRequest(1, 'a first visit’s lists, asked again')
+      skipped = await judge(t, 'first-visit', visit.seen)
+      if (skipped) return
+      if (visit.answer) {
+        const said = askedAgain(empty, emptyLists(visit.answer))
+        if ('skip' in said) {
+          await leave()
+          skipped = said.skip
+          return t.skip(skipped)
+        }
+        t.diagnostic(said.note)
+      }
+    }
+    const { seen, answer, page } = visit
     await onPage(async () => {
       assert.ok(seen.post && page && 'status' in page, 'Chrome reported no answer from AniList')
       assert.ok(
