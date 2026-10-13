@@ -143,12 +143,16 @@ const ANSWER_MS = 200
 
 export class Browser {
   #chrome: ChildProcess
-  #profile: string
   #socket: WebSocket
   #nextId = 0
   #pending = new Map<number, (message: Message) => void>()
   /** Where this browser's AniList answers come from (see open). */
   readonly aniList: AniListMode
+  /**
+   * The throwaway profile open() made for this browser's Chrome, which close() deletes. Other runs
+   * on this machine make theirs in the same temp folder, so a check finds its own by this.
+   */
+  readonly profile: string
   // A recorded browser's recordings by keyOf, and where they came from, for messages.
   #recordings: Map<string, Recording>
   #where: string
@@ -177,7 +181,7 @@ export class Browser {
     recordings: Recording[] | undefined,
   ) {
     this.#chrome = chrome
-    this.#profile = profile
+    this.profile = profile
     this.#socket = socket
     this.aniList = aniList
     this.#recordings = new Map(
@@ -677,7 +681,7 @@ export class Browser {
    */
   async close() {
     this.#socket.close()
-    await stop(this.#chrome, this.#profile)
+    await stop(this.#chrome, this.profile)
     this.#throwMisses()
   }
 }

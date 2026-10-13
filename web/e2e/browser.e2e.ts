@@ -2,7 +2,7 @@
 // AniList from recordings of its answers unless asked for AniList's own, and a recorded browser
 // gives the page those, and sends AniList nothing.
 import assert from 'node:assert/strict'
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -225,7 +225,6 @@ test('a browser opened with recordings shows their titles, answered a moment lat
 })
 
 test('in a recorded browser, a request with no recording fails the check waiting on it, naming it and what to do about it, unless a rewrite answers it', async () => {
-  const before = profiles()
   const browser = await Browser.open({
     aniList: 'recorded',
     recordings: [firstVisit, recordedSearch, olderSearch],
@@ -257,9 +256,9 @@ test('in a recorded browser, a request with no recording fails the check waiting
   try {
     // The profile open() made for this browser's Chrome, and the port that Chrome noted there for
     // DevTools requests: once the browser has closed, at the end, nothing may answer on that port,
-    // and the profile must be gone.
-    const [profile] = profiles().filter((name) => !before.includes(name))
-    const port = readFileSync(join(tmpdir(), profile, 'DevToolsActivePort'), 'utf8').split('\n')[0]
+    // and the profile must be gone. The browser names its profile: a new one in the temp folder
+    // could be another run's, starting a Chrome of its own on this machine at the same time.
+    const port = readFileSync(join(browser.profile, 'DevToolsActivePort'), 'utf8').split('\n')[0]
     await browser.load()
     assert.ok(await browser.titlesShown(15_000), 'no titles came, not even the samples')
     // A recorded search shows its titles, so a key that left the term out would answer the
@@ -390,7 +389,7 @@ test('in a recorded browser, a request with no recording fails the check waiting
           () => 'still running',
           () => 'gone',
         ),
-        profile: profiles().includes(profile) ? 'still there' : 'gone',
+        profile: existsSync(browser.profile) ? 'still there' : 'gone',
       },
       { chrome: 'gone', profile: 'gone' },
       'closing the browser, which threw for the search nobody waited on, left its Chrome or its profile behind',
