@@ -2143,8 +2143,15 @@ describe('phone (390x844)', () => {
   })
 
   test('search results show in a grid without sideways overflow', async () => {
+    // Wait for this search's own heading: the check above has just cleared its long search, whose
+    // result shows until the box has been still for 300 ms.
     await browser.search('one piece')
-    assert.ok(await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`))
+    assert.ok(
+      await browser.waitFor(
+        `${resultsFor('one piece')} && document.querySelector('.ab-results .ab-strip-panel[href]')`,
+      ),
+      'no One Piece results',
+    )
     assert.ok(await browser.evaluate<boolean>(fits), 'the page is wider than the phone')
     await browser.search('')
   })
