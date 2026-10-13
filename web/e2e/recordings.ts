@@ -51,8 +51,6 @@ export const SEARCHES = [
     2,
   ),
   'The Laid-Off Cheat-Granting Mage Enjoys a Second Lease on Life',
-  // Sent when its check runs on its own. In a whole run, that check clears the box before the
-  // search goes out.
   'one piece',
 ]
 
