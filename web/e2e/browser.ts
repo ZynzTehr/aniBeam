@@ -62,6 +62,24 @@ function modeOf(asked: AniListMode | undefined): AniListMode {
   return mode
 }
 
+/**
+ * What a browser's Chrome starts with, its profile in `profile`; port 0 lets Chrome pick a free
+ * debugging port. A recorded browser's Chrome can't resolve AniList's address, so a request that
+ * got past the recordings fails rather than reach AniList. A live browser's must resolve it, as
+ * any visitor's does: the live checks would otherwise take AniList for down on every run, and
+ * skip, saying it's not the app, while the run passes. browser.test.ts holds both to that.
+ */
+export function chromeArgs(mode: AniListMode, profile: string): string[] {
+  return [
+    '--headless',
+    '--no-first-run',
+    `--user-data-dir=${profile}`,
+    '--remote-debugging-port=0',
+    ...(mode === 'recorded' ? ['--host-resolver-rules=MAP graphql.anilist.co ~NOTFOUND'] : []),
+    'about:blank',
+  ]
+}
+
 // A recorded browser's recordings, unless the check hands it its own: one JSON file per request.
 const RECORDINGS = new URL('./anilist/', import.meta.url)
 const readRecordings = (): Recording[] =>
@@ -193,7 +211,7 @@ export class Browser {
   }
 
   /**
-   * Starts Chrome with a fresh profile; port 0 lets Chrome pick a free debugging port. Its AniList
+   * Starts Chrome with a fresh profile and the arguments chromeArgs gives it. Its AniList
    * answers come from recordings, unless the check asks for AniList's own with `aniList: 'live'`,
    * or gives no `aniList` while ANILIST is live. ANILIST=off allows no live browser, and any other
    * ANILIST throws. A recorded browser answers each request with a copy of its recording, 200 ms
@@ -222,18 +240,7 @@ export class Browser {
       throw new Error(`Nothing is serving ${BASE_URL}. Start it with \`npm run dev\` first.`)
 
     const profile = mkdtempSync(join(tmpdir(), 'anibeam-e2e-'))
-    const chrome = spawn(
-      chromeBin,
-      [
-        '--headless',
-        '--no-first-run',
-        `--user-data-dir=${profile}`,
-        '--remote-debugging-port=0',
-        ...(mode === 'recorded' ? ['--host-resolver-rules=MAP graphql.anilist.co ~NOTFOUND'] : []),
-        'about:blank',
-      ],
-      { stdio: 'ignore' },
-    )
+    const chrome = spawn(chromeBin, chromeArgs(mode, profile), { stdio: 'ignore' })
     let failedToRun: Error | undefined
     chrome.once('error', (error) => (failedToRun = error))
     // Whatever goes wrong from here, Chrome and its profile go too.
