@@ -30,9 +30,12 @@ function calmCss(text: string) {
 }
 const calm = calmCss(css)
 
-/** Each declaration in the text, with the selector (or at-rule) of the block it sits in. */
+/**
+ * Each declaration in the text, with the selector (or at-rule) of the block it sits in, and those
+ * of every block it sits in, outermost first.
+ */
 function declarations(text: string) {
-  const found: { rule: string; property: string; value: string }[] = []
+  const found: { rule: string; within: string[]; property: string; value: string }[] = []
   const open: string[] = []
   let from = 0
   for (const match of text.matchAll(/[{};]/g)) {
@@ -43,7 +46,7 @@ function declarations(text: string) {
       continue
     }
     const [, property, value] = /^([\w-]+)\s*:\s*(.*)$/.exec(chunk) ?? []
-    if (property) found.push({ rule: open.at(-1) ?? '', property, value })
+    if (property) found.push({ rule: open.at(-1) ?? '', within: [...open], property, value })
     if (match[0] === '}') open.pop()
   }
   return found
@@ -128,5 +131,31 @@ test('every motion gate honors the switch', () => {
     ),
     [],
     `${honoring} of ${gates.length} motion gates honor the switch: these rules sit in a gate but outside ${SWITCH} { … }, so the site’s own setting, data-motion="reduce" on <html>, can’t stop them`,
+  )
+})
+
+test('nothing depends on reduce alone', () => {
+  // The switch can stop what a gate holds, but it can't turn on a rule for reduced motion: one
+  // under @media (prefers-reduced-motion: reduce), or the bare (prefers-reduced-motion), which
+  // asks the same, holds only while the device asks. So the calm look is every rule's default,
+  // what motion adds sits in a gate, and the gate, written just so, is the one place that asks
+  // the device: motion that needs another condition, such as a width, nests it inside.
+  const gate = '@media (prefers-reduced-motion: no-preference)'
+  const asks = (prelude: string) => /prefers-reduced-motion/i.test(prelude)
+  const asking = declarations(css).filter(({ within }) => within.some(asks))
+  // The gates' own rules ask too, so a reading that finds none of them is broken.
+  assert.ok(
+    asking.some(({ within }) => within.includes(gate)),
+    'the check found no rules in the motion gates',
+  )
+  assert.deepEqual(
+    asking
+      .filter(({ within }) => within.some((prelude) => asks(prelude) && prelude !== gate))
+      .map(
+        ({ within, property, value }) =>
+          [...within, `${property}: ${value}`].join(' { ') + ' }'.repeat(within.length),
+      ),
+    [],
+    `these rules ask the device about motion outside the gate, ${gate}, and a media query never hears the site’s own setting, data-motion="reduce" on <html>: make the calm look the default, and put what motion adds in a gate`,
   )
 })

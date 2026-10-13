@@ -1656,6 +1656,18 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('with motion allowed, the capsule shows as it splits open', async () => {
+    // The capsule is hidden unless motion is allowed (see the reduced motion group), so here both
+    // halves must show as the title comes out between them.
+    const { opened } = await capsuleHalves()
+    assert.notEqual(opened, undefined, 'the capsule never opened')
+    assert.equal(
+      opened,
+      2,
+      `with motion allowed, the capsule showed ${opened} of its 2 halves as it opened`,
+    )
+  })
+
   test('with motion allowed, hovering the lever still tilts it', async () => {
     // The other half of pull.e2e.ts's check that the off lever stays still: a working one still
     // tilts. It only hovers, so it pulls nothing.
@@ -1692,6 +1704,39 @@ async function pull() {
     ),
     'nothing was pulled',
   )
+}
+
+/**
+ * Pulls the lever and counts the capsule halves on show, drawn and not see-through: the most at
+ * any change to the new result before it opens (`pulled`), and from when it opens until two
+ * frames later (`opened`). Each change is read as React makes it, before the browser draws
+ * anything, so a state counts even if it lasts a frame or less. A moment never reached has no
+ * count.
+ */
+async function capsuleHalves() {
+  return browser.evaluate<{ pulled?: number; opened?: number }>(`(async () => {
+    const result = () => document.querySelector('.ab-result:not([data-old])')
+    const shown = {}
+    const count = () => {
+      const now = result()
+      if (!now) return
+      const moment = now.classList.contains('is-open') ? 'opened' : 'pulled'
+      const halves = [...now.querySelectorAll('.ab-half')].filter((half) => half.checkVisibility({ opacityProperty: true, visibilityProperty: true })).length
+      shown[moment] = Math.max(shown[moment] ?? 0, halves)
+    }
+    document.querySelector('.ab-result')?.setAttribute('data-old', '')
+    document.querySelector('#pull').scrollIntoView()
+    const watch = new MutationObserver(count)
+    watch.observe(document.querySelector('.ab-reveal'), { childList: true, attributes: true, subtree: true })
+    const start = performance.now()
+    document.querySelector('.ab-lever').click()
+    while (!result()?.classList.contains('is-open') && performance.now() - start < 10000)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    count()
+    watch.disconnect()
+    return shown
+  })()`)
 }
 
 describe('tablet (834x1112, iPad Pro 11" portrait) and up', () => {
@@ -1888,6 +1933,17 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     const halfOut = await browser.evaluate<string>(splashCover)
     await browser.evaluate('scrollTo(0, 0); true')
     assert.equal(halfOut, 'none', 'the splash cover drifted with half its panel scrolled away')
+  })
+
+  test('a pull shows no capsule halves', async () => {
+    // With motion allowed, a capsule drops in and splits open on the title (see the desktop
+    // group). Here the title comes out at once, with no capsule: not even a still one for the
+    // frame or so before it opens.
+    assert.deepEqual(
+      await capsuleHalves(),
+      { pulled: 0, opened: 0 },
+      'capsule halves shown as the pull began, and once it opened',
+    )
   })
 
   test('a pull never shows the title already on screen, even once every title has come up', async () => {
