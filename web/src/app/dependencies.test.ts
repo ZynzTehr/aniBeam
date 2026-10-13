@@ -57,28 +57,54 @@ test('every package web/ imports is in web/package.json, so a web-only install b
 // (Vite reads it from web/) or '@anibeam/web/e2e/…', in upper case too, which macOS also finds.
 // Text can't show all that the build takes in, such as an alias or a stylesheet's url(), so
 // privacy.test.ts reads the production build itself; this check stays for its message, which
-// names the line.
-function linesIntoE2e(file: string): string[] {
-  return readFileSync(join(web, file), 'utf8')
-    .split('\n')
-    .flatMap((line, i) =>
-      // Lines that start like a comment are skipped, as a comment can name a path without using
-      // it. That's judged by line, not by /* */ span: '../e2e/**/*.json' holds a /**/ too.
-      /^\s*(\/\/|\/?\*)/.test(line) || !/[/'"`]e2e\//i.test(line)
-        ? []
-        : [`${file}:${i + 1}: ${line.trim()}`],
-    )
+// names the line. The scan takes text, so that a test can hand it the lines it must find.
+function linesIntoE2e(text: string, file: string): string[] {
+  return text.split('\n').flatMap((line, i) =>
+    // Lines that start like a comment are skipped, as a comment can name a path without using
+    // it. That's judged by line, not by /* */ span: '../e2e/**/*.json' holds a /**/ too.
+    /^\s*(\/\/|\/?\*)/.test(line) || !/[/'"`]e2e\//i.test(line)
+      ? []
+      : [`${file}:${i + 1}: ${line.trim()}`],
+  )
 }
+const linesIntoE2eIn = (file: string) => linesIntoE2e(readFileSync(join(web, file), 'utf8'), file)
+
+test('the scan finds a path into e2e/ however a line of code names it', () => {
+  // One line for each way the comment above gives. Each has the folder's name in braces, which come
+  // off before the scan reads it: written out, these lines would themselves be lines in src naming
+  // a path into e2e/, as the scan of src reads this file too.
+  const lines = [
+    "import recorded from '../{e2e}/a.json'",
+    "export const all = import.meta.glob('../{e2e}/*.json')",
+    "export const url = new URL('../{e2e}/a.json', import.meta.url)",
+    'export const load = (name: string) => import(`../{e2e}/${name}.json`)',
+    "import fromWeb from '/{e2e}/a.json'",
+    "import fromPackage from '@anibeam/web/{e2e}/a.json'",
+    "import upper from '../{E2E}/a.json'",
+  ].map((line) => line.replace(/\{(e2e)\}/i, '$1'))
+  assert.deepEqual(
+    linesIntoE2e(lines.join('\n'), 'planted.ts'),
+    lines.map((line, i) => `planted.ts:${i + 1}: ${line}`),
+    'each of these lines names a path into e2e/, so the scan must find it',
+  )
+})
 
 test('nothing in src names a path into e2e/, which must stay out of the app', () => {
   // The recorder in scripts/ imports from e2e/, as it may, so the reading must find that.
   assert.ok(
-    linesIntoE2e('scripts/record-anilist.ts').length > 0,
+    linesIntoE2eIn('scripts/record-anilist.ts').length > 0,
     "this reading misses the recorder's imports from e2e/",
   )
-  // Tests in src too: they have no need of e2e/, which has tests of its own.
+  // Every file in src, tests too: they have no need of e2e/, which has tests of its own. A scan of
+  // part of src would pass just as well, so the files it reads are held to a listing of src, every
+  // folder in it.
+  const files = sources('src')
+  const unread = readdirSync(join(web, 'src'), { encoding: 'utf8', recursive: true })
+    .map((path) => join('src', path))
+    .filter((path) => /\.tsx?$/.test(path) && !files.includes(path))
+  assert.deepEqual(unread, [], 'the scan of src skips these files')
   assert.deepEqual(
-    sources('src').flatMap(linesIntoE2e),
+    files.flatMap(linesIntoE2eIn),
     [],
     'these lines in src name a path into e2e/, which must stay out of the app',
   )
