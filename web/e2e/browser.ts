@@ -19,6 +19,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { QUERIES, searchQuery } from '../src/features/anime/queries.ts'
 
 export const BASE_URL = process.env.BASE_URL ?? 'http://localhost:5173/'
 
@@ -107,6 +108,11 @@ const nameOf = ({ query, variables = {} }: Answer['request']) => {
   const lists = [...query.matchAll(/sort: (\w+)/g)].map(([, sort]) => sort).join(' + ')
   return `${lists || JSON.stringify(query.slice(0, 60))} with ${JSON.stringify(sorted(variables))}`
 }
+// The kinds of request recordings.ts asks for: searches and decades, the ones its SEARCHES and
+// DECADES list, and trending and a first visit, which its requests() always asks for. A request
+// of any other kind, such as one for a title on its own, has a recording only once requests()
+// asks for it too.
+const LISTED = [QUERIES.search, QUERIES.era, QUERIES.trending, QUERIES.firstVisit]
 
 // What AniList sends with its answer to a CORS preflight, and with its answer to a request, as a
 // live run's network log shows them. The page may send only the headers AniList allows, and read
@@ -154,6 +160,8 @@ export class Browser {
   #answering = new Set<Promise<unknown>>()
   // Requests a recorded browser had no recording for, until waitFor() or close() throws them.
   #misses = new Set<string>()
+  // What search() typed last, for what a failure says about the start of it (see #advice).
+  #typing = ''
   // Called once Chrome has moved a stopped clock on as far as tick() asked.
   #clockMoved: (() => void) | null = null
   // The DevTools events a check listens for (see onEvent), each with its listener.
@@ -219,9 +227,9 @@ export class Browser {
    * in as `recordings`, or else web/e2e/anilist/'s, which `npm run e2e:record` writes (see
    * recordings.ts). A request with no recording gets a 404, not a failed connection, which would
    * bring up the bundled samples that titlesShown() can't tell from AniList's titles; and the next
-   * waitFor() throws, naming it and saying how to record it. Nothing is sent to AniList: Chrome
-   * doesn't even resolve its address, so a request that got past the recordings would fail rather
-   * than reach it.
+   * waitFor() throws, naming it and saying how to record it, or, for a search that went out
+   * mid-word, that it needs no recording. Nothing is sent to AniList: Chrome doesn't even resolve
+   * its address, so a request that got past the recordings would fail rather than reach it.
    */
   static async open({
     aniList,
@@ -411,9 +419,11 @@ export class Browser {
 
   /**
    * Replaces the header search text the way typing does (one input event per character). The
-   * first character replaces the selected old text, so the box never sits empty in between.
+   * first character replaces the selected old text, so the box never sits empty in between. The
+   * text is noted first, as the page can search the start of it while it is typed (see #advice).
    */
   async search(text: string) {
+    this.#typing = text
     await this.evaluate(
       `(() => { const input = document.querySelector('.ab-search input'); input.focus(); input.select(); return true })()`,
     )
@@ -546,15 +556,33 @@ export class Browser {
     // otherwise hide a request with no recording.
     if (!recording && (changed ?? answer).status === 404)
       this.#misses.add(
-        `The page asked AniList for ${name}, which has no recording ${this.#where}.${this.#midWord(answer.request)} To record it, add it to SEARCHES or DECADES in web/e2e/recordings.ts unless it is there already, then run \`npm run e2e:record\` in web/.`,
+        `The page asked AniList for ${name}, which has no recording ${this.#where}.${this.#advice(answer.request)}`,
       )
     return changed ?? answer
   }
 
   /**
+   * What a failure says to do about a request with no recording. The page searches once typing
+   * stops for 300 ms, so on a machine too busy to type in time it can search mid-word. A search
+   * for the start of what search() typed went out that way: it needs no recording, as a rerun
+   * will most likely search only the whole, and a recording of it would hide the stall. Anything
+   * else needs a recording, once the list in recordings.ts for its kind holds it (see LISTED).
+   */
+  #advice(request: Answer['request']) {
+    const { search } = request.variables
+    // As the page sends it: trimmed, its spaces collapsed, in lower case.
+    const typed = (searchQuery(this.#typing).queryKey[2] as { search: string }).search
+    if (typeof search === 'string' && search !== typed && typed.startsWith(search))
+      return ` It is the start of ${JSON.stringify(this.#typing)}, which the check typed with Browser.search(), so it went out mid-word, on a machine too busy to type in time, and needs no recording: run the check again.`
+    if (!LISTED.includes(request.query))
+      return ' It is not a search, a decade, trending or a first visit: to record it, add it to requests() in web/e2e/recordings.ts unless it is there already, then run `npm run e2e:record` in web/.'
+    return `${this.#midWord(request)} To record it, add it to SEARCHES or DECADES in web/e2e/recordings.ts unless it is there already, then run \`npm run e2e:record\` in web/.`
+  }
+
+  /**
    * For a search with no recording that is the start of one recorded for the same query, a hint.
-   * The page searches once typing stops for 300 ms, so on a machine too busy to type in time it
-   * can search mid-word, and then a rerun needs no new recording.
+   * A search typed some other way than search(), such as through an input method, may also have
+   * gone out mid-word (see #advice), and then a rerun needs no new recording.
    */
   #midWord({ query, variables }: Answer['request']) {
     const typed = variables.search

@@ -6,7 +6,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { test } from 'node:test'
 import { titleOf } from '../src/features/anime/format.ts'
-import { FIRST_ERA, QUERIES, type Media } from '../src/features/anime/queries.ts'
+import { ERAS, FIRST_ERA, QUERIES, type Media } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { Browser, type AniListMode, type Recording } from './browser.ts'
 
@@ -209,7 +209,7 @@ test('a browser opened with recordings shows their titles, answered a moment lat
   }
 })
 
-test('in a recorded browser, a request with no recording fails the check waiting on it, naming it and how to record it, unless a rewrite answers it', async () => {
+test('in a recorded browser, a request with no recording fails the check waiting on it, naming it and what to do about it, unless a rewrite answers it', async () => {
   const browser = await Browser.open({
     aniList: 'recorded',
     recordings: [firstVisit, recordedSearch],
@@ -224,6 +224,19 @@ test('in a recorded browser, a request with no recording fails the check waiting
     message.includes('web/e2e/recordings.ts') &&
     message.includes('npm run e2e:record') &&
     message.includes('mid-word') === midWord
+  // What a failure says to do about a request with no recording, once it has named it.
+  const advice = (message: string | null) =>
+    message?.split('which has no recording among the ones the check gave Browser.open(). ')[1] ??
+    message
+  // What waiting throws once the page has asked AniList for `request` with a fetch of its own,
+  // sent as the app sends its requests (see anilist() in src/lib/anilist.ts).
+  const asked = async (request: Recording['request']) => {
+    await browser.evaluate(
+      `fetch('https://graphql.anilist.co', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: ${JSON.stringify(JSON.stringify(request))} }).then(() => true)`,
+    )
+    return failure(browser.waitFor('true', 1_000))
+  }
+  const era = (id: string) => ERAS.find((each) => each.id === id)!.variables
   let closed = false
   try {
     await browser.load()
@@ -269,7 +282,62 @@ test('in a recorded browser, a request with no recording fails the check waiting
       null,
       'waiting on a search with no recording that a rewrite answered',
     )
+    // A search typed with search() can go out mid-word, on a machine too busy to type in time.
+    // The start of it then has no recording, and needs none, as a rerun sends the whole search:
+    // so the failure says to run the check again, and nothing about recording. The whole search
+    // still needs one. The text has capitals, which the page searches for in lower case, and
+    // each search on the way to it is turned down, so none fails this check if it goes out.
+    await browser.rewriteAniList(({ request }) => {
+      const { search } = request.variables
+      return typeof search === 'string' && search !== 'zzqq typed' ? BAD_REQUEST : null
+    })
+    await browser.search('Zzqq Typed')
+    const typed = await failure(browser.waitFor(retryFor('Zzqq Typed'), 10_000))
     await browser.rewriteAniList(null)
+    // As if the page had searched before the last letters went in.
+    await paste(browser, 'Zzqq Ty')
+    const cutShort = await failure(browser.waitFor(retryFor('Zzqq Ty'), 10_000))
+    // recordings.ts lists the searches and decades the checks send, and always asks for trending
+    // and a first visit. A request of any other kind, such as one for a title on its own, or for
+    // another list sorted as the decades are, has to be added to its requests() instead.
+    const decade = await asked({ query: QUERIES.era, variables: era('2000s') })
+    const trendingAlone = await asked({ query: QUERIES.trending, variables: {} })
+    const anotherFirstVisit = await asked({ query: QUERIES.firstVisit, variables: era('1980s') })
+    const title = await asked({
+      query: 'query ($id: Int) { Media(id: $id) { id } }',
+      variables: { id: 1 },
+    })
+    const anotherList = await asked({
+      query:
+        'query ($genre: String) { Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, genre: $genre) { id } } }',
+      variables: { genre: 'Drama' },
+    })
+    const newKind =
+      'It is not a search, a decade, trending or a first visit: to record it, add it to requests() in web/e2e/recordings.ts unless it is there already, then run `npm run e2e:record` in web/.'
+    const record =
+      'To record it, add it to SEARCHES or DECADES in web/e2e/recordings.ts unless it is there already, then run `npm run e2e:record` in web/.'
+    assert.deepEqual(
+      {
+        'a search typed in full': advice(typed),
+        'the start of it, as if it went out mid-word': advice(cutShort),
+        'a decade': advice(decade),
+        'trending on its own': advice(trendingAlone),
+        'a first visit with another decade': advice(anotherFirstVisit),
+        'a title on its own': advice(title),
+        'another list, sorted as the decades are': advice(anotherList),
+      },
+      {
+        'a search typed in full': record,
+        'the start of it, as if it went out mid-word':
+          'It is the start of "Zzqq Typed", which the check typed with Browser.search(), so it went out mid-word, on a machine too busy to type in time, and needs no recording: run the check again.',
+        'a decade': record,
+        'trending on its own': record,
+        'a first visit with another decade': record,
+        'a title on its own': newKind,
+        'another list, sorted as the decades are': newKind,
+      },
+      'what each failure said to do about a request with no recording',
+    )
     // One nobody waits on fails the file instead, as its browser closes in after().
     await paste(browser, 'zzqq not waited on')
     const offered = await browser.evaluate<boolean>(`new Promise((resolve) => {

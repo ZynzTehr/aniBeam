@@ -156,7 +156,7 @@ Run the recorder in `web/` with `npm run e2e:record`, or from the root with `npm
 Record again when:
 
 - `npm test` says a recording is missing or stale. A recording goes stale when the app changes the request it answers, in its query or its variables. Asking for one more field of every title makes all 20 stale.
-- A check sends a request that has no recording. The check fails, naming the request and saying how to record it. Add the search to `SEARCHES`, or the decade to `DECADES`, in `web/e2e/recordings.ts`, then run the recorder. If the request is the start of a recorded search, the page may have searched mid-word on a busy machine, and the message says to run the check again first.
+- A check sends a request that has no recording. The check fails, naming the request and saying how to record it. Add the search to `SEARCHES`, or the decade to `DECADES`, in `web/e2e/recordings.ts`, then run the recorder. Another kind of request, such as one for a title on its own, goes in `requests()` there instead, and the message says so. If the request is the start of a search the check typed with `search()`, the page searched mid-word on a busy machine. The message then says to run the check again, with nothing to record. If it is the start of a recorded search, the page may have searched mid-word, and the message says to run the check again first.
 
 The recorder writes nothing unless every answer is a 200 with no errors and the titles still hold what each check relies on, such as Frieren first in a search for "frieren". If AniList's titles can't hold it any more, the recorder says which check relies on it. That check must change, and so must its rule in `RULES` in `web/e2e/recordings.ts`.
 
