@@ -1794,9 +1794,18 @@ describe('tablet (834x1112, iPad Pro 11" portrait) and up', () => {
   })
 })
 
-describe('reduced motion', () => {
+// Visitors can ask for reduced motion on their device, or on the site itself, whose setting is
+// data-motion="reduce" on <html> (see lib/motion.ts). Every motion rule and script must hear both,
+// so these checks run twice: once with the device asking, and once on a device that allows
+// motion, with the site's setting turned on after the page has loaded.
+describe('reduced motion', () => reducedMotionChecks('device'))
+describe('reduced motion, set on the site', () => reducedMotionChecks('site'))
+
+function reducedMotionChecks(askedOn: 'device' | 'site') {
   before(async () => {
-    await browser.load({ reduceMotion: true })
+    await browser.load({ reduceMotion: askedOn === 'device' })
+    if (askedOn === 'site')
+      await browser.evaluate(`document.documentElement.dataset.motion = 'reduce'; true`)
     assert.ok(await browser.titlesShown())
   })
 
@@ -1986,7 +1995,7 @@ describe('reduced motion', () => {
       'opening and closing a title card moved the decade row',
     )
   })
-})
+}
 
 describe('phone (390x844)', () => {
   // Phone emulation widens the layout to fit anything too wide, so overflow is measured

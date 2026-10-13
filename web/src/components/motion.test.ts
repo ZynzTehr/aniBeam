@@ -82,3 +82,51 @@ test('outside the motion gate, nothing animates or scrolls smoothly', () => {
     .map(({ rule, property, value }) => `${rule} { ${property}: ${value} }`)
   assert.deepEqual(moving, [])
 })
+
+// Visitors can also ask for reduced motion on the site itself. Its Reduce motion switch sets
+// data-motion="reduce" on <html> (see lib/motion.ts), which a media query can't see. So inside
+// each gate, the rules sit in one more rule, which holds only while the switch is off. :where()
+// adds no specificity, so every rule inside keeps its rank; a bare :root:not() would add two
+// classes to each.
+const SWITCH = ":where(:root:not([data-motion='reduce']))"
+
+/**
+ * What sits directly inside each motion gate, gate by gate: each rule's selector (or at-rule), and
+ * any declaration left loose in the gate itself.
+ */
+function gateContents(text: string) {
+  const gate = '@media (prefers-reduced-motion: no-preference)'
+  const gates: string[][] = []
+  for (let at = text.indexOf(gate); at !== -1; at = text.indexOf(gate, at + 1)) {
+    const inside: string[] = []
+    let depth = 0
+    let from = text.indexOf('{', at) + 1
+    // Up to the brace that closes the gate, which takes the depth below 0.
+    for (let i = from; i < text.length && depth >= 0; i++) {
+      if (!'{};'.includes(text[i])) continue
+      const chunk = text.slice(from, i).replace(/\s+/g, ' ').trim()
+      if (depth === 0 && chunk) inside.push(chunk)
+      depth += text[i] === '{' ? 1 : text[i] === '}' ? -1 : 0
+      from = i + 1
+    }
+    gates.push(inside)
+  }
+  return gates
+}
+
+test('every motion gate honors the switch', () => {
+  const gates = gateContents(css)
+  // Every gate holds a rule, so a gate read as empty means this reading is broken.
+  assert.ok(
+    gates.length > 0 && gates.every((inside) => inside.length > 0),
+    'the check found no rules in the motion gates',
+  )
+  const honoring = gates.filter((inside) => inside.every((item) => item === SWITCH)).length
+  assert.deepEqual(
+    gates.flatMap((inside, i) =>
+      inside.filter((item) => item !== SWITCH).map((item) => `gate ${i + 1}: ${item}`),
+    ),
+    [],
+    `${honoring} of ${gates.length} motion gates honor the switch: these rules sit in a gate but outside ${SWITCH} { … }, so the site’s own setting, data-motion="reduce" on <html>, can’t stop them`,
+  )
+})
