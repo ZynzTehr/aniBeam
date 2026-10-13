@@ -232,8 +232,10 @@ for (const [name, problems, words] of shortfalls)
   })
 
 // AniList always has a first visit's trending and 1990s titles, but while busy it has sent a list
-// of them empty. So a list sent empty is not AniList's data: the check asks once more, from a fresh
-// first visit, and goes on if the second answer has its titles, or skips if one comes empty again.
+// of them empty. So a list sent empty is not AniList's data: when that is all that is wrong with
+// the answer, the check asks once more, from a fresh first visit, and goes on if the second answer
+// has its titles, or skips if a list comes empty again with nothing more wrong. Being busy explains
+// nothing more, so a list sent empty with more wrong in the answer fails at once, naming all of it.
 // A list with titles, but fewer than the page shows, is still AniList's data, failed at once.
 
 /** AniList's answer to a first visit, with the `lists` named (trending, era) sent empty. */
@@ -265,7 +267,11 @@ test('a first visit’s list that AniList sends empty is asked for again, not fa
   const gone = recorded('first-visit')
   delete gone.body.data.era
   assert.deepEqual(emptyLists(gone), [], 'a list gone is asked for again')
-  assert.deepEqual(emptyLists({ body: { data: null } }), [], 'no data is asked for again')
+  assert.deepEqual(
+    emptyLists({ request: gone.request, body: { data: null } }),
+    [],
+    'no data is asked for again',
+  )
 })
 
 test('a first visit’s list sent empty, then full when asked again, passes, saying the first was empty', () => {
@@ -274,7 +280,7 @@ test('a first visit’s list sent empty, then full when asked again, passes, say
   assert.ok('note' in said, `not passed: ${JSON.stringify(said)}`)
   assert.match(
     said.note,
-    /^AniList's first answer had no titles in data\.trending\.media; asked again 20 seconds later, from a fresh first visit, it sent them$/,
+    /^AniList's first answer had no titles in data\.trending\.media, so the check asked again 20 seconds later, from a fresh first visit, and goes on with that answer$/,
   )
   assert.deepEqual(answerProblems(second), [])
 })
@@ -331,6 +337,79 @@ test('a first visit’s list with titles, but too few, is not asked for again: i
       `${name} cut to ${length} titles not failed as AniList’s data: ${JSON.stringify(found)}`,
     )
   }
+})
+
+// AniList busy explains a list sent empty, and nothing more: an answer with more wrong, such as a
+// cover over http, is one the app can't use, and a change to AniList's API can empty a list too.
+// [what, the lists sent empty, what more is wrong, words naming it].
+const emptyAndMore: [string, string[], (data: any) => void, string][] = [
+  [
+    'trending sent empty, and a 1990s cover over http',
+    ['trending'],
+    (data) => {
+      const cover = data.era.media[1].coverImage
+      cover.large = cover.large.replace('https:', 'http:')
+    },
+    'data.era.media[1].coverImage.large is "http://',
+  ],
+  [
+    'trending sent empty, and the decade filter gone',
+    ['trending'],
+    (data) => data.era.media.forEach((media: any) => (media.seasonYear = 2014)),
+    'from 1989 to 2000, the decade asked for: AniList no longer applies',
+  ],
+  [
+    'trending sent empty, and a 1990s title twice',
+    ['trending'],
+    (data) => (data.era.media[1] = data.era.media[0]),
+    'data.era.media lists id',
+  ],
+  [
+    'the 1990s sent empty, and a trending cover over http',
+    ['era'],
+    (data) => {
+      const cover = data.trending.media[1].coverImage
+      cover.large = cover.large.replace('https:', 'http:')
+    },
+    'data.trending.media[1].coverImage.large is "http://',
+  ],
+  [
+    'trending sent empty, and three titles for the 1990s',
+    ['trending'],
+    (data) => (data.era.media.length = 3),
+    'data.era.media has 3 titles, fewer than the 4',
+  ],
+]
+for (const [name, lists, more, words] of emptyAndMore)
+  test(`a first visit’s list sent empty, with more wrong in the answer, is not asked for again: it fails at once, naming all of it: ${name}`, () => {
+    assert.deepEqual(
+      emptyLists(emptied(...lists)),
+      lists,
+      'the same answer with nothing more wrong is not asked for again',
+    )
+    const answer = emptied(...lists)
+    more(answer.body.data)
+    assert.deepEqual(emptyLists(answer), [], 'asked for again, as if AniList were only busy')
+    const found = answerProblems(answer)
+    for (const named of [words, ...lists.map((list) => `data.${list}.media has 0 titles`)])
+      assert.ok(
+        found.some((problem) => problem.includes(named)),
+        `${named} not named; found: ${JSON.stringify(found)}`,
+      )
+  })
+
+// Asked again, a second answer with a list empty and more wrong is not AniList still busy: the
+// check goes on with it, to fail naming all of it, and its note says no more than it knows.
+test('a first visit’s list sent empty, then again with more wrong in the answer, is not skipped', () => {
+  const second = emptied('trending')
+  const cover = second.body.data.era.media[1].coverImage
+  cover.large = cover.large.replace('https:', 'http:')
+  const said = askedAgain(emptyLists(emptied('trending')), emptyLists(second))
+  assert.ok('note' in said, `skipped as AniList busy: ${JSON.stringify(said)}`)
+  assert.match(
+    said.note,
+    /^AniList's first answer had no titles in data\.trending\.media, so the check asked again 20 seconds later, from a fresh first visit, and goes on with that answer$/,
+  )
 })
 
 test('a search that finds the title whose romaji it searched for passes', () => {

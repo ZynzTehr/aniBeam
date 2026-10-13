@@ -201,8 +201,9 @@ test(
     skipped = await judge(t, 'first-visit', visit.seen)
     if (skipped) return
     // AniList always has trending and 1990s titles, but while busy it has sent a first visit's
-    // list empty. So the check asks once more, from a fresh first visit, and skips if a list
-    // comes empty again (see askedAgain).
+    // list empty. So, when that is all that is wrong with the answer, the check asks once more,
+    // from a fresh first visit, and skips if a list comes empty again, with nothing else wrong
+    // (see emptyLists and askedAgain). With more wrong, it fails at once, naming all of it.
     const empty = visit.answer ? emptyLists(visit.answer) : []
     if (empty.length) {
       await browser.forget() // away from the app at once, so it asks AniList nothing meanwhile

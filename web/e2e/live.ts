@@ -6,9 +6,10 @@
 //
 // While AniList itself is down or busy, nothing can be learnt about the app, so a check skips,
 // saying so (verdict). Busy, AniList has also answered a first visit with a list it always fills
-// sent empty: the check of a first visit then asks once more, rather than fail (emptyLists), and
-// skips if the list comes empty again (askedAgain). Anything else that keeps the app from using
-// AniList's answer fails it, in AniList's own words when it gave some: a query it turns down, an
+// sent empty: when that is all that is wrong with the answer, the check of a first visit then asks
+// once more, rather than fail (emptyLists), and skips if a list comes empty again, with nothing
+// else wrong (askedAgain). Anything else that keeps the app from using AniList's answer fails it,
+// even beside an empty list, in AniList's own words when it gave some: a query it turns down, an
 // answer the browser keeps from the page, a title in another format (answerProblems). A check also
 // needs things of AniList's data, such as enough titles for the page to show. When the data lacks
 // one while the API answers as the app reads it, the failure says so: then it is the check's rule
@@ -278,26 +279,36 @@ function titleProblems(media: any, where: string, fields: string[]): string[] {
 const SHOWN: Record<string, number> = { trending: 9, era: 4 }
 
 /**
- * The lists of a first visit (see SHOWN) that `answer` has with no titles, by name. AniList always
- * has titles for both, so a list sent empty is AniList busy, not its data: twice on 2026-10-12 it
- * took about 13 seconds to answer a first visit, with no trending titles, and 2 minutes later
- * answered in full. So the live check of a first visit asks again rather than fail (see
- * askedAgain). A list with titles, but fewer than the page shows, is AniList's data
- * (answerProblems).
+ * The lists of a first visit (see SHOWN) that `answer` has with no titles, by name, if that is all
+ * that is wrong with it. AniList always has titles for both, so a list sent empty is AniList busy,
+ * not its data: twice on 2026-10-12 it took about 13 seconds to answer a first visit, with no
+ * trending titles, and 2 minutes later answered in full. So the live check of a first visit asks
+ * again rather than fail (see askedAgain). Being busy explains nothing more, so for an answer with
+ * anything else wrong, such as a cover over http, it names none: the check fails at once, naming
+ * all of it (answerProblems), as a change to AniList's API can empty a list too. A list with
+ * titles, but fewer than the page shows, is AniList's data (answerProblems).
  */
-export function emptyLists({ body }: Pick<Answer, 'body'>): string[] {
-  return Object.keys(SHOWN).filter((name) => {
-    const list = body?.data?.[name]?.media
+export function emptyLists(answer: Pick<Answer, 'request' | 'body'>): string[] {
+  const empty = Object.keys(SHOWN).filter((name) => {
+    const list = answer.body?.data?.[name]?.media
     return Array.isArray(list) && list.length === 0
   })
+  if (!empty.length) return []
+  // answerProblems() says of each list sent empty that it has 0 titles: anything else it finds is
+  // more wrong with the answer.
+  const more = answerProblems(answer).filter(
+    (problem) => !empty.some((name) => problem.startsWith(`data.${name}.media has 0 titles,`)),
+  )
+  return more.length ? [] : empty
 }
 
 /**
  * What the live check of a first visit makes of AniList's answer to its request asked again, from
  * a fresh first visit AGAIN_MS after AniList sent the lists `first` empty: `again` names the lists
- * the second answer has empty (see emptyLists). With any, AniList is still busy, so the check
- * skips. With none, it goes on with the second answer, noting in its output that the first was
- * empty.
+ * the second answer has empty, with nothing else wrong (see emptyLists). With any, AniList is still
+ * busy, so the check skips. With none, it goes on with the second answer, noting in its output that
+ * the first was empty. The second can still have a list empty, beside more wrong, which the check
+ * then fails, so the note says nothing of what the second answer holds.
  */
 export function askedAgain(first: string[], again: string[]): { skip: string } | { note: string } {
   const paths = (lists: string[]) => lists.map((name) => `data.${name}.media`).join(' or ')
@@ -307,7 +318,7 @@ export function askedAgain(first: string[], again: string[]): { skip: string } |
         skip: `AniList answered the app's first-visit request twice, ${AGAIN_MS / 1000} seconds apart, with no titles in ${paths(both)}, ${both.length > 1 ? 'lists' : 'a list'} it always fills: it isn't answering in full right now. It's not the app. Run the live checks again in a few minutes.`,
       }
     : {
-        note: `AniList's first answer had no titles in ${paths(first)}; asked again ${AGAIN_MS / 1000} seconds later, from a fresh first visit, it sent them`,
+        note: `AniList's first answer had no titles in ${paths(first)}, so the check asked again ${AGAIN_MS / 1000} seconds later, from a fresh first visit, and goes on with that answer`,
       }
 }
 
@@ -321,8 +332,9 @@ const data = (problem: string) =>
  * request (QUERIES in queries.ts), and each title's fields must be in the formats the app reads
  * (see FORMATS), with none twice in a list and none that the app's queries leave out. A first
  * visit's lists must also have as many titles as the page shows (the live check asks again for one
- * sent empty before it comes to this: see emptyLists), the decade's from that decade, and a search
- * must find `wanted`, the title whose romaji it searched for, if it is given.
+ * sent empty, with nothing else wrong, before it comes to this: see emptyLists), the decade's from
+ * that decade, and a search must find `wanted`, the title whose romaji it searched for, if it is
+ * given.
  */
 export function answerProblems(
   { request, body }: Pick<Answer, 'request' | 'body'>,
