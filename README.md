@@ -46,6 +46,7 @@ This repo is an [npm workspaces](https://docs.npmjs.com/cli/using-npm/workspaces
 AniBeam/
 ├── web/                     # Frontend: React + Vite + TypeScript + Tailwind CSS v4
 │   ├── e2e/                 # Browser checks (*.e2e.ts) and the Chrome driver they share
+│   │   └── anilist/         # AniList's answers, recorded for the browser checks
 │   ├── public/              # Static files served as-is, including the fonts
 │   ├── scripts/             # Maintenance scripts, such as the sample titles' refresh
 │   └── src/
@@ -114,7 +115,7 @@ The files are subsets with Latin letters, kana and the star symbol, about 100 KB
 
 ### Browser checks
 
-`web/e2e` holds checks that run the real page in headless Chrome: layout on desktop and phone, keyboard use, reduced motion, Windows contrast themes, the title card, search, the pull, trending refreshed while it is on screen, and what a visitor sees when AniList is down. They need no extra package. Node drives Chrome over its DevTools protocol.
+`web/e2e` holds checks that run the real page in headless Chrome: layout on desktop and phone, keyboard use, reduced motion, Windows contrast themes, the title card, search, the pull, trending refreshed while it is on screen, and what a visitor sees when AniList is down. Two more check AniList's API itself. They need no extra package. Node drives Chrome over its DevTools protocol.
 
 To run them, start the app with `npm run dev`, then point `CHROME_BIN` at a Chrome or chrome-headless-shell binary:
 
@@ -122,9 +123,66 @@ To run them, start the app with `npm run dev`, then point `CHROME_BIN` at a Chro
 CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm run test:browser
 ```
 
-They use the real AniList API, so they count against its limit of 30 requests a minute. The outage check takes about two minutes, because the app waits a minute before retrying a failed connection.
+A run takes about five minutes. The outage checks take about two of them, because the app waits a minute before retrying a failed connection.
 
-Some checks stage answers AniList rarely gives, such as a refused request or titles all tagged Ecchi. `web/e2e/browser.ts` rewrites AniList's replies in the browser before the page sees them, so those requests still reach AniList.
+#### Recorded answers
+
+Every check but the two live ones gets AniList's answers from `web/e2e/anilist/`, not from its API. A run would otherwise send AniList about 30 requests, 22 of them in its first minute, against its limit of 30 a minute for each IP address. Each file there holds AniList's real answer to one request the checks send, recorded by `npm run e2e:record`. `web/e2e/browser.ts` answers each request in Chrome with a copy of its recording, 200 ms after the page asks, about as long as AniList takes to answer. Chrome can't even look up AniList's address, so a request that got past the recordings would fail before it reached AniList.
+
+The recordings are [AniList](https://anilist.co)'s data. The folder holds only the 20 answers the checks ask for, about 270 KB of JSON, with no images and no user data. Only the checks use it. `npm test` fails if anything in `web/src` names a path into `web/e2e/`, so the app never ships it.
+
+Some checks stage answers AniList rarely gives, such as a refused request or titles all tagged Ecchi. `browser.ts` rewrites the answer before the page sees it, whether it was recorded or came from AniList.
+
+#### Recorded, live or off
+
+`ANILIST` sets where the answers come from:
+
+| `ANILIST`            | Answers come from                             | Requests to AniList's API in a run |
+| -------------------- | --------------------------------------------- | ---------------------------------- |
+| `recorded` (default) | the recordings, except in the two live checks | 2                                  |
+| `live`               | AniList, unless a check asks for recordings   | about 30, 22 in the first minute   |
+| `off`                | the recordings, and the two live checks skip  | none                               |
+
+```bash
+ANILIST=live CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm run test:browser
+```
+
+Run `ANILIST=live` on its own, while nothing else on the machine uses AniList. A live run tests this week's titles. The recordings keep the titles from the day they were recorded. Under `ANILIST=off`, a check that asks for a live browser fails, so a new one must skip under `off`, as the live checks do.
+
+#### Recording again
+
+Run the recorder in `web/` with `npm run e2e:record`, or from the root with `npm run e2e:record --workspace web`. It sends AniList one request at a time, at least 6.5 seconds apart, so never more than 10 in a minute. All 20 take about two minutes. By default it records only the missing and stale recordings, and deletes any that no check asks for. `npm run e2e:record -- --all` records every one again, and `npm run e2e:record -- trending search-frieren` records just those two, by file name. It prints a line for each recording saying what changed.
+
+Record again when:
+
+- `npm test` says a recording is missing or stale. A recording goes stale when the app changes the request it answers, in its query or its variables. Asking for one more field of every title makes all 20 stale.
+- A check sends a request that has no recording. The check fails, naming the request and saying how to record it. Add the search to `SEARCHES`, or the decade to `DECADES`, in `web/e2e/recordings.ts`, then run the recorder. If the request is the start of a recorded search, the page may have searched mid-word on a busy machine, and the message says to run the check again first.
+
+The recorder writes nothing unless every answer is a 200 with no errors and the titles still hold what each check relies on, such as Frieren first in a search for "frieren". If AniList's titles can't hold it any more, the recorder says which check relies on it. That check must change, and so must its rule in `RULES` in `web/e2e/recordings.ts`.
+
+Keep `SEARCHES` and `DECADES` up to date by hand. When a check stops sending a search, take it out of `SEARCHES`, with any rule for it, and the recorder deletes its recording. Nothing else notices a recording that no check uses any more.
+
+A new check that needs something particular of a title, such as a banner or a long name, should stage it with `rewriteAniList` in `browser.ts` instead of counting on a recording to have it.
+
+#### Covers
+
+Covers and banners still load from AniList's image server in every mode, so the checks need the internet. Three checks depend on those images:
+
+- "on a 2x screen, decade covers load AniList's 460px file where there is one" waits for the first two 1990s covers to load.
+- "the splash panel shows its cover when the window narrows, even after its banner failed" waits for the first sample title's cover to load.
+- "every trending panel shows a brand-hot focus ring when tabbed to" counts brand-hot pixels in screenshots that take in the covers.
+
+AniList replaces covers now and then, and an old file can disappear. A cover that can't load doesn't show, and its panel shows the title's color instead. If one of the first two 1990s covers in the recordings has gone, the first of these checks fails with "the first decade covers never loaded". `npm run e2e:record -- --all` records the answers again, with the covers' current addresses. The splash panel's cover belongs to a sample title, so `npm run samples` in `web/` refreshes it instead.
+
+#### The two live checks
+
+`web/e2e/live.e2e.ts` has the app send AniList's API two of its own requests: a first visit's one request for trending and the 1990s, then a search for the first trending title by its name. A run sends AniList these 2 requests and a CORS preflight. The checks judge AniList's answer as it came over the network, by the rules in `web/e2e/live.ts`:
+
+- While AniList's API is down or busy, they skip, saying why and that it's not the app. That covers a 429, a 403, no connection, no answer within 20 seconds, and a 5xx that a one-line health query confirms. Node's test runner lists each skipped check with its reason. While the live checks skip, nothing checks AniList's API, so look out for skips.
+- When AniList answers in a way the app can't use, they fail, in AniList's words when it gave some. That covers a query it turns down, a missing field, a field in a format the app can't read, and CORS headers that keep the answer from the page.
+- They also rely on AniList's data: enough trending and 1990s titles for the page to show, 1990s titles from the 1990s, and a search that finds the title it searched for. If the data breaks one of these, they fail with "That's AniList's data, not its API or the app". If it lasts, every run fails until AniList's data or the rule in `live.ts` changes.
+
+Before changing a rule, run the checks again. Twice, AniList took about 13 seconds to answer a first visit and sent no trending titles, and a run 2 minutes later passed.
 
 ### Tailwind CSS v4 and custom CSS
 
