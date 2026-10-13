@@ -1625,6 +1625,37 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('with the site set to reduce motion, a pull opens at once, and otherwise its capsule drops for 0.9 s', async () => {
+    // Visitors can ask for reduced motion on the site itself, not only on their device: that sets
+    // data-motion="reduce" on <html> (see lib/motion.ts). This device allows motion, so with the
+    // site's setting on a pull must open at once, as it does when the device asks (see the reduced
+    // motion group), and with it off the capsule must still drop first. How long each pull took to
+    // open, by the page's clock:
+    const ms = await browser.evaluate<{ on: number; off: number }>(`(async () => {
+      const root = document.documentElement, ms = {}
+      try {
+        for (const setting of ['on', 'off']) {
+          if (setting === 'on') root.dataset.motion = 'reduce'
+          else delete root.dataset.motion
+          document.querySelector('.ab-result')?.setAttribute('data-old', '')
+          const start = performance.now()
+          document.querySelector('.ab-lever').click()
+          while (!document.querySelector('.ab-result.is-open:not([data-old])') && performance.now() - start < 3000)
+            await new Promise((resolve) => setTimeout(resolve, 5))
+          ms[setting] = Math.round(performance.now() - start)
+        }
+      } finally {
+        delete root.dataset.motion
+      }
+      return ms
+    })()`)
+    assert.ok(ms.on < 450, `with the site set to reduce motion, the pull took ${ms.on} ms to open`)
+    assert.ok(
+      ms.off >= 850,
+      `with motion allowed, the pull opened after ${ms.off} ms, before its capsule's 0.9 s drop`,
+    )
+  })
+
   test('with motion allowed, hovering the lever still tilts it', async () => {
     // The other half of pull.e2e.ts's check that the off lever stays still: a working one still
     // tilts. It only hovers, so it pulls nothing.

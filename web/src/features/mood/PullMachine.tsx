@@ -3,13 +3,12 @@ import { markBroken, markLoaded } from '../../components/cover.ts'
 import { cssVars } from '../../components/cssVars.ts'
 import { opener } from '../../components/opener.ts'
 import type { OpenTitle } from '../../components/TitleCard.tsx'
+import { reducedMotion } from '../../lib/motion.ts'
 import { formatOf, seasonOf, studioOf, titleOf } from '../anime/format.ts'
 import type { Media } from '../anime/queries.ts'
 import { accentVars } from '../theming/deriveAccent.ts'
 import { MOODS, type Mood } from './moods.ts'
 import { pickTitle, pullable } from './pick.ts'
-
-const prefersReducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches
 
 function rarityOf(score: number | null) {
   if (score === null) return { key: 'mystery', label: 'Mystery', stars: '?', sfx: '!?' }
@@ -42,7 +41,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
     setPulled(choice)
     setPulls((n) => n + 1)
     setRevealed(false)
-    timer.current = window.setTimeout(() => setRevealed(true), prefersReducedMotion() ? 0 : 900)
+    timer.current = window.setTimeout(() => setRevealed(true), reducedMotion() ? 0 : 900)
   }
 
   const rarity = pulled ? rarityOf(pulled.averageScore) : null
