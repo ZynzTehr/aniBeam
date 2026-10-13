@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { test } from 'node:test'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { titleOf } from '../src/features/anime/format.ts'
 import { ERAS, FIRST_ERA, QUERIES, type Media } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
@@ -202,8 +203,12 @@ test('a browser opened with recordings shows their titles, answered a moment lat
       'the page did not show the recorded titles, with quiet status lines',
     )
     assert.equal(took.length, 1, 'the page’s requests to AniList that were answered')
-    // AniList takes about 230 ms, and the checks were made against that.
-    assert.ok(took[0] >= 150, `the recorded answer came ${took[0]} ms after the page asked`)
+    // AniList takes about 230 ms, and the checks were made against that: some look at the page
+    // while a request is out, and some give an answer only a few seconds to come.
+    assert.ok(
+      took[0] >= 150 && took[0] < 1_000,
+      `the recorded answer came ${took[0]} ms after the page asked`,
+    )
   } finally {
     await browser.close()
   }
@@ -357,24 +362,14 @@ test('in a recorded browser, a request with no recording fails the check waiting
   }
 })
 
-test('in a recorded browser, a block beats the recordings, a hold delays their answers, and a rewrite changes a copy of them', async () => {
+test('in a recorded browser, a block beats the recordings, a hold delays their answers as long as asked or until holdAniList(0) lets them go, and a rewrite changes a copy of them', async () => {
   const browser = await Browser.open({ aniList: 'recorded', recordings: [firstVisit] })
   try {
-    // Blocked, the page can't reach AniList, so it shows its samples, recorded answer or not.
-    await browser.blockAniList()
-    await browser.load()
-    const blocked = await browser.titlesShown(15_000)
-    const { heading, panels } = await browser.evaluate<Shown>(shown)
-    await browser.blockAniList(false)
-    assert.ok(blocked, 'no titles came, not even the samples')
-    assert.deepEqual(
-      { heading, panels },
-      { heading: 'Fan favorites', panels: SAMPLES.slice(0, 9).map(titleOf) },
-      'with AniList blocked, the page did not show its samples',
-    )
-    // The rewrite changes what it gets where it is, as a check may: the recording must stay as
-    // it was.
-    await browser.forget()
+    // Held 2 s, the answer comes 2 s late, and no later. This is the browser's first request to
+    // AniList, so Chrome sends a CORS preflight before it, as it does whenever its last
+    // preflight's answer is over 5 s old: holding the preflight as well would make the answer
+    // twice as late. The rewrite changes what it gets where it is, as a check may: the recording
+    // must stay as it was.
     await browser.rewriteAniList(({ status, body }) => {
       body.data.trending.media[0].title = { romaji: 'Rewritten title', english: null, native: null }
       return { status, body }
@@ -400,11 +395,12 @@ test('in a recorded browser, a block beats the recordings, a hold delays their a
     )
     assert.equal(rewritten.took.length, 1, 'the page’s requests to AniList that were answered')
     assert.ok(
-      rewritten.took[0] >= 1_900,
+      rewritten.took[0] >= 1_900 && rewritten.took[0] < 3_000,
       `held for 2 s, the recorded answer came ${rewritten.took[0]} ms after the page asked`,
     )
-    // Rewriting no more, the page gets the recording as it was. Its title is written out: a
-    // rewrite that changed the recording would have changed `trending` with it.
+    // Holding and rewriting no more, the page gets the recording as it was, in the usual time. Its
+    // title is written out: a rewrite that changed the recording would have changed `trending`
+    // with it.
     await browser.forget()
     await browser.load()
     assert.ok(await browser.titlesShown(15_000), 'no titles came, not even the samples')
@@ -412,6 +408,51 @@ test('in a recorded browser, a block beats the recordings, a hold delays their a
       (await browser.evaluate<Shown>(shown)).panels[0],
       'Recorded trending title 1',
       'after the rewrite, the recording itself was changed',
+    )
+    const unheld = await browser.evaluate<number[]>(answered)
+    assert.ok(
+      unheld[0] < 1_000,
+      `after the hold, the recorded answer came ${unheld[0]} ms after the page asked`,
+    )
+    // Let go early, a held answer comes at once: checks hold answers to look at the page while it
+    // loads, then let them go and wait for the titles. The check lets go only once Chrome has
+    // paused the page's request: one sent after holdAniList(0) isn't held at all.
+    await browser.forget()
+    let onHold = false
+    browser.onEvent('Fetch.requestPaused', ({ request }) => {
+      if (request.method === 'POST') onHold = true
+    })
+    await browser.holdAniList(10_000)
+    let letGo: number
+    try {
+      await browser.load()
+      for (let waited = 0; !onHold && waited < 5_000; waited += 50) await sleep(50)
+      assert.ok(onHold, 'the page’s request to AniList never went on hold')
+      letGo = Date.now()
+    } finally {
+      await browser.holdAniList(0)
+    }
+    const released = await browser.titlesShown(15_000)
+    const after = Date.now() - letGo
+    assert.ok(released, 'no titles came, not even the samples')
+    assert.deepEqual(
+      (await browser.evaluate<Shown>(shown)).panels,
+      trending.slice(0, 9).map(titleOf),
+      'let go of its hold, the page did not show the recorded titles',
+    )
+    assert.ok(after < 2_000, `let go of a 10 s hold, the titles came ${after} ms later`)
+    // Blocked, the page can't reach AniList, so it shows its samples, recorded answer or not.
+    await browser.forget()
+    await browser.blockAniList()
+    await browser.load()
+    const blocked = await browser.titlesShown(15_000)
+    const { heading, panels } = await browser.evaluate<Shown>(shown)
+    await browser.blockAniList(false)
+    assert.ok(blocked, 'no titles came, not even the samples')
+    assert.deepEqual(
+      { heading, panels },
+      { heading: 'Fan favorites', panels: SAMPLES.slice(0, 9).map(titleOf) },
+      'with AniList blocked, the page did not show its samples',
     )
   } finally {
     await browser.close()
