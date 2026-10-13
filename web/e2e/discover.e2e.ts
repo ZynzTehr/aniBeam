@@ -2053,6 +2053,60 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
   })
 }
 
+// The site's setting is saved while it is on (see lib/motion.ts), and main.tsx puts it back on
+// <html> before the page first renders, so a later visit starts as still as the last one ended.
+// The page's entrances start as soon as it is drawn: turned on any later, as in the group above,
+// the setting would let them play.
+describe('reduced motion, saved on the site', () => {
+  test('with the choice saved, a fresh load starts no animation', async () => {
+    // Each animation the page starts, as "name on element", heard from its first moment: the
+    // listener goes in before the page's own scripts run. One stopped before its delay is up
+    // sends animationcancel instead of animationstart, though it held its element in its first
+    // frame until then (fill-mode both or backwards), so that counts too.
+    const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `window.__started = []
+        for (const type of ['animationstart', 'animationcancel'])
+          addEventListener(type, ({ animationName, target, pseudoElement }) => {
+            const owner = target.closest('[class]')
+            const element = owner === target ? '.' + target.classList[0] : target.localName + ' in .' + owner?.classList[0]
+            window.__started.push(animationName + ' on ' + element + pseudoElement)
+          }, true)`,
+    })
+    // A fresh load on a device that allows motion, read once every animation it started has
+    // finished: whether <html> has the site's setting, and which animations started.
+    const load = async () => {
+      await browser.load()
+      assert.ok(await browser.titlesShown(), 'trending and decade titles never appeared')
+      await browser.animationsDone()
+      return browser.evaluate<{ motion: string | null; started: string[] }>(
+        `({ motion: document.documentElement.dataset.motion ?? null, started: [...new Set(window.__started)].sort() })`,
+      )
+    }
+    try {
+      // First with nothing saved, when the entrances play: the listener must hear them, so that
+      // one that hears nothing can't pass.
+      const allowed = await load()
+      await browser.evaluate(`localStorage.setItem('anibeam:motion', 'reduce'); true`)
+      const saved = await load()
+      assert.equal(allowed.motion, null, 'with nothing saved, a fresh load turned the setting on')
+      assert.notDeepEqual(
+        allowed.started,
+        [],
+        'with nothing saved, the listener heard no animation start, so it can’t be trusted to hear one',
+      )
+      assert.deepEqual(
+        saved,
+        { motion: 'reduce', started: [] },
+        'with the choice saved, a fresh load’s data-motion on <html>, and the animations it started',
+      )
+    } finally {
+      await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+      // Forgotten again, so the checks after this one load with motion allowed.
+      await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)
+    }
+  })
+})
+
 describe('phone (390x844)', () => {
   // Phone emulation widens the layout to fit anything too wide, so overflow is measured
   // against the device's real width, not innerWidth.
