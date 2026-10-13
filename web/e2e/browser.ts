@@ -141,6 +141,29 @@ const ANSWER_HEADERS = [
 // against that: some look at the page while a request is out. So a recorded answer comes as late.
 const ANSWER_MS = 200
 
+// The keys press() knows, as a US keyboard sends them. Each is named by its code, which is its
+// key as well, but for Space, whose key is " ". keyCode is the key's old number, which Chrome
+// still reads for some of what a key does: it scrolls the page on the arrows, Home, End and the
+// Page keys by it. text is the character a key types, which comes as a keypress: buttons
+// activate on Enter's "\r", links on the key alone, and Space's scrolls the page a screen when
+// no button or field takes it.
+type Key = { key?: string; keyCode: number; text?: string }
+const KEYS = {
+  Tab: { keyCode: 9 },
+  Enter: { keyCode: 13, text: '\r' },
+  Escape: { keyCode: 27 },
+  Backspace: { keyCode: 8 },
+  Space: { key: ' ', keyCode: 32, text: ' ' },
+  ArrowLeft: { keyCode: 37 },
+  ArrowUp: { keyCode: 38 },
+  ArrowRight: { keyCode: 39 },
+  ArrowDown: { keyCode: 40 },
+  Home: { keyCode: 36 },
+  End: { keyCode: 35 },
+  PageUp: { keyCode: 33 },
+  PageDown: { keyCode: 34 },
+} satisfies Record<string, Key>
+
 export class Browser {
   #chrome: ChildProcess
   #socket: WebSocket
@@ -412,12 +435,11 @@ export class Browser {
     return data as string
   }
 
-  async press(key: 'Tab' | 'Enter' | 'Escape' | 'Backspace' | 'ArrowRight', shift = false) {
-    const code = { Tab: 9, Enter: 13, Escape: 27, Backspace: 8, ArrowRight: 39 }[key]
-    const base = { key, code: key, windowsVirtualKeyCode: code, modifiers: shift ? 8 : 0 }
-    // A real Enter also types "\r": buttons activate on that character, links on the key alone.
-    const text = key === 'Enter' ? { text: '\r' } : {}
-    await this.send('Input.dispatchKeyEvent', { type: 'keyDown', ...base, ...text })
+  /** Presses a key and lets it go, as a keyboard does (see KEYS), with Shift held if `shift`. */
+  async press(code: keyof typeof KEYS, shift = false) {
+    const { key = code, keyCode, text }: Key = KEYS[code]
+    const base = { key, code, windowsVirtualKeyCode: keyCode, modifiers: shift ? 8 : 0 }
+    await this.send('Input.dispatchKeyEvent', { type: 'keyDown', ...base, text })
     await this.send('Input.dispatchKeyEvent', { type: 'keyUp', ...base })
   }
 
