@@ -133,6 +133,11 @@ const unreadable: [string, () => string[], string][] = [
     'data.era.media[3].averageScore is 7.5',
   ],
   [
+    'a score above 100',
+    () => brokenAnswer('first-visit', (data) => (data.trending.media[3].averageScore = 101)),
+    'data.trending.media[3].averageScore is 101',
+  ],
+  [
     'a new season name',
     () => brokenAnswer('first-visit', (data) => (data.era.media[0].season = 'AUTUMN')),
     'data.era.media[0].season is "AUTUMN"',
@@ -436,6 +441,16 @@ const outages: [string, Seen, RegExp][] = [
     /AniList is busy: .*\(HTTP 429\)/,
   ],
   [
+    'a preflight turned away with 429, so the request never went out',
+    { preflight: { status: 429 }, failure: 'PreflightInvalidStatus', page: PAGE_ERROR },
+    /AniList is busy: it turned the app's first-visit request away \(HTTP 429 to its CORS preflight\)/,
+  ],
+  [
+    'a preflight turned away with 429 and no CORS headers',
+    { preflight: { status: 429 }, failure: 'PreflightMissingAllowOriginHeader', page: PAGE_ERROR },
+    /AniList is busy: it turned the app's first-visit request away \(HTTP 429 to its CORS preflight\)/,
+  ],
+  [
     'a Cloudflare 503 without CORS headers, and one to the health query',
     { post: { status: 503 }, failure: 'MissingAllowOriginHeader', page: PAGE_ERROR, health: 503 },
     /isn't responding right now \(HTTP 503, and HTTP 503 to a one-line health query\)/,
@@ -444,6 +459,30 @@ const outages: [string, Seen, RegExp][] = [
     'a 502, and no answer to the health query',
     { post: { status: 502 }, page: { status: 502, remaining: null }, health: 0 },
     /isn't responding right now \(HTTP 502, and no answer to a one-line health query\)/,
+  ],
+  // The live pair sees these two with the preflight answered first, so the request's own answer
+  // must decide, not the preflight's.
+  [
+    'a 503, and the health query turned away too (HTTP 429)',
+    {
+      post: { status: 503 },
+      preflight: { status: 204 },
+      failure: 'MissingAllowOriginHeader',
+      page: PAGE_ERROR,
+      health: 429,
+    },
+    /isn't responding right now \(HTTP 503, and HTTP 429 to a one-line health query\)/,
+  ],
+  [
+    'a 503, and the health query refused too (HTTP 403)',
+    {
+      post: { status: 503 },
+      preflight: { status: 204 },
+      failure: 'MissingAllowOriginHeader',
+      page: PAGE_ERROR,
+      health: 403,
+    },
+    /isn't responding right now \(HTTP 503, and HTTP 403 to a one-line health query\)/,
   ],
   [
     'a preflight answered 503, so the request never went out',
