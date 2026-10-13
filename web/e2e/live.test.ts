@@ -7,6 +7,7 @@ import {
   emptyLists,
   limitProblems,
   listsAsked,
+  liveSkip,
   verdict,
   type Seen,
 } from './live.ts'
@@ -15,7 +16,8 @@ import { recordings } from './recordings.ts'
 // The live checks judge what AniList does with the app's requests by live.ts alone, so its
 // judgement is tried here, offline: AniList's recorded answers must pass, and answers broken as an
 // API change would break them, data short of what a check needs, a first visit's list sent empty,
-// and AniList's outages must each be told for what they are.
+// and AniList's outages must each be told for what they are. So is live.ts's rule for when the
+// checks run at all: unless ANILIST is off.
 
 const saved = recordings()
 /** A recording, as a fresh copy, so a test can break it where it is. */
@@ -515,4 +517,32 @@ test('X-RateLimit-Remaining that the page can’t read as a whole number fails',
       /^X-RateLimit-Remaining reads .* in the page, where anilist\(\) needs a whole number/,
       JSON.stringify(remaining),
     )
+})
+
+// The live checks are the only ones to see AniList's API, and a run passes with them skipped, so
+// a skip they don't need is easy to miss: with ANILIST unset, the default, a run of every check
+// would leave the API unchecked. So they skip, saying why, only under off, which allows them no
+// browser; under any other ANILIST they run, for Browser.open() to refuse a misspelt one by name.
+test('the live checks run unless ANILIST is off, and under off they skip, saying why', () => {
+  /** What the live checks do with ANILIST at `value`: run, or skip, and why. */
+  const checks = (value?: string) => {
+    const skip = liveSkip(value === undefined ? {} : { ANILIST: value })
+    return skip ? `skip: ${skip}` : 'run'
+  }
+  assert.deepEqual(
+    {
+      'ANILIST unset': checks(),
+      'ANILIST=recorded': checks('recorded'),
+      'ANILIST=live': checks('live'),
+      'ANILIST=off': checks('off'),
+      'ANILIST=Off': checks('Off'),
+    },
+    {
+      'ANILIST unset': 'run',
+      'ANILIST=recorded': 'run',
+      'ANILIST=live': 'run',
+      'ANILIST=off': "skip: ANILIST=off allows no live browser, so AniList's API goes unchecked",
+      'ANILIST=Off': 'run',
+    },
+  )
 })

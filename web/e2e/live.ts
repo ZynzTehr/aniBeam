@@ -1,8 +1,8 @@
 // What the live checks make of what AniList does with the app's requests. Every other check
 // answers from recordings, so the live checks, which send the app's own requests to the real
-// AniList, are the ones to see its API change. A check judges what it saw with these functions,
-// which send nothing, so live.test.ts tries them offline: on the recordings, and on answers broken
-// on purpose.
+// AniList, are the ones to see its API change, and they run unless ANILIST is off (liveSkip). A
+// check judges what it saw with these functions, which send nothing, so live.test.ts tries them
+// offline: on the recordings, and on answers broken on purpose.
 //
 // While AniList itself is down or busy, nothing can be learnt about the app, so a check skips,
 // saying so (verdict). Busy, AniList has also answered a first visit with a list it always fills
@@ -21,6 +21,19 @@ export const WAIT_MS = 20_000
 
 /** How long the live check of a first visit waits to ask again, after AniList sent a list empty. */
 export const AGAIN_MS = 20_000
+
+/**
+ * Why the live checks skip, with `env` for the environment (process.env, in a run); false while
+ * they may run. They are the only checks to see AniList's API, and a run passes with them skipped,
+ * so they skip only under ANILIST=off, which allows no live browser (see modeOf in browser.ts).
+ * They run with ANILIST unset, the default, and under recorded or live; and under any other
+ * ANILIST, so that Browser.open() refuses it by name, as it does in every other check.
+ */
+export function liveSkip(env: { ANILIST?: string }): string | false {
+  return (
+    env.ANILIST === 'off' && "ANILIST=off allows no live browser, so AniList's API goes unchecked"
+  )
+}
 
 /** What a live check saw of one of the app's requests to AniList, from Chrome and from the page. */
 export type Seen = {

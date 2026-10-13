@@ -20,16 +20,15 @@ import {
   askedAgain,
   emptyLists,
   limitProblems,
+  liveSkip,
   verdict,
   WAIT_MS,
   type Seen,
 } from './live.ts'
 
 const ENDPOINT = 'https://graphql.anilist.co'
-// Why both checks skip under ANILIST=off; false otherwise.
-const off =
-  process.env.ANILIST === 'off' &&
-  "ANILIST=off allows no live browser, so AniList's API goes unchecked"
+// Why both checks skip, which is only under ANILIST=off (see liveSkip); false otherwise.
+const off = liveSkip(process.env)
 
 let browser: Browser
 // Chrome's reports on the page's requests to AniList, joined only when a check reads them, as a
