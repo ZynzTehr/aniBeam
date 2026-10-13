@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { titleOf } from '../src/features/anime/format.ts'
@@ -224,6 +225,7 @@ test('a browser opened with recordings shows their titles, answered a moment lat
 })
 
 test('in a recorded browser, a request with no recording fails the check waiting on it, naming it and what to do about it, unless a rewrite answers it', async () => {
+  const before = profiles()
   const browser = await Browser.open({
     aniList: 'recorded',
     recordings: [firstVisit, recordedSearch, olderSearch],
@@ -253,6 +255,11 @@ test('in a recorded browser, a request with no recording fails the check waiting
   const era = (id: string) => ERAS.find((each) => each.id === id)!.variables
   let closed = false
   try {
+    // The profile open() made for this browser's Chrome, and the port that Chrome noted there for
+    // DevTools requests: once the browser has closed, at the end, nothing may answer on that port,
+    // and the profile must be gone.
+    const [profile] = profiles().filter((name) => !before.includes(name))
+    const port = readFileSync(join(tmpdir(), profile, 'DevToolsActivePort'), 'utf8').split('\n')[0]
     await browser.load()
     assert.ok(await browser.titlesShown(15_000), 'no titles came, not even the samples')
     // A recorded search shows its titles, so a key that left the term out would answer the
@@ -374,6 +381,19 @@ test('in a recorded browser, a request with no recording fails the check waiting
     assert.ok(
       missed(leftOver, 'zzqq not waited on'),
       `closing the browser after a search with no recording that nobody waited on: ${leftOver}`,
+    )
+    // It throws only once its Chrome has gone, and the profile with it, so a file that fails this
+    // way leaves neither behind.
+    assert.deepEqual(
+      {
+        chrome: await fetch(`http://127.0.0.1:${port}/json/version`).then(
+          () => 'still running',
+          () => 'gone',
+        ),
+        profile: profiles().includes(profile) ? 'still there' : 'gone',
+      },
+      { chrome: 'gone', profile: 'gone' },
+      'closing the browser, which threw for the search nobody waited on, left its Chrome or its profile behind',
     )
   } finally {
     if (!closed) await browser.close().catch(() => {})
