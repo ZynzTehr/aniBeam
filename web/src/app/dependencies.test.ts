@@ -55,6 +55,9 @@ test('every package web/ imports is in web/package.json, so a web-only install b
 // the one new URL(…, import.meta.url) names. So every line of code is read for a path into e2e/,
 // not just the imports: the folder's name after a quote or a slash, as in '../e2e/…', '/e2e/…'
 // (Vite reads it from web/) or '@anibeam/web/e2e/…', in upper case too, which macOS also finds.
+// Text can't show all that the build takes in, such as an alias or a stylesheet's url(), so
+// privacy.test.ts reads the production build itself; this check stays for its message, which
+// names the line.
 function linesIntoE2e(file: string): string[] {
   return readFileSync(join(web, file), 'utf8')
     .split('\n')
@@ -67,7 +70,7 @@ function linesIntoE2e(file: string): string[] {
     )
 }
 
-test('nothing in src names a path into e2e/, so no recording can ship with the app', () => {
+test('nothing in src names a path into e2e/, which must stay out of the app', () => {
   // The recorder in scripts/ imports from e2e/, as it may, so the reading must find that.
   assert.ok(
     linesIntoE2e('scripts/record-anilist.ts').length > 0,

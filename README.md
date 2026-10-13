@@ -129,7 +129,7 @@ A run takes about five minutes. The outage checks take about two of them, becaus
 
 Every check but the two live ones gets AniList's answers from `web/e2e/anilist/`, not from its API. A run would otherwise send AniList about 30 requests, 22 of them in its first minute, against its limit of 30 a minute for each IP address. Each file there holds AniList's real answer to one request the checks send, recorded by `npm run e2e:record`. `web/e2e/browser.ts` answers each request in Chrome with a copy of its recording, 200 ms after the page asks, about as long as AniList takes to answer. Chrome can't even look up AniList's address, so a request that got past the recordings would fail before it reached AniList.
 
-The recordings are [AniList](https://anilist.co)'s data. The folder holds only the 20 answers the checks ask for, about 270 KB of JSON, with no images and no user data. Only the checks use it. `npm test` fails if anything in `web/src` names a path into `web/e2e/`, so the app never ships it.
+The recordings are [AniList](https://anilist.co)'s data. The folder holds only the 20 answers the checks ask for, about 270 KB of JSON, with no images and no user data. Only the checks use it. `npm test` builds the production bundle in memory and fails if any code or file in it came from `web/e2e/`, whether an import, a glob or an alias brought it in, or a stylesheet or `index.html` named it. A second check reads the code in `web/src` for a path into `web/e2e/` and names the line it finds.
 
 Some checks stage answers AniList rarely gives, such as a refused request or titles all tagged Ecchi. `browser.ts` rewrites the answer before the page sees it, whether it was recorded or came from AniList.
 
