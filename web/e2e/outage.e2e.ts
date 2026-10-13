@@ -69,7 +69,8 @@ test('on a phone, the intro holds its covers’ place while they load, so the he
 
 // Covers come from AniList's image server, which a school or office filter can block while its
 // API still answers. Chrome then draws its broken-image icon in each cover's box (alt="" doesn't
-// stop it). The titles come from the copy the check above saved, so this asks AniList for none.
+// stop it). The titles come from the copy the check above saved, so this needs no recording of
+// its own.
 test('covers that can’t load show no broken-image icon, and each panel shows its title’s color instead, darkened so its rank stands out', async () => {
   await sleep(1_500) // the saved copy updates within a second of the page's last change
   await browser.send('Network.enable')
@@ -161,7 +162,7 @@ test('covers that can’t load show no broken-image icon, and each panel shows i
 // On a phone the intro's covers sit above the headline, so a cover that can't load keeps its
 // place, in its title's color as a trending panel does. When failed covers dropped out of the
 // fan, the headline jumped 77px up just after it was drawn. The titles come from the saved copy
-// again, so this asks AniList for none.
+// again, so this needs no recording of its own.
 test('on a phone, intro covers that can’t load keep their place in their title’s color', async () => {
   // Where the headline sits, a frame at a time, from the frame the covers appear in.
   const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
@@ -221,7 +222,8 @@ test('on a phone, intro covers that can’t load keep their place in their title
 // Phase 1's "done when": a reload with AniList blocked still shows saved results. The page saves
 // AniList's answers (see queryClient.ts), so a returning visitor sees last visit's titles, not the
 // samples a first visit gets, without the page asking AniList for them. The last visit loads the
-// copy the first check saved, so this asks AniList for none; run alone, it asks for one.
+// copy the first check saved, so this needs no recording of its own; run alone, the last visit is
+// a first visit, answered from the same recording as the first check's.
 test('a returning visitor sees last visit’s titles while AniList is down, not the samples', async () => {
   await browser.load() // the last visit
   assert.ok(await browser.titlesShown(), 'the titles never came')
@@ -346,7 +348,7 @@ test('a visitor back from the last release sees the titles it saved while AniLis
 // From 900px wide the splash panel shows its title's banner, and below that its cover, in the
 // same img: narrowing the window or turning a tablet swaps one file for the other. A banner that
 // failed must not keep the cover hidden once it loads. With AniList kept away, the panels show
-// the samples, so the splash title has a banner whatever is trending, and no request is sent.
+// the samples, so the splash title has a banner whatever is trending, and no recording is needed.
 test('the splash panel shows its cover when the window narrows, even after its banner failed', async () => {
   await browser.forget()
   await browser.blockAniList()
@@ -477,7 +479,7 @@ describe('AniList down on a first visit', () => {
   // as the page loads, such as main.tsx clearing an old copy, would throw in such a browser and
   // leave the page blank, yet pass every unit test. Here the whole page loads in Chrome with its
   // storage blocked. Nothing can be restored, so it is a first visit like the rest of this
-  // group's, with AniList kept away: the samples show, and it asks AniList for none.
+  // group's, with AniList kept away: the samples show, and no recording is needed.
   test('when the browser blocks storage, the page still loads, shows the sample titles and throws nothing', async () => {
     // What Chrome does when site data is blocked: reading either storage throws a SecurityError.
     const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {

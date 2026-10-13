@@ -1,0 +1,577 @@
+{
+  "request": {
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "variables": {
+      "search": "進撃の巨人"
+    }
+  },
+  "status": 200,
+  "body": {
+    "data": {
+      "Page": {
+        "media": [
+          {
+            "id": 16498,
+            "title": {
+              "romaji": "Shingeki no Kyojin",
+              "english": "Attack on Titan",
+              "native": "進撃の巨人"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx16498-buvcRTBx4NSm.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx16498-buvcRTBx4NSm.jpg",
+              "color": "#f1a143"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/16498-8jpFCOcDmneX.jpg",
+            "genres": ["Action", "Drama", "Fantasy", "Mystery"],
+            "averageScore": 85,
+            "format": "TV",
+            "episodes": 25,
+            "season": "SPRING",
+            "seasonYear": 2013,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 110277,
+            "title": {
+              "romaji": "Shingeki no Kyojin: The Final Season",
+              "english": "Attack on Titan Final Season",
+              "native": "進撃の巨人 The Final Season"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx110277-sKUNXAsWMNFw.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx110277-sKUNXAsWMNFw.jpg",
+              "color": "#ae6b35"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/110277-iuGn6F5bK1U1.jpg",
+            "genres": ["Action", "Drama", "Fantasy", "Mystery"],
+            "averageScore": 87,
+            "format": "TV",
+            "episodes": 16,
+            "season": "WINTER",
+            "seasonYear": 2021,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "MAPPA"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 20958,
+            "title": {
+              "romaji": "Shingeki no Kyojin Season 2",
+              "english": "Attack on Titan Season 2",
+              "native": "進撃の巨人 Season２"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20958-HuFJyr54Mmir.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx20958-HuFJyr54Mmir.jpg",
+              "color": "#e47850"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/20958-Y7eQdz9VENBD.jpg",
+            "genres": ["Action", "Drama", "Fantasy", "Mystery"],
+            "averageScore": 85,
+            "format": "TV",
+            "episodes": 12,
+            "season": "SPRING",
+            "seasonYear": 2017,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 119113,
+            "title": {
+              "romaji": "Shingeki no Kyojin: Chronicle",
+              "english": "Attack on Titan ~Chronicle~",
+              "native": "進撃の巨人 〜クロニクル〜"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx119113-IzVI5oZ0og8O.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx119113-IzVI5oZ0og8O.jpg",
+              "color": "#f1785d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/119113-J6nd0aoRSTAA.jpg",
+            "genres": ["Action", "Drama", "Fantasy", "Mystery"],
+            "averageScore": 77,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2020,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 18397,
+            "title": {
+              "romaji": "Shingeki no Kyojin OVA",
+              "english": "Attack on Titan OVA",
+              "native": "進撃の巨人 OVA"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx18397-AnpwhLkSjYL1.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx18397-AnpwhLkSjYL1.jpg",
+              "color": "#c9e4ae"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/18397-rG4Vpg67Kr0j.jpg",
+            "genres": ["Action", "Drama", "Fantasy", "Mystery"],
+            "averageScore": 77,
+            "format": "OVA",
+            "episodes": 3,
+            "season": "FALL",
+            "seasonYear": 2013,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 99147,
+            "title": {
+              "romaji": "Shingeki no Kyojin Season 3",
+              "english": "Attack on Titan Season 3",
+              "native": "進撃の巨人 Season３"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx99147-AiPDD8cwlCfi.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx99147-AiPDD8cwlCfi.jpg",
+              "color": "#4386e4"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/99147-HACsFVrynFf5.jpg",
+            "genres": ["Action", "Drama", "Fantasy", "Mystery"],
+            "averageScore": 86,
+            "format": "TV",
+            "episodes": 12,
+            "season": "SUMMER",
+            "seasonYear": 2018,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 99634,
+            "title": {
+              "romaji": "Shingeki no Kyojin: LOST GIRLS",
+              "english": "Attack on Titan: Lost Girls",
+              "native": "進撃の巨人 LOST GIRLS"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx99634-9u4hdvWwmC2s.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/nx99634-9u4hdvWwmC2s.png",
+              "color": "#aed6ff"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/99634-m8hKbCnDL2ue.png",
+            "genres": ["Action", "Drama", "Fantasy", "Mystery"],
+            "averageScore": 77,
+            "format": "OVA",
+            "episodes": 3,
+            "season": "FALL",
+            "seasonYear": 2017,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 104578,
+            "title": {
+              "romaji": "Shingeki no Kyojin Season 3 Part 2",
+              "english": "Attack on Titan Season 3 Part 2",
+              "native": "進撃の巨人 Season３ Part.2"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx104578-k61nx3LPjvgd.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx104578-k61nx3LPjvgd.jpg",
+              "color": "#e49350"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/104578-z7SadpYEuAsy.jpg",
+            "genres": ["Action", "Drama", "Fantasy", "Mystery"],
+            "averageScore": 89,
+            "format": "TV",
+            "episodes": 10,
+            "season": "SPRING",
+            "seasonYear": 2019,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 131681,
+            "title": {
+              "romaji": "Shingeki no Kyojin: The Final Season Part 2",
+              "english": "Attack on Titan Final Season Part 2",
+              "native": "進撃の巨人 The Final Season Part 2"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx131681-5ooUqvqNtee1.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx131681-5ooUqvqNtee1.jpg",
+              "color": "#35a1e4"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/131681-3tNurPRsqsfz.jpg",
+            "genres": ["Action", "Drama", "Fantasy", "Mystery", "Psychological"],
+            "averageScore": 87,
+            "format": "TV",
+            "episodes": 12,
+            "season": "WINTER",
+            "seasonYear": 2022,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "MAPPA"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 123078,
+            "title": {
+              "romaji": "Animegatari × Shingeki no Kyojin Collab Eizou",
+              "english": null,
+              "native": "「アニメガタリ」×「進撃の巨人」コラボ映像"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx123078-NnFwfTJRTMYA.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx123078-NnFwfTJRTMYA.png",
+              "color": "#f1d6c9"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/123078-9odRkik3zad1.jpg",
+            "genres": ["Comedy", "Slice of Life"],
+            "averageScore": 48,
+            "format": "ONA",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "W-Toon Studio"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 139754,
+            "title": {
+              "romaji": "Shingeki no Kyojin: Chimi Kyara Gekijou - Final",
+              "english": "Attack On Titan: The Final Season Specials",
+              "native": "「進撃の巨人」ちみキャラ劇場 \"ファイナル\""
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx139754-tws6cBmwEWPF.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx139754-tws6cBmwEWPF.jpg",
+              "color": null
+            },
+            "bannerImage": null,
+            "genres": ["Comedy", "Fantasy"],
+            "averageScore": 78,
+            "format": "SPECIAL",
+            "episodes": 2,
+            "season": "SUMMER",
+            "seasonYear": 2021,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "MAPPA"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 162314,
+            "title": {
+              "romaji": "Shingeki no Kyojin: The Final Season - Kanketsu-hen Kouhen",
+              "english": "Attack on Titan Final Season THE FINAL CHAPTERS Special 2",
+              "native": "進撃の巨人 The Final Season完結編 後編"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx162314-qIWdAAFtvY8J.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx162314-qIWdAAFtvY8J.jpg",
+              "color": "#5daee4"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/162314-N5M4XMz6O1j4.jpg",
+            "genres": ["Action", "Drama", "Fantasy", "Psychological", "Romance"],
+            "averageScore": 87,
+            "format": "SPECIAL",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 2023,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "MAPPA"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 146984,
+            "title": {
+              "romaji": "Shingeki no Kyojin: The Final Season - Kanketsu-hen Zenpen",
+              "english": "Attack on Titan Final Season THE FINAL CHAPTERS Special 1",
+              "native": "進撃の巨人 The Final Season完結編 前編"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx146984-GXrLeT6vQqyP.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx146984-GXrLeT6vQqyP.jpg",
+              "color": "#f1a128"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/146984-yAkTtW2AExVj.jpg",
+            "genres": ["Action", "Drama", "Fantasy", "Mystery", "Psychological"],
+            "averageScore": 87,
+            "format": "SPECIAL",
+            "episodes": 1,
+            "season": "WINTER",
+            "seasonYear": 2023,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "MAPPA"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 20811,
+            "title": {
+              "romaji": "Shingeki no Kyojin Gaiden: Kuinaki Sentaku",
+              "english": "Attack on Titan: No Regrets",
+              "native": "進撃の巨人 外伝 悔いなき選択"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20811-IvXLdxZkYNcP.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx20811-IvXLdxZkYNcP.jpg",
+              "color": null
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/20811-LpRmeR6sDtX1.jpg",
+            "genres": ["Action", "Drama", "Fantasy"],
+            "averageScore": 83,
+            "format": "OVA",
+            "episodes": 2,
+            "season": "WINTER",
+            "seasonYear": 2015,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 20692,
+            "title": {
+              "romaji": "Shingeki no Kyojin Kouhen: Jiyuu no Tsubasa",
+              "english": "Attack on Titan Part II: Wings of Freedom",
+              "native": "劇場版「進撃の巨人」後編～自由の翼～"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20692-fSDEpfDtDg9u.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx20692-fSDEpfDtDg9u.png",
+              "color": "#e4a15d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/20692.jpg",
+            "genres": ["Action", "Drama", "Fantasy"],
+            "averageScore": 77,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 2015,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 108942,
+            "title": {
+              "romaji": "Shingeki no Kyojin: Chimi Kyara Gekijou - Rivai-han",
+              "english": null,
+              "native": "｢進撃の巨人｣ちみキャラ劇場”新生リヴァイ班”"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx108942-UdPtw4CZUQmC.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx108942-UdPtw4CZUQmC.jpg",
+              "color": "#e4c993"
+            },
+            "bannerImage": null,
+            "genres": ["Comedy", "Fantasy"],
+            "averageScore": 75,
+            "format": "SPECIAL",
+            "episodes": 4,
+            "season": "FALL",
+            "seasonYear": 2018,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 100465,
+            "title": {
+              "romaji": "Shingeki no Kyojin Season 2: Kakusei no Houkou",
+              "english": "Attack on Titan: The Roar of Awakening",
+              "native": "劇場版「進撃の巨人」Season 2～覚醒の咆哮～"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx100465-ivKS0RqXg5dI.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/nx100465-ivKS0RqXg5dI.png",
+              "color": "#e4aea1"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/100465-DKP3jObknheV.jpg",
+            "genres": ["Action", "Drama", "Fantasy", "Mystery"],
+            "averageScore": 78,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "WINTER",
+            "seasonYear": 2018,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 20691,
+            "title": {
+              "romaji": "Shingeki no Kyojin Zenpen: Guren no Yumiya",
+              "english": "Attack on Titan Part I: Crimson Bow and Arrow",
+              "native": "劇場版「進撃の巨人」前編～紅蓮の弓矢～"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20691-dnv0rkpbgBDJ.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx20691-dnv0rkpbgBDJ.png",
+              "color": "#e47835"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/20691-xKJkvnhezBb0.jpg",
+            "genres": ["Action", "Drama", "Fantasy"],
+            "averageScore": 76,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 2014,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 120257,
+            "title": {
+              "romaji": "Shingeki no Kyojin: Chimi Kyara Gekijou - Rivai-han Part 2",
+              "english": null,
+              "native": "｢進撃の巨人｣ちみキャラ劇場”新生リヴァイ班” Part 2"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx120257-eerywzUJdLzy.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx120257-eerywzUJdLzy.jpg",
+              "color": "#285078"
+            },
+            "bannerImage": null,
+            "genres": ["Comedy", "Fantasy"],
+            "averageScore": 79,
+            "format": "SPECIAL",
+            "episodes": 3,
+            "season": "SUMMER",
+            "seasonYear": 2019,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 19391,
+            "title": {
+              "romaji": "Shingeki no Kyojin: Chimi Kyara Gekijou - Tondeke! Kunren Heidan",
+              "english": "Attack on Titan Picture Drama",
+              "native": "「進撃の巨人」ちみキャラ劇場\"とんでけ! 訓練兵団\""
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/19391.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/19391.jpg",
+              "color": "#936b28"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Comedy", "Drama", "Fantasy"],
+            "averageScore": 63,
+            "format": "SPECIAL",
+            "episodes": 9,
+            "season": "SUMMER",
+            "seasonYear": 2013,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "WIT STUDIO"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          }
+        ]
+      }
+    }
+  }
+}

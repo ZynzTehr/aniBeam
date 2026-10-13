@@ -1,0 +1,122 @@
+{
+  "request": {
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "variables": {
+      "search": "mushishi zoku"
+    }
+  },
+  "status": 200,
+  "body": {
+    "data": {
+      "Page": {
+        "media": [
+          {
+            "id": 20595,
+            "title": {
+              "romaji": "Mushishi Zoku Shou",
+              "english": "MUSHI-SHI The Next Passage",
+              "native": "蟲師 続章"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20595-HcUeaAnvaUhM.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx20595-HcUeaAnvaUhM.jpg",
+              "color": "#f19335"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/n20595-y2Snh07wJ00v.jpg",
+            "genres": [
+              "Adventure",
+              "Fantasy",
+              "Mystery",
+              "Psychological",
+              "Slice of Life",
+              "Supernatural"
+            ],
+            "averageScore": 86,
+            "format": "TV",
+            "episodes": 10,
+            "season": "SPRING",
+            "seasonYear": 2014,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Artland"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 20751,
+            "title": {
+              "romaji": "Mushishi Zoku Shou 2",
+              "english": "MUSHI-SHI The Next Passage 2",
+              "native": "蟲師 続章 2"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20751-O3XJ9u30y7Qj.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx20751-O3XJ9u30y7Qj.png",
+              "color": null
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/n20751-ipj6JyHGCuol.jpg",
+            "genres": [
+              "Adventure",
+              "Fantasy",
+              "Mystery",
+              "Psychological",
+              "Slice of Life",
+              "Supernatural"
+            ],
+            "averageScore": 86,
+            "format": "TV",
+            "episodes": 10,
+            "season": "FALL",
+            "seasonYear": 2014,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Artland"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 20752,
+            "title": {
+              "romaji": "Mushishi Zoku Shou: Odoro no Michi",
+              "english": "MUSHI-SHI The Next Passage Special - Path of Thorns",
+              "native": "蟲師 続章「棘のみち」"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx20752-P5EpEJXWGroz.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/nx20752-P5EpEJXWGroz.jpg",
+              "color": "#e4d6a1"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/n20752-P4PCEkgiAWx4.jpg",
+            "genres": [
+              "Adventure",
+              "Fantasy",
+              "Mystery",
+              "Psychological",
+              "Slice of Life",
+              "Supernatural"
+            ],
+            "averageScore": 82,
+            "format": "SPECIAL",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2014,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Artland"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          }
+        ]
+      }
+    }
+  }
+}

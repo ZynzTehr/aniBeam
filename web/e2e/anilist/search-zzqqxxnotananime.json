@@ -1,0 +1,16 @@
+{
+  "request": {
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "variables": {
+      "search": "zzqqxxnotananime"
+    }
+  },
+  "status": 200,
+  "body": {
+    "data": {
+      "Page": {
+        "media": []
+      }
+    }
+  }
+}

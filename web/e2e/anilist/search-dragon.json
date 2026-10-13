@@ -1,0 +1,557 @@
+{
+  "request": {
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "variables": {
+      "search": "dragon"
+    }
+  },
+  "status": 200,
+  "body": {
+    "data": {
+      "Page": {
+        "media": [
+          {
+            "id": 20125,
+            "title": {
+              "romaji": "Tobidase! Machine Hiryuu",
+              "english": null,
+              "native": "とびだせ! マシーン飛竜"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/20125.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/20125.jpg",
+              "color": "#f1ae5d"
+            },
+            "bannerImage": null,
+            "genres": ["Comedy"],
+            "averageScore": null,
+            "format": "TV",
+            "episodes": 21,
+            "season": "FALL",
+            "seasonYear": 1977,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 103706,
+            "title": {
+              "romaji": "Dragon Egg",
+              "english": null,
+              "native": "드래곤에그"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/103706-WDAHfF9w3nsA.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/103706-WDAHfF9w3nsA.jpg",
+              "color": "#d6e45d"
+            },
+            "bannerImage": null,
+            "genres": ["Adventure", "Sci-Fi"],
+            "averageScore": null,
+            "format": "TV",
+            "episodes": 52,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 906,
+            "title": {
+              "romaji": "Dragon Ball Z: Ryuuken Bakuhatsu!! Goku ga Yaraneba Dare ga Yaru",
+              "english": "Dragon Ball Z: Wrath of the Dragon",
+              "native": "ドラゴンボールＺ 龍拳爆発!!悟空がやらねば誰がやる"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/906-TmrkEiLnm9nR.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/906-TmrkEiLnm9nR.jpg",
+              "color": "#e4c943"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/906-U6OaVwykG1bc.jpg",
+            "genres": ["Action", "Adventure", "Sci-Fi"],
+            "averageScore": 71,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 1995,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 204738,
+            "title": {
+              "romaji": "Ruri Dragon",
+              "english": null,
+              "native": "ルリドラゴン"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx204738-KeWrOGnjUuk1.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx204738-KeWrOGnjUuk1.png",
+              "color": "#e45086"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/204738-t2YSlnKEhBiF.jpg",
+            "genres": ["Comedy", "Slice of Life", "Supernatural"],
+            "averageScore": null,
+            "format": "TV",
+            "episodes": null,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Kyoto Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 223,
+            "title": {
+              "romaji": "Dragon Ball",
+              "english": "Dragon Ball",
+              "native": "ドラゴンボール"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx223-scE5uJfXqqj8.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx223-scE5uJfXqqj8.png",
+              "color": "#e48635"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/223-vyRuUBBYfcUb.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy", "Sci-Fi", "Supernatural"],
+            "averageScore": 78,
+            "format": "TV",
+            "episodes": 153,
+            "season": "WINTER",
+            "seasonYear": 1986,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 132096,
+            "title": {
+              "romaji": "Kobayashi-san Chi no Maidragon S: Mini Dra",
+              "english": "Miss Kobayashi's Dragon Maid S: Miniature Dragon",
+              "native": "小林さんちのメイドラゴンＳミニドラ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx132096-ypUvQZ7e4hmq.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx132096-ypUvQZ7e4hmq.png",
+              "color": "#ffbb78"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/132096-wKKR80gDgpSm.jpg",
+            "genres": ["Comedy", "Slice of Life"],
+            "averageScore": 73,
+            "format": "ONA",
+            "episodes": 16,
+            "season": "SPRING",
+            "seasonYear": 2021,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Kyoto Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 102657,
+            "title": {
+              "romaji": "Long Zhi Gu: Poxiao Qibing",
+              "english": "Dragon Nest: Warriors' Dawn",
+              "native": "龙之谷 破晓奇兵"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx102657-VcqJoec39JoZ.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/nx102657-VcqJoec39JoZ.jpg",
+              "color": "#506b1a"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Adventure", "Fantasy"],
+            "averageScore": 65,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 296,
+            "title": {
+              "romaji": "Dragon Drive",
+              "english": null,
+              "native": "ドラゴンドライブ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/296.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/296.jpg",
+              "color": "#f19335"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy", "Sci-Fi"],
+            "averageScore": 63,
+            "format": "TV",
+            "episodes": 38,
+            "season": "SUMMER",
+            "seasonYear": 2002,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "MADHOUSE"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 9330,
+            "title": {
+              "romaji": "Dragon Crisis!",
+              "english": "Dragon Crisis",
+              "native": "ドラゴンクライシス!"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx9330-hK1Wdn25oShw.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx9330-hK1Wdn25oShw.png",
+              "color": "#e46b1a"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/9330-WE2eKiAH8klB.jpg",
+            "genres": ["Action", "Romance", "Supernatural"],
+            "averageScore": 61,
+            "format": "TV",
+            "episodes": 12,
+            "season": "WINTER",
+            "seasonYear": 2011,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio DEEN"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 153466,
+            "title": {
+              "romaji": "Pan Long",
+              "english": null,
+              "native": "盘龙"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b153466-9YOq1CIvfVg1.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b153466-9YOq1CIvfVg1.png",
+              "color": "#e4ae50"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Adventure", "Fantasy"],
+            "averageScore": 60,
+            "format": "ONA",
+            "episodes": 20,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "CG Year"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 870,
+            "title": {
+              "romaji": "Dragon Half",
+              "english": "Dragon Half",
+              "native": "ドラゴンハーフ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx870-yGEqk8uKxv2J.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx870-yGEqk8uKxv2J.jpg",
+              "color": "#e45d35"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/n870-ks6pu0ThyGCJ.jpg",
+            "genres": ["Comedy", "Fantasy"],
+            "averageScore": 65,
+            "format": "OVA",
+            "episodes": 2,
+            "season": "SPRING",
+            "seasonYear": 1993,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Production I.G"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 5151,
+            "title": {
+              "romaji": "Mahjong Hishou-den Naki no Ryuu",
+              "english": null,
+              "native": "麻雀飛翔伝 哭きの竜"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5151-z6Q3MguSsAuP.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx5151-z6Q3MguSsAuP.png",
+              "color": "#fe5d50"
+            },
+            "bannerImage": null,
+            "genres": ["Drama"],
+            "averageScore": 53,
+            "format": "OVA",
+            "episodes": 3,
+            "season": "SPRING",
+            "seasonYear": 1988,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "GAINAX"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 138563,
+            "title": {
+              "romaji": "Cheng Li Laile Liao Yi Tiao Long",
+              "english": null,
+              "native": "城里来了一条龙"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx138563-BBYKlVL8JCi6.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx138563-BBYKlVL8JCi6.png",
+              "color": "#e49328"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/138563-lBQ4w6kuqRZ5.jpg",
+            "genres": [],
+            "averageScore": null,
+            "format": "ONA",
+            "episodes": null,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "MagiDian"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 2142,
+            "title": {
+              "romaji": "Blue Dragon",
+              "english": null,
+              "native": "ブルー・ドラゴン"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/2142.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/2142.jpg",
+              "color": "#1aa1d6"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2142-HJsF1zFBQyTb.jpg",
+            "genres": ["Adventure", "Comedy", "Fantasy", "Supernatural"],
+            "averageScore": 61,
+            "format": "TV",
+            "episodes": 51,
+            "season": "SPRING",
+            "seasonYear": 2007,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 100110,
+            "title": {
+              "romaji": "Dragon Fist",
+              "english": null,
+              "native": "ドラゴンフィスト"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b100110-rZ4oRMIErl50.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b100110-rZ4oRMIErl50.jpg",
+              "color": "#c9350d"
+            },
+            "bannerImage": null,
+            "genres": ["Drama", "Fantasy"],
+            "averageScore": 38,
+            "format": "OVA",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 1991,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Agent 21"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 122511,
+            "title": {
+              "romaji": "Long Zu",
+              "english": "Dragon Raja -The Blazing Dawn-",
+              "native": "龙族"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx122511-h6FpxJGfKx3I.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx122511-h6FpxJGfKx3I.jpg",
+              "color": "#bbd6f1"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/122511-c2NEixtg4qHx.jpg",
+            "genres": ["Action", "Drama", "Fantasy"],
+            "averageScore": 73,
+            "format": "ONA",
+            "episodes": 17,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "GARDEN"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 213094,
+            "title": {
+              "romaji": "Yonghansonyeo",
+              "english": "Dragon Girl Problem",
+              "native": "용한소녀"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx213094-uRMWWkBmERSq.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx213094-uRMWWkBmERSq.png",
+              "color": "#3593ff"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/213094-9A2YJRwlKbLP.jpg",
+            "genres": ["Comedy", "Fantasy", "Romance"],
+            "averageScore": 61,
+            "format": "ONA",
+            "episodes": 10,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 21055,
+            "title": {
+              "romaji": "Chaos Dragon: Sekiryuu Sen'eki",
+              "english": "Chaos Dragon",
+              "native": "ケイオスドラゴン 赤竜戦役"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21055-n18s5xL1u0ZY.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx21055-n18s5xL1u0ZY.jpg",
+              "color": "#f16b50"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/21055-NKyn3byd6gH3.jpg",
+            "genres": ["Action", "Fantasy", "Supernatural"],
+            "averageScore": 49,
+            "format": "TV",
+            "episodes": 12,
+            "season": "SUMMER",
+            "seasonYear": 2015,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "SILVER LINK."
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 2819,
+            "title": {
+              "romaji": "Dragon Quest: Abel Yuusha Densetsu",
+              "english": "Dragon Warrior",
+              "native": "ドラゴンクエスト～勇者アベル伝説～"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx2819-pkB0KboXOxTz.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx2819-pkB0KboXOxTz.png",
+              "color": "#e4ae28"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2819-yFHXovBmdgIw.jpg",
+            "genres": ["Action", "Adventure", "Fantasy"],
+            "averageScore": 66,
+            "format": "TV",
+            "episodes": 43,
+            "season": "FALL",
+            "seasonYear": 1989,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "NAS"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          },
+          {
+            "id": 101424,
+            "title": {
+              "romaji": "PazuDora",
+              "english": "Puzzle & Dragon",
+              "native": "パズドラ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx101424-MXZWfGIORufY.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/nx101424-MXZWfGIORufY.jpg",
+              "color": "#e4bb35"
+            },
+            "bannerImage": null,
+            "genres": [],
+            "averageScore": 64,
+            "format": "TV",
+            "episodes": 406,
+            "season": "SPRING",
+            "seasonYear": 2018,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null
+          }
+        ]
+      }
+    }
+  }
+}
