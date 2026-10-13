@@ -51,6 +51,15 @@ const recordedSearch: Recording = {
   status: 200,
   body: { data: { Page: { media: found } } },
 }
+// A copy of the recorded search under another term, as if recorded while the search's query asked
+// for one more field.
+const olderSearch: Recording = {
+  ...recordedSearch,
+  request: {
+    query: QUERIES.search.replace('{ id ', '{ id description '),
+    variables: { search: 'zzqq older query' },
+  },
+}
 // An AniList answer of HTTP 400, as discover.e2e.ts stages a search turned down.
 const BAD_REQUEST = {
   status: 400,
@@ -217,7 +226,7 @@ test('a browser opened with recordings shows their titles, answered a moment lat
 test('in a recorded browser, a request with no recording fails the check waiting on it, naming it and what to do about it, unless a rewrite answers it', async () => {
   const browser = await Browser.open({
     aniList: 'recorded',
-    recordings: [firstVisit, recordedSearch],
+    recordings: [firstVisit, recordedSearch, olderSearch],
   })
   // Whether a failure names the search with no recording, and says how to record it: list it in
   // recordings.ts, then run the recorder. And that the search may have gone out mid-word, only
@@ -270,6 +279,15 @@ test('in a recorded browser, a request with no recording fails the check waiting
     assert.ok(
       missed(unrecorded, 'zzqq no recording'),
       `waiting on a search with no recording: ${unrecorded}`,
+    )
+    // A recording made for an older query text answers nothing, as an answer to another query may
+    // lack a field the page asks for now: a search for olderSearch's term has no recording. A key
+    // that left the query text out would answer it with olderSearch's titles.
+    await paste(browser, 'zzqq older query')
+    const olderQuery = await failure(browser.waitFor(retryFor('zzqq older query'), 10_000))
+    assert.ok(
+      missed(olderQuery, 'zzqq older query'),
+      `waiting on a search recorded only for an older query: ${olderQuery}`,
     )
     // A rewrite that passes every answer on, as a check can for all of its file's, can't hide one.
     await browser.rewriteAniList(({ status, body }) => ({ status, body }))
