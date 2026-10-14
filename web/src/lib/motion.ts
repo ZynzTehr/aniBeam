@@ -53,6 +53,33 @@ export function finishEntrances() {
       animation.finish()
 }
 
+// The animations that motion coming back on starts over must be finished before the browser draws
+// a frame with them, or that frame shows every entrance at its first keyframe, and the next one
+// puts the page back. The device's own change event comes too late for that: Chrome restyles the
+// page with the gates open, and draws that frame, before it fires the media query's change event.
+// A ResizeObserver comes in time, whichever way motion came back on: watching an element whose
+// size the gates change, it calls back after the restyle and layout that open them, before the
+// frame is drawn.
+
+/**
+ * Calls `onBackOn` each time motion comes back on, by the switch or on the device, in the frame it
+ * does, before that frame is drawn, until the function it returns is called. `sentinel` is an
+ * element the motion gates widen, as they do .ab-motion-sentinel (see components.css).
+ */
+export function watchMotionBackOn(sentinel: Element, onBackOn: () => void) {
+  // The observer calls back as it starts watching too, with nothing changed: on a page that loads
+  // with motion allowed, the entrances have only just begun then. And it calls back as the gates
+  // close again. So each call asks whether motion was reduced before and isn't now.
+  let reduced = reducedMotion()
+  const watch = new ResizeObserver(() => {
+    const was = reduced
+    reduced = reducedMotion()
+    if (was && !reduced) onBackOn()
+  })
+  watch.observe(sentinel)
+  return () => watch.disconnect()
+}
+
 // The site's setting is saved in localStorage while it is on, so a later visit starts with it. A
 // browser can block a site's storage altogether ("block all site data"): reading it then throws.
 // Or the saved titles can fill it, and a new value is refused. The page goes on either way, and the

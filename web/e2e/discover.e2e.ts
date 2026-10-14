@@ -2133,6 +2133,59 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('with motion allowed, a fresh load plays the intro’s entrance in full', async () => {
+    // As motion comes back on, the Reduce motion switch finishes every entrance on the page at once
+    // (see watchMotionBackOn() in lib/motion.ts). Its watch calls back as the page loads too, with
+    // nothing changed, and finishing them then would skip the entrances that have only just
+    // begun. The intro's are on the page from its first frame: its kicker, the three parts of its
+    // title, its lede and its buttons rise in, and its sound effect pops. Each must show part way
+    // through in some frame, read from the first one: the sampler goes in before the page's own
+    // scripts run. The intro's covers come later, with the titles, and are left out.
+    const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `(() => {
+        window.__intro = new Map()
+        const look = () => {
+          if (window.__introRead) return
+          for (const a of document.getAnimations())
+            if (a instanceof CSSAnimation && a.effect.target.closest('.ab-intro') && !a.effect.target.closest('.ab-intro-art')) {
+              const { localTime, delay, activeDuration } = a.effect.getComputedTiming()
+              const partWay = a.playState === 'running' && localTime > delay && localTime < delay + activeDuration
+              window.__intro.set(a, window.__intro.get(a) || partWay)
+            }
+          requestAnimationFrame(look)
+        }
+        requestAnimationFrame(look)
+      })()`,
+    })
+    try {
+      await browser.load()
+      assert.ok(await browser.titlesShown(), 'trending and decade titles never appeared')
+      await browser.animationsDone()
+      const intro = await browser.evaluate<{ found: number; unseen: string[] }>(`(() => {
+        window.__introRead = true
+        const unseen = {}
+        for (const [a, partWay] of window.__intro)
+          if (!partWay) {
+            const { target } = a.effect
+            const owner = target.closest('[class]')
+            const said = a.animationName + ' on ' + (owner === target ? '.' + target.classList[0] : target.localName + ' in .' + owner.classList[0])
+            unseen[said] = (unseen[said] ?? 0) + 1
+          }
+        return {
+          found: window.__intro.size,
+          unseen: Object.entries(unseen).map(([said, count]) => (count > 1 ? said + ' ×' + count : said)).sort(),
+        }
+      })()`)
+      assert.deepEqual(
+        intro,
+        { found: 7, unseen: [] },
+        'on a fresh load with motion allowed, how many of the intro’s animations the page started, and those that no frame showed part way through',
+      )
+    } finally {
+      await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+    }
+  })
+
   test('Space toggles the footer’s Reduce motion switch, with a brand-hot focus ring', async () => {
     // A native checkbox with role="switch", above AniList's credit. On, it sets data-motion="reduce"
     // on <html>, which every motion rule and script obeys, and saves the choice for later visits
@@ -2242,19 +2295,26 @@ async function capsuleHalves() {
 
 /**
  * Pulls with motion reduced, so the title opens at once, then turns reduced motion off with
- * `turnOff` and reads what that starts, in a few words. In the first frame after the page hears of
- * it, by the switch's change event or the device's, just before that frame is drawn: whether motion
- * is back on; each CSS animation on the page's own clock not yet finished, as "name on what, play
- * state", with how many; and the capsule halves shown over the open title. That frame, and not a
- * later one: an entrance finished only once that frame is drawn (in a timeout, say) shows in it at
- * its first keyframe, yet reads as finished a frame later. One finished in a frame callback the
- * page asked for as it heard of the change is in time: that callback runs first, in the same frame.
- * Then whether the splash cover's drift still follows the scroll, as the desktop check reads it:
- * still just before its panel starts to leave the screen, and drifting once half of it has. Then
- * each animation a new pull runs on its result, and whether some frame showed it part way through,
- * which no frame does for one finished at once. Last, how the Reduce motion switch's knob moved as
- * motion came back on, which it has long done by then: it slid if its transition took 100ms or more
- * to end, and jumped if it ended at once.
+ * `turnOff` and reads what that starts, in a few words. In the first frame drawn with motion back
+ * on, just before it is drawn: whether motion is back on; each CSS animation on the page's own
+ * clock not yet finished, as "name on what, play state", with how many; and the capsule halves
+ * shown over the open title. That frame, and not a later one: an entrance finished only once that
+ * frame is drawn (in a timeout, say) shows in it at its first keyframe, yet reads as finished a
+ * frame later. As the device stops asking, Chrome draws that frame before it tells the page, so
+ * the reading can't wait for a change event: it looks at every frame from before the change. It
+ * asks <html> and the media query whether motion is back on, which leaves the page's styles as
+ * they are: asking for its animations brings them up to date, which would start the gates'
+ * animations ahead of the frame's own restyle. In the first frame with motion back on, a
+ * ResizeObserver made there takes the reading. Its callback runs after layout, just before the
+ * frame is drawn, and after those of the page's own observers, made earlier: callbacks run in the
+ * order the observers were made. So an entrance the page finishes in one of them is in time, as
+ * is one finished in a frame callback. If motion is still reduced 10 s on, the reading comes
+ * then, and says so. Next, whether the splash cover's drift still follows the scroll, as the
+ * desktop check reads it: still just before its panel starts to leave the screen, and drifting
+ * once half of it has. Then each animation a new pull runs on its result, and whether some frame
+ * showed it part way through, which no frame does for one finished at once. Last, how the Reduce
+ * motion switch's knob moved as motion came back on, which it has long done by then: it slid if
+ * its transition took 100ms or more to end, and jumped if it ended at once.
  */
 async function motionBackOn(turnOff: () => Promise<unknown>) {
   await pull()
@@ -2283,9 +2343,23 @@ async function motionBackOn(turnOff: () => Promise<unknown>) {
           capsule: [...document.querySelectorAll('.ab-result.is-open:not([data-old]) .ab-half')].filter((half) => half.checkVisibility({ opacityProperty: true, visibilityProperty: true })).length,
         })
       }
-      const heard = () => requestAnimationFrame(read)
-      ${motionSwitch}.addEventListener('change', heard, { once: true })
-      matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', heard, { once: true })
+      let gaveUp = false
+      const giveUp = setTimeout(() => {
+        gaveUp = true
+        read()
+      }, 10000)
+      const watch = () => {
+        if (gaveUp) return
+        if (document.documentElement.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches)
+          return requestAnimationFrame(watch)
+        clearTimeout(giveUp)
+        const last = new ResizeObserver(() => {
+          last.disconnect()
+          read()
+        })
+        last.observe(document.documentElement)
+      }
+      requestAnimationFrame(watch)
     })
     return true
   })()`)
@@ -3073,10 +3147,11 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
       // Motion back on, every rule in the motion gates applies again, and their animations would
       // start over on what is already on the page: some 60 entrances, and after a pull, the
       // capsule dropping and splitting again over the title it gave. Each must finish at once
-      // instead (see finishEntrances() in lib/motion.ts), while what arrives later plays as usual.
-      // The device stops asking with the splash cover half scrolled away, mid-drift: its drift
-      // runs on the scroll, not the clock, and must go on following it. Chrome restyles the page
-      // a frame before it tells the page, so the reading counts from when the page hears of it.
+      // instead (see watchMotionBackOn() in lib/motion.ts), while what arrives later plays as
+      // usual. The device stops asking with the splash cover half scrolled away, mid-drift: its
+      // drift runs on the scroll, not the clock, and must go on following it. Chrome draws a frame
+      // with motion back on before it tells the page, and that frame must show no entrance
+      // starting over either: the reading is in it (see motionBackOn).
       await browser.load({ reduceMotion: true })
       assert.ok(await browser.titlesShown())
       const seen = await motionBackOn(async () => {
@@ -3088,7 +3163,7 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
       assert.deepEqual(
         seen,
         BACK_ON,
-        'after a pull, as the device stopped asking: in the first frame after the page heard, motion, each animation on the page’s clock left unfinished and the capsule halves over the open title; then how the switch’s knob moved, the splash cover just before its panel leaves the screen and half out, and each animation of the next pull',
+        'after a pull, as the device stopped asking: in the first frame drawn after, motion, each animation on the page’s clock left unfinished and the capsule halves over the open title; then how the switch’s knob moved, the splash cover just before its panel leaves the screen and half out, and each animation of the next pull',
       )
     })
 
@@ -3243,7 +3318,7 @@ describe('reduced motion, saved on the site', () => {
       assert.deepEqual(
         await motionBackOn(clickSwitch),
         BACK_ON,
-        'after a pull, as a click turned the switch off: in the first frame after, motion, each animation on the page’s clock left unfinished and the capsule halves over the open title; then how the switch’s knob moved, the splash cover just before its panel leaves the screen and half out, and each animation of the next pull',
+        'after a pull, as a click turned the switch off: in the first frame drawn after, motion, each animation on the page’s clock left unfinished and the capsule halves over the open title; then how the switch’s knob moved, the splash cover just before its panel leaves the screen and half out, and each animation of the next pull',
       )
     } finally {
       await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)

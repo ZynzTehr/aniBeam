@@ -11,6 +11,7 @@ import {
   savedMotionChoice,
   saveMotionChoice,
   watchDeviceMotion,
+  watchMotionBackOn,
 } from './motion.ts'
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
@@ -38,12 +39,19 @@ function fakeStorage(room = Infinity) {
  * `clock`. A CSS animation is a CSSAnimation, as in a browser. In a browser, window is globalThis,
  * so each can be read through window too. `changeDevice()` changes the device's setting as a
  * visitor would while the page is open: each media query list that matchMedia gave out whose
- * answer changes then calls its own change listeners, as a browser's does.
+ * answer changes then calls its own change listeners, as a browser's does. `resize()` has each
+ * ResizeObserver that still watches something call back, as a browser's does once the size of
+ * what it watches changes, and once as it starts watching.
  */
 function fakePage(t: TestContext) {
-  const before = ['window', 'document', 'matchMedia', 'localStorage', 'CSSAnimation'].map(
-    (name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)] as const,
-  )
+  const before = [
+    'window',
+    'document',
+    'matchMedia',
+    'localStorage',
+    'CSSAnimation',
+    'ResizeObserver',
+  ].map((name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)] as const)
   t.after(() => {
     for (const [name, descriptor] of before)
       if (descriptor) Object.defineProperty(globalThis, name, descriptor)
@@ -53,6 +61,8 @@ function fakePage(t: TestContext) {
   // Every media query list handed out, each with the change listeners added to it alone, and
   // whether each was added to be called once only.
   const lists: { query: string; listeners: Map<() => void, boolean> }[] = []
+  // Every ResizeObserver made, each with its callback and what it watches.
+  const observers: { callback: () => void; watching: Set<object> }[] = []
   const page = {
     dataset: {} as DOMStringMap,
     deviceAsks: false,
@@ -68,6 +78,9 @@ function fakePage(t: TestContext) {
             if (once) listeners.delete(listener)
             listener()
           }
+    },
+    resize() {
+      for (const { callback, watching } of observers) if (watching.size) callback()
     },
   }
   // A browser's answer to each media query about motion. A query it can't read matches nothing.
@@ -88,6 +101,25 @@ function fakePage(t: TestContext) {
   Object.defineProperty(globalThis, 'CSSAnimation', {
     configurable: true,
     value: class CSSAnimation {},
+  })
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    configurable: true,
+    value: class ResizeObserver {
+      observer: { callback: () => void; watching: Set<object> }
+      constructor(callback: () => void) {
+        this.observer = { callback, watching: new Set() }
+        observers.push(this.observer)
+      }
+      observe(target: object) {
+        this.observer.watching.add(target)
+      }
+      unobserve(target: object) {
+        this.observer.watching.delete(target)
+      }
+      disconnect() {
+        this.observer.watching.clear()
+      }
+    },
   })
   Object.defineProperty(globalThis, 'matchMedia', {
     configurable: true,
@@ -190,6 +222,46 @@ test('finishEntrances() finishes the CSS animations on the page’s own clock, a
     finished,
     ['an entrance'],
     'the animations finished, of an entrance, the splash cover’s drift on the scroll, the knob’s slide and an endless spin',
+  )
+})
+
+test('watchMotionBackOn() calls back only as motion comes back on, not as it starts watching, until the page stops watching', (t) => {
+  // Its ResizeObserver calls back as the motion gates widen the sentinel, and as they narrow it
+  // again, and once as it starts watching, with nothing changed: on a page that loads with motion
+  // allowed, the entrances have only just begun then, and finishing them would skip them. Only
+  // motion coming back on may call back: the switch turning off, or the device that stops asking
+  // while the switch is off. Each step changes the settings, then has the observer call back, as
+  // if the sentinel's size had changed, which shows that the settings, not the call, decide.
+  const page = fakePage(t)
+  const heard: string[] = []
+  let now = ''
+  const step = (what: string, change = () => {}) => {
+    now = what
+    change()
+    page.resize()
+  }
+  const sentinel = {} as Element
+  let stop = watchMotionBackOn(sentinel, () => heard.push(now))
+  step('as it starts watching, with motion allowed')
+  step('the device asks', () => page.changeDevice(true))
+  step('the device stops asking', () => page.changeDevice(false))
+  step('the switch turns on', () => (page.dataset.motion = 'reduce'))
+  step('the device asks, with the switch on', () => page.changeDevice(true))
+  step('the device stops asking, with the switch on', () => page.changeDevice(false))
+  step('the switch turns off', () => delete page.dataset.motion)
+  stop()
+  step('the switch turns on, once it stopped watching', () => (page.dataset.motion = 'reduce'))
+  step('the switch turns off, once it stopped watching', () => delete page.dataset.motion)
+  // A page that loads with the device asking.
+  page.changeDevice(true)
+  stop = watchMotionBackOn(sentinel, () => heard.push(now))
+  step('as it starts watching, with the device asking')
+  step('the device stops asking, on that page', () => page.changeDevice(false))
+  stop()
+  assert.deepEqual(
+    heard,
+    ['the device stops asking', 'the switch turns off', 'the device stops asking, on that page'],
+    'the steps at which it called back',
   )
 })
 

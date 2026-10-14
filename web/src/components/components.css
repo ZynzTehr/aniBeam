@@ -419,6 +419,19 @@ img[data-broken] {
   text-wrap: pretty;
 }
 
+/* A box no one sees, which the motion gates widen from 1px to 2px (see the first gate below).
+   MotionSwitch watches its width, so it hears motion come back on in the very frame it does,
+   before that frame is drawn (see watchMotionBackOn() in lib/motion.ts). Fixed in the screen's
+   corner, it takes no room in the footer. */
+.ab-motion-sentinel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  visibility: hidden;
+}
+
 /* ---------- Motion (only when the visitor allows it) ----------
    Visitors can ask for reduced motion on their device, which this media query hears, or on the
    site itself, which sets data-motion="reduce" on <html> (see lib/motion.ts), out of a media
@@ -430,6 +443,11 @@ img[data-broken] {
    so it never applies. */
 @media (prefers-reduced-motion: no-preference) {
   :where(:root:not([data-motion='reduce'])) {
+    /* Motion is allowed: MotionSwitch's sentinel widens (see .ab-motion-sentinel). */
+    .ab-motion-sentinel {
+      width: 2px;
+    }
+
     /* An ink block wipes off each panel, one after another. */
     .ab-panel::after {
       position: absolute;
