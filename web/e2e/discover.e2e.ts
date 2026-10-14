@@ -3470,8 +3470,9 @@ describe('phone (390x844)', () => {
     // was published, the intro was sized by the CSS fallback, 80px, so the first frame drew the
     // headline 67px lower than where it then jumped: layout shifts of about 0.04, in one to
     // three frames, on every load. Chrome reports each shift with the parts that moved, and
-    // none may be in the intro. Headless Chrome marks these shifts as just after input (which
-    // web-vitals would skip), though no key or click was sent, so every one counts here.
+    // none may be in the intro. Chrome's phone emulation marks these shifts as just after input
+    // (which web-vitals would skip), though no key or click was sent; a plain window of the same
+    // size reports the same shifts without the mark, as a visitor's would. So every one counts.
     const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
       source: `window.__shifts = []
         new PerformanceObserver((list) => window.__shifts.push(...list.getEntries())).observe({ type: 'layout-shift', buffered: true })`,
