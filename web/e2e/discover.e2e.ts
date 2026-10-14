@@ -1653,9 +1653,15 @@ describe('desktop (1440x900)', () => {
         await resize(width)
         await browser.animationsDone()
         for (const [href, name] of links) {
-          const { top } = await jump(href)
+          const { top, hidden, ring } = await jump(href)
           if (Math.abs(top - 96) > 1)
             problems.push(`${width}px: ${name} lands at ${Math.round(top)}px, not 96px`)
+          // 96px is right only while the header is one row or scrolls away: at 899px a header
+          // that stuck to the top, two rows tall (134px), would hide the target at 96px.
+          else if (hidden > 0)
+            problems.push(
+              `${width}px: ${hidden}px of ${name}${ring ? ' and its focus ring' : ''} is under the header`,
+            )
         }
       }
       await browser.evaluate(`(() => {
