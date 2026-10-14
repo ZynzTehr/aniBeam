@@ -2242,15 +2242,19 @@ async function capsuleHalves() {
 
 /**
  * Pulls with motion reduced, so the title opens at once, then turns reduced motion off with
- * `turnOff` and reads what that starts, in a few words. Two frames after the page hears of it, by
- * the switch's change event or the device's: whether motion is back on; each CSS animation on the
- * page's own clock not yet finished, as "name on what, play state", with how many; and the capsule
- * halves shown over the open title. Then whether the splash cover's drift still follows the
- * scroll, as the desktop check reads it: still just before its panel starts to leave the screen,
- * and drifting once half of it has. Then each animation a new pull runs on its result, and whether
- * some frame showed it part way through, which no frame does for one finished at once. Last, how
- * the Reduce motion switch's knob moved as motion came back on, which it has long done by then: it
- * slid if its transition took 100ms or more to end, and jumped if it ended at once.
+ * `turnOff` and reads what that starts, in a few words. In the first frame after the page hears of
+ * it, by the switch's change event or the device's, just before that frame is drawn: whether motion
+ * is back on; each CSS animation on the page's own clock not yet finished, as "name on what, play
+ * state", with how many; and the capsule halves shown over the open title. That frame, and not a
+ * later one: an entrance finished only once that frame is drawn (in a timeout, say) shows in it at
+ * its first keyframe, yet reads as finished a frame later. One finished in a frame callback the
+ * page asked for as it heard of the change is in time: that callback runs first, in the same frame.
+ * Then whether the splash cover's drift still follows the scroll, as the desktop check reads it:
+ * still just before its panel starts to leave the screen, and drifting once half of it has. Then
+ * each animation a new pull runs on its result, and whether some frame showed it part way through,
+ * which no frame does for one finished at once. Last, how the Reduce motion switch's knob moved as
+ * motion came back on, which it has long done by then: it slid if its transition took 100ms or more
+ * to end, and jumped if it ended at once.
  */
 async function motionBackOn(turnOff: () => Promise<unknown>) {
   await pull()
@@ -2279,7 +2283,7 @@ async function motionBackOn(turnOff: () => Promise<unknown>) {
           capsule: [...document.querySelectorAll('.ab-result.is-open:not([data-old]) .ab-half')].filter((half) => half.checkVisibility({ opacityProperty: true, visibilityProperty: true })).length,
         })
       }
-      const heard = () => requestAnimationFrame(() => requestAnimationFrame(read))
+      const heard = () => requestAnimationFrame(read)
       ${motionSwitch}.addEventListener('change', heard, { once: true })
       matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', heard, { once: true })
     })
@@ -3084,7 +3088,7 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
       assert.deepEqual(
         seen,
         BACK_ON,
-        'after a pull, as the device stopped asking: motion, each animation on the page’s clock left unfinished, the capsule halves over the open title, how the switch’s knob moved, the splash cover just before its panel leaves the screen and half out, and each animation of the next pull',
+        'after a pull, as the device stopped asking: in the first frame after the page heard, motion, each animation on the page’s clock left unfinished and the capsule halves over the open title; then how the switch’s knob moved, the splash cover just before its panel leaves the screen and half out, and each animation of the next pull',
       )
     })
 
@@ -3239,7 +3243,7 @@ describe('reduced motion, saved on the site', () => {
       assert.deepEqual(
         await motionBackOn(clickSwitch),
         BACK_ON,
-        'after a pull, as a click turned the switch off: motion, each animation on the page’s clock left unfinished, the capsule halves over the open title, how the switch’s knob moved, the splash cover just before its panel leaves the screen and half out, and each animation of the next pull',
+        'after a pull, as a click turned the switch off: in the first frame after, motion, each animation on the page’s clock left unfinished and the capsule halves over the open title; then how the switch’s knob moved, the splash cover just before its panel leaves the screen and half out, and each animation of the next pull',
       )
     } finally {
       await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)
