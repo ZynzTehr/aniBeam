@@ -8,6 +8,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { coverFan, COVERS } from '../components/coverFan.ts'
 import { IntroHero } from '../components/IntroHero.tsx'
 import { MangaPage, PANELS } from '../components/MangaPage.tsx'
+import { MotionSwitch } from '../components/MotionSwitch.tsx'
 import { SiteHeader } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
@@ -147,6 +148,11 @@ export default function App() {
       <a className="ab-skip" href="#main">
         Skip to content
       </a>
+      {/* The Reduce motion switch sits in the footer, past every title on the page, some 40 Tab
+          stops in. This link, in the same place as the one above, takes keyboard users to it. */}
+      <a className="ab-skip" href="#reduce-motion">
+        Skip to Reduce motion
+      </a>
       <SiteHeader
         links={[
           { href: '#ab-trending', label: 'Trending' },
@@ -253,7 +259,8 @@ export default function App() {
         </Strip>
       </main>
       <footer className="ab-foot">
-        Data from AniList. AniBeam is not affiliated with AniList.
+        <MotionSwitch id="reduce-motion" />
+        <p>Data from AniList. AniBeam is not affiliated with AniList.</p>
       </footer>
       {opened && (
         <TitleCard

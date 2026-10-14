@@ -107,6 +107,44 @@ Each title tints its panel, card or capsule with its AniList cover color. `deriv
 
 The design prototypes in `web/src/prototype` are for development only. Add `?variant=A`, `B`, `C` or `D` to the dev server's URL to open one. Production builds leave them out.
 
+### Reduced motion
+
+Visitors who ask for reduced motion get no sliding, zooming or swinging. They can ask on their device, which the browser reports as `prefers-reduced-motion`, or on the site, with the Reduce motion switch in the footer, above AniList's credit.
+
+The switch is a native checkbox with `role="switch"`, in `web/src/components/MotionSwitch.tsx`. On, it sets `data-motion="reduce"` on `<html>`, which every motion rule and script obeys, and saves the choice as `localStorage['anibeam:motion'] = 'reduce'`. Off, it takes both away, and motion comes back without the page playing its entrances again: the animations that come back with it finish at once, at their last frame, so nothing already on the page moves, while what arrives later, such as the next pull, moves as usual. On a later visit, `web/src/main.tsx` puts a saved choice back on `<html>` before React draws anything, so no entrance plays. If storage is blocked or full, the choice lasts for the visit only.
+
+The switch can only reduce motion. It stops motion on a device that allows it, but it can't bring motion back while the device asks for reduced motion. While the device asks, the switch shows on and locked (yellow, flat and dashed), with the line "On because your device is set to reduce motion." It stays focusable, with `aria-disabled` instead of `disabled`, so a screen reader reaches it and hears that line. A click or Space changes nothing, and a choice saved on an earlier visit stays saved for when the device stops asking. The switch follows the device's setting as the visitor changes it, with the page open. When the device stops asking, motion comes back the same way.
+
+The switch comes after every title on the page, so a second skip link, "Skip to Reduce motion", follows "Skip to content". Like the first, it shows only while it has focus. It links to the switch's checkbox, `#reduce-motion`, the one part of the switch that can take focus. So from the top of the page, Tab, Tab and Enter put the focus on the switch, ready for Space.
+
+#### One source of truth
+
+The site's setting lives in one place, `data-motion="reduce"` on `<html>`. Styles and scripts read it there, together with the device's setting.
+
+In the app's scripts, `web/src/lib/motion.ts` is the one place that asks the device:
+
+- `reducedMotion()` is true when `<html>` has `data-motion="reduce"` or the device asks for reduced motion. A script that moves anything asks it each time it is about to move, as the pull's reveal does.
+- `deviceReducesMotion()` and `watchDeviceMotion()` read the device's setting alone and follow its changes, for the switch's locked state.
+- `savedMotionChoice()` and `saveMotionChoice()` read and write the saved choice, in try/catch.
+- `finishEntrances()` finishes the animations that motion coming back on starts over, on the page's own clock only: the splash cover's drift follows the scroll, and transitions such as the switch's knob run on.
+- `watchMotionBackOn()` calls back each time motion comes back on, by the switch or on the device, before the browser draws a frame of it, and the switch has it finish the entrances then. It watches the size of `.ab-motion-sentinel`, a box in the footer that no one sees, which the motion gates widen from 1px to 2px: a ResizeObserver calls back after layout, before the frame is drawn, while the media query's change event comes a frame late in Chrome.
+
+In the styles, every motion rule sits in one of the motion gates in `web/src/components/components.css`, written like this:
+
+```css
+@media (prefers-reduced-motion: no-preference) {
+  :where(:root:not([data-motion='reduce'])) {
+    /* what motion adds */
+  }
+}
+```
+
+The media query hears the device, and the `:where()` rule holds only while the site's setting is off. `:where()` adds no specificity, so the rules inside keep their rank. The production build writes the nesting out as plain selectors, for browsers that can't read nesting.
+
+The calm look is every rule's default, and a gate adds the motion. Motion that needs another condition, such as a width, nests it inside the `:where()` rule. Rules for `<html>` itself, such as smooth scrolling, go in `& { … }` inside the `:where()` rule, which matches `<html>`: nested there as `html { … }` or `:root { … }`, a rule reaches only what lies inside `<html>`, so it never applies. Never write a rule under `@media (prefers-reduced-motion: reduce)`, and don't use Tailwind's `motion-safe:` or `motion-reduce:` variants: a media query hears only the device, so the switch can't reach them. Tailwind's motion utilities, such as `animate-spin` or `hover:-translate-y-1`, can't sit in a gate at all, as Tailwind writes their rules outside it, and neither can a transition or an animation in a `style` prop: give the element an `ab-` class, and its motion a rule in a gate.
+
+`npm test` holds the app to this. `web/src/components/motion.test.ts` reads every stylesheet in `web/src` but the development-only prototypes'. Outside the gates, it fails on a transition that names a property that moves or resizes a box, or `all`, or that names none, which means all, as `transition: 0.2s` does; on a hover or press rule that sets such a property; on an animation other than a fade of 150 ms or less that plays once; on smooth scrolling; and on a rule that pauses an animation (a paused animation outside the gates would hold its frame for good). The properties that move or resize a box are `transform`, `translate`, `rotate` and `scale`, any width or height, `top`, `right`, `bottom`, `left` and `inset`, and margins and padding, with their longhands and prefixed names. A `var()` in a transition outside the gates reads as each value a rule there sets its custom property to, and as its fallback; one with neither fails, as the check can't read it. It also fails on a rule in a gate but outside its `:where()` rule, on a rule in the `:where()` rule that names `html` or `:root`, and on a rule that asks the device about motion outside a gate. `web/src/lib/motion.test.ts` reads the app's scripts and stylesheets, all but the tests and the prototypes, and `web/index.html`. It fails on any line of code in a script other than `lib/motion.ts` that names `prefers-reduced-motion`; on Tailwind's motion variants; on its motion utilities in a class name, in the markup or after `@apply` (`animate-…`, `transition`, `duration-…`, `scroll-smooth`, `translate-…`, `rotate-…`, `scale-…` and `skew-…`, under a variant or not); and on a `style` prop that sets a transition, an animation or `scroll-behavior`. The browser checks run the reduced-motion group twice, once with the device asking and once with the site's setting on, and load the page with the choice saved. Others check the switch itself: Space, the skip link, the locked state, a reload, the contrast themes, and phones, where it must show in full, with its locked line wrapping under it. And after a pull, turning motion back on, by the switch or on the device, must leave nothing on the page playing again in the first frame drawn after, the capsule included, while the knob slides off, the splash cover's drift follows the scroll, and the next pull plays in full. With motion allowed, a fresh load must still play the intro's entrance in full.
+
 ### Fonts
 
 The display font is Dela Gothic One, by the Dela Gothic Project Authors. The body font is M PLUS Rounded 1c, by the Rounded M+ Project Authors. Both are self-hosted from `web/public/fonts`, so visitors' browsers never contact Google. `npm test` builds the production bundle in memory and fails if any file in it references Google Fonts.

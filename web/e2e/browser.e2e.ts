@@ -1,6 +1,6 @@
 // The browser helper itself: a Chrome that fails to start leaves nothing behind, a browser answers
 // AniList from recordings of its answers unless asked for AniList's own, and a recorded browser
-// gives the page those, and sends AniList nothing.
+// gives the page those, and sends AniList nothing. And press() presses keys as a keyboard does.
 import assert from 'node:assert/strict'
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -509,6 +509,84 @@ test('a recorded browser can’t reach AniList: a request that gets past the rec
       'net::ERR_NAME_NOT_RESOLVED',
       'AniList’s address resolved for a request that got past the recordings',
     )
+  } finally {
+    await browser.close()
+  }
+})
+
+// A focused button clicks on Space as a keyboard sends it: the key " " goes down on the button,
+// with the space it types, which the button keeps from scrolling the page, and the click comes as
+// the key comes up. So the lever pulls once, as it does for someone at a keyboard.
+test('press() presses Space as a keyboard does: on the focused lever, it pulls once', async () => {
+  const browser = await Browser.open({ aniList: 'recorded', recordings: [firstVisit] })
+  try {
+    await browser.load()
+    assert.ok(await browser.titlesShown(15_000), 'no titles came, not even the samples')
+    const count = `document.querySelector('.ab-count').textContent`
+    assert.deepEqual(
+      await browser.evaluate(`(() => {
+        const lever = document.querySelector('.ab-lever')
+        lever.focus()
+        return { focused: document.activeElement === lever, off: lever.disabled, count: ${count} }
+      })()`),
+      { focused: true, off: false, count: 'No pulls yet' },
+      'the lever, before Space',
+    )
+    await browser.press('Space')
+    // The capsule opens 0.9 s after a pull, and a second pull would have come by then.
+    const opened = await browser.waitFor(`document.querySelector('.ab-result.is-open')`, 5_000)
+    assert.deepEqual(
+      { opened, count: await browser.evaluate(count) },
+      { opened: true, count: '1 pull this visit' },
+      'what Space on the focused lever did',
+    )
+  } finally {
+    await browser.close()
+  }
+})
+
+// One press of a key as a US keyboard sends it, as the page reads it: its key, its code and its
+// keyCode, going down, then as a keypress if it types a character, and coming up.
+const fromKeyboard = (key: string, code: string, keyCode: number, types = false) =>
+  (types ? ['keydown', 'keypress', 'keyup'] : ['keydown', 'keyup'])
+    .map((type) => `${type} ${JSON.stringify(key)} ${code} ${keyCode}`)
+    .join(', ')
+
+// What the page reads as press() presses each key it knows, beside what a keyboard sends. What a
+// key does comes from these: the vibe chips move on the arrows by their key, Chrome scrolls the
+// page by the keyCode (PageDown sent with PageUp's scrolls up), and a button clicks on Enter's
+// keypress. The table has a row for each key press() knows, so the type check fails while one
+// has none. The page is a blank one, where no key does anything.
+test('press() presses every key it knows as a keyboard does: its key, code and keyCode, and a keypress for Enter and Space alone', async () => {
+  const keyboard: Record<Parameters<Browser['press']>[0], string> = {
+    Tab: fromKeyboard('Tab', 'Tab', 9),
+    Enter: fromKeyboard('Enter', 'Enter', 13, true),
+    Escape: fromKeyboard('Escape', 'Escape', 27),
+    Backspace: fromKeyboard('Backspace', 'Backspace', 8),
+    Space: fromKeyboard(' ', 'Space', 32, true),
+    ArrowLeft: fromKeyboard('ArrowLeft', 'ArrowLeft', 37),
+    ArrowUp: fromKeyboard('ArrowUp', 'ArrowUp', 38),
+    ArrowRight: fromKeyboard('ArrowRight', 'ArrowRight', 39),
+    ArrowDown: fromKeyboard('ArrowDown', 'ArrowDown', 40),
+    Home: fromKeyboard('Home', 'Home', 36),
+    End: fromKeyboard('End', 'End', 35),
+    PageUp: fromKeyboard('PageUp', 'PageUp', 33),
+    PageDown: fromKeyboard('PageDown', 'PageDown', 34),
+  }
+  const browser = await Browser.open({ aniList: 'recorded', recordings: [] })
+  try {
+    await browser.evaluate(`(() => {
+      window.heard = []
+      for (const type of ['keydown', 'keypress', 'keyup'])
+        addEventListener(type, ({ key, code, keyCode }) => heard.push(type + ' ' + JSON.stringify(key) + ' ' + code + ' ' + keyCode), true)
+      return true
+    })()`)
+    const heard: Record<string, string> = {}
+    for (const key of Object.keys(keyboard) as (keyof typeof keyboard)[]) {
+      await browser.press(key)
+      heard[key] = (await browser.evaluate<string[]>('heard.splice(0)')).join(', ')
+    }
+    assert.deepEqual(heard, keyboard, 'what the page read as press() pressed each key')
   } finally {
     await browser.close()
   }

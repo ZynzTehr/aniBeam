@@ -252,6 +252,376 @@ async function pixelContrast(clip: { x: number; y: number; width: number; height
   })()`)
 }
 
+/**
+ * The pixels of part of the page as the screen shows it, as red, green and blue for each pixel,
+ * row by row. The clip is in CSS pixels from the top left of the page, as for Browser.screenshot.
+ */
+async function screenPixels(clip: { x: number; y: number; width: number; height: number }) {
+  const png = await browser.screenshot(clip)
+  // Decoded in the page.
+  return browser.evaluate<{ width: number; rgb: number[] }>(`(async () => {
+    const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+    const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+    const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+    context.drawImage(image, 0, 0)
+    const { data } = context.getImageData(0, 0, image.width, image.height)
+    return { width: image.width, rgb: [...data].filter((_, i) => i % 4 !== 3) }
+  })()`)
+}
+
+/**
+ * How much of the screen changed since the last call: the share, in percent, of its pixels whose
+ * red, green and blue changed by more than 60 together, the measure the research used for a cut
+ * (R1 in its measurements). The screen is taken at half size each way, which keeps it quick and
+ * changes the share by about a point, and compared with the last one in the page. With `first`,
+ * it only keeps the screen, and returns null.
+ */
+async function screenChange(first = false) {
+  const clip = await browser.evaluate<object>(
+    `({ x: scrollX, y: scrollY, width: innerWidth, height: innerHeight })`,
+  )
+  const { data } = await browser.send('Page.captureScreenshot', {
+    format: 'png',
+    clip: { ...clip, scale: 0.5 },
+  })
+  return browser.evaluate<number | null>(`(async () => {
+    const bytes = Uint8Array.from(atob(${JSON.stringify(data)}), (c) => c.charCodeAt(0))
+    const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+    const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+    context.drawImage(image, 0, 0)
+    const now = context.getImageData(0, 0, image.width, image.height).data
+    const last = window.__lastScreen
+    window.__lastScreen = now
+    if (${first} || !last) return null
+    let changed = 0
+    for (let i = 0; i < now.length; i += 4)
+      if (Math.abs(now[i] - last[i]) + Math.abs(now[i + 1] - last[i + 1]) + Math.abs(now[i + 2] - last[i + 2]) > 60) changed++
+    return Math.round((changed / (now.length / 4)) * 1000) / 10
+  })()`)
+}
+
+/** How many pixels are brand hot, within 60 of #ff2d55. */
+const hotPixels = ({ rgb }: { rgb: number[] }) =>
+  rgb.filter(
+    (_, i) => i % 3 === 0 && Math.hypot(rgb[i] - 255, rgb[i + 1] - 45, rgb[i + 2] - 85) < 60,
+  ).length
+
+/**
+ * What a strip along the middle of a switch's track shows: its knob and the track's fill alone.
+ * The contrast between its dark and its light pixels, taken 5% in from each end as in
+ * pixelContrast, and the side the knob is on: each pixel goes with the end it is nearer, and the
+ * knob is the smaller group.
+ */
+function knobIn({ width, rgb }: { width: number; rgb: number[] }) {
+  const channel = (v: number) => {
+    v /= 255
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+  }
+  const lum: number[] = []
+  for (let i = 0; i < rgb.length; i += 3)
+    lum.push(0.2126 * channel(rgb[i]) + 0.7152 * channel(rgb[i + 1]) + 0.0722 * channel(rgb[i + 2]))
+  const sorted = [...lum].sort((a, b) => a - b)
+  const dark = sorted[Math.floor(lum.length * 0.05)]
+  const light = sorted[Math.floor(lum.length * 0.95)]
+  const darker: number[] = []
+  const lighter: number[] = []
+  lum.forEach((l, i) => (l - dark < light - l ? darker : lighter).push(i % width))
+  const knob = darker.length < lighter.length ? darker : lighter
+  const middle = knob.reduce((sum, x) => sum + x, 0) / knob.length
+  return {
+    contrast: Math.round(((light + 0.05) / (dark + 0.05)) * 100) / 100,
+    side: middle < width / 2 ? 'left' : 'right',
+  }
+}
+
+// The footer's Reduce motion switch: a native checkbox with role="switch". The span after it, in
+// its label, is the chip that shows it, with the track and its knob inside.
+const motionSwitch = `document.querySelector('.ab-foot input[role="switch"]')`
+const hasSwitch = () => browser.evaluate<boolean>(`Boolean(${motionSwitch})`)
+
+// A strip along the middle of the Reduce motion switch's track, where only the track's fill and
+// its knob show, for knobIn: inside the track's border (the chip's ::before, placed in the chip's
+// padding box), 6px tall and 1px in from each end, in CSS pixels from the top left of the page.
+const knobStrip = `((chip) => {
+  const style = getComputedStyle(chip), track = getComputedStyle(chip, '::before')
+  const r = chip.getBoundingClientRect(), px = parseFloat
+  const left = r.left + scrollX + px(style.borderLeftWidth) + px(track.left) + px(track.marginLeft) + px(track.borderLeftWidth)
+  const middle = r.top + scrollY + px(style.borderTopWidth) + px(track.top) + px(track.marginTop) + px(track.height) / 2
+  return { x: Math.round(left) + 1, y: Math.round(middle) - 3, width: Math.round(px(track.width) - 2 * px(track.borderLeftWidth)) - 2, height: 6 }
+})(${motionSwitch}.nextElementSibling)`
+
+/**
+ * Brings keyboard focus to the Reduce motion switch as a keyboard user arrives, so it shows its
+ * ring (:focus-visible): Shift+Tab out of it, then Tab back in.
+ */
+async function tabToSwitch() {
+  await browser.evaluate(`${motionSwitch}.focus(); true`)
+  await browser.press('Tab', true)
+  await browser.press('Tab')
+}
+
+/** Clicks the middle of the Reduce motion switch's chip with the mouse, then moves the mouse away. */
+async function clickSwitch() {
+  const at = await browser.evaluate<{ x: number; y: number }>(`(async () => {
+    const chip = ${motionSwitch}.nextElementSibling
+    chip.scrollIntoView({ block: 'center' })
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    const r = chip.getBoundingClientRect()
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+  })()`)
+  await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
+  for (const type of ['mousePressed', 'mouseReleased'])
+    await browser.send('Input.dispatchMouseEvent', { type, ...at, button: 'left', clickCount: 1 })
+  await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
+}
+
+// The line beside the Reduce motion switch that says why it is locked, if one shows, as far as
+// checkVisibility() can tell: a line clipped to a pixel, as sr-only clips it, still passes (see
+// readWhyLine). The locked check must find it, so the unlocked one, which must not, can't pass by
+// looking in the wrong place.
+const whyLine = `[...document.querySelectorAll('.ab-foot .ab-motion-why')].find((line) => line.checkVisibility())`
+
+/**
+ * What a screen reader reads out after the Reduce motion switch's name and state: its
+ * description, as Chrome's accessibility tree gives it, or null if it has none. aria-describedby
+ * reads a line out even while the line is hidden, so only the tree can say what is heard.
+ */
+async function switchDescription(): Promise<string | null> {
+  const { result } = await browser.send('Runtime.evaluate', { expression: motionSwitch })
+  const { nodes } = await browser.send('Accessibility.getPartialAXTree', {
+    objectId: result.objectId,
+    fetchRelatives: false,
+  })
+  return nodes[0]?.description?.value || null
+}
+
+/**
+ * The Reduce motion switch as the page shows it, two frames after it is scrolled to the middle of
+ * the screen: whether it is on, locked (aria-disabled) and focused from the keyboard; the line
+ * that says why it is locked, if one shows, and the description a screen reader reads out with
+ * the switch (see switchDescription); its chip's fill, border, shadow and lift; the site's
+ * setting on <html> and the choice saved for later visits; the brand-hot pixels within 10px of
+ * the chip, its focus ring; its knob as the screen shows it (see knobStrip and knobIn): the side
+ * it is on if it stands out from its track at 3:1 or better, or else the contrast it shows; and
+ * the transitions its knob (the chip's ::after) ran since the last time this was asked.
+ */
+async function readSwitch() {
+  const state = await browser.evaluate<{
+    checked: boolean
+    locked: string | null
+    focused: boolean
+    why: string | null
+    look: { fill: string; border: string; shadow: string; lift: string }
+    motion: string | null
+    saved: string | null
+    slid: string[]
+    around: { x: number; y: number; width: number; height: number }
+    track: { x: number; y: number; width: number; height: number }
+  }>(`(async () => {
+    const input = ${motionSwitch}, chip = input.nextElementSibling
+    if (!window.__slid) {
+      window.__slid = []
+      addEventListener('transitionrun', (event) => {
+        if (event.target === chip && event.pseudoElement === '::after') window.__slid.push(event.propertyName)
+      }, true)
+    }
+    chip.scrollIntoView({ block: 'center' })
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const why = ${whyLine}
+    const style = getComputedStyle(chip), r = chip.getBoundingClientRect()
+    const x = Math.floor(r.left + scrollX) - 10, y = Math.floor(r.top + scrollY) - 10
+    return {
+      checked: input.checked,
+      locked: input.getAttribute('aria-disabled'),
+      focused: document.activeElement === input && input.matches(':focus-visible'),
+      why: why?.textContent ?? null,
+      look: { fill: style.backgroundColor, border: style.borderTopStyle, shadow: style.boxShadow, lift: style.transform },
+      motion: document.documentElement.dataset.motion ?? null,
+      saved: localStorage.getItem('anibeam:motion'),
+      slid: window.__slid.splice(0),
+      around: { x, y, width: Math.ceil(r.right + scrollX) + 10 - x, height: Math.ceil(r.bottom + scrollY) + 10 - y },
+      track: ${knobStrip},
+    }
+  })()`)
+  const hot = hotPixels(await screenPixels(state.around))
+  // knobIn names a side even for a knob too faint to see, so then only its contrast is given.
+  const knob = knobIn(await screenPixels(state.track))
+  return {
+    ...state,
+    ring: hot >= 1000 ? 'brand hot' : `${hot} brand-hot pixels`,
+    knob:
+      knob.contrast >= 3
+        ? `on the ${knob.side} at 3:1 or better`
+        : `at ${knob.contrast}:1 against its track`,
+    description: await switchDescription(),
+  }
+}
+
+/**
+ * The line that says why the Reduce motion switch is locked, as a sighted visitor sees it, two
+ * frames after it is scrolled to the middle of the screen, or null if none shows: its size, its
+ * clip-path, and the contrast its text shows on screen (see pixelContrast), each in words if it
+ * passes (200x16px or more, none, 4.5:1 or better), or else as measured. That it shows to the
+ * page isn't enough: it could still be clipped to a pixel, as sr-only clips it, or too faint.
+ */
+async function readWhyLine() {
+  const line = await browser.evaluate<{
+    width: number
+    height: number
+    clip: string
+    text: { x: number; y: number; width: number; height: number }
+  } | null>(`(async () => {
+    const line = ${whyLine}
+    if (!line) return null
+    line.scrollIntoView({ block: 'center' })
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    // The text's box, in whole pixels from the top left of the page, rounded inward: its edge
+    // pixels are partly the page around it.
+    const range = document.createRange()
+    range.selectNodeContents(line)
+    const r = line.getBoundingClientRect(), t = range.getBoundingClientRect()
+    const x = Math.ceil(t.left + scrollX), y = Math.ceil(t.top + scrollY)
+    return {
+      width: Math.round(r.width),
+      height: Math.round(r.height),
+      clip: getComputedStyle(line).clipPath,
+      text: { x, y, width: Math.floor(t.right + scrollX) - x, height: Math.floor(t.bottom + scrollY) - y },
+    }
+  })()`)
+  if (!line) return null
+  // A line with no text has no box to take a picture of, and nothing on screen to read.
+  const contrast = line.text.width > 0 && line.text.height > 0 ? await pixelContrast(line.text) : 1
+  return {
+    size:
+      line.width >= 200 && line.height >= 16
+        ? '200x16px or more'
+        : `${line.width}x${line.height}px`,
+    clip: line.clip,
+    contrast: contrast >= 4.5 ? '4.5:1 or better' : `${contrast}:1`,
+  }
+}
+
+/**
+ * The Reduce motion switch on a phone `width`px wide, two frames after it is scrolled to the
+ * middle of the screen, each part in a few words: whether its target (the label, which its chip
+ * fills) shows, 44px tall or more, inside the page's side margins (the footer's padding); where
+ * the line that says why it is locked sits, if one shows (see whyLine), or else null: under the
+ * chip or not, and inside those margins or past them; and whether the page is any wider than the
+ * phone. Phone emulation widens the layout to fit anything too wide, so the page is measured
+ * against the phone's width, not innerWidth.
+ */
+async function readSwitchOnPhone(width: number) {
+  const seen = await browser.evaluate<{
+    shown: boolean
+    height: number
+    past: number
+    line: { under: boolean; past: number } | null
+    wide: number
+  }>(`(async () => {
+    const target = ${motionSwitch}.closest('label')
+    target.scrollIntoView({ block: 'center' })
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const foot = document.querySelector('.ab-foot'), f = foot.getBoundingClientRect(), style = getComputedStyle(foot)
+    const left = f.left + parseFloat(style.paddingLeft), right = f.right - parseFloat(style.paddingRight)
+    // How far a box reaches past the margins, on either side: 0 if it stays inside them.
+    const past = (r) => Math.max(0, left - r.left, r.right - right)
+    const t = target.getBoundingClientRect(), why = ${whyLine}
+    let line = null
+    if (why) {
+      // The text's own boxes, one per row: text that can't wrap may run past the line's box.
+      const text = document.createRange()
+      text.selectNodeContents(why)
+      line = { under: why.getBoundingClientRect().top >= t.bottom, past: Math.max(0, ...[...text.getClientRects()].map(past)) }
+    }
+    return {
+      shown: target.checkVisibility({ opacityProperty: true, visibilityProperty: true }),
+      height: t.height,
+      past: past(t),
+      line,
+      wide: Math.max(innerWidth, document.documentElement.scrollWidth),
+    }
+  })()`)
+  const inside = (past: number) =>
+    past <= 0.5
+      ? 'inside the page’s side margins'
+      : `${Math.ceil(past)}px past the page’s side margins`
+  return {
+    target: seen.shown
+      ? `shown, ${seen.height >= 44 ? '44px tall or more' : `${Math.round(seen.height)}px tall`}, ${inside(seen.past)}`
+      : 'not shown',
+    line:
+      seen.line && `${seen.line.under ? 'under' : 'not under'} the chip, ${inside(seen.line.past)}`,
+    page: seen.wide <= width ? 'no wider than the phone' : `${seen.wide}px wide`,
+  }
+}
+
+/**
+ * Leaves the keyboard at the top of the page, as a fresh load does: nothing focused, and the next
+ * Tab goes to the first link on the page. Blurring isn't enough: Chrome's next Tab goes on from
+ * the element that had focus, or from where the last link jumped to. So a stand-in put before
+ * everything else on the page takes focus, and goes.
+ */
+const fromTheTop = () =>
+  browser.evaluate(`(() => {
+    const start = document.createElement('div')
+    start.tabIndex = -1
+    document.body.prepend(start)
+    start.focus()
+    start.remove()
+    scrollTo(0, 0)
+    return true
+  })()`)
+
+/**
+ * Where keyboard focus is, two frames after a key, in a few words: what has it (a link by its
+ * text, or the Reduce motion switch, on or off), and whether it shows as focused from the
+ * keyboard (:focus-visible); its ring, in brand-hot pixels within 10px of what draws it (the
+ * link, or the switch's chip); whether that and its ring are wholly in view, with nothing drawn
+ * over them; and the skip links on screen.
+ */
+async function readFocus() {
+  const state = await browser.evaluate<{
+    name: string
+    place?: string
+    around: { x: number; y: number; width: number; height: number } | null
+    links: string[]
+  }>(`(async () => {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const focused = document.activeElement, toggle = ${motionSwitch}
+    const links = [...document.querySelectorAll('a')].filter((a) => {
+      const r = a.getBoundingClientRect()
+      return a.textContent.startsWith('Skip to') && r.bottom > 0 && r.top < innerHeight
+    }).map((a) => a.textContent)
+    if (!focused || focused === document.body) return { name: 'nothing', around: null, links }
+    let name = focused.textContent.trim() || focused.tagName.toLowerCase()
+    if (focused === toggle) name = 'the Reduce motion switch (' + (toggle.checked ? 'on' : 'off') + ')'
+    if (!focused.matches(':focus-visible')) name += ' (not :focus-visible)'
+    // What draws the ring (the link, or the switch's chip), and the ring, 4px wide and 3px out.
+    const shown = focused === toggle ? toggle.nextElementSibling : focused
+    const r = shown.getBoundingClientRect()
+    const [top, left, bottom, right] = [r.top - 7, r.left - 7, r.bottom + 7, r.right + 7]
+    const whole = top >= 0 && left >= 0 && bottom <= innerHeight && right <= innerWidth
+    const gone = bottom <= 0 || top >= innerHeight || right <= 0 || left >= innerWidth
+    // What the screen shows at its middle: itself, unless something is drawn over it.
+    const over = whole && document.elementFromPoint((left + right) / 2, (top + bottom) / 2)
+    let place = 'in view'
+    if (gone) place = 'out of view'
+    else if (!whole) place = 'partly out of view'
+    else if (!shown.contains(over))
+      place = 'under ' + (over.closest('[class]')?.classList[0] ?? over.tagName.toLowerCase())
+    const x = Math.max(0, Math.floor(r.left + scrollX) - 10)
+    const y = Math.max(0, Math.floor(r.top + scrollY) - 10)
+    const width = Math.ceil(r.right + scrollX) + 10 - x
+    const height = Math.ceil(r.bottom + scrollY) + 10 - y
+    return { name, place, around: { x, y, width, height }, links }
+  })()`)
+  const links = `skip links on screen: ${state.links.join(', ') || 'none'}`
+  if (!state.around) return `${state.name}; ${links}`
+  const hot = hotPixels(await screenPixels(state.around))
+  const ring = hot >= 1000 ? 'brand hot' : `${hot} brand-hot pixels`
+  return `${state.name}, ring ${ring}, ${state.place}; ${links}`
+}
+
 before(async () => {
   browser = await Browser.open()
 })
@@ -349,6 +719,38 @@ describe('desktop (1440x900)', () => {
     assert.deepEqual(skip, { text: 'Skip to content', shown: true })
     await browser.press('Enter')
     assert.equal(await browser.evaluate('location.hash'), '#main')
+  })
+
+  test('the second Tab reaches a visible skip link that focuses the Reduce motion switch in view', async () => {
+    // The switch sits in the footer, past every title on the page, some 40 Tab stops in. So a
+    // second skip link, after "Skip to content" and in its place, takes keyboard users there: its
+    // Enter must focus the switch, for Space to turn it on, and bring it into view with its
+    // brand-hot ring. Each skip link shows only while it has focus. Each step says in a few words
+    // what has focus, its ring (1,500 to 2,000 brand-hot pixels for a whole one here, and 0 for
+    // none), whether it is in view, and the skip links on screen.
+    await fromTheTop()
+    const tabs: string[] = []
+    for (let press = 0; press < 2; press++) {
+      await browser.press('Tab')
+      tabs.push(await readFocus())
+    }
+    assert.deepEqual(
+      tabs,
+      [
+        'Skip to content, ring brand hot, in view; skip links on screen: Skip to content',
+        'Skip to Reduce motion, ring brand hot, in view; skip links on screen: Skip to Reduce motion',
+      ],
+      'what the first and the second Tab from the top of the page focused',
+    )
+    // Enter only once the link has focus: on the logo, say, it would leave the page.
+    await browser.press('Enter')
+    const jumped = await readFocus()
+    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+    assert.equal(
+      jumped,
+      'the Reduce motion switch (off), ring brand hot, in view; skip links on screen: none',
+      'what Enter on “Skip to Reduce motion” focused',
+    )
   })
 
   test('picking the 1980s chip swaps the strip to 1980s titles', async () => {
@@ -1406,6 +1808,49 @@ describe('desktop (1440x900)', () => {
     assert.ok(drifting, `the splash cover stayed put with half its panel scrolled away: ${halfOut}`)
   })
 
+  test('with motion allowed, a title card wipes in over the dimmed page, without the fade, and Esc closes it at once', async () => {
+    // The card's base rules are what reduced motion gets (see that group): it fades in, over the
+    // page as it is, and fades out as it closes. The motion gate swaps the fade for the wipe, which
+    // grows from the panel over the page dimmed behind it. A gate missing either rule would fade
+    // the wipe in as well, or grow it over a page that stays bright. Closing, the card goes at
+    // once, as it always has. It is opened with Enter, as a visitor might: the browser lets a page
+    // hold its dialog open on Esc, as the fade out does, only once the visitor has done something
+    // on the page, so Esc would close a card a script opened at once whatever the page did.
+    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').focus(); true`)
+    await browser.press('Enter')
+    assert.ok(
+      await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5_000),
+      'the title card did not open',
+    )
+    const look = await browser.evaluate<{ card: string; wipe: string; backdrop: string }>(`(() => {
+      const card = document.querySelector('dialog.ab-card')
+      return {
+        card: getComputedStyle(card).animationName,
+        wipe: getComputedStyle(card.querySelector('.ab-wipe')).animationName,
+        backdrop: getComputedStyle(card, '::backdrop').backgroundColor,
+      }
+    })()`)
+    await browser.press('Escape')
+    const closed = await browser.evaluate<boolean>(
+      `!document.querySelector('dialog.ab-card')?.open`,
+    )
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000),
+      'the title card did not close',
+    )
+    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+    assert.deepEqual(
+      { ...look, esc: closed ? 'closed it at once' : 'left it open' },
+      {
+        card: 'none',
+        wipe: 'ab-wipe',
+        backdrop: 'rgba(20, 20, 20, 0.35)',
+        esc: 'closed it at once',
+      },
+      'with motion allowed, the animation on the title card itself, the one on its wipe, its backdrop’s color, and what Esc did',
+    )
+  })
+
   test('every trending panel shows a brand-hot focus ring when tabbed to', async () => {
     // A panel's ring is its link's outline: 4px of brand hot, 3px out. Panels 4 and 5 share the
     // diagonal cut, whose clip-paths cut that ring away, so tabbing to them showed nothing; their
@@ -1625,6 +2070,49 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('with the site set to reduce motion, a pull opens at once, and otherwise its capsule drops for 0.9 s', async () => {
+    // Visitors can ask for reduced motion on the site itself, not only on their device: that sets
+    // data-motion="reduce" on <html> (see lib/motion.ts). This device allows motion, so with the
+    // site's setting on a pull must open at once, as it does when the device asks (see the reduced
+    // motion group), and with it off the capsule must still drop first. How long each pull took to
+    // open, by the page's clock:
+    const ms = await browser.evaluate<{ on: number; off: number }>(`(async () => {
+      const root = document.documentElement, ms = {}
+      try {
+        for (const setting of ['on', 'off']) {
+          if (setting === 'on') root.dataset.motion = 'reduce'
+          else delete root.dataset.motion
+          document.querySelector('.ab-result')?.setAttribute('data-old', '')
+          const start = performance.now()
+          document.querySelector('.ab-lever').click()
+          while (!document.querySelector('.ab-result.is-open:not([data-old])') && performance.now() - start < 3000)
+            await new Promise((resolve) => setTimeout(resolve, 5))
+          ms[setting] = Math.round(performance.now() - start)
+        }
+      } finally {
+        delete root.dataset.motion
+      }
+      return ms
+    })()`)
+    assert.ok(ms.on < 450, `with the site set to reduce motion, the pull took ${ms.on} ms to open`)
+    assert.ok(
+      ms.off >= 850,
+      `with motion allowed, the pull opened after ${ms.off} ms, before its capsule's 0.9 s drop`,
+    )
+  })
+
+  test('with motion allowed, the capsule shows as it splits open', async () => {
+    // The capsule is hidden unless motion is allowed (see the reduced motion group), so here both
+    // halves must show as the title comes out between them.
+    const { opened } = await capsuleHalves()
+    assert.notEqual(opened, undefined, 'the capsule never opened')
+    assert.equal(
+      opened,
+      2,
+      `with motion allowed, the capsule showed ${opened} of its 2 halves as it opened`,
+    )
+  })
+
   test('with motion allowed, hovering the lever still tilts it', async () => {
     // The other half of pull.e2e.ts's check that the off lever stays still: a working one still
     // tilts. It only hovers, so it pulls nothing.
@@ -1645,6 +2133,115 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('with motion allowed, a fresh load plays the intro’s entrance in full', async () => {
+    // As motion comes back on, the Reduce motion switch finishes every entrance on the page at once
+    // (see watchMotionBackOn() in lib/motion.ts). Its watch calls back as the page loads too, with
+    // nothing changed, and finishing them then would skip the entrances that have only just
+    // begun. The intro's are on the page from its first frame: its kicker, the three parts of its
+    // title, its lede and its buttons rise in, and its sound effect pops. Each must show part way
+    // through in some frame, read from the first one: the sampler goes in before the page's own
+    // scripts run. The intro's covers come later, with the titles, and are left out.
+    const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `(() => {
+        window.__intro = new Map()
+        const look = () => {
+          if (window.__introRead) return
+          for (const a of document.getAnimations())
+            if (a instanceof CSSAnimation && a.effect.target.closest('.ab-intro') && !a.effect.target.closest('.ab-intro-art')) {
+              const { localTime, delay, activeDuration } = a.effect.getComputedTiming()
+              const partWay = a.playState === 'running' && localTime > delay && localTime < delay + activeDuration
+              window.__intro.set(a, window.__intro.get(a) || partWay)
+            }
+          requestAnimationFrame(look)
+        }
+        requestAnimationFrame(look)
+      })()`,
+    })
+    try {
+      await browser.load()
+      assert.ok(await browser.titlesShown(), 'trending and decade titles never appeared')
+      await browser.animationsDone()
+      const intro = await browser.evaluate<{ found: number; unseen: string[] }>(`(() => {
+        window.__introRead = true
+        const unseen = {}
+        for (const [a, partWay] of window.__intro)
+          if (!partWay) {
+            const { target } = a.effect
+            const owner = target.closest('[class]')
+            const said = a.animationName + ' on ' + (owner === target ? '.' + target.classList[0] : target.localName + ' in .' + owner.classList[0])
+            unseen[said] = (unseen[said] ?? 0) + 1
+          }
+        return {
+          found: window.__intro.size,
+          unseen: Object.entries(unseen).map(([said, count]) => (count > 1 ? said + ' ×' + count : said)).sort(),
+        }
+      })()`)
+      assert.deepEqual(
+        intro,
+        { found: 7, unseen: [] },
+        'on a fresh load with motion allowed, how many of the intro’s animations the page started, and those that no frame showed part way through',
+      )
+    } finally {
+      await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+    }
+  })
+
+  test('Space toggles the footer’s Reduce motion switch, with a brand-hot focus ring', async () => {
+    // A native checkbox with role="switch", above AniList's credit. On, it sets data-motion="reduce"
+    // on <html>, which every motion rule and script obeys, and saves the choice for later visits
+    // (see lib/motion.ts); off, it takes both away. Its target is 44px tall. Its focus ring is
+    // brand hot, as on the decade chips: the vibe chips' white ring, made for the pull machine's
+    // pink, would vanish on paper. The ring is counted in brand-hot pixels around the chip: about
+    // 1,800 for a whole one, and 0 for none. Its knob slides as it turns off, with motion allowed
+    // again, but not as it turns on: the setting it turns on stops that slide too. The knob's side
+    // says the state without color, on the left while off and on the right while on, so the knob
+    // must stand out from its track at 3:1 or better as the screen shows it: a pale knob on the
+    // white track would leave off and on told apart by their fills alone. The line that says why
+    // the switch is locked is for a locked switch alone (see the reduced motion group): here no
+    // such line shows, and a screen reader hears no description, as it would from a line hidden
+    // from sight but still tied to the switch by aria-describedby.
+    const place = await browser.evaluate<{ name: string; height: number; above: boolean } | null>(
+      `(() => {
+        const input = ${motionSwitch}
+        if (!input) return null
+        const label = input.closest('label').getBoundingClientRect()
+        const credit = [...document.querySelectorAll('.ab-foot *')].find((el) => el.textContent.startsWith('Data from AniList'))
+        return { name: input.closest('label').textContent.trim(), height: label.height, above: Boolean(credit) && label.bottom <= credit.getBoundingClientRect().top }
+      })()`,
+    )
+    assert.ok(place, 'the footer has no Reduce motion switch (a checkbox with role="switch")')
+    assert.deepEqual(
+      { name: place.name, above: place.above },
+      { name: 'Reduce motion', above: true },
+      'the switch’s label, and whether it sits above AniList’s credit',
+    )
+    assert.ok(place.height >= 44, `the switch’s target is ${place.height}px tall`)
+    await tabToSwitch()
+    const steps = [await readSwitch()]
+    for (let press = 0; press < 2; press++) {
+      await browser.press('Space')
+      await browser.animationsDone()
+      steps.push(await readSwitch())
+    }
+    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+    // Each step in a few words: on or off, focused from the keyboard or not, its ring, the line
+    // that says why it is locked and its description (null for none), data-motion on <html>, the
+    // saved choice, whether its knob slid, and where it shows (see readSwitch).
+    const said = steps.map(
+      (s) =>
+        `${s.checked ? 'on' : 'off'}, ${s.focused ? 'focused' : 'not focused'}, ring ${s.ring}, line ${JSON.stringify(s.why)}, description ${JSON.stringify(s.description)}, data-motion ${s.motion}, saved ${s.saved}, knob ${s.slid.includes('transform') ? 'slid' : 'still'}, ${s.knob}`,
+    )
+    assert.deepEqual(
+      said,
+      [
+        'off, focused, ring brand hot, line null, description null, data-motion null, saved null, knob still, on the left at 3:1 or better',
+        'on, focused, ring brand hot, line null, description null, data-motion reduce, saved reduce, knob still, on the right at 3:1 or better',
+        'off, focused, ring brand hot, line null, description null, data-motion null, saved null, knob slid, on the left at 3:1 or better',
+      ],
+      'the switch as Tab reached it, then after Space, and after Space again',
+    )
+  })
+
   test('the console stays free of errors and warnings', () => {
     assert.deepEqual(browser.problems, [])
   })
@@ -1661,6 +2258,298 @@ async function pull() {
     ),
     'nothing was pulled',
   )
+}
+
+/**
+ * Pulls the lever and counts the capsule halves on show, drawn and not see-through: the most at
+ * any change to the new result before it opens (`pulled`), and from when it opens until two
+ * frames later (`opened`). Each change is read as React makes it, before the browser draws
+ * anything, so a state counts even if it lasts a frame or less. A moment never reached has no
+ * count.
+ */
+async function capsuleHalves() {
+  return browser.evaluate<{ pulled?: number; opened?: number }>(`(async () => {
+    const result = () => document.querySelector('.ab-result:not([data-old])')
+    const shown = {}
+    const count = () => {
+      const now = result()
+      if (!now) return
+      const moment = now.classList.contains('is-open') ? 'opened' : 'pulled'
+      const halves = [...now.querySelectorAll('.ab-half')].filter((half) => half.checkVisibility({ opacityProperty: true, visibilityProperty: true })).length
+      shown[moment] = Math.max(shown[moment] ?? 0, halves)
+    }
+    document.querySelector('.ab-result')?.setAttribute('data-old', '')
+    document.querySelector('#pull').scrollIntoView()
+    const watch = new MutationObserver(count)
+    watch.observe(document.querySelector('.ab-reveal'), { childList: true, attributes: true, subtree: true })
+    const start = performance.now()
+    document.querySelector('.ab-lever').click()
+    while (!result()?.classList.contains('is-open') && performance.now() - start < 10000)
+      await new Promise((resolve) => setTimeout(resolve, 5))
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    count()
+    watch.disconnect()
+    return shown
+  })()`)
+}
+
+/**
+ * Pulls with motion reduced, so the title opens at once, then turns reduced motion off with
+ * `turnOff` and reads what that starts, in a few words. In the first frame drawn with motion back
+ * on, just before it is drawn: whether motion is back on; each CSS animation on the page's own
+ * clock not yet finished, as "name on what, play state", with how many; and the capsule halves
+ * shown over the open title. That frame, and not a later one: an entrance finished only once that
+ * frame is drawn (in a timeout, say) shows in it at its first keyframe, yet reads as finished a
+ * frame later. As the device stops asking, Chrome draws that frame before it tells the page, so
+ * the reading can't wait for a change event: it looks at every frame from before the change. It
+ * asks <html> and the media query whether motion is back on, which leaves the page's styles as
+ * they are: asking for its animations brings them up to date, which would start the gates'
+ * animations ahead of the frame's own restyle. In the first frame with motion back on, a
+ * ResizeObserver made there takes the reading. Its callback runs after layout, just before the
+ * frame is drawn, and after those of the page's own observers, made earlier: callbacks run in the
+ * order the observers were made. So an entrance the page finishes in one of them is in time, as
+ * is one finished in a frame callback. If motion is still reduced 10 s on, the reading comes
+ * then, and says so. Next, whether the splash cover's drift still follows the scroll, as the
+ * desktop check reads it: still just before its panel starts to leave the screen, and drifting
+ * once half of it has. Then each animation a new pull runs on its result, and whether some frame
+ * showed it part way through, which no frame does for one finished at once. Last, how the Reduce
+ * motion switch's knob moved as motion came back on, which it has long done by then: it slid if
+ * its transition took 100ms or more to end, and jumped if it ended at once.
+ */
+async function motionBackOn(turnOff: () => Promise<unknown>) {
+  await pull()
+  await browser.evaluate(`(() => {
+    const chip = ${motionSwitch}.nextElementSibling
+    window.__knob = {}
+    for (const type of ['transitionrun', 'transitionend'])
+      chip.addEventListener(type, (event) => {
+        if (event.pseudoElement === '::after' && event.propertyName === 'transform') window.__knob[type] ??= performance.now()
+      })
+    window.__backOn = new Promise((resolve) => {
+      const read = () => {
+        const left = {}
+        for (const a of document.getAnimations())
+          if (a instanceof CSSAnimation && a.timeline === document.timeline && a.playState !== 'finished') {
+            const { target, pseudoElement } = a.effect
+            const owner = target.closest('[class]')
+            const element = (owner === target ? '.' + target.classList[0] : target.localName + ' in .' + owner?.classList[0]) + (pseudoElement ?? '')
+            const said = a.animationName + ' on ' + element + ', ' + a.playState
+            left[said] = (left[said] ?? 0) + 1
+          }
+        const reduced = document.documentElement.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches
+        resolve({
+          motion: reduced ? 'still reduced' : 'back on',
+          replayed: Object.entries(left).map(([said, count]) => (count > 1 ? said + ' ×' + count : said)).sort(),
+          capsule: [...document.querySelectorAll('.ab-result.is-open:not([data-old]) .ab-half')].filter((half) => half.checkVisibility({ opacityProperty: true, visibilityProperty: true })).length,
+        })
+      }
+      let gaveUp = false
+      const giveUp = setTimeout(() => {
+        gaveUp = true
+        read()
+      }, 10000)
+      const watch = () => {
+        if (gaveUp) return
+        if (document.documentElement.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches)
+          return requestAnimationFrame(watch)
+        clearTimeout(giveUp)
+        const last = new ResizeObserver(() => {
+          last.disconnect()
+          read()
+        })
+        last.observe(document.documentElement)
+      }
+      requestAnimationFrame(watch)
+    })
+    return true
+  })()`)
+  await turnOff()
+  const now = await browser.evaluate<{ motion: string; replayed: string[]; capsule: number }>(
+    'window.__backOn',
+  )
+  const matrix = `new DOMMatrix(${splashCover})`
+  await scrollSplashOut(-0.05)
+  const aboutToLeave = (await browser.waitFor(`${matrix}.isIdentity`, 2_000))
+    ? 'still'
+    : await browser.evaluate<string>(splashCover)
+  await scrollSplashOut(0.5)
+  const halfOut = (await browser.waitFor(`${matrix}.a > 1.03 && ${matrix}.f > 10`, 2_000))
+    ? 'drifting'
+    : await browser.evaluate<string>(splashCover)
+  const nextPull = await browser.evaluate<string[]>(`(async () => {
+    document.querySelector('.ab-result')?.setAttribute('data-old', '')
+    document.querySelector('#pull').scrollIntoView()
+    const result = () => document.querySelector('.ab-result:not([data-old])')
+    const its = () => document.getAnimations().filter((a) => a instanceof CSSAnimation && result()?.contains(a.effect.target))
+    const seen = {}
+    let watching = true
+    const look = () => {
+      for (const a of its()) {
+        const { localTime, delay, activeDuration } = a.effect.getComputedTiming()
+        if (a.playState === 'running' && localTime > delay && localTime < delay + activeDuration) seen[a.animationName] = 'played'
+        else seen[a.animationName] ??= 'not seen part way'
+      }
+      if (watching) requestAnimationFrame(look)
+    }
+    requestAnimationFrame(look)
+    document.querySelector('.ab-lever').click()
+    const start = performance.now()
+    while (!(result()?.classList.contains('is-open') && its().every((a) => a.playState === 'finished')) && performance.now() - start < 6000)
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    watching = false
+    return Object.entries(seen).map(([name, how]) => name + ': ' + how).sort()
+  })()`)
+  const knob = await browser.evaluate<string>(`(({ transitionrun, transitionend }) =>
+    transitionrun === undefined ? 'never moved' : transitionend === undefined ? 'still moving' : transitionend - transitionrun >= 100 ? 'slid' : 'jumped'
+  )(window.__knob)`)
+  return { ...now, splash: { aboutToLeave, halfOut }, nextPull, knob }
+}
+
+// What motionBackOn() must read: motion back on with nothing left playing and no capsule over the
+// open title, the knob sliding off, the drift following the scroll, and a new pull playing each of
+// its animations: the capsule's drop and split, the burst, the art, the tier's boom, the text.
+const BACK_ON = {
+  motion: 'back on',
+  replayed: [],
+  capsule: 0,
+  knob: 'slid',
+  splash: { aboutToLeave: 'still', halfOut: 'drifting' },
+  nextPull: [
+    'ab-art: played',
+    'ab-burst: played',
+    'ab-drop: played',
+    'ab-rise: played',
+    'ab-split-bottom: played',
+    'ab-split-top: played',
+    'ab-tier-boom: played',
+  ],
+}
+
+/**
+ * From now on, notes what closing the open title card starts, from the moment it starts to close:
+ * an attribute on it or on anything in it changes, or it leaves the page. Each animation started
+ * by then is noted before a frame is drawn, and held at its start if `hold`, in window.__closing;
+ * that moment, by the page's clock, is window.__closingAt. window.__closingStarted gives each one
+ * in words, as the opening's check does (where it runs, what its keyframes change, how long it
+ * takes and how often it runs), or null if the card hasn't started to close 5 s on.
+ */
+const watchClosing = (hold: boolean) => `(() => {
+  const card = document.querySelector('dialog.ab-card')
+  const running = new Set(document.getAnimations())
+  window.__closingStarted = new Promise((resolve) => {
+    const watch = new MutationObserver(() => {
+      watch.disconnect()
+      window.__closingAt = performance.now()
+      window.__closing = document.getAnimations().filter((a) => !running.has(a))
+      resolve(window.__closing.map((a) => {
+        if (${hold}) a.pause()
+        const { target, pseudoElement } = a.effect
+        const where = target === card && !pseudoElement ? 'the card' : [target.localName, ...target.classList].join('.') + (pseudoElement ?? '')
+        const changes = a.transitionProperty ? [a.transitionProperty] : [...new Set(a.effect.getKeyframes().flatMap(Object.keys))].filter((key) => !['offset', 'computedOffset', 'easing', 'composite'].includes(key)).sort()
+        const { delay, duration, iterations } = a.effect.getTiming()
+        const ms = delay + duration
+        return where + ': ' + changes.join(', ') + ', ' + (ms <= 150 ? 'in 150 ms or less' : 'in ' + Math.round(ms) + ' ms') + ', ' + (iterations === 1 ? 'once' : iterations === Infinity ? 'forever' : iterations + ' times')
+      }))
+    })
+    watch.observe(card, { attributes: true, subtree: true })
+    watch.observe(card.parentElement, { childList: true })
+    setTimeout(() => {
+      watch.disconnect()
+      resolve(null)
+    }, 5000)
+  })
+  return true
+})()`
+
+// Where the focus is, in words: back on the panel that opened the title card (window.__opener),
+// or on whatever has it instead, <body> if nothing does.
+const focusPlace = `document.activeElement === window.__opener ? 'back on its panel' : 'on ' + [document.activeElement.localName, ...document.activeElement.classList].join('.')`
+
+// 400 ms after the title card started to close (window.__closingAt), by the page's own clock, and
+// two frames on, so that what is read has been drawn: whether the card has left the page, and
+// where the focus is.
+const closed400msOn = `(async () => {
+  await new Promise((resolve) => setTimeout(resolve, Math.max(0, window.__closingAt + 400 - performance.now())))
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  return { card: document.querySelector('dialog.ab-card') ? 'still on the page' : 'gone', focus: ${focusPlace} }
+})()`
+
+/**
+ * From now on, notes how soon the open title card stops showing (its dialog closed, or the card
+ * gone from the page) after the next request to close it: a click or keydown, heard first, on
+ * window. window.__secondRequest gives 'before the next frame' if no frame was drawn in between,
+ * else how many were and how long that took, by the page's clock, or 'still open 400 ms on'. It
+ * counts frames, not ms: a slow machine stretches the time the request itself takes, but no frame
+ * can come between the request and a close it makes at once.
+ */
+const watchSecondRequest = `(() => {
+  const card = document.querySelector('dialog.ab-card')
+  const showing = () => card?.open && card.isConnected
+  window.__secondRequest = new Promise((resolve) => {
+    if (!showing()) return resolve('closed before the request')
+    let at
+    let frames = 0
+    const heard = () => {
+      for (const type of ['click', 'keydown']) removeEventListener(type, heard, true)
+      at = performance.now()
+      requestAnimationFrame(function frame() {
+        if (!showing()) return
+        frames++
+        if (performance.now() - at < 400) requestAnimationFrame(frame)
+        else resolve('still open 400 ms on')
+      })
+    }
+    for (const type of ['click', 'keydown']) addEventListener(type, heard, true)
+    const watch = new MutationObserver(() => {
+      if (showing()) return
+      watch.disconnect()
+      if (at === undefined) return resolve('closed before the request')
+      const ms = Math.round(performance.now() - at)
+      resolve(frames === 0 ? 'before the next frame' : 'after ' + frames + (frames === 1 ? ' frame' : ' frames') + ', ' + ms + ' ms')
+    })
+    watch.observe(card, { attributes: true, attributeFilter: ['open'] })
+    watch.observe(card.parentElement, { childList: true })
+    setTimeout(() => resolve('no request heard in 5 s'), 5000)
+  })
+  return true
+})()`
+
+/** Waits until the open title card shows in full: its fade done, and the images on screen drawn. */
+async function cardInFull() {
+  await browser.animationsDone()
+  await browser.evaluate(`(async () => {
+    const onScreen = (img) => { const r = img.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth }
+    await Promise.all([...document.images].filter(onScreen).map((img) => img.decode().catch(() => {})))
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    return true
+  })()`)
+}
+
+/** Clicks the middle of what `element` finds in the page, as a mouse does. It must be in view. */
+async function clickMiddle(element: string) {
+  const at = await browser.evaluate<{ x: number; y: number }>(`(() => {
+    const r = ${element}.getBoundingClientRect()
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+  })()`)
+  await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
+  for (const type of ['mousePressed', 'mouseReleased'])
+    await browser.send('Input.dispatchMouseEvent', { type, ...at, button: 'left', clickCount: 1 })
+}
+
+/**
+ * Closes at once any title card a check left open, and puts the page back as the checks after it
+ * expect it: nothing focused, scrolled to the top, and the mouse in the corner.
+ */
+async function closeCardLeft() {
+  await browser.evaluate(`(() => {
+    document.querySelector('dialog.ab-card')?.close()
+    document.activeElement?.blur()
+    scrollTo(0, 0)
+    for (const name of ['__closing', '__closingStarted', '__closingAt', '__secondRequest', '__opener', '__lastScreen']) delete window[name]
+    return true
+  })()`)
+  await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
+  await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000)
 }
 
 describe('tablet (834x1112, iPad Pro 11" portrait) and up', () => {
@@ -1763,19 +2652,343 @@ describe('tablet (834x1112, iPad Pro 11" portrait) and up', () => {
   })
 })
 
-describe('reduced motion', () => {
+// Visitors can ask for reduced motion on their device, or on the site itself, whose setting is
+// data-motion="reduce" on <html> (see lib/motion.ts). Every motion rule and script must hear both,
+// so these checks run twice: once with the device asking, and once on a device that allows
+// motion, with the site's setting turned on after the page has loaded.
+describe('reduced motion', () => reducedMotionChecks('device'))
+describe('reduced motion, set on the site', () => reducedMotionChecks('site'))
+
+function reducedMotionChecks(askedOn: 'device' | 'site') {
   before(async () => {
-    await browser.load({ reduceMotion: true })
+    await browser.load({ reduceMotion: askedOn === 'device' })
+    if (askedOn === 'site')
+      await browser.evaluate(`document.documentElement.dataset.motion = 'reduce'; true`)
     assert.ok(await browser.titlesShown())
   })
 
-  test('the title card appears at once, without the color wipe', async () => {
-    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
-    await sleep(150)
-    const card = await browser.evaluate<{ opacity: string; wipe: string }>(
-      `({ opacity: getComputedStyle(document.querySelector('.ab-sheet')).opacity, wipe: getComputedStyle(document.querySelector('.ab-wipe')).animationName })`,
+  test('opening a title card runs one fade of 150 ms or less, and no frame of it changes a quarter of the screen', async () => {
+    // Spec §3J: with reduced motion, the card comes in with a 150 ms cross-fade, not its color
+    // wipe. Shown at once, it switched most of the screen to the title's color in a single frame:
+    // 61% of it here, and 78-80% in the research's measurements (R1). Each animation the opening
+    // starts is noted as the card opens, before a frame is drawn, and held at its start: where it
+    // runs, what its keyframes change, how long it takes and how often it runs. Then the opening
+    // is played by hand, one 60 Hz frame at a time, each frame compared with the one before
+    // (screenChange). An even fade spreads the change over its nine frames, and no frame here
+    // changes more than 12% of the screen. The images on screen are drawn first, so that what
+    // changes is the card's doing.
+    await browser.evaluate(`(async () => {
+      const onScreen = (img) => { const r = img.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth }
+      await Promise.all([...document.images].filter(onScreen).map((img) => img.decode().catch(() => {})))
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      return true
+    })()`)
+    await screenChange(true)
+    const started = await browser.evaluate<string[] | null>(`new Promise((resolve) => {
+      const running = new Set(document.getAnimations())
+      const watch = new MutationObserver(() => {
+        const card = document.querySelector('dialog.ab-card')
+        if (!card?.open) return
+        watch.disconnect()
+        window.__opening = document.getAnimations().filter((a) => !running.has(a))
+        resolve(window.__opening.map((a) => {
+          a.pause()
+          const { target, pseudoElement } = a.effect
+          const where = target === card && !pseudoElement ? 'the card' : [target.localName, ...target.classList].join('.') + (pseudoElement ?? '')
+          const changes = a.transitionProperty ? [a.transitionProperty] : [...new Set(a.effect.getKeyframes().flatMap(Object.keys))].filter((key) => !['offset', 'computedOffset', 'easing', 'composite'].includes(key)).sort()
+          const { delay, duration, iterations } = a.effect.getTiming()
+          const ms = delay + duration
+          return where + ': ' + changes.join(', ') + ', ' + (ms <= 150 ? 'in 150 ms or less' : 'in ' + Math.round(ms) + ' ms') + ', ' + (iterations === 1 ? 'once' : iterations === Infinity ? 'forever' : iterations + ' times')
+        }))
+      })
+      watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open'] })
+      setTimeout(() => resolve(null), 5000)
+      document.querySelector('.ab-grid .ab-link').click()
+    })`)
+    assert.ok(started, 'the title card did not open')
+    // The card's cover is drawn before the first frame is taken, so it can't come in between two.
+    await browser.evaluate(
+      `document.querySelector('dialog.ab-card img').decode().catch(() => {}).then(() => true)`,
     )
-    assert.deepEqual(card, { opacity: '1', wipe: 'none' })
+    // Frames up to the opening's end, and one past it; 300 ms at most, as longer fails anyway.
+    const end = await browser.evaluate<number>(
+      `Math.min(300, Math.max(0, ...window.__opening.map((a) => a.effect.getComputedTiming().endTime)))`,
+    )
+    const frames = [...Array(Math.ceil((end * 60) / 1000)).keys()].map((k) => (k * 1000) / 60)
+    const changed: number[] = []
+    for (const at of [...frames, end + 1]) {
+      await browser.evaluate(`(() => {
+        for (const a of window.__opening) a.currentTime = ${at}
+        return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))
+      })()`)
+      changed.push((await screenChange()) ?? 0)
+    }
+    await browser.evaluate(
+      `for (const a of window.__opening) a.cancel(); delete window.__opening; delete window.__lastScreen; true`,
+    )
+    const most = Math.max(...changed)
+    assert.deepEqual(
+      { started, most: most < 25 ? 'under a quarter' : `${most}%` },
+      { started: ['the card: opacity, in 150 ms or less, once'], most: 'under a quarter' },
+      'the animations opening the title card started (where each ran, what its keyframes change, how long it took and how often it ran), and the most of the screen one 60 Hz frame of the opening changed',
+    )
+  })
+
+  test('a title card shows in full 400 ms after it opens, by the page’s own clock, with no animation left playing or paused', async () => {
+    // Here nothing is set by hand: the page plays the opening itself, on its own clock. An
+    // animation that never plays, written paused or held by a rule that pauses every animation
+    // while the site is set to reduce motion, keeps its first frame for good, which can hide the
+    // card, and only the page's own clock shows that. So the wait is timed in the page, on the
+    // clock its animations run on: 400 ms after the card opens, well past anything the opening
+    // plays under reduced motion, the card must show in full, and no animation on the page may be
+    // left playing or paused.
+    await browser.evaluate(`document.querySelector('dialog.ab-card')?.close(); true`)
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000),
+      'the title card the check above opened did not close',
+    )
+    type Shown = { opacity: string; unfinished: string[] }
+    const shown = await browser.evaluate<Shown | null>(`(async () => {
+      const start = performance.now()
+      document.querySelector('.ab-grid .ab-link').click()
+      let card
+      while (!(card = document.querySelector('dialog.ab-card'))?.open && performance.now() - start < 5000)
+        await new Promise((resolve) => setTimeout(resolve, 5))
+      if (!card?.open) return null
+      await new Promise((resolve) => setTimeout(resolve, 400))
+      // Then two frames, so that what is read has been drawn.
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      return {
+        opacity: getComputedStyle(card).opacity,
+        unfinished: document.getAnimations().filter((a) => a.playState !== 'finished').map((a) => {
+          const { target, pseudoElement } = a.effect
+          const where = target === card && !pseudoElement ? 'the card' : [target.localName, ...target.classList].join('.') + (pseudoElement ?? '')
+          return where + ': ' + (a.animationName ?? (a.transitionProperty ? 'a transition of ' + a.transitionProperty : 'a script’s animation')) + ', ' + a.playState
+        }),
+      }
+    })()`)
+    // Closed before anything fails, so the checks below start with no card open.
+    await browser.press('Escape')
+    assert.ok(shown, 'the title card did not open')
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000),
+      'the title card did not close',
+    )
+    assert.deepEqual(
+      shown,
+      { opacity: '1', unfinished: [] },
+      'the title card 400 ms after it opened, by the page’s own clock: its opacity, and each animation on the page not yet finished (where it runs, what it is, and whether it is running or paused)',
+    )
+  })
+
+  test('closing a title card with Esc runs one fade of 150 ms or less, no frame of it changes a quarter of the screen, and focus goes back to its panel', async () => {
+    // The card fades out over 150 ms as it closes, as it fades in: gone at once, it changed 76% of
+    // the screen here in a single frame, the cut the fade in replaced (R1). It is opened as a
+    // visitor opens it, with Enter on a panel: the browser lets the page hold a dialog open on Esc
+    // only once the visitor has done something on the page, so Esc on a card a script opened
+    // still closes it at once. As for the opening, each animation the closing starts is noted and
+    // held as it starts, then played by hand one 60 Hz frame at a time, each frame compared with
+    // the one before. Once the fade has played, the card must leave the page, and the focus be
+    // back on the panel that opened it, where the browser puts it as the dialog closes.
+    try {
+      await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
+      await browser.evaluate(`(() => {
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.focus()
+        return true
+      })()`)
+      await browser.press('Enter')
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+        'the title card did not open',
+      )
+      await cardInFull()
+      await screenChange(true)
+      await browser.evaluate(watchClosing(true))
+      await browser.press('Escape')
+      const started = await browser.evaluate<string[] | null>('window.__closingStarted')
+      assert.ok(started, 'the title card did not start to close')
+      // Frames up to the closing's end, and one past it; 300 ms at most, as longer fails anyway.
+      const end = await browser.evaluate<number>(
+        `Math.min(300, Math.max(0, ...window.__closing.map((a) => a.effect.getComputedTiming().endTime)))`,
+      )
+      const frames = [...Array(Math.ceil((end * 60) / 1000)).keys()].map((k) => (k * 1000) / 60)
+      const changed: number[] = []
+      for (const at of [...frames, end + 1]) {
+        await browser.evaluate(`(() => {
+          for (const a of window.__closing) a.currentTime = ${at}
+          return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))
+        })()`)
+        changed.push((await screenChange()) ?? 0)
+      }
+      // Held, a fade set past its end has ended but never finishes, so it is finished here, unless
+      // it is endless, which can't be: the page may close the card as the fade ends or once it has
+      // finished.
+      await browser.evaluate(
+        `for (const a of window.__closing) if (a.playState === 'paused' && a.effect.getComputedTiming().endTime !== Infinity) a.finish(); true`,
+      )
+      const gone = await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000)
+      const focus = await browser.evaluate<string>(focusPlace)
+      const most = Math.max(...changed)
+      assert.deepEqual(
+        {
+          started,
+          most: most < 25 ? 'under a quarter' : `${most}%`,
+          card: gone ? 'gone' : 'still on the page',
+          focus,
+        },
+        {
+          started: ['the card: opacity, in 150 ms or less, once'],
+          most: 'under a quarter',
+          card: 'gone',
+          focus: 'back on its panel',
+        },
+        'closing the title card with Esc: the animations it started (where each ran, what its keyframes change, how long it took and how often it ran), the most of the screen one 60 Hz frame of it changed, whether the card left the page once the fade had played, and where the focus went',
+      )
+    } finally {
+      await closeCardLeft()
+    }
+  })
+
+  test('a title card closed with its button fades out and is gone 400 ms later, by the page’s own clock, with focus back on its panel', async () => {
+    // The button closes the card as Esc does, with the same fade, here opened and closed with the
+    // mouse and played by the page itself, on the clock the fade runs on. 400 ms after the closing
+    // starts, well past the 150 ms fade, the card must have left the page, and the focus be back
+    // on the panel that opened it. A fade held on its first frame, or a card kept on the page once
+    // it has faded, leaves the card open, and the page behind it out of reach.
+    try {
+      await browser.evaluate(`(async () => {
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.scrollIntoView({ block: 'center' })
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        return true
+      })()`)
+      await clickMiddle('window.__opener')
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+        'the title card did not open',
+      )
+      await cardInFull()
+      await browser.evaluate(watchClosing(false))
+      await clickMiddle(`document.querySelector('dialog.ab-card .ab-close')`)
+      const started = await browser.evaluate<string[] | null>('window.__closingStarted')
+      assert.ok(started, 'the title card did not start to close')
+      const after = await browser.evaluate<{ card: string; focus: string }>(closed400msOn)
+      assert.deepEqual(
+        { started, ...after },
+        {
+          started: ['the card: opacity, in 150 ms or less, once'],
+          card: 'gone',
+          focus: 'back on its panel',
+        },
+        'closing the title card with its button: the animations it started (where each ran, what its keyframes change, how long it took and how often it ran), then 400 ms on, by the page’s own clock, whether the card had left the page, and where the focus was',
+      )
+    } finally {
+      await closeCardLeft()
+    }
+  })
+
+  test('a second request to close a title card as it fades out, with Esc or its button, closes it at once, with focus back on its panel', async () => {
+    // Asked to close again while it fades out, the card must close at once, as TitleCard says, not
+    // wait for the fade to end. The page hears the button and Esc in different places, so each
+    // comes second once: the button after Esc, then Esc after the button. Not Esc twice: the
+    // browser lets the page hold the card on Esc once for each thing the visitor does, such as a
+    // click, so a second Esc in a row closes it whatever the page does. The card is opened with the
+    // mouse, so that the page may hold it on the first Esc, and the fade is held as it starts, so
+    // that the second request comes mid-fade however slow the machine, and only that request can
+    // close the card. No frame may then be drawn before the dialog closes; the card must leave the
+    // page, and the focus go back to its panel, as for a single request. A request that waited for
+    // the fade would leave the held card open for good; with the fade playing, the card closed
+    // 7-10 frames (130-190 ms) after the request.
+    const request = {
+      Esc: () => browser.press('Escape'),
+      'the button': () => clickMiddle(`document.querySelector('dialog.ab-card .ab-close')`),
+    }
+    const seen: Record<string, object> = {}
+    for (const [first, second] of [
+      ['Esc', 'the button'],
+      ['the button', 'Esc'],
+    ] as const) {
+      try {
+        await browser.evaluate(`(async () => {
+          window.__opener = document.querySelector('.ab-grid .ab-link')
+          window.__opener.scrollIntoView({ block: 'center' })
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+          return true
+        })()`)
+        await clickMiddle('window.__opener')
+        assert.ok(
+          await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+          'the title card did not open',
+        )
+        await cardInFull()
+        await browser.evaluate(watchClosing(true))
+        await request[first]()
+        const started = await browser.evaluate<string[] | null>('window.__closingStarted')
+        await browser.evaluate(watchSecondRequest)
+        await request[second]()
+        const closed = await browser.evaluate<string>('window.__secondRequest')
+        const gone = await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000)
+        const focus = await browser.evaluate<string>(focusPlace)
+        seen[`${first}, then ${second}`] = {
+          started,
+          closed,
+          card: gone ? 'gone' : 'still on the page',
+          focus,
+        }
+      } finally {
+        await closeCardLeft()
+      }
+    }
+    const atOnce = {
+      started: ['the card: opacity, in 150 ms or less, once'],
+      closed: 'before the next frame',
+      card: 'gone',
+      focus: 'back on its panel',
+    }
+    assert.deepEqual(
+      seen,
+      { 'Esc, then the button': atOnce, 'the button, then Esc': atOnce },
+      'a second request to close the title card as it faded out, each way round: the animations the first request started (held as they started), how soon the dialog closed after the second, whether the card left the page, and where the focus went',
+    )
+  })
+
+  test('with every animation turned off by a stylesheet of the visitor’s own, Esc still closes a title card, with focus back on its panel', async () => {
+    // Some browser extensions for visitors who reduce motion turn off every animation with a
+    // stylesheet of their own, the card's fades included. With no fade to end, the card must close
+    // all the same once the fade would have played (see TitleCard), not stay open over a page out
+    // of reach. So 400 ms after Esc starts the closing, by the page's own clock, it must have left
+    // the page, having run no animation.
+    try {
+      await browser.evaluate(`(() => {
+        const visitors = document.createElement('style')
+        visitors.id = 'visitors-own'
+        visitors.textContent = '*, *::before, *::after { animation: none !important }'
+        document.head.append(visitors)
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.focus()
+        return true
+      })()`)
+      await browser.press('Enter')
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+        'the title card did not open',
+      )
+      await cardInFull()
+      await browser.evaluate(watchClosing(false))
+      await browser.press('Escape')
+      const started = await browser.evaluate<string[] | null>('window.__closingStarted')
+      assert.ok(started, 'the title card did not start to close')
+      const after = await browser.evaluate<{ card: string; focus: string }>(closed400msOn)
+      assert.deepEqual(
+        { started, ...after },
+        { started: [], card: 'gone', focus: 'back on its panel' },
+        'closing the title card with Esc, every animation turned off: the animations it started, then 400 ms on, by the page’s own clock, whether the card had left the page, and where the focus was',
+      )
+    } finally {
+      await browser.evaluate(`document.getElementById('visitors-own')?.remove(); true`)
+      await closeCardLeft()
+    }
   })
 
   test('hovering a panel or holding the lever moves nothing', async () => {
@@ -1848,6 +3061,17 @@ describe('reduced motion', () => {
     const halfOut = await browser.evaluate<string>(splashCover)
     await browser.evaluate('scrollTo(0, 0); true')
     assert.equal(halfOut, 'none', 'the splash cover drifted with half its panel scrolled away')
+  })
+
+  test('a pull shows no capsule halves', async () => {
+    // With motion allowed, a capsule drops in and splits open on the title (see the desktop
+    // group). Here the title comes out at once, with no capsule: not even a still one for the
+    // frame or so before it opens.
+    assert.deepEqual(
+      await capsuleHalves(),
+      { pulled: 0, opened: 0 },
+      'capsule halves shown as the pull began, and once it opened',
+    )
   })
 
   test('a pull never shows the title already on screen, even once every title has come up', async () => {
@@ -1954,6 +3178,256 @@ describe('reduced motion', () => {
       before,
       'opening and closing a title card moved the decade row',
     )
+  })
+
+  // Only the device locks the Reduce motion switch: set on the site, the setting can be turned off
+  // again (see the desktop group).
+  if (askedOn === 'device')
+    test('the Reduce motion switch shows on and locked, says why, and stays focusable', async () => {
+      // While the device asks for reduced motion, motion stays reduced whatever the site says, so
+      // the switch shows on and locked, though the site's own setting is off: yellow, flat and
+      // dashed, with a line saying why. It stays focusable, marked aria-disabled rather than
+      // disabled, so a screen reader reaches it and hears the line, which aria-describedby ties to
+      // it: the line is its description in Chrome's accessibility tree. A sighted visitor must be
+      // able to read the line too: a box of 200x16px or more, not clipped away (as sr-only keeps
+      // text for screen readers alone), and 4.5:1 or better as the screen shows it. It is about
+      // 303x20px, at 16:1, today. A click or Space changes nothing, not even a choice saved on an
+      // earlier visit, which holds again once the device stops asking, and the switch sends no
+      // change or input event, as for a change that never happened.
+      assert.ok(await hasSwitch(), 'the footer has no Reduce motion switch')
+      await tabToSwitch()
+      const reached = await readSwitch()
+      const seen = await readWhyLine()
+      assert.deepEqual(
+        {
+          checked: reached.checked,
+          locked: reached.locked,
+          focused: reached.focused,
+          ring: reached.ring,
+          why: reached.why,
+          seen,
+          description: reached.description,
+          look: reached.look,
+          motion: reached.motion,
+        },
+        {
+          checked: true,
+          locked: 'true',
+          focused: true,
+          ring: 'brand hot',
+          why: 'On because your device is set to reduce motion.',
+          seen: { size: '200x16px or more', clip: 'none', contrast: '4.5:1 or better' },
+          description: 'On because your device is set to reduce motion.',
+          look: { fill: 'rgb(255, 212, 0)', border: 'dashed', shadow: 'none', lift: 'none' },
+          motion: null,
+        },
+        'the switch as Tab reached it, with the device asking and the site’s setting off: on, aria-disabled, focused from the keyboard, its ring, the line that says why and how it shows (its size, clip-path and contrast on screen), the description a screen reader reads out, its chip’s fill, border, shadow and lift, and data-motion on <html>',
+      )
+      try {
+        await browser.evaluate(`localStorage.setItem('anibeam:motion', 'reduce'); true`)
+        await browser.load({ reduceMotion: true })
+        await tabToSwitch()
+        await browser.evaluate(`(() => {
+          window.__changes = 0
+          for (const type of ['change', 'input']) ${motionSwitch}.addEventListener(type, () => window.__changes++)
+          return true
+        })()`)
+        await browser.press('Space')
+        await clickSwitch()
+        const { checked, motion, saved } = await readSwitch()
+        const events = await browser.evaluate<number>('window.__changes')
+        assert.deepEqual(
+          { checked, motion, saved, events },
+          { checked: true, motion: 'reduce', saved: 'reduce', events: 0 },
+          'after Space and a click on the locked switch, with a choice saved on an earlier visit: on, data-motion on <html>, the saved choice, and the change and input events it sent',
+        )
+      } finally {
+        await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)
+      }
+    })
+
+  // Set on the site, the setting is turned off by the switch instead (see the saved group below).
+  if (askedOn === 'device')
+    test('as the device stops asking for reduced motion, no entrance already on the page replays, and the next pull moves in full', async () => {
+      // Motion back on, every rule in the motion gates applies again, and their animations would
+      // start over on what is already on the page: some 60 entrances, and after a pull, the
+      // capsule dropping and splitting again over the title it gave. Each must finish at once
+      // instead (see watchMotionBackOn() in lib/motion.ts), while what arrives later plays as
+      // usual. The device stops asking with the splash cover half scrolled away, mid-drift: its
+      // drift runs on the scroll, not the clock, and must go on following it. Chrome draws a frame
+      // with motion back on before it tells the page, and that frame must show no entrance
+      // starting over either: the reading is in it (see motionBackOn).
+      await browser.load({ reduceMotion: true })
+      assert.ok(await browser.titlesShown())
+      const seen = await motionBackOn(async () => {
+        await scrollSplashOut(0.5)
+        await browser.send('Emulation.setEmulatedMedia', {
+          features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+        })
+      })
+      assert.deepEqual(
+        seen,
+        BACK_ON,
+        'after a pull, as the device stopped asking: in the first frame drawn after, motion, each animation on the page’s clock left unfinished and the capsule halves over the open title; then how the switch’s knob moved, the splash cover just before its panel leaves the screen and half out, and each animation of the next pull',
+      )
+    })
+
+  // Only the device's setting can change while a title card is open: the switch lies behind it,
+  // out of reach.
+  if (askedOn === 'device')
+    test('as the device stops asking for reduced motion while a title card fades out, the card still closes, with focus back on its panel', async () => {
+      // Motion back on, the motion block's rules apply again. Its animation: none, which swaps the
+      // card's fade in for the wipe, must not cut the fade out short, as that would leave the card
+      // open with no fade left to end: finishEntrances() finishes the fade instead (see
+      // lib/motion.ts), and the card closes. The fade is held as it starts, so that the device
+      // changes while it plays.
+      await browser.load({ reduceMotion: true })
+      assert.ok(await browser.titlesShown())
+      try {
+        await browser.evaluate(`(() => {
+          window.__opener = document.querySelector('.ab-grid .ab-link')
+          window.__opener.focus()
+          return true
+        })()`)
+        await browser.press('Enter')
+        assert.ok(
+          await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+          'the title card did not open',
+        )
+        await cardInFull()
+        await browser.evaluate(watchClosing(true))
+        await browser.press('Escape')
+        const started = await browser.evaluate<string[] | null>('window.__closingStarted')
+        assert.ok(started, 'the title card did not start to close')
+        await browser.send('Emulation.setEmulatedMedia', {
+          features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+        })
+        const gone = await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000)
+        const focus = await browser.evaluate<string>(focusPlace)
+        assert.deepEqual(
+          { started, card: gone ? 'gone' : 'still on the page', focus },
+          {
+            started: ['the card: opacity, in 150 ms or less, once'],
+            card: 'gone',
+            focus: 'back on its panel',
+          },
+          'closing the title card with Esc as the device stopped asking for reduced motion mid-fade: the animations the closing started, whether the card left the page, and where the focus went',
+        )
+      } finally {
+        await closeCardLeft()
+      }
+    })
+}
+
+// The site's setting is saved while it is on (see lib/motion.ts), and main.tsx puts it back on
+// <html> before the page first renders, so a later visit starts as still as the last one ended.
+// The page's entrances start as soon as it is drawn: turned on any later, as in the group above,
+// the setting would let them play.
+describe('reduced motion, saved on the site', () => {
+  test('with the choice saved, a fresh load starts no animation', async () => {
+    // Each animation the page starts, as "name on element", heard from its first moment: the
+    // listener goes in before the page's own scripts run. One stopped before its delay is up
+    // sends animationcancel instead of animationstart, though it held its element in its first
+    // frame until then (fill-mode both or backwards), so that counts too.
+    const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `window.__started = []
+        for (const type of ['animationstart', 'animationcancel'])
+          addEventListener(type, ({ animationName, target, pseudoElement }) => {
+            const owner = target.closest('[class]')
+            const element = owner === target ? '.' + target.classList[0] : target.localName + ' in .' + owner?.classList[0]
+            window.__started.push(animationName + ' on ' + element + pseudoElement)
+          }, true)`,
+    })
+    // A fresh load on a device that allows motion, read once every animation it started has
+    // finished: whether <html> has the site's setting, and which animations started.
+    const load = async () => {
+      await browser.load()
+      assert.ok(await browser.titlesShown(), 'trending and decade titles never appeared')
+      await browser.animationsDone()
+      return browser.evaluate<{ motion: string | null; started: string[] }>(
+        `({ motion: document.documentElement.dataset.motion ?? null, started: [...new Set(window.__started)].sort() })`,
+      )
+    }
+    try {
+      // First with nothing saved, when the entrances play: the listener must hear them, so that
+      // one that hears nothing can't pass.
+      const allowed = await load()
+      await browser.evaluate(`localStorage.setItem('anibeam:motion', 'reduce'); true`)
+      const saved = await load()
+      assert.equal(allowed.motion, null, 'with nothing saved, a fresh load turned the setting on')
+      assert.notDeepEqual(
+        allowed.started,
+        [],
+        'with nothing saved, the listener heard no animation start, so it can’t be trusted to hear one',
+      )
+      assert.deepEqual(
+        saved,
+        { motion: 'reduce', started: [] },
+        'with the choice saved, a fresh load’s data-motion on <html>, and the animations it started',
+      )
+    } finally {
+      await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+      // Forgotten again, so the checks after this one load with motion allowed.
+      await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)
+    }
+  })
+
+  test('the Reduce motion switch’s choice outlasts the visit, on or off', async () => {
+    // A click turns the footer's switch on and saves the choice, so the next visit starts with it:
+    // shown on, with the setting on <html> from the first frame (see the check above). Another
+    // click turns it off and forgets the choice, so the visit after that starts with motion, as a
+    // first one does. Each click flips the switch from whatever its visit showed.
+    try {
+      await browser.load()
+      assert.ok(await hasSwitch(), 'the footer has no Reduce motion switch')
+      const visits: unknown[] = []
+      for (let click = 0; click < 2; click++) {
+        const was = await browser.evaluate<boolean>(`${motionSwitch}.checked`)
+        await clickSwitch()
+        assert.ok(
+          await browser.waitFor(`${motionSwitch}.checked === ${!was}`, 5000),
+          'a click did not flip the switch',
+        )
+        await browser.load()
+        visits.push(
+          await browser.evaluate(
+            `({ checked: ${motionSwitch}?.checked ?? null, motion: document.documentElement.dataset.motion ?? null })`,
+          ),
+        )
+      }
+      assert.deepEqual(
+        visits,
+        [
+          { checked: true, motion: 'reduce' },
+          { checked: false, motion: null },
+        ],
+        'the next visit after a click turned the switch on, then after another click: the switch, and data-motion on <html>',
+      )
+    } finally {
+      await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)
+    }
+  })
+
+  test('turning the Reduce motion switch off replays no entrance already on the page, and the next pull moves in full', async () => {
+    // As when the device stops asking (see the reduced motion group): turned off, the switch lets
+    // every rule in the motion gates apply again, and the animations already on the page must
+    // finish at once, the capsule's included, while the knob slides off and a new pull plays. A
+    // visitor whose choice was saved pulls a title, then clicks the switch off, at the footer,
+    // where the decade row's 20 panels would pop in again. The splash drift must still follow the
+    // scroll: finished there, where its panel has long left the screen, it would never move again.
+    try {
+      await browser.load()
+      await browser.evaluate(`localStorage.setItem('anibeam:motion', 'reduce'); true`)
+      await browser.load()
+      assert.ok(await browser.titlesShown(), 'trending and decade titles never appeared')
+      assert.deepEqual(
+        await motionBackOn(clickSwitch),
+        BACK_ON,
+        'after a pull, as a click turned the switch off: in the first frame drawn after, motion, each animation on the page’s clock left unfinished and the capsule halves over the open title; then how the switch’s knob moved, the splash cover just before its panel leaves the screen and half out, and each animation of the next pull',
+      )
+    } finally {
+      await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)
+    }
   })
 })
 
@@ -2161,6 +3635,8 @@ describe('phone (390x844)', () => {
     // once. Here the header scrolls away with the page. No request is sent.
     assertPlaceKept(await lateFirstAnswer('patlabor'))
   })
+
+  switchOnPhoneChecks(390)
 })
 
 describe('small phone (320x568, also a desktop window at 400% zoom)', () => {
@@ -2200,7 +3676,95 @@ describe('small phone (320x568, also a desktop window at 400% zoom)', () => {
   test('tabbing along the decade strip, both ways, keeps each focused panel in view, with its whole ring', async () => {
     assertStripInView(await tabThroughStrip())
   })
+
+  switchOnPhoneChecks(320)
 })
+
+// The footer's Reduce motion switch on a phone `width`px wide, at the end of each phone group.
+// Its other checks run at 1440x900, where the footer has room to spare.
+function switchOnPhoneChecks(width: number) {
+  test('the Reduce motion switch shows in full with a 44px target, and its skip link focuses it in view', async () => {
+    // On a phone the footer is at its narrowest, and the switch must still show in full: its
+    // target 44px tall or more, inside the page's side margins, with nothing pushed past the
+    // screen's edge. A keyboard reaches it here too, from a phone with a keyboard or a desktop
+    // window zoomed to 400%, which lays the page out as the small phone: as on desktop, the
+    // second Tab from the top reaches "Skip to Reduce motion", and its Enter must focus the
+    // switch in view, with its brand-hot ring. A switch hidden on phones would leave that link
+    // leading nowhere. No line says why it is locked: the device allows motion.
+    assert.ok(await hasSwitch(), 'the footer has no Reduce motion switch')
+    // What the checks above left settles first: a search cleared at the end of one gives way to
+    // the intro 300 ms later, and the intro's lines rise in again.
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-intro')`, 5000),
+      'the intro never came back',
+    )
+    await browser.animationsDone()
+    const shown = await readSwitchOnPhone(width)
+    await fromTheTop()
+    const tabs: string[] = []
+    for (let press = 0; press < 2; press++) {
+      await browser.press('Tab')
+      tabs.push(await readFocus())
+    }
+    assert.deepEqual(
+      tabs,
+      [
+        'Skip to content, ring brand hot, in view; skip links on screen: Skip to content',
+        'Skip to Reduce motion, ring brand hot, in view; skip links on screen: Skip to Reduce motion',
+      ],
+      'what the first and the second Tab from the top of the page focused',
+    )
+    // Enter only once the link has focus: on the logo, say, it would leave the page.
+    await browser.press('Enter')
+    const jumped = await readFocus()
+    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+    assert.deepEqual(
+      { ...shown, jumped },
+      {
+        target: 'shown, 44px tall or more, inside the page’s side margins',
+        line: null,
+        page: 'no wider than the phone',
+        jumped:
+          'the Reduce motion switch (off), ring brand hot, in view; skip links on screen: none',
+      },
+      'the switch’s target, the line that says why it is locked, the page’s width, and what Enter on “Skip to Reduce motion” focused',
+    )
+  })
+
+  test('locked on as the device asks, the Reduce motion switch’s line wraps under it, inside the page’s margins', async () => {
+    // While the device asks for reduced motion, the line that says why the switch is locked shows
+    // beside it where there is room, and under it on a phone. Here it must sit under the chip,
+    // with its text wrapping inside the page's side margins: kept to one row, it would run 15px
+    // into the small phone's right margin, to within 2px of the screen's edge. The switch must
+    // still show in full, and the page be no wider than the phone. The device starts to ask
+    // mid-visit, as in the contrast-theme check, and allows motion again once the switch is read.
+    assert.ok(await hasSwitch(), 'the footer has no Reduce motion switch')
+    try {
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+      })
+      assert.ok(
+        await browser.waitFor(`${motionSwitch}.getAttribute('aria-disabled') === 'true'`, 5000),
+        'the switch did not lock as the device asked',
+      )
+      assert.deepEqual(
+        await readSwitchOnPhone(width),
+        {
+          target: 'shown, 44px tall or more, inside the page’s side margins',
+          line: 'under the chip, inside the page’s side margins',
+          page: 'no wider than the phone',
+        },
+        'the locked switch’s target, the line that says why it is locked, and the page’s width',
+      )
+    } finally {
+      // The device allows motion again, as load() set it.
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+      })
+      await browser.waitFor(`!${motionSwitch}.hasAttribute('aria-disabled')`, 5000)
+    }
+  })
+}
 
 describe('Windows contrast themes (forced colors)', () => {
   // A contrast theme replaces the page's colors with a few the visitor picked (forced colors).
@@ -2285,6 +3849,108 @@ describe('Windows contrast themes (forced colors)', () => {
       problems,
       [],
       'chosen chips that a contrast theme hides, washes out or rings in the wrong color',
+    )
+  })
+
+  test('the Reduce motion switch shows off, on and locked apart, with its knob in view', async () => {
+    // A theme paints every background in its page color, and the switch's knob is one: it would
+    // vanish into its track, and with it the side that says on or off. Off, the knob is in the
+    // theme's text color, on the left. On, the chip takes the selection colors, as a chosen decade
+    // does, and the knob, on the right, shows in them through a track of the selection's text
+    // color. Locked on, as the device starts to ask for reduced motion, the chip takes the theme's
+    // disabled color. As the screen shows each, its knob must stand out from its track at 3:1 or
+    // better, and its label read at 4.5:1 or better.
+    const problems: string[] = []
+    const theme = (scheme: string, motion: string) =>
+      browser.send('Emulation.setEmulatedMedia', {
+        features: [
+          { name: 'prefers-reduced-motion', value: motion },
+          { name: 'forced-colors', value: 'active' },
+          { name: 'prefers-color-scheme', value: scheme },
+        ],
+      })
+    // The switch two frames after a change, scrolled to the middle of the screen: its chip's
+    // colors and border, whether it is locked, and the theme's disabled color; then, as the screen
+    // shows them, its label's contrast and its knob in a strip along the middle of its track (see
+    // knobStrip).
+    const read = async () => {
+      const shown = await browser.evaluate<{
+        locked: boolean
+        look: string
+        border: string
+        text: string
+        gray: string
+        label: { x: number; y: number; width: number; height: number }
+        track: { x: number; y: number; width: number; height: number }
+      }>(`(async () => {
+        const input = ${motionSwitch}, chip = input.nextElementSibling
+        chip.scrollIntoView({ block: 'center' })
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        const probe = document.body.appendChild(document.createElement('i'))
+        probe.style.color = 'GrayText'
+        const gray = getComputedStyle(probe).color
+        probe.remove()
+        const style = getComputedStyle(chip)
+        const range = document.createRange()
+        range.selectNodeContents(chip)
+        const t = range.getBoundingClientRect()
+        const x = Math.ceil(t.left + scrollX), y = Math.ceil(t.top + scrollY)
+        return {
+          locked: input.getAttribute('aria-disabled') === 'true',
+          look: [style.backgroundColor, style.color, style.borderTopColor].join(' '),
+          border: style.borderTopStyle,
+          text: style.color,
+          gray,
+          label: { x, y, width: Math.floor(t.right + scrollX) - x, height: Math.floor(t.bottom + scrollY) - y },
+          track: ${knobStrip},
+        }
+      })()`)
+      const knob = knobIn(await screenPixels(shown.track))
+      return { ...shown, knob, label: await pixelContrast(shown.label) }
+    }
+    try {
+      assert.ok(await hasSwitch(), 'the footer has no Reduce motion switch')
+      for (const scheme of ['light', 'dark']) {
+        await theme(scheme, 'no-preference')
+        const off = await read()
+        // The device starts to ask, with the site's setting still off: locked on all the same.
+        await theme(scheme, 'reduce')
+        await browser.waitFor(`${motionSwitch}.getAttribute('aria-disabled') === 'true'`, 5000)
+        const locked = await read()
+        await theme(scheme, 'no-preference')
+        await browser.waitFor(`!${motionSwitch}.hasAttribute('aria-disabled')`, 5000)
+        await clickSwitch()
+        const on = await read()
+        await clickSwitch()
+        await browser.animationsDone()
+        if (off.locked) problems.push(`${scheme}: the switch stayed locked with motion allowed`)
+        if (off.look === on.look) problems.push(`${scheme}: on looks like off (${on.look})`)
+        if (!locked.locked) problems.push(`${scheme}: the switch did not lock as the device asked`)
+        else if (locked.text !== locked.gray || locked.border !== 'dashed')
+          problems.push(
+            `${scheme} locked: its label is ${locked.text} and its border ${locked.border}, not the theme’s disabled color ${locked.gray}, dashed`,
+          )
+        for (const [state, { knob, label }, side] of [
+          ['off', off, 'left'],
+          ['on', on, 'right'],
+          ['locked', locked, 'right'],
+        ] as const) {
+          if (knob.contrast < 3)
+            problems.push(
+              `${scheme} ${state}: its knob stands out from its track at ${knob.contrast}:1`,
+            )
+          else if (knob.side !== side)
+            problems.push(`${scheme} ${state}: its knob is on the ${knob.side}, not the ${side}`)
+          if (label < 4.5) problems.push(`${scheme} ${state}: its label reads ${label}:1`)
+        }
+      }
+    } finally {
+      await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)
+    }
+    assert.deepEqual(
+      problems,
+      [],
+      'switch states that a contrast theme hides or shows alike, as on and off and locked on, in its light and dark palettes',
     )
   })
 })

@@ -396,57 +396,102 @@ img[data-broken] {
   -webkit-line-clamp: 2;
 }
 
+/* The footer: the Reduce motion switch (see MotionSwitch), then AniList's credit. */
 .ab-foot {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
   padding: 0 var(--page-x) 96px;
   font-size: 13px;
   font-weight: 700;
 }
 
-/* ---------- Motion (only when the visitor allows it) ---------- */
+/* The switch, and while the device asks for reduced motion, the line that says so: beside it where
+   there is room, under it on a phone. */
+.ab-motion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.ab-motion-why {
+  text-wrap: pretty;
+}
+
+/* A box no one sees, which the motion gates widen from 1px to 2px (see the first gate below).
+   MotionSwitch watches its width, so it hears motion come back on in the very frame it does,
+   before that frame is drawn (see watchMotionBackOn() in lib/motion.ts). Fixed in the screen's
+   corner, it takes no room in the footer. */
+.ab-motion-sentinel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  visibility: hidden;
+}
+
+/* ---------- Motion (only when the visitor allows it) ----------
+   Visitors can ask for reduced motion on their device, which this media query hears, or on the
+   site itself, which sets data-motion="reduce" on <html> (see lib/motion.ts), out of a media
+   query's sight. So in every block like this one, the rules sit in one more rule, which holds
+   only while the site's setting is off. :where() adds no specificity, so they keep their rank.
+   The build writes the nesting out as plain selectors, for browsers that can't read it.
+   Rules for <html> itself, such as smooth scrolling, go in & { … } inside the :where() rule,
+   which matches <html>: nested there as html { … }, a rule reaches only what lies inside <html>,
+   so it never applies. */
 @media (prefers-reduced-motion: no-preference) {
-  /* An ink block wipes off each panel, one after another. */
-  .ab-panel::after {
-    position: absolute;
-    z-index: 3;
-    inset: 0;
-    background: var(--ink);
-    content: '';
-    pointer-events: none;
-    transform-origin: 100% 50%;
-    animation: ab-ink 0.7s cubic-bezier(0.75, 0, 0.2, 1) both;
-    animation-delay: calc(var(--i) * 90ms);
-  }
+  :where(:root:not([data-motion='reduce'])) {
+    /* Motion is allowed: MotionSwitch's sentinel widens (see .ab-motion-sentinel). */
+    .ab-motion-sentinel {
+      width: 2px;
+    }
 
-  /* Each cover settles in, then its caption pops in. Fill backwards holds their first frame
-     through the delay. Fill both went on driving the transform once they had finished, so the
-     hover zoom and the caption's lift (at the end of this file) jumped instead of easing. */
-  .ab-img img {
-    animation: ab-settle 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
-    animation-delay: calc(var(--i) * 90ms + 150ms);
-  }
+    /* An ink block wipes off each panel, one after another. */
+    .ab-panel::after {
+      position: absolute;
+      z-index: 3;
+      inset: 0;
+      background: var(--ink);
+      content: '';
+      pointer-events: none;
+      transform-origin: 100% 50%;
+      animation: ab-ink 0.7s cubic-bezier(0.75, 0, 0.2, 1) both;
+      animation-delay: calc(var(--i) * 90ms);
+    }
 
-  .ab-caption {
-    animation: ab-pop 0.6s var(--spring) backwards;
-    animation-delay: calc(var(--i) * 90ms + 450ms);
-  }
+    /* Each cover settles in, then its caption pops in. Fill backwards holds their first frame
+       through the delay. Fill both went on driving the transform once they had finished, so the
+       hover zoom and the caption's lift (at the end of this file) jumped instead of easing. */
+    .ab-img img {
+      animation: ab-settle 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+      animation-delay: calc(var(--i) * 90ms + 150ms);
+    }
 
-  .ab-sfx span {
-    animation: ab-boom 0.7s var(--spring) both 0.2s;
-  }
+    .ab-caption {
+      animation: ab-pop 0.6s var(--spring) backwards;
+      animation-delay: calc(var(--i) * 90ms + 450ms);
+    }
 
-  /* Strip titles pop in one after another. The panel pops, not its list item: the row snaps to
-     the items, so an item that popped in pulled the row sideways and back as it grew. */
-  .ab-strip-item > .ab-strip-panel {
-    animation: ab-pop 0.6s var(--spring) both;
-    animation-delay: calc(var(--i) * 60ms);
-  }
+    .ab-sfx span {
+      animation: ab-boom 0.7s var(--spring) both 0.2s;
+    }
 
-  /* The splash panel drifts as it scrolls away (Chrome and Safari 26+). */
-  @supports (animation-timeline: view()) {
-    .ab-splash .ab-img {
-      animation: ab-parallax linear both;
-      animation-range: exit;
-      animation-timeline: view();
+    /* Strip titles pop in one after another. The panel pops, not its list item: the row snaps to
+       the items, so an item that popped in pulled the row sideways and back as it grew. */
+    .ab-strip-item > .ab-strip-panel {
+      animation: ab-pop 0.6s var(--spring) both;
+      animation-delay: calc(var(--i) * 60ms);
+    }
+
+    /* The splash panel drifts as it scrolls away (Chrome and Safari 26+). */
+    @supports (animation-timeline: view()) {
+      .ab-splash .ab-img {
+        animation: ab-parallax linear both;
+        animation-range: exit;
+        animation-timeline: view();
+      }
     }
   }
 }
@@ -869,11 +914,16 @@ body:has(.ab-card[open]) {
   grid-template-columns: minmax(170px, 250px) minmax(0, 1fr);
 }
 
+/* The capsule is only there to move: it drops in, then splits open on the title (see the motion
+   block below). So it stays hidden unless motion is allowed, and the motion block shows it. A
+   rule for reduced motion couldn't hide it from everyone who asks: a media query hears only the
+   device, and the site's own setting, data-motion="reduce", can't turn it on. */
 .ab-drop {
   position: absolute;
   z-index: 3;
   top: 34%;
   left: clamp(60px, 9vw, 120px);
+  display: none;
   width: 110px;
   height: 110px;
   margin-left: -55px;
@@ -900,10 +950,6 @@ body:has(.ab-card[open]) {
   border-top-width: 2px;
   border-radius: 0 0 55px 55px;
   background: #fff;
-}
-
-.ab-result.is-open .ab-drop {
-  opacity: 0;
 }
 
 .ab-burst {
@@ -1038,8 +1084,41 @@ body:has(.ab-card[open]) {
   inset: 0;
 }
 
+/* With reduced motion, the card fades in over 150 ms (spec §3J): shown at once, it switched most
+   of the screen to the title's color in a single frame. Linear spreads the change evenly over the
+   fade's nine frames, where an easing would crowd it into a few. With motion allowed, the motion
+   block below swaps the fade for the wipe. */
+.ab-card[open] {
+  animation: ab-fade 0.15s linear;
+}
+
+@keyframes ab-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* And it fades out as it closes, the same way: gone at once, it changed most of the screen in a
+   single frame too. TitleCard holds the dialog open while the fade plays, and closes it as the
+   fade ends, only with reduced motion: with motion allowed, the card goes at once, as it always
+   has. [open] ranks this rule above the motion block's animation: none, so a device that stops
+   asking for reduced motion mid-fade can't cut the fade short and leave the card open:
+   finishEntrances() in lib/motion.ts finishes it instead, and the card closes. */
+.ab-card[open].is-closing {
+  animation: ab-fade-out 0.15s linear forwards;
+}
+
+@keyframes ab-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+/* The page dims behind the wipe as it grows from the panel, so the dim is in the motion block too.
+   The fade brings the card in over the page as it is: a dim landing at once would darken the
+   whole screen in the fade's first frame. */
 .ab-card::backdrop {
-  background: rgb(20 20 20 / 0.35);
+  background: none;
 }
 
 .ab-card:focus-visible,
@@ -1281,73 +1360,76 @@ body:has(.ab-card[open]) {
 
 /* ---------- Motion (only when the visitor allows it) ---------- */
 @media (prefers-reduced-motion: no-preference) {
-  .ab-card[open] .ab-wipe {
-    animation: ab-wipe 0.55s cubic-bezier(0.75, 0, 0.15, 1) both;
-  }
+  :where(:root:not([data-motion='reduce'])) {
+    /* The wipe brings the card in, in place of the fade, over the page dimmed behind it. */
+    .ab-card[open] {
+      animation: none;
+    }
 
-  .ab-card[open] .ab-sheet {
-    animation: ab-sheet 0.65s var(--spring) both 0.35s;
-  }
+    .ab-card::backdrop {
+      background: rgb(20 20 20 / 0.35);
+    }
 
-  .ab-card[open] .ab-sheet-art img {
-    animation: ab-art 0.8s var(--spring) both 0.5s;
-  }
+    .ab-card[open] .ab-wipe {
+      animation: ab-wipe 0.55s cubic-bezier(0.75, 0, 0.15, 1) both;
+    }
 
-  .ab-card[open] .ab-native {
-    animation: ab-fall 1s cubic-bezier(0.2, 0.8, 0.2, 1) both 0.55s;
-  }
+    .ab-card[open] .ab-sheet {
+      animation: ab-sheet 0.65s var(--spring) both 0.35s;
+    }
 
-  .ab-card[open] .ab-title span {
-    animation: ab-slam 0.7s var(--spring) both;
-    animation-delay: calc(0.6s + var(--w) * 70ms);
-  }
+    .ab-card[open] .ab-sheet-art img {
+      animation: ab-art 0.8s var(--spring) both 0.5s;
+    }
 
-  .ab-card[open] .ab-genres,
-  .ab-card[open] .ab-facts,
-  .ab-card[open] .ab-row-actions {
-    animation: ab-rise 0.6s var(--spring) both 0.9s;
-  }
+    .ab-card[open] .ab-native {
+      animation: ab-fall 1s cubic-bezier(0.2, 0.8, 0.2, 1) both 0.55s;
+    }
 
-  .ab-drop {
-    animation: ab-drop 0.75s cubic-bezier(0.3, 1.6, 0.4, 1) both;
-  }
+    .ab-card[open] .ab-title span {
+      animation: ab-slam 0.7s var(--spring) both;
+      animation-delay: calc(0.6s + var(--w) * 70ms);
+    }
 
-  .ab-result.is-open .ab-drop {
-    opacity: 1;
-  }
+    .ab-card[open] .ab-genres,
+    .ab-card[open] .ab-facts,
+    .ab-card[open] .ab-row-actions {
+      animation: ab-rise 0.6s var(--spring) both 0.9s;
+    }
 
-  .ab-result.is-open .ab-top-half {
-    animation: ab-split-top 0.5s cubic-bezier(0.3, 0, 0.2, 1) forwards;
-  }
+    /* The capsule shows only here, where it moves (see .ab-drop above). */
+    .ab-drop {
+      display: block;
+      animation: ab-drop 0.75s cubic-bezier(0.3, 1.6, 0.4, 1) both;
+    }
 
-  .ab-result.is-open .ab-bottom-half {
-    animation: ab-split-bottom 0.5s cubic-bezier(0.3, 0, 0.2, 1) forwards;
-  }
+    .ab-result.is-open .ab-top-half {
+      animation: ab-split-top 0.5s cubic-bezier(0.3, 0, 0.2, 1) forwards;
+    }
 
-  .ab-burst {
-    animation: ab-burst 0.9s ease-out both;
-  }
+    .ab-result.is-open .ab-bottom-half {
+      animation: ab-split-bottom 0.5s cubic-bezier(0.3, 0, 0.2, 1) forwards;
+    }
 
-  .ab-result-panel {
-    animation: ab-art 0.8s var(--spring) both 0.1s;
-  }
+    .ab-burst {
+      animation: ab-burst 0.9s ease-out both;
+    }
 
-  .ab-sfx-tier {
-    animation: ab-tier-boom 0.7s var(--spring) both 0.35s;
-  }
+    .ab-result-panel {
+      animation: ab-art 0.8s var(--spring) both 0.1s;
+    }
 
-  .ab-result-copy {
-    animation: ab-rise 0.6s var(--spring) both 0.3s;
-  }
+    .ab-sfx-tier {
+      animation: ab-tier-boom 0.7s var(--spring) both 0.35s;
+    }
 
-  .ab-machine:has(.ab-lever:active) .ab-capsule {
-    animation: ab-jiggle 0.4s var(--spring);
-  }
-}
+    .ab-result-copy {
+      animation: ab-rise 0.6s var(--spring) both 0.3s;
+    }
 
-@media (prefers-reduced-motion: reduce) {
-  .ab-drop {
-    display: none;
+    .ab-machine:has(.ab-lever:active) .ab-capsule {
+      animation: ab-jiggle 0.4s var(--spring);
+    }
   }
 }
 
@@ -1644,40 +1726,42 @@ body:has(.ab-card[open]) {
 
 /* The lines land one beat after another, then the sound effect pops. */
 @media (prefers-reduced-motion: no-preference) {
-  .ab-intro-kicker,
-  .ab-intro-title > span,
-  .ab-intro-lede,
-  .ab-intro-actions {
-    animation: ab-rise 0.7s var(--spring) both;
-  }
+  :where(:root:not([data-motion='reduce'])) {
+    .ab-intro-kicker,
+    .ab-intro-title > span,
+    .ab-intro-lede,
+    .ab-intro-actions {
+      animation: ab-rise 0.7s var(--spring) both;
+    }
 
-  .ab-intro-title > span:nth-child(1) {
-    animation-delay: 0.05s;
-  }
+    .ab-intro-title > span:nth-child(1) {
+      animation-delay: 0.05s;
+    }
 
-  .ab-intro-title > span:nth-child(2) {
-    animation-delay: 0.17s;
-  }
+    .ab-intro-title > span:nth-child(2) {
+      animation-delay: 0.17s;
+    }
 
-  .ab-intro-title > span:nth-child(3) {
-    animation-delay: 0.29s;
-  }
+    .ab-intro-title > span:nth-child(3) {
+      animation-delay: 0.29s;
+    }
 
-  .ab-intro-lede {
-    animation-delay: 0.4s;
-  }
+    .ab-intro-lede {
+      animation-delay: 0.4s;
+    }
 
-  .ab-intro-actions {
-    animation-delay: 0.5s;
-  }
+    .ab-intro-actions {
+      animation-delay: 0.5s;
+    }
 
-  .ab-intro-sfx {
-    animation: ab-boom 0.7s var(--spring) both 0.6s;
-  }
+    .ab-intro-sfx {
+      animation: ab-boom 0.7s var(--spring) both 0.6s;
+    }
 
-  .ab-intro-cover {
-    animation: ab-deal 0.8s var(--spring) both;
-    animation-delay: calc(0.2s + var(--i) * 90ms);
+    .ab-intro-cover {
+      animation: ab-deal 0.8s var(--spring) both;
+      animation-delay: calc(0.2s + var(--i) * 90ms);
+    }
   }
 }
 
@@ -1735,6 +1819,65 @@ body:has(.ab-card[open]) {
   outline-color: var(--hot);
 }
 
+/* The Reduce motion switch (MotionSwitch) is a chip with a small ink track inside: its knob sits
+   on the left while off, and on the right while on, so the state shows without color. The track
+   is the chip's ::before, and the knob its ::after, drawn over it. These rules tie with the chips'
+   own, so they come after them. */
+.ab-switch span {
+  position: relative;
+  padding-right: 64px;
+  white-space: nowrap;
+}
+
+.ab-switch span::before,
+.ab-switch span::after {
+  position: absolute;
+  top: 50%;
+  content: '';
+}
+
+.ab-switch span::before {
+  right: 12px;
+  width: 40px;
+  height: 24px;
+  margin-top: -12px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.ab-switch span::after {
+  right: 34px;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.ab-switch input:checked + span::before {
+  background: var(--ink);
+}
+
+.ab-switch input:checked + span::after {
+  background: #fff;
+  transform: translateX(16px);
+}
+
+/* On paper a white ring would vanish, so the switch uses the brand ring, like the decades. */
+.ab-switch input:focus-visible + span {
+  outline-color: var(--hot);
+}
+
+/* Locked on, while the device asks for reduced motion: AniBeam's dashed "can't use this" border
+   (see .ab-soon), and flat, as it can't be pressed. */
+.ab-switch input[aria-disabled='true'] + span {
+  border-style: dashed;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
 .ab-results {
   min-height: calc(100svh - var(--top-h, 80px));
 }
@@ -1743,7 +1886,8 @@ body:has(.ab-card[open]) {
   padding-top: clamp(24px, 4vw, 48px);
 }
 
-/* Hidden until focused: lets keyboard users jump past the header to the page. */
+/* Hidden until focused: lets keyboard users jump past the header to the page, or to the Reduce
+   motion switch in the footer. Both links sit here, and only the focused one shows. */
 .ab-skip {
   position: absolute;
   top: 8px;
@@ -1846,76 +1990,121 @@ body:has(.ab-card[open]) {
   }
 }
 
+/* The Reduce motion switch in a contrast theme. Its knob is a background, which the theme paints
+   in its page color, so it vanished into the track and took the switch's state with it: it takes
+   the theme's text color instead, which the theme keeps, as it keeps every system color. On, the
+   chip takes the selection colors (above), so the track fills with the selection's text color,
+   and the knob shows through in the selection color. Locked on by the device, it takes the
+   theme's disabled color on its page color, flat. These rules tie with the chips' above, so they
+   come after them. */
+@media (forced-colors: active) {
+  .ab-switch span::after {
+    background: CanvasText;
+  }
+
+  .ab-switch input:checked + span::before {
+    border-color: HighlightText;
+    background: HighlightText;
+  }
+
+  .ab-switch input:checked + span::after {
+    background: Highlight;
+  }
+
+  .ab-switch input[aria-disabled='true'] + span {
+    border-color: GrayText;
+    background: Canvas;
+    box-shadow: none;
+    color: GrayText;
+  }
+
+  .ab-switch input[aria-disabled='true'] + span::before {
+    border-color: GrayText;
+    background: GrayText;
+  }
+
+  .ab-switch input[aria-disabled='true'] + span::after {
+    background: Canvas;
+  }
+}
+
 /* ---------- Movement on hover, focus and press (only when the visitor allows motion) ----------
    Visitors who ask for reduced motion get the base styles above (spec §3J): hover, focus and
    press change color, shadow or opacity. A focused search bubble and a checked chip still sit
    lifted, but they change at once, with nothing sliding there. Everything that slides, zooms
    or swings is here. */
 @media (prefers-reduced-motion: no-preference) {
-  .ab-img img {
-    transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
+  :where(:root:not([data-motion='reduce'])) {
+    .ab-img img {
+      transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
 
-  .ab-link:hover .ab-img img,
-  .ab-link:focus-visible .ab-img img {
-    transform: scale(1.1);
-  }
+    .ab-link:hover .ab-img img,
+    .ab-link:focus-visible .ab-img img {
+      transform: scale(1.1);
+    }
 
-  .ab-speed {
-    transform: scale(1.35);
-    transition:
-      opacity 0.2s,
-      transform 0.55s var(--spring);
-  }
+    .ab-speed {
+      transform: scale(1.35);
+      transition:
+        opacity 0.2s,
+        transform 0.55s var(--spring);
+    }
 
-  .ab-link:hover .ab-speed,
-  .ab-link:focus-visible .ab-speed {
-    transform: scale(1);
-  }
+    .ab-link:hover .ab-speed,
+    .ab-link:focus-visible .ab-speed {
+      transform: scale(1);
+    }
 
-  .ab-caption {
-    transition:
-      transform 0.4s var(--spring),
-      box-shadow 0.4s var(--spring);
-  }
+    .ab-caption {
+      transition:
+        transform 0.4s var(--spring),
+        box-shadow 0.4s var(--spring);
+    }
 
-  .ab-link:hover .ab-caption,
-  .ab-link:focus-visible .ab-caption {
-    transform: rotate(-1.2deg) translate(-3px, -5px);
-  }
+    .ab-link:hover .ab-caption,
+    .ab-link:focus-visible .ab-caption {
+      transform: rotate(-1.2deg) translate(-3px, -5px);
+    }
 
-  .ab-bubble-field {
-    transition:
-      width 0.35s var(--spring),
-      filter 0.25s var(--spring),
-      transform 0.25s var(--spring);
-  }
+    .ab-bubble-field {
+      transition:
+        width 0.35s var(--spring),
+        filter 0.25s var(--spring),
+        transform 0.25s var(--spring);
+    }
 
-  .ab-chip span {
-    transition: transform 0.25s var(--spring);
-  }
+    .ab-chip span {
+      transition: transform 0.25s var(--spring);
+    }
 
-  .ab-lever {
-    transition:
-      transform 0.25s var(--spring),
-      box-shadow 0.2s;
-  }
+    /* The Reduce motion switch's knob slides from end to end. */
+    .ab-switch span::after {
+      transition: transform 0.2s var(--spring);
+    }
 
-  .ab-lever:enabled:hover {
-    transform: rotate(-10deg);
-  }
+    .ab-lever {
+      transition:
+        transform 0.25s var(--spring),
+        box-shadow 0.2s;
+    }
 
-  .ab-lever:enabled:active {
-    transform: translateY(6px) rotate(80deg);
-  }
+    .ab-lever:enabled:hover {
+      transform: rotate(-10deg);
+    }
 
-  .ab-btn {
-    transition:
-      transform 0.2s var(--spring),
-      box-shadow 0.2s;
-  }
+    .ab-lever:enabled:active {
+      transform: translateY(6px) rotate(80deg);
+    }
 
-  .ab-btn:hover {
-    transform: translate(-3px, -3px);
+    .ab-btn {
+      transition:
+        transform 0.2s var(--spring),
+        box-shadow 0.2s;
+    }
+
+    .ab-btn:hover {
+      transform: translate(-3px, -3px);
+    }
   }
 }
