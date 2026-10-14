@@ -72,17 +72,108 @@ test('the check sees every stylesheet and the motion gates', () => {
 // The properties that move a box or change its size: transform, and translate, rotate and scale,
 // each of which does one of its jobs on its own; any width or height, such as max-width or
 // border-width, and their logical names, inline-size and block-size; the box's place, set by top,
-// right, bottom, left and inset; and its margins, which push it and the boxes beside it. all is
-// every property. Longhands and prefixed names count too, such as margin-left,
+// right, bottom, left and inset; its margins, which push it and the boxes beside it; and its
+// padding, which grows it, or slides what it holds, as a button's label. all is every property.
+// Longhands and prefixed names count too, such as margin-left, padding-inline-start,
 // inset-inline-start, transform-origin and -webkit-transform; border-left-color, a color, doesn't.
 const MOVING =
-  /^(-\w+-)?(all|transform(-[\w-]+)?|translate|rotate|scale|([\w-]+-)?(width|height)|((min|max)-)?(inline|block)-size|top|right|bottom|left|(inset|margin)(-[\w-]+)?)$/
+  /^(-\w+-)?(all|transform(-[\w-]+)?|translate|rotate|scale|([\w-]+-)?(width|height)|((min|max)-)?(inline|block)-size|top|right|bottom|left|(inset|margin|padding)(-[\w-]+)?)$/
+
+// The keywords a transition can hold besides the property it names: its easing, and its
+// transition-behavior, normal or allow-discrete.
+const TIMING =
+  /^(ease|ease-in|ease-out|ease-in-out|linear|step-start|step-end|normal|allow-discrete)$/i
+
+/**
+ * Each transition in a stylesheet that moves or resizes a box, or may, as `rule { declaration }:
+ * why`: one that names a property MOVING lists, all among them, and one that names none, which
+ * means all. A var() in it reads as each value the stylesheet sets its custom property to, as
+ * this check can't tell which one an element gets, and as its fallback. One with neither can't be
+ * read, so it may hide any property, and counts too. Prefixed names count as well.
+ */
+function movingTransitions(text: string) {
+  const found = declarations(text)
+  const custom = new Map<string, string[]>()
+  for (const { property, value } of found)
+    if (property.startsWith('--')) custom.set(property, [...(custom.get(property) ?? []), value])
+  // Each way a value reads with its var()s filled in. A fallback can hold a function, such as
+  // cubic-bezier(), or another var(). A custom property that names itself would fill in for good,
+  // so this stops ten deep.
+  const filledIn = (value: string, depth = 0): string[] => {
+    const use = /var\(\s*(--[\w-]+)\s*(?:,((?:[^()]|\([^()]*\))*))?\)/.exec(value)
+    if (!use || depth === 10) return [value]
+    const [whole, name, fallback] = use
+    const options = [...(custom.get(name) ?? [])]
+    if (fallback !== undefined) options.push(fallback.trim())
+    if (!options.length) return [value]
+    return options.flatMap((option) => filledIn(value.split(whole).join(option), depth + 1))
+  }
+  return found.flatMap(({ rule, property, value }) => {
+    if (!/^(-\w+-)?transition(-property)?$/.test(property)) return []
+    const bare = value.replace(/\s*!important$/i, '')
+    const why = new Set<string>()
+    for (const filled of filledIn(bare)) {
+      const unread = /var\(\s*(--[\w-]+)/.exec(filled)
+      if (unread) {
+        why.add(`this check can't read var(${unread[1]})`)
+        continue
+      }
+      const read = filled === bare ? '' : ` (read as ${filled})`
+      const moving: string[] = []
+      // The transitions a comma separates, each in words; a function such as
+      // steps(2, jump-start) is one word.
+      for (const transition of filled.split(/,(?![^(]*\))/).map((part) => part.trim())) {
+        // Its property is the word that is not a time, a keyword in TIMING or a function.
+        const names = (transition.match(/[\w-]+\([^)]*\)|\S+/g) ?? []).filter(
+          (word) => !/^[+-]?[\d.]/.test(word) && !word.includes('(') && !TIMING.test(word),
+        )
+        if (!names.length) why.add(`${transition} names no property, which means all${read}`)
+        moving.push(...names.filter((name) => MOVING.test(name)))
+      }
+      if (moving.length) why.add(`it transitions ${moving.join(' and ')}${read}`)
+    }
+    return why.size ? [`${rule} { ${property}: ${value} }: ${[...why].join('; ')}`] : []
+  })
+}
+
+test('the transition check reads what a transition names, none as all, and what a var() holds', () => {
+  // The stylesheets' own transitions outside the gate change opacity, shadow and filter alone, so
+  // a reading that missed a list, a transition with no name or a var() would pass them all the
+  // same. So it reads planted rules here: eight that trip it, the last a custom property that
+  // names itself, and calm ones it must pass: --lift set to opacity and to box-shadow as well as
+  // to translate, a filter eased by a var() that fills in, and none.
+  const planted = [
+    '.ab-a { transition: 0.2s linear !important }',
+    '.ab-b { transition: opacity 0.2s, 0.3s steps(2, jump-start) }',
+    '.ab-c { -webkit-transition: padding-left 0.2s }',
+    '.ab-d { transition-property: opacity, inset }',
+    '.ab-e { --lift: opacity 0.2s }',
+    '.ab-f { --lift: translate 0.25s; transition: var(--lift) }',
+    '.ab-g { --lift: box-shadow 0.15s; --pace: cubic-bezier(0.2, 1.5, 0.35, 1) }',
+    '.ab-h { transition: var(--unset) }',
+    '.ab-i { transition: var(--unset, margin 0.2s) }',
+    '.ab-j { --loop: var(--loop); transition: var(--loop) }',
+    '.ab-k { transition: box-shadow 0.15s, filter 0.4s var(--pace) }',
+    '.ab-l { transition: none }',
+  ].join('\n')
+  assert.deepEqual(movingTransitions(planted), [
+    '.ab-a { transition: 0.2s linear !important }: 0.2s linear names no property, which means all',
+    '.ab-b { transition: opacity 0.2s, 0.3s steps(2, jump-start) }: 0.3s steps(2, jump-start) names no property, which means all',
+    '.ab-c { -webkit-transition: padding-left 0.2s }: it transitions padding-left',
+    '.ab-d { transition-property: opacity, inset }: it transitions inset',
+    '.ab-f { transition: var(--lift) }: it transitions translate (read as translate 0.25s)',
+    ".ab-h { transition: var(--unset) }: this check can't read var(--unset)",
+    '.ab-i { transition: var(--unset, margin 0.2s) }: it transitions margin (read as margin 0.2s)',
+    ".ab-j { transition: var(--loop) }: this check can't read var(--loop)",
+  ])
+})
 
 test('outside the motion gate, no transition moves or resizes anything', () => {
-  const moving = [...calm.matchAll(/transition(?:-property)?\s*:([^;}]*)/g)]
-    .map((match) => match[1].replace(/\s+/g, ' ').trim())
-    .filter((value) => value.match(/[\w-]+/g)?.some((word) => MOVING.test(word)))
-  assert.deepEqual(moving, [])
+  assert.deepEqual(
+    movingTransitions(calm),
+    [],
+    "these transitions outside the gate move or resize a box, or may (spec §3J): each names a property that does (see MOVING), or all, or names none, which means all, or holds a var() whose custom property no rule outside the gate sets, with no fallback, which this check can't read. Name what each one changes, such as opacity, and put what moves in the gate",
+  )
 })
 
 test('outside the motion gate, hovering or pressing never moves anything', () => {
