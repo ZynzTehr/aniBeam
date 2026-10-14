@@ -622,6 +622,46 @@ async function readFocus() {
   return `${state.name}, ring ${ring}, ${state.place}; ${links}`
 }
 
+// Starts a load of the page with `go` and lists the parts of the intro that moved after they were
+// drawn, as Chrome reports them in its layout shifts from the very start ("part: from → to").
+// The intro fills the screen under the header, so it needs the header's height, which SiteHeader
+// publishes as --top-h; until it was published, the intro was sized by the CSS fallback, 80px.
+async function introMoves(go: () => Promise<unknown>) {
+  const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `window.__shifts = []
+      new PerformanceObserver((list) => window.__shifts.push(...list.getEntries())).observe({ type: 'layout-shift', buffered: true })`,
+  })
+  try {
+    await go()
+    assert.ok(await browser.titlesShown())
+    await browser.animationsDone()
+    return await browser.evaluate<string[]>(`(() => {
+      const intro = document.querySelector('.ab-intro')
+      return window.__shifts.flatMap((shift) =>
+        shift.sources
+          .filter((source) => source.node && intro.contains(source.node))
+          .map((source) => (source.node.className || source.node.nodeName.toLowerCase()) + ': ' + Math.round(source.previousRect.top) + ' → ' + Math.round(source.currentRect.top) + 'px'),
+      )
+    })()`)
+  } finally {
+    await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+  }
+}
+const introMovesOnLoad = (options: Parameters<Browser['load']>[0]) =>
+  introMoves(() => browser.load(options))
+// The same for a reload of the page as it is. Browser.load navigates, which the page counts as
+// a new visit, never as a reload, so this reloads the way the browser's button does.
+const introMovesOnReload = () =>
+  introMoves(async () => {
+    await browser.evaluate('window.__beforeReload = true; true')
+    await browser.send('Page.reload')
+    await browser.waitFor(
+      `!window.__beforeReload && document.readyState === 'complete' && document.querySelector('#main')`,
+      30_000,
+    )
+    await browser.evaluate('document.fonts.ready.then(() => true)')
+  })
+
 before(async () => {
   browser = await Browser.open()
 })
@@ -688,7 +728,12 @@ describe('desktop (1440x900)', () => {
       trendingTop: document.querySelector('.ab-page').getBoundingClientRect().top,
       notes: [...document.querySelectorAll('.ab-note')].map((note) => note.textContent),
     })`)
-    assert.ok(state.trendingTop >= 899, `trending starts at ${state.trendingTop}px`)
+    // At the fold, not just below it: an intro sized without the header's height (--top-h) ran
+    // 78px past it.
+    assert.ok(
+      Math.abs(state.trendingTop - 900) <= 1,
+      `trending starts at ${state.trendingTop}px, not at the fold (900px)`,
+    )
     assert.deepEqual(state.notes, ['', ''])
   })
 
@@ -1565,13 +1610,21 @@ describe('desktop (1440x900)', () => {
     // focused Trending heading, focus ring included, under the header, and 38 to 42px of the
     // Pull section. Without the spacing every target must still land at 96px, as it always
     // has, and below 900px too, where the header scrolls away with the page.
-    const resize = (width: number) =>
-      browser.send('Emulation.setDeviceMetricsOverride', {
+    // A resized window draws a frame before anyone can press a key, and only then does the
+    // header's new height reach the page (SiteHeader's ResizeObserver sets --top-h). So each
+    // resize waits two frames. Without them, on a fast machine, Enter came first at 899px: the
+    // page jumped by the 78px row's height, and the heading then moved up to 40px.
+    const resize = async (width: number) => {
+      await browser.send('Emulation.setDeviceMetricsOverride', {
         width,
         height: 900,
         deviceScaleFactor: 1,
         mobile: false,
       })
+      await browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+    }
     const links = [
       ['#ab-trending', 'the Trending heading'],
       ['#pull', 'the Pull section'],
@@ -1594,11 +1647,16 @@ describe('desktop (1440x900)', () => {
       await browser.evaluate(
         'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
       )
-      return browser.evaluate<{ top: number; hidden: number; ring: boolean }>(`(() => {
+      return browser.evaluate<{
+        top: number
+        hidden: number
+        ring: boolean
+        below: number
+      }>(`(() => {
         const target = document.querySelector('${href}'), top = target.getBoundingClientRect().top
         const ring = document.activeElement === target
         const header = document.querySelector('.ab-top').getBoundingClientRect().bottom
-        return { top, ring, hidden: Math.round(header - (ring ? top - 7 : top)) }
+        return { top, ring, hidden: Math.round(header - (ring ? top - 7 : top)), below: Math.round(top - header) }
       })()`)
     }
     const problems: string[] = []
@@ -1609,9 +1667,15 @@ describe('desktop (1440x900)', () => {
         await resize(width)
         await browser.animationsDone()
         for (const [href, name] of links) {
-          const { top } = await jump(href)
+          const { top, hidden, ring } = await jump(href)
           if (Math.abs(top - 96) > 1)
             problems.push(`${width}px: ${name} lands at ${Math.round(top)}px, not 96px`)
+          // 96px is right only while the header is one row or scrolls away: at 899px a header
+          // that stuck to the top, two rows tall (134px), would hide the target at 96px.
+          else if (hidden > 0)
+            problems.push(
+              `${width}px: ${hidden}px of ${name}${ring ? ' and its focus ring' : ''} is under the header`,
+            )
         }
       }
       await browser.evaluate(`(() => {
@@ -1625,10 +1689,16 @@ describe('desktop (1440x900)', () => {
         await resize(width)
         await browser.animationsDone()
         for (const [href, name] of links) {
-          const { hidden, ring } = await jump(href)
+          const { hidden, ring, below } = await jump(href)
           if (hidden > 0)
             problems.push(
               `${width}px with text spacing: ${hidden}px of ${name}${ring ? ' and its focus ring' : ''} is under the header`,
+            )
+          // Clear of the header is not enough: the same 18px gap as on one row, or an 8px gap
+          // (which still clears the focus ring, by 1px) would pass.
+          else if (Math.abs(below - 18) > 1)
+            problems.push(
+              `${width}px with text spacing: ${name} lands ${below}px below the header, not 18px`,
             )
         }
       }
@@ -1649,6 +1719,132 @@ describe('desktop (1440x900)', () => {
       [],
       'a header link leaves its target under the header, or lands it somewhere new',
     )
+  })
+
+  test('with WCAG text spacing, link targets keep 18px under the header at every width from 900px', async () => {
+    // The check above jumps with the spacing at 900 and 960px only, but the header keeps its
+    // second row up to about 965px, and above that it is a taller single row (about 80px). A
+    // margin that followed the header's height only up to 960px hid 48px of the focused Trending
+    // heading at 963px. Every 5px from 900 to 1000px, and at 1100 and 1440px, each target's scroll
+    // margin must be the header's measured height and 18px. No keys: the margin is what the
+    // browser scrolls by when a link is followed.
+    const frames = () =>
+      browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+    const resize = (width: number) =>
+      browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 900,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+    const widths = [...Array.from({ length: 21 }, (_, i) => 900 + 5 * i), 1100, 1440]
+    const off: string[] = []
+    await browser.evaluate(`(() => {
+      const style = document.head.appendChild(document.createElement('style'))
+      style.id = 'text-spacing'
+      style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+      return true
+    })()`)
+    try {
+      for (const width of widths) {
+        await resize(width)
+        await frames()
+        const found = await browser.evaluate<string[]>(`(() => {
+          const header = document.querySelector('.ab-top').offsetHeight
+          return ['#ab-trending', '#pull', '#decades'].flatMap((target) => {
+            const margin = parseFloat(getComputedStyle(document.querySelector(target)).scrollMarginTop)
+            return Math.abs(margin - (header + 18)) > 1 ? [target + ': ' + margin + 'px under a ' + header + 'px header'] : []
+          })
+        })()`)
+        for (const line of found) off.push(`${width}px: ${line}`)
+      }
+    } finally {
+      await browser.evaluate(`document.getElementById('text-spacing')?.remove(); true`)
+      await resize(1440)
+      await frames()
+    }
+    assert.deepEqual(
+      off,
+      [],
+      'link targets whose scroll margin is not the header’s height and 18px',
+    )
+  })
+
+  test('after a resize across 900px made far down the page, the intro still ends at the fold', async () => {
+    // The intro fills the first screen under the header, by the header's height (--top-h), and
+    // the header changes rows at 900px: one 78px row from there up, 134px below, where it
+    // scrolls away with the page. A resize made with the header scrolled far off screen must
+    // still give the intro the header's new height, by the time the window has drawn two frames.
+    // Publishing the header's bottom edge (far negative while scrolled away) instead of its
+    // height left trending at 3024px; watching only the links, which keep their size, left it
+    // 56px off; and publishing 100ms late went unseen by every other check.
+    const frames = () =>
+      browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+    const resize = (width: number) =>
+      browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 900,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+    const off: string[] = []
+    try {
+      for (const width of [899, 1440]) {
+        await browser.evaluate(`document.getElementById('pull').scrollIntoView(); true`)
+        await frames()
+        await resize(width)
+        await frames()
+        // Back at the top, measured at once: scrolling alone changes no size, so this is the
+        // height the header had published by the second frame.
+        const top = await browser.evaluate<number>(
+          `scrollTo(0, 0), document.querySelector('.ab-page').getBoundingClientRect().top`,
+        )
+        if (Math.abs(top - 900) > 1)
+          off.push(`${width}px: trending starts at ${Math.round(top)}px, not 900px`)
+      }
+    } finally {
+      await resize(1440)
+      await browser.evaluate('scrollTo(0, 0); true')
+    }
+    assert.deepEqual(off, [], 'after a resize, the intro no longer ends at the fold')
+  })
+
+  test('at every width from 540 to 1440px, the intro ends at the fold', async () => {
+    // The intro fills the first screen under the header at any width, whatever height the
+    // header takes there, not just at 1440px: an intro sized by a fixed 134px from 900 to 1024px,
+    // where the header is one 78px row, ended 56px above the fold. Each side of the header's
+    // changes at 900 and about 820px is measured, at the top of the page.
+    const frames = () =>
+      browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+    const resize = (width: number) =>
+      browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 900,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+    const off: string[] = []
+    try {
+      for (const width of [1440, 1024, 1000, 960, 900, 899, 860, 821, 820, 700, 540]) {
+        await resize(width)
+        await frames()
+        const top = await browser.evaluate<number>(
+          `scrollTo(0, 0), document.querySelector('.ab-page').getBoundingClientRect().top`,
+        )
+        if (Math.abs(top - 900) > 1)
+          off.push(`${width}px: trending starts at ${Math.round(top)}px, not 900px`)
+      }
+    } finally {
+      await resize(1440)
+      await frames()
+    }
+    assert.deepEqual(off, [], 'widths where the intro does not end at the fold')
   })
 
   test('every label on the pull machine reads at 4.5:1 or better', async () => {
@@ -2240,6 +2436,21 @@ describe('desktop (1440x900)', () => {
       ],
       'the switch as Tab reached it, then after Space, and after Space again',
     )
+  })
+
+  test('the intro is drawn where it stays from its first frame, whatever the header’s height', async () => {
+    // As on a phone (see the phone check "the intro is drawn where it stays, from its first
+    // frame"). The header is one 78px row from 900px up, two rows (134px) from about 700 to
+    // 899px, and 180px at about 540 to 600px. These widths take each of those heights, and 960px
+    // lies where a height guessed by breakpoint, rather than measured, went wrong. Sized by the
+    // 80px fallback, the first frame at 860px was 27px off. The page stays loaded at 600px.
+    const moved: string[] = []
+    for (const width of [1440, 960, 860, 600])
+      for (const part of await introMovesOnLoad({ width, height: 900 }))
+        moved.push(`${width}px: ${part}`)
+    // And once reloaded, as a visitor's browser button does.
+    for (const part of await introMovesOnReload()) moved.push(`600px, reloaded: ${part}`)
+    assert.deepEqual(moved, [], 'parts of the intro that moved after they were drawn')
   })
 
   test('the console stays free of errors and warnings', () => {
@@ -3444,16 +3655,48 @@ describe('phone (390x844)', () => {
   test('the intro fills the first screen, nothing overflows, and the decade chips wrap', async () => {
     const phone = await browser.evaluate<{
       trendingTop: number
+      introMin: number
+      header: number
       fits: boolean
       chipRows: number
     }>(`({
       trendingTop: document.querySelector('.ab-page').getBoundingClientRect().top,
+      introMin: parseFloat(getComputedStyle(document.querySelector('.ab-intro')).minHeight),
+      header: document.querySelector('.ab-top').offsetHeight,
       fits: ${fits},
       chipRows: new Set([...document.querySelectorAll('.ab-eras .ab-chip')].map((c) => Math.round(c.getBoundingClientRect().top))).size,
     })`)
     assert.ok(phone.trendingTop >= 843, `trending starts at ${phone.trendingTop}px`)
+    // On a phone the intro's content is taller than the room under the header, so where trending
+    // starts can't show whether the intro was sized by the header's height (--top-h). Its
+    // minimum height can: the screen under the header. Without --top-h it was the whole screen.
+    assert.ok(
+      Math.abs(phone.introMin - (844 - phone.header)) <= 1,
+      `the intro's minimum height is ${phone.introMin}px, not the ${844 - phone.header}px under the ${phone.header}px header`,
+    )
     assert.ok(phone.fits, 'the page is wider than the phone')
     assert.ok(phone.chipRows >= 2)
+  })
+
+  test('the intro is drawn where it stays, from its first frame', async () => {
+    // On a phone the header takes three rows, 230px. Sized by the 80px fallback, the first frame
+    // drew the headline 67px lower than where it then jumped: layout shifts of about 0.04, in one
+    // to three frames, on every load. Chrome's phone emulation marks these shifts as just after
+    // input (which web-vitals would skip), though no key or click was sent; a plain window of the
+    // same size reports the same shifts without the mark, as a visitor's would. So every one
+    // counts (see introMovesOnLoad).
+    // A tablet in portrait takes two rows, 134px, on a taller screen. The phone comes last, so
+    // the checks after this one see the page their group loaded.
+    const moved: string[] = []
+    for (const [width, height] of [
+      [768, 1024],
+      [390, 844],
+    ])
+      for (const part of await introMovesOnLoad({ width, height, phone: true }))
+        moved.push(`${width}x${height}: ${part}`)
+    // And once reloaded, as a visitor's browser button does.
+    for (const part of await introMovesOnReload()) moved.push(`390x844, reloaded: ${part}`)
+    assert.deepEqual(moved, [], 'parts of the intro that moved after they were drawn')
   })
 
   test('the intro’s speed lines stay under the header', async () => {
