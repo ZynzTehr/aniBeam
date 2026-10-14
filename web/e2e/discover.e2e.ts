@@ -339,6 +339,17 @@ function knobIn({ width, rgb }: { width: number; rgb: number[] }) {
 const motionSwitch = `document.querySelector('.ab-foot input[role="switch"]')`
 const hasSwitch = () => browser.evaluate<boolean>(`Boolean(${motionSwitch})`)
 
+// A strip along the middle of the Reduce motion switch's track, where only the track's fill and
+// its knob show, for knobIn: inside the track's border (the chip's ::before, placed in the chip's
+// padding box), 6px tall and 1px in from each end, in CSS pixels from the top left of the page.
+const knobStrip = `((chip) => {
+  const style = getComputedStyle(chip), track = getComputedStyle(chip, '::before')
+  const r = chip.getBoundingClientRect(), px = parseFloat
+  const left = r.left + scrollX + px(style.borderLeftWidth) + px(track.left) + px(track.marginLeft) + px(track.borderLeftWidth)
+  const middle = r.top + scrollY + px(style.borderTopWidth) + px(track.top) + px(track.marginTop) + px(track.height) / 2
+  return { x: Math.round(left) + 1, y: Math.round(middle) - 3, width: Math.round(px(track.width) - 2 * px(track.borderLeftWidth)) - 2, height: 6 }
+})(${motionSwitch}.nextElementSibling)`
+
 /**
  * Brings keyboard focus to the Reduce motion switch as a keyboard user arrives, so it shows its
  * ring (:focus-visible): Shift+Tab out of it, then Tab back in.
@@ -390,8 +401,9 @@ async function switchDescription(): Promise<string | null> {
  * that says why it is locked, if one shows, and the description a screen reader reads out with
  * the switch (see switchDescription); its chip's fill, border, shadow and lift; the site's
  * setting on <html> and the choice saved for later visits; the brand-hot pixels within 10px of
- * the chip, its focus ring; and the transitions its knob (the chip's ::after) ran since the last
- * time this was asked.
+ * the chip, its focus ring; its knob as the screen shows it (see knobStrip and knobIn): the side
+ * it is on if it stands out from its track at 3:1 or better, or else the contrast it shows; and
+ * the transitions its knob (the chip's ::after) ran since the last time this was asked.
  */
 async function readSwitch() {
   const state = await browser.evaluate<{
@@ -404,6 +416,7 @@ async function readSwitch() {
     saved: string | null
     slid: string[]
     around: { x: number; y: number; width: number; height: number }
+    track: { x: number; y: number; width: number; height: number }
   }>(`(async () => {
     const input = ${motionSwitch}, chip = input.nextElementSibling
     if (!window.__slid) {
@@ -427,12 +440,19 @@ async function readSwitch() {
       saved: localStorage.getItem('anibeam:motion'),
       slid: window.__slid.splice(0),
       around: { x, y, width: Math.ceil(r.right + scrollX) + 10 - x, height: Math.ceil(r.bottom + scrollY) + 10 - y },
+      track: ${knobStrip},
     }
   })()`)
   const hot = hotPixels(await screenPixels(state.around))
+  // knobIn names a side even for a knob too faint to see, so then only its contrast is given.
+  const knob = knobIn(await screenPixels(state.track))
   return {
     ...state,
     ring: hot >= 1000 ? 'brand hot' : `${hot} brand-hot pixels`,
+    knob:
+      knob.contrast >= 3
+        ? `on the ${knob.side} at 3:1 or better`
+        : `at ${knob.contrast}:1 against its track`,
     description: await switchDescription(),
   }
 }
@@ -2053,10 +2073,13 @@ describe('desktop (1440x900)', () => {
     // brand hot, as on the decade chips: the vibe chips' white ring, made for the pull machine's
     // pink, would vanish on paper. The ring is counted in brand-hot pixels around the chip: about
     // 1,800 for a whole one, and 0 for none. Its knob slides as it turns off, with motion allowed
-    // again, but not as it turns on: the setting it turns on stops that slide too. The line that
-    // says why the switch is locked is for a locked switch alone (see the reduced motion group):
-    // here no such line shows, and a screen reader hears no description, as it would from a line
-    // hidden from sight but still tied to the switch by aria-describedby.
+    // again, but not as it turns on: the setting it turns on stops that slide too. The knob's side
+    // says the state without color, on the left while off and on the right while on, so the knob
+    // must stand out from its track at 3:1 or better as the screen shows it: a pale knob on the
+    // white track would leave off and on told apart by their fills alone. The line that says why
+    // the switch is locked is for a locked switch alone (see the reduced motion group): here no
+    // such line shows, and a screen reader hears no description, as it would from a line hidden
+    // from sight but still tied to the switch by aria-describedby.
     const place = await browser.evaluate<{ name: string; height: number; above: boolean } | null>(
       `(() => {
         const input = ${motionSwitch}
@@ -2083,17 +2106,17 @@ describe('desktop (1440x900)', () => {
     await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
     // Each step in a few words: on or off, focused from the keyboard or not, its ring, the line
     // that says why it is locked and its description (null for none), data-motion on <html>, the
-    // saved choice, and whether its knob slid.
+    // saved choice, whether its knob slid, and where it shows (see readSwitch).
     const said = steps.map(
       (s) =>
-        `${s.checked ? 'on' : 'off'}, ${s.focused ? 'focused' : 'not focused'}, ring ${s.ring}, line ${JSON.stringify(s.why)}, description ${JSON.stringify(s.description)}, data-motion ${s.motion}, saved ${s.saved}, knob ${s.slid.includes('transform') ? 'slid' : 'still'}`,
+        `${s.checked ? 'on' : 'off'}, ${s.focused ? 'focused' : 'not focused'}, ring ${s.ring}, line ${JSON.stringify(s.why)}, description ${JSON.stringify(s.description)}, data-motion ${s.motion}, saved ${s.saved}, knob ${s.slid.includes('transform') ? 'slid' : 'still'}, ${s.knob}`,
     )
     assert.deepEqual(
       said,
       [
-        'off, focused, ring brand hot, line null, description null, data-motion null, saved null, knob still',
-        'on, focused, ring brand hot, line null, description null, data-motion reduce, saved reduce, knob still',
-        'off, focused, ring brand hot, line null, description null, data-motion null, saved null, knob slid',
+        'off, focused, ring brand hot, line null, description null, data-motion null, saved null, knob still, on the left at 3:1 or better',
+        'on, focused, ring brand hot, line null, description null, data-motion reduce, saved reduce, knob still, on the right at 3:1 or better',
+        'off, focused, ring brand hot, line null, description null, data-motion null, saved null, knob slid, on the left at 3:1 or better',
       ],
       'the switch as Tab reached it, then after Space, and after Space again',
     )
@@ -3075,9 +3098,8 @@ describe('Windows contrast themes (forced colors)', () => {
       })
     // The switch two frames after a change, scrolled to the middle of the screen: its chip's
     // colors and border, whether it is locked, and the theme's disabled color; then, as the screen
-    // shows them, its label's contrast and its knob in a strip along the middle of its track,
-    // inside the track's border (the chip's ::before, placed in the chip's padding box), 6px tall
-    // and 1px in from each end, where only the track's fill and the knob show.
+    // shows them, its label's contrast and its knob in a strip along the middle of its track (see
+    // knobStrip).
     const read = async () => {
       const shown = await browser.evaluate<{
         locked: boolean
@@ -3095,10 +3117,7 @@ describe('Windows contrast themes (forced colors)', () => {
         probe.style.color = 'GrayText'
         const gray = getComputedStyle(probe).color
         probe.remove()
-        const style = getComputedStyle(chip), track = getComputedStyle(chip, '::before')
-        const r = chip.getBoundingClientRect(), px = parseFloat
-        const left = r.left + scrollX + px(style.borderLeftWidth) + px(track.left) + px(track.marginLeft) + px(track.borderLeftWidth)
-        const middle = r.top + scrollY + px(style.borderTopWidth) + px(track.top) + px(track.marginTop) + px(track.height) / 2
+        const style = getComputedStyle(chip)
         const range = document.createRange()
         range.selectNodeContents(chip)
         const t = range.getBoundingClientRect()
@@ -3110,7 +3129,7 @@ describe('Windows contrast themes (forced colors)', () => {
           text: style.color,
           gray,
           label: { x, y, width: Math.floor(t.right + scrollX) - x, height: Math.floor(t.bottom + scrollY) - y },
-          track: { x: Math.round(left) + 1, y: Math.round(middle) - 3, width: Math.round(px(track.width) - 2 * px(track.borderLeftWidth)) - 2, height: 6 },
+          track: ${knobStrip},
         }
       })()`)
       const knob = knobIn(await screenPixels(shown.track))
