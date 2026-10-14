@@ -56,17 +56,31 @@ test('the check sees the stylesheet and its motion gates', () => {
   assert.ok(css.length > 10_000 && calm.length < css.length)
 })
 
+// The properties that move a box or change its size: transform, and translate, rotate and scale,
+// each of which does one of its jobs on its own; any width or height, such as max-width or
+// border-width, and their logical names, inline-size and block-size; the box's place, set by top,
+// right, bottom, left and inset; and its margins, which push it and the boxes beside it. all is
+// every property. Longhands and prefixed names count too, such as margin-left,
+// inset-inline-start, transform-origin and -webkit-transform; border-left-color, a color, doesn't.
+const MOVING =
+  /^(-\w+-)?(all|transform(-[\w-]+)?|translate|rotate|scale|([\w-]+-)?(width|height)|((min|max)-)?(inline|block)-size|top|right|bottom|left|(inset|margin)(-[\w-]+)?)$/
+
 test('outside the motion gate, no transition moves or resizes anything', () => {
   const moving = [...calm.matchAll(/transition(?:-property)?\s*:([^;}]*)/g)]
     .map((match) => match[1].replace(/\s+/g, ' ').trim())
-    .filter((value) => /transform|\bwidth\b|\ball\b/.test(value))
+    .filter((value) => value.match(/[\w-]+/g)?.some((word) => MOVING.test(word)))
   assert.deepEqual(moving, [])
 })
 
 test('outside the motion gate, hovering or pressing never moves anything', () => {
-  const moves = [...calm.matchAll(/([^{}]*:(?:hover|active)[^{}]*)\{([^{}]*)\}/g)]
-    .filter((match) => /\btransform\s*:/.test(match[2]))
-    .map((match) => match[1].replace(/\s+/g, ' ').trim())
+  const moves = [...calm.matchAll(/([^{}]*:(?:hover|active)[^{}]*)\{([^{}]*)\}/g)].flatMap(
+    ([, selector, body]) =>
+      body
+        .split(';')
+        .map((declaration) => declaration.replace(/\s+/g, ' ').trim())
+        .filter((declaration) => MOVING.test(declaration.split(':')[0].trim()))
+        .map((declaration) => `${selector.replace(/\s+/g, ' ').trim()} { ${declaration} }`),
+  )
   assert.deepEqual(moves, [])
 })
 
