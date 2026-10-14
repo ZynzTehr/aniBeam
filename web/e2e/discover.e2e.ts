@@ -2339,12 +2339,14 @@ describe('desktop (1440x900)', () => {
     )
   })
 
-  test('the intro is drawn where it stays from its first frame, under a header of one row or two', async () => {
-    // As on a phone (see the phone check of the same name). From 820 to about 1000px the header
-    // takes two rows, 134px, and sized by the 80px fallback the intro's first frame was 27px off;
-    // at 1440px it takes one row, 78px. The page stays loaded at the last width, 860px.
+  test('the intro is drawn where it stays from its first frame, whatever the header’s height', async () => {
+    // As on a phone (see the phone check "the intro is drawn where it stays, from its first
+    // frame"). The header is one 78px row from 900px up, two rows (134px) from about 700 to
+    // 899px, and 180px at about 540 to 600px. These widths take each of those heights, and 960px
+    // lies where a height guessed by breakpoint, rather than measured, went wrong. Sized by the
+    // 80px fallback, the first frame at 860px was 27px off. The page stays loaded at 600px.
     const moved: string[] = []
-    for (const width of [1440, 860])
+    for (const width of [1440, 960, 860, 600])
       for (const part of await introMovesOnLoad({ width, height: 900 }))
         moved.push(`${width}px: ${part}`)
     assert.deepEqual(moved, [], 'parts of the intro that moved after they were drawn')
@@ -3582,11 +3584,16 @@ describe('phone (390x844)', () => {
     // input (which web-vitals would skip), though no key or click was sent; a plain window of the
     // same size reports the same shifts without the mark, as a visitor's would. So every one
     // counts (see introMovesOnLoad).
-    assert.deepEqual(
-      await introMovesOnLoad({ width: 390, height: 844, phone: true }),
-      [],
-      'parts of the intro that moved after they were drawn',
-    )
+    // A tablet in portrait takes two rows, 134px, on a taller screen. The phone comes last, so
+    // the checks after this one see the page their group loaded.
+    const moved: string[] = []
+    for (const [width, height] of [
+      [768, 1024],
+      [390, 844],
+    ])
+      for (const part of await introMovesOnLoad({ width, height, phone: true }))
+        moved.push(`${width}x${height}: ${part}`)
+    assert.deepEqual(moved, [], 'parts of the intro that moved after they were drawn')
   })
 
   test('the intro’s speed lines stay under the header', async () => {
