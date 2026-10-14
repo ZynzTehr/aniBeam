@@ -2474,6 +2474,46 @@ const closed400msOn = `(async () => {
   return { card: document.querySelector('dialog.ab-card') ? 'still on the page' : 'gone', focus: ${focusPlace} }
 })()`
 
+/**
+ * From now on, notes how soon the open title card stops showing (its dialog closed, or the card
+ * gone from the page) after the next request to close it: a click or keydown, heard first, on
+ * window. window.__secondRequest gives 'before the next frame' if no frame was drawn in between,
+ * else how many were and how long that took, by the page's clock, or 'still open 400 ms on'. It
+ * counts frames, not ms: a slow machine stretches the time the request itself takes, but no frame
+ * can come between the request and a close it makes at once.
+ */
+const watchSecondRequest = `(() => {
+  const card = document.querySelector('dialog.ab-card')
+  const showing = () => card?.open && card.isConnected
+  window.__secondRequest = new Promise((resolve) => {
+    if (!showing()) return resolve('closed before the request')
+    let at
+    let frames = 0
+    const heard = () => {
+      for (const type of ['click', 'keydown']) removeEventListener(type, heard, true)
+      at = performance.now()
+      requestAnimationFrame(function frame() {
+        if (!showing()) return
+        frames++
+        if (performance.now() - at < 400) requestAnimationFrame(frame)
+        else resolve('still open 400 ms on')
+      })
+    }
+    for (const type of ['click', 'keydown']) addEventListener(type, heard, true)
+    const watch = new MutationObserver(() => {
+      if (showing()) return
+      watch.disconnect()
+      if (at === undefined) return resolve('closed before the request')
+      const ms = Math.round(performance.now() - at)
+      resolve(frames === 0 ? 'before the next frame' : 'after ' + frames + (frames === 1 ? ' frame' : ' frames') + ', ' + ms + ' ms')
+    })
+    watch.observe(card, { attributes: true, attributeFilter: ['open'] })
+    watch.observe(card.parentElement, { childList: true })
+    setTimeout(() => resolve('no request heard in 5 s'), 5000)
+  })
+  return true
+})()`
+
 /** Waits until the open title card shows in full: its fade done, and the images on screen drawn. */
 async function cardInFull() {
   await browser.animationsDone()
@@ -2505,7 +2545,7 @@ async function closeCardLeft() {
     document.querySelector('dialog.ab-card')?.close()
     document.activeElement?.blur()
     scrollTo(0, 0)
-    for (const name of ['__closing', '__closingStarted', '__closingAt', '__opener', '__lastScreen']) delete window[name]
+    for (const name of ['__closing', '__closingStarted', '__closingAt', '__secondRequest', '__opener', '__lastScreen']) delete window[name]
     return true
   })()`)
   await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
@@ -2846,6 +2886,71 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     } finally {
       await closeCardLeft()
     }
+  })
+
+  test('a second request to close a title card as it fades out, with Esc or its button, closes it at once, with focus back on its panel', async () => {
+    // Asked to close again while it fades out, the card must close at once, as TitleCard says, not
+    // wait for the fade to end. The page hears the button and Esc in different places, so each
+    // comes second once: the button after Esc, then Esc after the button. Not Esc twice: the
+    // browser lets the page hold the card on Esc once for each thing the visitor does, such as a
+    // click, so a second Esc in a row closes it whatever the page does. The card is opened with the
+    // mouse, so that the page may hold it on the first Esc, and the fade is held as it starts, so
+    // that the second request comes mid-fade however slow the machine, and only that request can
+    // close the card. No frame may then be drawn before the dialog closes; the card must leave the
+    // page, and the focus go back to its panel, as for a single request. A request that waited for
+    // the fade would leave the held card open for good; with the fade playing, the card closed
+    // 7-10 frames (130-190 ms) after the request.
+    const request = {
+      Esc: () => browser.press('Escape'),
+      'the button': () => clickMiddle(`document.querySelector('dialog.ab-card .ab-close')`),
+    }
+    const seen: Record<string, object> = {}
+    for (const [first, second] of [
+      ['Esc', 'the button'],
+      ['the button', 'Esc'],
+    ] as const) {
+      try {
+        await browser.evaluate(`(async () => {
+          window.__opener = document.querySelector('.ab-grid .ab-link')
+          window.__opener.scrollIntoView({ block: 'center' })
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+          return true
+        })()`)
+        await clickMiddle('window.__opener')
+        assert.ok(
+          await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+          'the title card did not open',
+        )
+        await cardInFull()
+        await browser.evaluate(watchClosing(true))
+        await request[first]()
+        const started = await browser.evaluate<string[] | null>('window.__closingStarted')
+        await browser.evaluate(watchSecondRequest)
+        await request[second]()
+        const closed = await browser.evaluate<string>('window.__secondRequest')
+        const gone = await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000)
+        const focus = await browser.evaluate<string>(focusPlace)
+        seen[`${first}, then ${second}`] = {
+          started,
+          closed,
+          card: gone ? 'gone' : 'still on the page',
+          focus,
+        }
+      } finally {
+        await closeCardLeft()
+      }
+    }
+    const atOnce = {
+      started: ['the card: opacity, in 150 ms or less, once'],
+      closed: 'before the next frame',
+      card: 'gone',
+      focus: 'back on its panel',
+    }
+    assert.deepEqual(
+      seen,
+      { 'Esc, then the button': atOnce, 'the button, then Esc': atOnce },
+      'a second request to close the title card as it faded out, each way round: the animations the first request started (held as they started), how soon the dialog closed after the second, whether the card left the page, and where the focus went',
+    )
   })
 
   test('with every animation turned off by a stylesheet of the visitor’s own, Esc still closes a title card, with focus back on its panel', async () => {
