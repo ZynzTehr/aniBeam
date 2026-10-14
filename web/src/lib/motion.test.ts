@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import {
   deviceReducesMotion,
+  finishEntrances,
   reducedMotion,
   savedMotionChoice,
   saveMotionChoice,
@@ -32,13 +33,15 @@ function fakeStorage(room = Infinity) {
 /**
  * A page for lib/motion.ts to ask, on globalThis until the test ends, as Node has none: <html>,
  * whose data-motion is `dataset.motion`; a device that asks for reduced motion while `deviceAsks`
- * is true; and localStorage, which is what `storage()` returns, or throws. In a browser, window is
- * globalThis, so each can be read through window too. `changeDevice()` changes the device's
- * setting as a visitor would while the page is open: each media query list that matchMedia gave
- * out whose answer changes then calls its own change listeners, as a browser's does.
+ * is true; localStorage, which is what `storage()` returns, or throws; and the page's animations,
+ * which document.getAnimations() gives as `animations`, with its own clock, document.timeline, as
+ * `clock`. A CSS animation is a CSSAnimation, as in a browser. In a browser, window is globalThis,
+ * so each can be read through window too. `changeDevice()` changes the device's setting as a
+ * visitor would while the page is open: each media query list that matchMedia gave out whose
+ * answer changes then calls its own change listeners, as a browser's does.
  */
 function fakePage(t: TestContext) {
-  const before = ['window', 'document', 'matchMedia', 'localStorage'].map(
+  const before = ['window', 'document', 'matchMedia', 'localStorage', 'CSSAnimation'].map(
     (name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)] as const,
   )
   t.after(() => {
@@ -54,6 +57,8 @@ function fakePage(t: TestContext) {
     dataset: {} as DOMStringMap,
     deviceAsks: false,
     storage: (): StorageLike => storage,
+    animations: [] as object[],
+    clock: {},
     changeDevice(asks: boolean) {
       const before = answers()
       page.deviceAsks = asks
@@ -74,7 +79,15 @@ function fakePage(t: TestContext) {
   Object.defineProperty(globalThis, 'window', { configurable: true, value: globalThis })
   Object.defineProperty(globalThis, 'document', {
     configurable: true,
-    value: { documentElement: { dataset: page.dataset } },
+    value: {
+      documentElement: { dataset: page.dataset },
+      timeline: page.clock,
+      getAnimations: () => page.animations,
+    },
+  })
+  Object.defineProperty(globalThis, 'CSSAnimation', {
+    configurable: true,
+    value: class CSSAnimation {},
   })
   Object.defineProperty(globalThis, 'matchMedia', {
     configurable: true,
@@ -143,6 +156,40 @@ test('the device’s setting can be read and followed apart from the site’s, u
     { before, heard },
     { before: false, heard: [true, false] },
     'with the site set to reduce motion, what the device’s setting read first, then as it changed twice while watched and once more after',
+  )
+})
+
+test('finishEntrances() finishes the CSS animations on the page’s own clock, and leaves the rest to run', (t) => {
+  // Turning motion back on starts the animations in the motion gates over on what is already on
+  // the page, and those on the page's clock must finish at once. The splash cover's drift runs on
+  // the scroll, and once finished it falls out of step with it. Transitions run on, as the switch's
+  // knob slides off. An endless animation has no end to finish at: a browser's finish() throws.
+  const page = fakePage(t)
+  const finished: string[] = []
+  const animation = (name: string, { css = true, timeline = page.clock, endTime = 600 } = {}) =>
+    Object.assign(css ? new CSSAnimation() : {}, {
+      timeline,
+      effect: { getComputedTiming: () => ({ endTime }) },
+      finish: () => {
+        if (endTime === Infinity)
+          throw new DOMException(
+            'Cannot finish Animation with an infinite target effect end.',
+            'InvalidStateError',
+          )
+        finished.push(name)
+      },
+    })
+  page.animations = [
+    animation('an entrance'),
+    animation('the splash cover’s drift', { timeline: {} }),
+    animation('the knob’s slide (a transition)', { css: false }),
+    animation('an endless spin', { endTime: Infinity }),
+  ]
+  assert.doesNotThrow(finishEntrances, 'finishing the animations threw')
+  assert.deepEqual(
+    finished,
+    ['an entrance'],
+    'the animations finished, of an entrance, the splash cover’s drift on the scroll, the knob’s slide and an endless spin',
   )
 })
 

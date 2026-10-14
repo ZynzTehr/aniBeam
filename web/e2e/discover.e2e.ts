@@ -2227,6 +2227,113 @@ async function capsuleHalves() {
   })()`)
 }
 
+/**
+ * Pulls with motion reduced, so the title opens at once, then turns reduced motion off with
+ * `turnOff` and reads what that starts, in a few words. Two frames after the page hears of it, by
+ * the switch's change event or the device's: whether motion is back on; each CSS animation on the
+ * page's own clock not yet finished, as "name on what, play state", with how many; and the capsule
+ * halves shown over the open title. Then whether the splash cover's drift still follows the
+ * scroll, as the desktop check reads it: still just before its panel starts to leave the screen,
+ * and drifting once half of it has. Then each animation a new pull runs on its result, and whether
+ * some frame showed it part way through, which no frame does for one finished at once. Last, how
+ * the Reduce motion switch's knob moved as motion came back on, which it has long done by then: it
+ * slid if its transition took 100ms or more to end, and jumped if it ended at once.
+ */
+async function motionBackOn(turnOff: () => Promise<unknown>) {
+  await pull()
+  await browser.evaluate(`(() => {
+    const chip = ${motionSwitch}.nextElementSibling
+    window.__knob = {}
+    for (const type of ['transitionrun', 'transitionend'])
+      chip.addEventListener(type, (event) => {
+        if (event.pseudoElement === '::after' && event.propertyName === 'transform') window.__knob[type] ??= performance.now()
+      })
+    window.__backOn = new Promise((resolve) => {
+      const read = () => {
+        const left = {}
+        for (const a of document.getAnimations())
+          if (a instanceof CSSAnimation && a.timeline === document.timeline && a.playState !== 'finished') {
+            const { target, pseudoElement } = a.effect
+            const owner = target.closest('[class]')
+            const element = (owner === target ? '.' + target.classList[0] : target.localName + ' in .' + owner?.classList[0]) + (pseudoElement ?? '')
+            const said = a.animationName + ' on ' + element + ', ' + a.playState
+            left[said] = (left[said] ?? 0) + 1
+          }
+        const reduced = document.documentElement.dataset.motion === 'reduce' || matchMedia('(prefers-reduced-motion: reduce)').matches
+        resolve({
+          motion: reduced ? 'still reduced' : 'back on',
+          replayed: Object.entries(left).map(([said, count]) => (count > 1 ? said + ' ×' + count : said)).sort(),
+          capsule: [...document.querySelectorAll('.ab-result.is-open:not([data-old]) .ab-half')].filter((half) => half.checkVisibility({ opacityProperty: true, visibilityProperty: true })).length,
+        })
+      }
+      const heard = () => requestAnimationFrame(() => requestAnimationFrame(read))
+      ${motionSwitch}.addEventListener('change', heard, { once: true })
+      matchMedia('(prefers-reduced-motion: reduce)').addEventListener('change', heard, { once: true })
+    })
+    return true
+  })()`)
+  await turnOff()
+  const now = await browser.evaluate<{ motion: string; replayed: string[]; capsule: number }>(
+    'window.__backOn',
+  )
+  const matrix = `new DOMMatrix(${splashCover})`
+  await scrollSplashOut(-0.05)
+  const aboutToLeave = (await browser.waitFor(`${matrix}.isIdentity`, 2_000))
+    ? 'still'
+    : await browser.evaluate<string>(splashCover)
+  await scrollSplashOut(0.5)
+  const halfOut = (await browser.waitFor(`${matrix}.a > 1.03 && ${matrix}.f > 10`, 2_000))
+    ? 'drifting'
+    : await browser.evaluate<string>(splashCover)
+  const nextPull = await browser.evaluate<string[]>(`(async () => {
+    document.querySelector('.ab-result')?.setAttribute('data-old', '')
+    document.querySelector('#pull').scrollIntoView()
+    const result = () => document.querySelector('.ab-result:not([data-old])')
+    const its = () => document.getAnimations().filter((a) => a instanceof CSSAnimation && result()?.contains(a.effect.target))
+    const seen = {}
+    let watching = true
+    const look = () => {
+      for (const a of its()) {
+        const { localTime, delay, activeDuration } = a.effect.getComputedTiming()
+        if (a.playState === 'running' && localTime > delay && localTime < delay + activeDuration) seen[a.animationName] = 'played'
+        else seen[a.animationName] ??= 'not seen part way'
+      }
+      if (watching) requestAnimationFrame(look)
+    }
+    requestAnimationFrame(look)
+    document.querySelector('.ab-lever').click()
+    const start = performance.now()
+    while (!(result()?.classList.contains('is-open') && its().every((a) => a.playState === 'finished')) && performance.now() - start < 6000)
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    watching = false
+    return Object.entries(seen).map(([name, how]) => name + ': ' + how).sort()
+  })()`)
+  const knob = await browser.evaluate<string>(`(({ transitionrun, transitionend }) =>
+    transitionrun === undefined ? 'never moved' : transitionend === undefined ? 'still moving' : transitionend - transitionrun >= 100 ? 'slid' : 'jumped'
+  )(window.__knob)`)
+  return { ...now, splash: { aboutToLeave, halfOut }, nextPull, knob }
+}
+
+// What motionBackOn() must read: motion back on with nothing left playing and no capsule over the
+// open title, the knob sliding off, the drift following the scroll, and a new pull playing each of
+// its animations: the capsule's drop and split, the burst, the art, the tier's boom, the text.
+const BACK_ON = {
+  motion: 'back on',
+  replayed: [],
+  capsule: 0,
+  knob: 'slid',
+  splash: { aboutToLeave: 'still', halfOut: 'drifting' },
+  nextPull: [
+    'ab-art: played',
+    'ab-burst: played',
+    'ab-drop: played',
+    'ab-rise: played',
+    'ab-split-bottom: played',
+    'ab-split-top: played',
+    'ab-tier-boom: played',
+  ],
+}
+
 describe('tablet (834x1112, iPad Pro 11" portrait) and up', () => {
   before(async () => {
     await browser.load({ width: 834, height: 1112 })
@@ -2710,6 +2817,31 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
         await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)
       }
     })
+
+  // Set on the site, the setting is turned off by the switch instead (see the saved group below).
+  if (askedOn === 'device')
+    test('as the device stops asking for reduced motion, no entrance already on the page replays, and the next pull moves in full', async () => {
+      // Motion back on, every rule in the motion gates applies again, and their animations would
+      // start over on what is already on the page: some 60 entrances, and after a pull, the
+      // capsule dropping and splitting again over the title it gave. Each must finish at once
+      // instead (see finishEntrances() in lib/motion.ts), while what arrives later plays as usual.
+      // The device stops asking with the splash cover half scrolled away, mid-drift: its drift
+      // runs on the scroll, not the clock, and must go on following it. Chrome restyles the page
+      // a frame before it tells the page, so the reading counts from when the page hears of it.
+      await browser.load({ reduceMotion: true })
+      assert.ok(await browser.titlesShown())
+      const seen = await motionBackOn(async () => {
+        await scrollSplashOut(0.5)
+        await browser.send('Emulation.setEmulatedMedia', {
+          features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+        })
+      })
+      assert.deepEqual(
+        seen,
+        BACK_ON,
+        'after a pull, as the device stopped asking: motion, each animation on the page’s clock left unfinished, the capsule halves over the open title, how the switch’s knob moved, the splash cover just before its panel leaves the screen and half out, and each animation of the next pull',
+      )
+    })
 }
 
 // The site's setting is saved while it is on (see lib/motion.ts), and main.tsx puts it back on
@@ -2795,6 +2927,28 @@ describe('reduced motion, saved on the site', () => {
           { checked: false, motion: null },
         ],
         'the next visit after a click turned the switch on, then after another click: the switch, and data-motion on <html>',
+      )
+    } finally {
+      await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)
+    }
+  })
+
+  test('turning the Reduce motion switch off replays no entrance already on the page, and the next pull moves in full', async () => {
+    // As when the device stops asking (see the reduced motion group): turned off, the switch lets
+    // every rule in the motion gates apply again, and the animations already on the page must
+    // finish at once, the capsule's included, while the knob slides off and a new pull plays. A
+    // visitor whose choice was saved pulls a title, then clicks the switch off, at the footer,
+    // where the decade row's 20 panels would pop in again. The splash drift must still follow the
+    // scroll: finished there, where its panel has long left the screen, it would never move again.
+    try {
+      await browser.load()
+      await browser.evaluate(`localStorage.setItem('anibeam:motion', 'reduce'); true`)
+      await browser.load()
+      assert.ok(await browser.titlesShown(), 'trending and decade titles never appeared')
+      assert.deepEqual(
+        await motionBackOn(clickSwitch),
+        BACK_ON,
+        'after a pull, as a click turned the switch off: motion, each animation on the page’s clock left unfinished, the capsule halves over the open title, how the switch’s knob moved, the splash cover just before its panel leaves the screen and half out, and each animation of the next pull',
       )
     } finally {
       await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)
