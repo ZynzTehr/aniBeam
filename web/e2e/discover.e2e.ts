@@ -714,7 +714,12 @@ describe('desktop (1440x900)', () => {
       trendingTop: document.querySelector('.ab-page').getBoundingClientRect().top,
       notes: [...document.querySelectorAll('.ab-note')].map((note) => note.textContent),
     })`)
-    assert.ok(state.trendingTop >= 899, `trending starts at ${state.trendingTop}px`)
+    // At the fold, not just below it: an intro sized without the header's height (--top-h) ran
+    // 78px past it.
+    assert.ok(
+      Math.abs(state.trendingTop - 900) <= 1,
+      `trending starts at ${state.trendingTop}px, not at the fold (900px)`,
+    )
     assert.deepEqual(state.notes, ['', ''])
   })
 
@@ -3528,16 +3533,26 @@ describe('phone (390x844)', () => {
   })
 
   test('the intro fills the first screen, nothing overflows, and the decade chips wrap', async () => {
+    // Once the intro's lines have risen into place (they start 20px low).
+    await browser.animationsDone()
     const phone = await browser.evaluate<{
       trendingTop: number
+      actionsBottom: number
       fits: boolean
       chipRows: number
     }>(`({
       trendingTop: document.querySelector('.ab-page').getBoundingClientRect().top,
+      actionsBottom: document.querySelector('.ab-intro-actions').getBoundingClientRect().bottom,
       fits: ${fits},
       chipRows: new Set([...document.querySelectorAll('.ab-eras .ab-chip')].map((c) => Math.round(c.getBoundingClientRect().top))).size,
     })`)
     assert.ok(phone.trendingTop >= 843, `trending starts at ${phone.trendingTop}px`)
+    // Its buttons are on the first screen too: an intro sized without the header's height
+    // (--top-h) put them 98px below it, as tall as the screen under a 230px header.
+    assert.ok(
+      phone.actionsBottom <= 844,
+      `the intro's buttons end at ${phone.actionsBottom}px, below the first screen (844px)`,
+    )
     assert.ok(phone.fits, 'the page is wider than the phone')
     assert.ok(phone.chipRows >= 2)
   })
