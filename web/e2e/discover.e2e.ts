@@ -1685,6 +1685,47 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('after a resize across 900px made far down the page, the intro still ends at the fold', async () => {
+    // The intro fills the first screen under the header, by the header's height (--top-h), and
+    // the header changes rows at 900px: one 78px row from there up, 134px below, where it
+    // scrolls away with the page. A resize made with the header scrolled far off screen must
+    // still give the intro the header's new height, by the time the window has drawn two frames.
+    // Publishing the header's bottom edge (far negative while scrolled away) instead of its
+    // height left trending at 3024px; watching only the links, which keep their size, left it
+    // 56px off; and publishing 100ms late went unseen by every other check.
+    const frames = () =>
+      browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+    const resize = (width: number) =>
+      browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 900,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+    const off: string[] = []
+    try {
+      for (const width of [899, 1440]) {
+        await browser.evaluate(`document.getElementById('pull').scrollIntoView(); true`)
+        await frames()
+        await resize(width)
+        await frames()
+        // Back at the top, measured at once: scrolling alone changes no size, so this is the
+        // height the header had published by the second frame.
+        const top = await browser.evaluate<number>(
+          `scrollTo(0, 0), document.querySelector('.ab-page').getBoundingClientRect().top`,
+        )
+        if (Math.abs(top - 900) > 1)
+          off.push(`${width}px: trending starts at ${Math.round(top)}px, not 900px`)
+      }
+    } finally {
+      await resize(1440)
+      await browser.evaluate('scrollTo(0, 0); true')
+    }
+    assert.deepEqual(off, [], 'after a resize, the intro no longer ends at the fold')
+  })
+
   test('every label on the pull machine reads at 4.5:1 or better', async () => {
     // WCAG contrast of every piece of text on the machine, text a ::before or ::after adds
     // included, so a label added later is measured too. Each is measured as the screen shows
