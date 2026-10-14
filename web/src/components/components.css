@@ -396,10 +396,27 @@ img[data-broken] {
   -webkit-line-clamp: 2;
 }
 
+/* The footer: the Reduce motion switch (see MotionSwitch), then AniList's credit. */
 .ab-foot {
+  display: grid;
+  justify-items: start;
+  gap: 16px;
   padding: 0 var(--page-x) 96px;
   font-size: 13px;
   font-weight: 700;
+}
+
+/* The switch, and while the device asks for reduced motion, the line that says so: beside it where
+   there is room, under it on a phone. */
+.ab-motion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.ab-motion-why {
+  text-wrap: pretty;
 }
 
 /* ---------- Motion (only when the visitor allows it) ----------
@@ -1739,6 +1756,65 @@ body:has(.ab-card[open]) {
   outline-color: var(--hot);
 }
 
+/* The Reduce motion switch (MotionSwitch) is a chip with a small ink track inside: its knob sits
+   on the left while off, and on the right while on, so the state shows without color. The track
+   is the chip's ::before, and the knob its ::after, drawn over it. These rules tie with the chips'
+   own, so they come after them. */
+.ab-switch span {
+  position: relative;
+  padding-right: 64px;
+  white-space: nowrap;
+}
+
+.ab-switch span::before,
+.ab-switch span::after {
+  position: absolute;
+  top: 50%;
+  content: '';
+}
+
+.ab-switch span::before {
+  right: 12px;
+  width: 40px;
+  height: 24px;
+  margin-top: -12px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+}
+
+.ab-switch span::after {
+  right: 34px;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.ab-switch input:checked + span::before {
+  background: var(--ink);
+}
+
+.ab-switch input:checked + span::after {
+  background: #fff;
+  transform: translateX(16px);
+}
+
+/* On paper a white ring would vanish, so the switch uses the brand ring, like the decades. */
+.ab-switch input:focus-visible + span {
+  outline-color: var(--hot);
+}
+
+/* Locked on, while the device asks for reduced motion: AniBeam's dashed "can't use this" border
+   (see .ab-soon), and flat, as it can't be pressed. */
+.ab-switch input[aria-disabled='true'] + span {
+  border-style: dashed;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
 .ab-results {
   min-height: calc(100svh - var(--top-h, 80px));
 }
@@ -1850,6 +1926,44 @@ body:has(.ab-card[open]) {
   }
 }
 
+/* The Reduce motion switch in a contrast theme. Its knob is a background, which the theme paints
+   in its page color, so it vanished into the track and took the switch's state with it: it takes
+   the theme's text color instead, which the theme keeps, as it keeps every system color. On, the
+   chip takes the selection colors (above), so the track fills with the selection's text color,
+   and the knob shows through in the selection color. Locked on by the device, it takes the
+   theme's disabled color on its page color, flat. These rules tie with the chips' above, so they
+   come after them. */
+@media (forced-colors: active) {
+  .ab-switch span::after {
+    background: CanvasText;
+  }
+
+  .ab-switch input:checked + span::before {
+    border-color: HighlightText;
+    background: HighlightText;
+  }
+
+  .ab-switch input:checked + span::after {
+    background: Highlight;
+  }
+
+  .ab-switch input[aria-disabled='true'] + span {
+    border-color: GrayText;
+    background: Canvas;
+    box-shadow: none;
+    color: GrayText;
+  }
+
+  .ab-switch input[aria-disabled='true'] + span::before {
+    border-color: GrayText;
+    background: GrayText;
+  }
+
+  .ab-switch input[aria-disabled='true'] + span::after {
+    background: Canvas;
+  }
+}
+
 /* ---------- Movement on hover, focus and press (only when the visitor allows motion) ----------
    Visitors who ask for reduced motion get the base styles above (spec §3J): hover, focus and
    press change color, shadow or opacity. A focused search bubble and a checked chip still sit
@@ -1898,6 +2012,11 @@ body:has(.ab-card[open]) {
 
     .ab-chip span {
       transition: transform 0.25s var(--spring);
+    }
+
+    /* The Reduce motion switch's knob slides from end to end. */
+    .ab-switch span::after {
+      transition: transform 0.2s var(--spring);
     }
 
     .ab-lever {

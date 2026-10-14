@@ -8,6 +8,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { coverFan, COVERS } from '../components/coverFan.ts'
 import { IntroHero } from '../components/IntroHero.tsx'
 import { MangaPage, PANELS } from '../components/MangaPage.tsx'
+import { MotionSwitch } from '../components/MotionSwitch.tsx'
 import { SiteHeader } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
@@ -253,7 +254,8 @@ export default function App() {
         </Strip>
       </main>
       <footer className="ab-foot">
-        Data from AniList. AniBeam is not affiliated with AniList.
+        <MotionSwitch />
+        <p>Data from AniList. AniBeam is not affiliated with AniList.</p>
       </footer>
       {opened && (
         <TitleCard

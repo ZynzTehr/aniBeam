@@ -3,7 +3,13 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test, type TestContext } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { reducedMotion, savedMotionChoice, saveMotionChoice } from './motion.ts'
+import {
+  deviceReducesMotion,
+  reducedMotion,
+  savedMotionChoice,
+  saveMotionChoice,
+  watchDeviceMotion,
+} from './motion.ts'
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
@@ -26,7 +32,9 @@ function fakeStorage(room = Infinity) {
  * A page for lib/motion.ts to ask, on globalThis until the test ends, as Node has none: <html>,
  * whose data-motion is `dataset.motion`; a device that asks for reduced motion while `deviceAsks`
  * is true; and localStorage, which is what `storage()` returns, or throws. In a browser, window is
- * globalThis, so each can be read through window too.
+ * globalThis, so each can be read through window too. `changeDevice()` changes the device's
+ * setting as a visitor would while the page is open: each media query list that matchMedia gave
+ * out whose answer changes then calls its own change listeners, as a browser's does.
  */
 function fakePage(t: TestContext) {
   const before = ['window', 'document', 'matchMedia', 'localStorage'].map(
@@ -38,10 +46,23 @@ function fakePage(t: TestContext) {
       else Reflect.deleteProperty(globalThis, name)
   })
   const storage = fakeStorage()
+  // Every media query list handed out, each with the change listeners added to it alone, and
+  // whether each was added to be called once only.
+  const lists: { query: string; listeners: Map<() => void, boolean> }[] = []
   const page = {
     dataset: {} as DOMStringMap,
     deviceAsks: false,
     storage: (): StorageLike => storage,
+    changeDevice(asks: boolean) {
+      const before = answers()
+      page.deviceAsks = asks
+      for (const { query, listeners } of lists)
+        if (answers()[query] !== before[query])
+          for (const [listener, once] of listeners) {
+            if (once) listeners.delete(listener)
+            listener()
+          }
+    },
   }
   // A browser's answer to each media query about motion. A query it can't read matches nothing.
   const answers = (): Record<string, boolean> => ({
@@ -56,7 +77,20 @@ function fakePage(t: TestContext) {
   })
   Object.defineProperty(globalThis, 'matchMedia', {
     configurable: true,
-    value: (query: string) => ({ media: query, matches: answers()[query] ?? false }),
+    value: (query: string) => {
+      const list = { query, listeners: new Map<() => void, boolean>() }
+      lists.push(list)
+      return {
+        media: query,
+        get matches() {
+          return answers()[query] ?? false
+        },
+        addEventListener: (type: string, listener: () => void, options?: { once?: boolean }) =>
+          type === 'change' && list.listeners.set(listener, Boolean(options?.once)),
+        removeEventListener: (type: string, listener: () => void) =>
+          type === 'change' && list.listeners.delete(listener),
+      }
+    },
   })
   Object.defineProperty(globalThis, 'localStorage', {
     configurable: true,
@@ -88,6 +122,27 @@ test('reducedMotion() is true when the site is set to reduce motion, or the devi
     'data-motion "", device allows motion: false',
     'data-motion "", device asks: true',
   ])
+})
+
+test('the device’s setting can be read and followed apart from the site’s, until the page stops watching', (t) => {
+  // The footer's Reduce motion switch shows the site's setting, but while the device asks for
+  // reduced motion, motion stays reduced whatever the site says, so the switch shows on and
+  // locked. It must hear the device alone, and follow it as the visitor changes it with the page
+  // open (React's useSyncExternalStore calls back to read it again), until it stops watching.
+  const page = fakePage(t)
+  page.dataset.motion = 'reduce'
+  const heard: boolean[] = []
+  const stop = watchDeviceMotion(() => heard.push(deviceReducesMotion()))
+  const before = deviceReducesMotion()
+  page.changeDevice(true)
+  page.changeDevice(false)
+  stop()
+  page.changeDevice(true)
+  assert.deepEqual(
+    { before, heard },
+    { before: false, heard: [true, false] },
+    'with the site set to reduce motion, what the device’s setting read first, then as it changed twice while watched and once more after',
+  )
 })
 
 test('a choice to reduce motion is saved for later visits, and forgotten once turned off', (t) => {
@@ -140,9 +195,10 @@ test('with storage blocked or full, saving the choice and reading it back never 
 // out of a media query's sight, so a script that asks the device itself keeps moving for a visitor
 // who turned motion off on the site, whether it calls matchMedia, hands GSAP's matchMedia() a
 // query, or writes a style with one. So only lib/motion.ts names the device's setting, and every
-// other script asks reducedMotion(). Tailwind's motion variants are media queries too, so their
-// rules ask the device alone: motion rules go in components.css, in its motion gates (see
-// components/motion.test.ts).
+// other script asks reducedMotion() there, or deviceReducesMotion() to show the device's setting
+// apart from the site's, as the Reduce motion switch does. Tailwind's motion variants are media
+// queries too, so their rules ask the device alone: motion rules go in components.css, in its
+// motion gates (see components/motion.test.ts).
 const web = fileURLToPath(new URL('../../', import.meta.url))
 
 // What the scan reads: the app's own scripts and stylesheets, everything in src but the tests,
@@ -217,7 +273,7 @@ test('the scan finds a script asking the device, and a motion variant, however e
   )
 })
 
-test('only lib/motion.ts asks the device about motion: every other script asks reducedMotion()', () => {
+test('only lib/motion.ts asks the device about motion: every other script asks lib/motion.ts', () => {
   // So that a broken reading can't pass by finding nothing, it must read the app's scripts and
   // stylesheets, and find the question in lib/motion.ts.
   for (const file of [
@@ -235,7 +291,7 @@ test('only lib/motion.ts asks the device about motion: every other script asks r
       .filter((file) => /\.tsx?$/.test(file) && file !== 'src/lib/motion.ts')
       .flatMap(asksDeviceIn),
     [],
-    'these lines ask the device about motion themselves, so the site’s own setting can’t reach them: ask reducedMotion() from lib/motion.ts instead',
+    'these lines ask the device about motion themselves, so the site’s own setting can’t reach them: ask reducedMotion() from lib/motion.ts instead (or deviceReducesMotion(), for the device’s setting alone)',
   )
 })
 

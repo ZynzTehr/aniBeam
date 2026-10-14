@@ -252,6 +252,135 @@ async function pixelContrast(clip: { x: number; y: number; width: number; height
   })()`)
 }
 
+/**
+ * The pixels of part of the page as the screen shows it, as red, green and blue for each pixel,
+ * row by row. The clip is in CSS pixels from the top left of the page, as for Browser.screenshot.
+ */
+async function screenPixels(clip: { x: number; y: number; width: number; height: number }) {
+  const png = await browser.screenshot(clip)
+  // Decoded in the page.
+  return browser.evaluate<{ width: number; rgb: number[] }>(`(async () => {
+    const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+    const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+    const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+    context.drawImage(image, 0, 0)
+    const { data } = context.getImageData(0, 0, image.width, image.height)
+    return { width: image.width, rgb: [...data].filter((_, i) => i % 4 !== 3) }
+  })()`)
+}
+
+/** How many pixels are brand hot, within 60 of #ff2d55. */
+const hotPixels = ({ rgb }: { rgb: number[] }) =>
+  rgb.filter(
+    (_, i) => i % 3 === 0 && Math.hypot(rgb[i] - 255, rgb[i + 1] - 45, rgb[i + 2] - 85) < 60,
+  ).length
+
+/**
+ * What a strip along the middle of a switch's track shows: its knob and the track's fill alone.
+ * The contrast between its dark and its light pixels, taken 5% in from each end as in
+ * pixelContrast, and the side the knob is on: each pixel goes with the end it is nearer, and the
+ * knob is the smaller group.
+ */
+function knobIn({ width, rgb }: { width: number; rgb: number[] }) {
+  const channel = (v: number) => {
+    v /= 255
+    return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4
+  }
+  const lum: number[] = []
+  for (let i = 0; i < rgb.length; i += 3)
+    lum.push(0.2126 * channel(rgb[i]) + 0.7152 * channel(rgb[i + 1]) + 0.0722 * channel(rgb[i + 2]))
+  const sorted = [...lum].sort((a, b) => a - b)
+  const dark = sorted[Math.floor(lum.length * 0.05)]
+  const light = sorted[Math.floor(lum.length * 0.95)]
+  const darker: number[] = []
+  const lighter: number[] = []
+  lum.forEach((l, i) => (l - dark < light - l ? darker : lighter).push(i % width))
+  const knob = darker.length < lighter.length ? darker : lighter
+  const middle = knob.reduce((sum, x) => sum + x, 0) / knob.length
+  return {
+    contrast: Math.round(((light + 0.05) / (dark + 0.05)) * 100) / 100,
+    side: middle < width / 2 ? 'left' : 'right',
+  }
+}
+
+// The footer's Reduce motion switch: a native checkbox with role="switch". The span after it, in
+// its label, is the chip that shows it, with the track and its knob inside.
+const motionSwitch = `document.querySelector('.ab-foot input[role="switch"]')`
+const hasSwitch = () => browser.evaluate<boolean>(`Boolean(${motionSwitch})`)
+
+/**
+ * Brings keyboard focus to the Reduce motion switch as a keyboard user arrives, so it shows its
+ * ring (:focus-visible): Shift+Tab out of it, then Tab back in.
+ */
+async function tabToSwitch() {
+  await browser.evaluate(`${motionSwitch}.focus(); true`)
+  await browser.press('Tab', true)
+  await browser.press('Tab')
+}
+
+/** Clicks the middle of the Reduce motion switch's chip with the mouse, then moves the mouse away. */
+async function clickSwitch() {
+  const at = await browser.evaluate<{ x: number; y: number }>(`(async () => {
+    const chip = ${motionSwitch}.nextElementSibling
+    chip.scrollIntoView({ block: 'center' })
+    await new Promise((resolve) => requestAnimationFrame(resolve))
+    const r = chip.getBoundingClientRect()
+    return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+  })()`)
+  await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
+  for (const type of ['mousePressed', 'mouseReleased'])
+    await browser.send('Input.dispatchMouseEvent', { type, ...at, button: 'left', clickCount: 1 })
+  await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
+}
+
+/**
+ * The Reduce motion switch as the page shows it, two frames after it is scrolled to the middle of
+ * the screen: whether it is on, locked (aria-disabled) and focused from the keyboard; the line
+ * that aria-describedby ties to it, if it shows; its chip's fill, border, shadow and lift; the
+ * site's setting on <html> and the choice saved for later visits; the brand-hot pixels within
+ * 10px of the chip, its focus ring; and the transitions its knob (the chip's ::after) ran since
+ * the last time this was asked.
+ */
+async function readSwitch() {
+  const state = await browser.evaluate<{
+    checked: boolean
+    locked: string | null
+    focused: boolean
+    why: string | null
+    look: { fill: string; border: string; shadow: string; lift: string }
+    motion: string | null
+    saved: string | null
+    slid: string[]
+    around: { x: number; y: number; width: number; height: number }
+  }>(`(async () => {
+    const input = ${motionSwitch}, chip = input.nextElementSibling
+    if (!window.__slid) {
+      window.__slid = []
+      addEventListener('transitionrun', (event) => {
+        if (event.target === chip && event.pseudoElement === '::after') window.__slid.push(event.propertyName)
+      }, true)
+    }
+    chip.scrollIntoView({ block: 'center' })
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const why = document.getElementById(input.getAttribute('aria-describedby') ?? '')
+    const style = getComputedStyle(chip), r = chip.getBoundingClientRect()
+    const x = Math.floor(r.left + scrollX) - 10, y = Math.floor(r.top + scrollY) - 10
+    return {
+      checked: input.checked,
+      locked: input.getAttribute('aria-disabled'),
+      focused: document.activeElement === input && input.matches(':focus-visible'),
+      why: why?.checkVisibility() ? why.textContent : null,
+      look: { fill: style.backgroundColor, border: style.borderTopStyle, shadow: style.boxShadow, lift: style.transform },
+      motion: document.documentElement.dataset.motion ?? null,
+      saved: localStorage.getItem('anibeam:motion'),
+      slid: window.__slid.splice(0),
+      around: { x, y, width: Math.ceil(r.right + scrollX) + 10 - x, height: Math.ceil(r.bottom + scrollY) + 10 - y },
+    }
+  })()`)
+  const hot = hotPixels(await screenPixels(state.around))
+  return { ...state, ring: hot >= 1000 ? 'brand hot' : `${hot} brand-hot pixels` }
+}
+
 before(async () => {
   browser = await Browser.open()
 })
@@ -1688,6 +1817,55 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('Space toggles the footer’s Reduce motion switch, with a brand-hot focus ring', async () => {
+    // A native checkbox with role="switch", above AniList's credit. On, it sets data-motion="reduce"
+    // on <html>, which every motion rule and script obeys, and saves the choice for later visits
+    // (see lib/motion.ts); off, it takes both away. Its target is 44px tall. Its focus ring is
+    // brand hot, as on the decade chips: the vibe chips' white ring, made for the pull machine's
+    // pink, would vanish on paper. The ring is counted in brand-hot pixels around the chip: about
+    // 1,800 for a whole one, and 0 for none. Its knob slides as it turns off, with motion allowed
+    // again, but not as it turns on: the setting it turns on stops that slide too.
+    const place = await browser.evaluate<{ name: string; height: number; above: boolean } | null>(
+      `(() => {
+        const input = ${motionSwitch}
+        if (!input) return null
+        const label = input.closest('label').getBoundingClientRect()
+        const credit = [...document.querySelectorAll('.ab-foot *')].find((el) => el.textContent.startsWith('Data from AniList'))
+        return { name: input.closest('label').textContent.trim(), height: label.height, above: Boolean(credit) && label.bottom <= credit.getBoundingClientRect().top }
+      })()`,
+    )
+    assert.ok(place, 'the footer has no Reduce motion switch (a checkbox with role="switch")')
+    assert.deepEqual(
+      { name: place.name, above: place.above },
+      { name: 'Reduce motion', above: true },
+      'the switch’s label, and whether it sits above AniList’s credit',
+    )
+    assert.ok(place.height >= 44, `the switch’s target is ${place.height}px tall`)
+    await tabToSwitch()
+    const steps = [await readSwitch()]
+    for (let press = 0; press < 2; press++) {
+      await browser.press('Space')
+      await browser.animationsDone()
+      steps.push(await readSwitch())
+    }
+    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+    // Each step in a few words: on or off, focused from the keyboard or not, its ring, the line
+    // it is described by, data-motion on <html>, the saved choice, and whether its knob slid.
+    const said = steps.map(
+      (s) =>
+        `${s.checked ? 'on' : 'off'}, ${s.focused ? 'focused' : 'not focused'}, ring ${s.ring}, line ${s.why}, data-motion ${s.motion}, saved ${s.saved}, knob ${s.slid.includes('transform') ? 'slid' : 'still'}`,
+    )
+    assert.deepEqual(
+      said,
+      [
+        'off, focused, ring brand hot, line null, data-motion null, saved null, knob still',
+        'on, focused, ring brand hot, line null, data-motion reduce, saved reduce, knob still',
+        'off, focused, ring brand hot, line null, data-motion null, saved null, knob slid',
+      ],
+      'the switch as Tab reached it, then after Space, and after Space again',
+    )
+  })
+
   test('the console stays free of errors and warnings', () => {
     assert.deepEqual(browser.problems, [])
   })
@@ -2051,6 +2229,64 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
       'opening and closing a title card moved the decade row',
     )
   })
+
+  // Only the device locks the Reduce motion switch: set on the site, the setting can be turned off
+  // again (see the desktop group).
+  if (askedOn === 'device')
+    test('the Reduce motion switch shows on and locked, says why, and stays focusable', async () => {
+      // While the device asks for reduced motion, motion stays reduced whatever the site says, so
+      // the switch shows on and locked, though the site's own setting is off: yellow, flat and
+      // dashed, with a line saying why. It stays focusable, marked aria-disabled rather than
+      // disabled, so a screen reader reaches it and hears the line, which aria-describedby ties to
+      // it. A click or Space changes nothing, not even a choice saved on an earlier visit, which
+      // holds again once the device stops asking, and the switch sends no change or input event,
+      // as for a change that never happened.
+      assert.ok(await hasSwitch(), 'the footer has no Reduce motion switch')
+      await tabToSwitch()
+      const reached = await readSwitch()
+      assert.deepEqual(
+        {
+          checked: reached.checked,
+          locked: reached.locked,
+          focused: reached.focused,
+          ring: reached.ring,
+          why: reached.why,
+          look: reached.look,
+          motion: reached.motion,
+        },
+        {
+          checked: true,
+          locked: 'true',
+          focused: true,
+          ring: 'brand hot',
+          why: 'On because your device is set to reduce motion.',
+          look: { fill: 'rgb(255, 212, 0)', border: 'dashed', shadow: 'none', lift: 'none' },
+          motion: null,
+        },
+        'the switch as Tab reached it, with the device asking and the site’s setting off: on, aria-disabled, focused from the keyboard, its ring, the line it is described by, its chip’s fill, border, shadow and lift, and data-motion on <html>',
+      )
+      try {
+        await browser.evaluate(`localStorage.setItem('anibeam:motion', 'reduce'); true`)
+        await browser.load({ reduceMotion: true })
+        await tabToSwitch()
+        await browser.evaluate(`(() => {
+          window.__changes = 0
+          for (const type of ['change', 'input']) ${motionSwitch}.addEventListener(type, () => window.__changes++)
+          return true
+        })()`)
+        await browser.press('Space')
+        await clickSwitch()
+        const { checked, motion, saved } = await readSwitch()
+        const events = await browser.evaluate<number>('window.__changes')
+        assert.deepEqual(
+          { checked, motion, saved, events },
+          { checked: true, motion: 'reduce', saved: 'reduce', events: 0 },
+          'after Space and a click on the locked switch, with a choice saved on an earlier visit: on, data-motion on <html>, the saved choice, and the change and input events it sent',
+        )
+      } finally {
+        await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)
+      }
+    })
 }
 
 // The site's setting is saved while it is on (see lib/motion.ts), and main.tsx puts it back on
@@ -2102,6 +2338,42 @@ describe('reduced motion, saved on the site', () => {
     } finally {
       await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
       // Forgotten again, so the checks after this one load with motion allowed.
+      await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)
+    }
+  })
+
+  test('the Reduce motion switch’s choice outlasts the visit, on or off', async () => {
+    // A click turns the footer's switch on and saves the choice, so the next visit starts with it:
+    // shown on, with the setting on <html> from the first frame (see the check above). Another
+    // click turns it off and forgets the choice, so the visit after that starts with motion, as a
+    // first one does. Each click flips the switch from whatever its visit showed.
+    try {
+      await browser.load()
+      assert.ok(await hasSwitch(), 'the footer has no Reduce motion switch')
+      const visits: unknown[] = []
+      for (let click = 0; click < 2; click++) {
+        const was = await browser.evaluate<boolean>(`${motionSwitch}.checked`)
+        await clickSwitch()
+        assert.ok(
+          await browser.waitFor(`${motionSwitch}.checked === ${!was}`, 5000),
+          'a click did not flip the switch',
+        )
+        await browser.load()
+        visits.push(
+          await browser.evaluate(
+            `({ checked: ${motionSwitch}?.checked ?? null, motion: document.documentElement.dataset.motion ?? null })`,
+          ),
+        )
+      }
+      assert.deepEqual(
+        visits,
+        [
+          { checked: true, motion: 'reduce' },
+          { checked: false, motion: null },
+        ],
+        'the next visit after a click turned the switch on, then after another click: the switch, and data-motion on <html>',
+      )
+    } finally {
       await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)
     }
   })
@@ -2435,6 +2707,112 @@ describe('Windows contrast themes (forced colors)', () => {
       problems,
       [],
       'chosen chips that a contrast theme hides, washes out or rings in the wrong color',
+    )
+  })
+
+  test('the Reduce motion switch shows off, on and locked apart, with its knob in view', async () => {
+    // A theme paints every background in its page color, and the switch's knob is one: it would
+    // vanish into its track, and with it the side that says on or off. Off, the knob is in the
+    // theme's text color, on the left. On, the chip takes the selection colors, as a chosen decade
+    // does, and the knob, on the right, shows in them through a track of the selection's text
+    // color. Locked on, as the device starts to ask for reduced motion, the chip takes the theme's
+    // disabled color. As the screen shows each, its knob must stand out from its track at 3:1 or
+    // better, and its label read at 4.5:1 or better.
+    const problems: string[] = []
+    const theme = (scheme: string, motion: string) =>
+      browser.send('Emulation.setEmulatedMedia', {
+        features: [
+          { name: 'prefers-reduced-motion', value: motion },
+          { name: 'forced-colors', value: 'active' },
+          { name: 'prefers-color-scheme', value: scheme },
+        ],
+      })
+    // The switch two frames after a change, scrolled to the middle of the screen: its chip's
+    // colors and border, whether it is locked, and the theme's disabled color; then, as the screen
+    // shows them, its label's contrast and its knob in a strip along the middle of its track,
+    // inside the track's border (the chip's ::before, placed in the chip's padding box), 6px tall
+    // and 1px in from each end, where only the track's fill and the knob show.
+    const read = async () => {
+      const shown = await browser.evaluate<{
+        locked: boolean
+        look: string
+        border: string
+        text: string
+        gray: string
+        label: { x: number; y: number; width: number; height: number }
+        track: { x: number; y: number; width: number; height: number }
+      }>(`(async () => {
+        const input = ${motionSwitch}, chip = input.nextElementSibling
+        chip.scrollIntoView({ block: 'center' })
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        const probe = document.body.appendChild(document.createElement('i'))
+        probe.style.color = 'GrayText'
+        const gray = getComputedStyle(probe).color
+        probe.remove()
+        const style = getComputedStyle(chip), track = getComputedStyle(chip, '::before')
+        const r = chip.getBoundingClientRect(), px = parseFloat
+        const left = r.left + scrollX + px(style.borderLeftWidth) + px(track.left) + px(track.marginLeft) + px(track.borderLeftWidth)
+        const middle = r.top + scrollY + px(style.borderTopWidth) + px(track.top) + px(track.marginTop) + px(track.height) / 2
+        const range = document.createRange()
+        range.selectNodeContents(chip)
+        const t = range.getBoundingClientRect()
+        const x = Math.ceil(t.left + scrollX), y = Math.ceil(t.top + scrollY)
+        return {
+          locked: input.getAttribute('aria-disabled') === 'true',
+          look: [style.backgroundColor, style.color, style.borderTopColor].join(' '),
+          border: style.borderTopStyle,
+          text: style.color,
+          gray,
+          label: { x, y, width: Math.floor(t.right + scrollX) - x, height: Math.floor(t.bottom + scrollY) - y },
+          track: { x: Math.round(left) + 1, y: Math.round(middle) - 3, width: Math.round(px(track.width) - 2 * px(track.borderLeftWidth)) - 2, height: 6 },
+        }
+      })()`)
+      const knob = knobIn(await screenPixels(shown.track))
+      return { ...shown, knob, label: await pixelContrast(shown.label) }
+    }
+    try {
+      assert.ok(await hasSwitch(), 'the footer has no Reduce motion switch')
+      for (const scheme of ['light', 'dark']) {
+        await theme(scheme, 'no-preference')
+        const off = await read()
+        // The device starts to ask, with the site's setting still off: locked on all the same.
+        await theme(scheme, 'reduce')
+        await browser.waitFor(`${motionSwitch}.getAttribute('aria-disabled') === 'true'`, 5000)
+        const locked = await read()
+        await theme(scheme, 'no-preference')
+        await browser.waitFor(`!${motionSwitch}.hasAttribute('aria-disabled')`, 5000)
+        await clickSwitch()
+        const on = await read()
+        await clickSwitch()
+        await browser.animationsDone()
+        if (off.locked) problems.push(`${scheme}: the switch stayed locked with motion allowed`)
+        if (off.look === on.look) problems.push(`${scheme}: on looks like off (${on.look})`)
+        if (!locked.locked) problems.push(`${scheme}: the switch did not lock as the device asked`)
+        else if (locked.text !== locked.gray || locked.border !== 'dashed')
+          problems.push(
+            `${scheme} locked: its label is ${locked.text} and its border ${locked.border}, not the theme’s disabled color ${locked.gray}, dashed`,
+          )
+        for (const [state, { knob, label }, side] of [
+          ['off', off, 'left'],
+          ['on', on, 'right'],
+          ['locked', locked, 'right'],
+        ] as const) {
+          if (knob.contrast < 3)
+            problems.push(
+              `${scheme} ${state}: its knob stands out from its track at ${knob.contrast}:1`,
+            )
+          else if (knob.side !== side)
+            problems.push(`${scheme} ${state}: its knob is on the ${knob.side}, not the ${side}`)
+          if (label < 4.5) problems.push(`${scheme} ${state}: its label reads ${label}:1`)
+        }
+      }
+    } finally {
+      await browser.evaluate(`localStorage.removeItem('anibeam:motion'); true`)
+    }
+    assert.deepEqual(
+      problems,
+      [],
+      'switch states that a contrast theme hides or shows alike, as on and off and locked on, in its light and dark palettes',
     )
   })
 })
