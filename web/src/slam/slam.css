@@ -1,0 +1,45 @@
+/* Draft PR 3 (never merged): the scroll slam's shared parts, for both engines (see parts.ts).
+   Loaded only with ?motion=native or ?motion=gsap. */
+
+/* The knobs, which the address can change (see applyKnobs). */
+:root {
+  --slam-scale: 1.14;
+  --slam-tilt: -2.5deg;
+  --slam-stagger: 90ms;
+}
+
+/* A slamming part starts bigger than its slot and would widen a phone's page. Clip, not hidden:
+   hidden makes a scroll container, and the splash panel's drift follows the nearest one. */
+.ab-page,
+.ab-strip {
+  overflow-x: clip;
+}
+
+/* Motion is allowed only here: with reduced motion asked for, by the device or the site, every
+   part shows at once, still, whatever its data-land says. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(:root:not([data-motion='reduce'])) {
+    /* Today's load-time entrances, off for the parts that land as they scroll in instead. */
+    .ab-panel[data-land]::after,
+    .ab-panel[data-land] .ab-img img,
+    .ab-panel[data-land] .ab-caption,
+    .ab-sfx[data-land] > span,
+    .ab-strip-item[data-land] > .ab-strip-panel {
+      animation: none;
+    }
+
+    /* The ink block covers a panel only while it lands. */
+    .ab-panel[data-land]:not([data-land='go'])::after {
+      content: none;
+    }
+
+    /* Not seen yet: see-through only, so nothing in the layout moves and it stays in the Tab
+       order (visibility or display would take it out). */
+    .ab-panel[data-land='wait'],
+    .ab-strip-item[data-land='wait'] > .ab-strip-panel,
+    .ab-machine[data-land='wait'],
+    .ab-sfx[data-land='wait'] > span {
+      opacity: 0;
+    }
+  }
+}
