@@ -27,9 +27,11 @@ export function SiteHeader({
     const element = header.current
     if (!element) return
     const root = document.documentElement.style
-    const observer = new ResizeObserver(() =>
-      root.setProperty('--top-h', `${element.offsetHeight}px`),
-    )
+    const publish = () => root.setProperty('--top-h', `${element.offsetHeight}px`)
+    // At once, before the first paint: the observer's first report can come a frame late, and
+    // that frame sized the intro by the CSS fallback, so on a phone the headline jumped 67px.
+    publish()
+    const observer = new ResizeObserver(publish)
     observer.observe(element)
     return () => {
       observer.disconnect()

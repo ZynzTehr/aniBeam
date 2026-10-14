@@ -3464,6 +3464,36 @@ describe('phone (390x844)', () => {
     assert.ok(phone.chipRows >= 2)
   })
 
+  test('the intro is drawn where it stays, from its first frame', async () => {
+    // The intro fills the screen under the header, so it needs the header's height, which
+    // SiteHeader publishes as --top-h. On a phone the header takes three rows, 230px. Until it
+    // was published, the intro was sized by the CSS fallback, 80px, so the first frame drew the
+    // headline 67px lower than where it then jumped: layout shifts of about 0.04, in one to
+    // three frames, on every load. Chrome reports each shift with the parts that moved, and
+    // none may be in the intro. Headless Chrome marks these shifts as just after input (which
+    // web-vitals would skip), though no key or click was sent, so every one counts here.
+    const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+      source: `window.__shifts = []
+        new PerformanceObserver((list) => window.__shifts.push(...list.getEntries())).observe({ type: 'layout-shift', buffered: true })`,
+    })
+    try {
+      await browser.load({ width: 390, height: 844, phone: true })
+      assert.ok(await browser.titlesShown())
+      await browser.animationsDone()
+      const moved = await browser.evaluate<string[]>(`(() => {
+        const intro = document.querySelector('.ab-intro')
+        return window.__shifts.flatMap((shift) =>
+          shift.sources
+            .filter((source) => source.node && intro.contains(source.node))
+            .map((source) => (source.node.className || source.node.nodeName.toLowerCase()) + ': ' + Math.round(source.previousRect.top) + ' → ' + Math.round(source.currentRect.top) + 'px'),
+        )
+      })()`)
+      assert.deepEqual(moved, [], 'parts of the intro that moved after they were drawn')
+    } finally {
+      await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+    }
+  })
+
   test('the intro’s speed lines stay under the header', async () => {
     // The intro's speed lines reach up behind the header. On a phone the header scrolls away
     // with the page instead of sticking, but it should still cover them, as it does on
