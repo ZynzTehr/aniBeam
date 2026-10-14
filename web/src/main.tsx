@@ -5,6 +5,7 @@ import './styles/index.css'
 import App from './app/App.tsx'
 import { savedMotionChoice } from './lib/motion.ts'
 import { persistOptions, queryClient } from './lib/queryClient.ts'
+import { slamEngine } from './slam/switch.ts'
 
 // Phase 2 design prototypes, opened with ?variant=A|B|C. Development only: in a production
 // build import.meta.env.DEV is false, so this branch and its files are left out entirely.
@@ -15,6 +16,11 @@ const showPrototype = new URLSearchParams(location.search).has('variant')
 // lib/motion.ts) puts data-motion="reduce" back on <html> before React draws anything. The page's
 // entrances start as soon as it is drawn, so set any later, the setting would let them play.
 if (savedMotionChoice()) document.documentElement.dataset.motion = 'reduce'
+
+// Draft PR 3 only: the scroll-slam prototype, in a chunk of its own, loaded only when the address
+// asks for an engine (see slam/switch.ts).
+const engine = slamEngine(location.search, location.hostname)
+if (engine) void import('./slam/start.ts').then(({ startSlam }) => startSlam(engine))
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
