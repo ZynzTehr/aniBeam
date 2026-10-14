@@ -622,17 +622,17 @@ async function readFocus() {
   return `${state.name}, ring ${ring}, ${state.place}; ${links}`
 }
 
-// Loads the page afresh and lists the parts of the intro that moved after they were drawn, as
-// Chrome reports them in its layout shifts from the very start of the load ("part: from → to").
+// Starts a load of the page with `go` and lists the parts of the intro that moved after they were
+// drawn, as Chrome reports them in its layout shifts from the very start ("part: from → to").
 // The intro fills the screen under the header, so it needs the header's height, which SiteHeader
 // publishes as --top-h; until it was published, the intro was sized by the CSS fallback, 80px.
-async function introMovesOnLoad(options: Parameters<Browser['load']>[0]) {
+async function introMoves(go: () => Promise<unknown>) {
   const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
     source: `window.__shifts = []
       new PerformanceObserver((list) => window.__shifts.push(...list.getEntries())).observe({ type: 'layout-shift', buffered: true })`,
   })
   try {
-    await browser.load(options)
+    await go()
     assert.ok(await browser.titlesShown())
     await browser.animationsDone()
     return await browser.evaluate<string[]>(`(() => {
@@ -647,6 +647,20 @@ async function introMovesOnLoad(options: Parameters<Browser['load']>[0]) {
     await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
   }
 }
+const introMovesOnLoad = (options: Parameters<Browser['load']>[0]) =>
+  introMoves(() => browser.load(options))
+// The same for a reload of the page as it is. Browser.load navigates, which the page counts as
+// a new visit, never as a reload, so this reloads the way the browser's button does.
+const introMovesOnReload = () =>
+  introMoves(async () => {
+    await browser.evaluate('window.__beforeReload = true; true')
+    await browser.send('Page.reload')
+    await browser.waitFor(
+      `!window.__beforeReload && document.readyState === 'complete' && document.querySelector('#main')`,
+      30_000,
+    )
+    await browser.evaluate('document.fonts.ready.then(() => true)')
+  })
 
 before(async () => {
   browser = await Browser.open()
@@ -2434,6 +2448,8 @@ describe('desktop (1440x900)', () => {
     for (const width of [1440, 960, 860, 600])
       for (const part of await introMovesOnLoad({ width, height: 900 }))
         moved.push(`${width}px: ${part}`)
+    // And once reloaded, as a visitor's browser button does.
+    for (const part of await introMovesOnReload()) moved.push(`600px, reloaded: ${part}`)
     assert.deepEqual(moved, [], 'parts of the intro that moved after they were drawn')
   })
 
@@ -3678,6 +3694,8 @@ describe('phone (390x844)', () => {
     ])
       for (const part of await introMovesOnLoad({ width, height, phone: true }))
         moved.push(`${width}x${height}: ${part}`)
+    // And once reloaded, as a visitor's browser button does.
+    for (const part of await introMovesOnReload()) moved.push(`390x844, reloaded: ${part}`)
     assert.deepEqual(moved, [], 'parts of the intro that moved after they were drawn')
   })
 
