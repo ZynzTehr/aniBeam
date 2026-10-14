@@ -502,6 +502,60 @@ async function readWhyLine() {
 }
 
 /**
+ * The Reduce motion switch on a phone `width`px wide, two frames after it is scrolled to the
+ * middle of the screen, each part in a few words: whether its target (the label, which its chip
+ * fills) shows, 44px tall or more, inside the page's side margins (the footer's padding); where
+ * the line that says why it is locked sits, if one shows (see whyLine), or else null: under the
+ * chip or not, and inside those margins or past them; and whether the page is any wider than the
+ * phone. Phone emulation widens the layout to fit anything too wide, so the page is measured
+ * against the phone's width, not innerWidth.
+ */
+async function readSwitchOnPhone(width: number) {
+  const seen = await browser.evaluate<{
+    shown: boolean
+    height: number
+    past: number
+    line: { under: boolean; past: number } | null
+    wide: number
+  }>(`(async () => {
+    const target = ${motionSwitch}.closest('label')
+    target.scrollIntoView({ block: 'center' })
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const foot = document.querySelector('.ab-foot'), f = foot.getBoundingClientRect(), style = getComputedStyle(foot)
+    const left = f.left + parseFloat(style.paddingLeft), right = f.right - parseFloat(style.paddingRight)
+    // How far a box reaches past the margins, on either side: 0 if it stays inside them.
+    const past = (r) => Math.max(0, left - r.left, r.right - right)
+    const t = target.getBoundingClientRect(), why = ${whyLine}
+    let line = null
+    if (why) {
+      // The text's own boxes, one per row: text that can't wrap may run past the line's box.
+      const text = document.createRange()
+      text.selectNodeContents(why)
+      line = { under: why.getBoundingClientRect().top >= t.bottom, past: Math.max(0, ...[...text.getClientRects()].map(past)) }
+    }
+    return {
+      shown: target.checkVisibility({ opacityProperty: true, visibilityProperty: true }),
+      height: t.height,
+      past: past(t),
+      line,
+      wide: Math.max(innerWidth, document.documentElement.scrollWidth),
+    }
+  })()`)
+  const inside = (past: number) =>
+    past <= 0.5
+      ? 'inside the page’s side margins'
+      : `${Math.ceil(past)}px past the page’s side margins`
+  return {
+    target: seen.shown
+      ? `shown, ${seen.height >= 44 ? '44px tall or more' : `${Math.round(seen.height)}px tall`}, ${inside(seen.past)}`
+      : 'not shown',
+    line:
+      seen.line && `${seen.line.under ? 'under' : 'not under'} the chip, ${inside(seen.line.past)}`,
+    page: seen.wide <= width ? 'no wider than the phone' : `${seen.wide}px wide`,
+  }
+}
+
+/**
  * Leaves the keyboard at the top of the page, as a fresh load does: nothing focused, and the next
  * Tab goes to the first link on the page. Blurring isn't enough: Chrome's next Tab goes on from
  * the element that had focus, or from where the last link jumped to. So a stand-in put before
@@ -2952,6 +3006,8 @@ describe('phone (390x844)', () => {
     // once. Here the header scrolls away with the page. No request is sent.
     assertPlaceKept(await lateFirstAnswer('patlabor'))
   })
+
+  switchOnPhoneChecks(390)
 })
 
 describe('small phone (320x568, also a desktop window at 400% zoom)', () => {
@@ -2991,7 +3047,95 @@ describe('small phone (320x568, also a desktop window at 400% zoom)', () => {
   test('tabbing along the decade strip, both ways, keeps each focused panel in view, with its whole ring', async () => {
     assertStripInView(await tabThroughStrip())
   })
+
+  switchOnPhoneChecks(320)
 })
+
+// The footer's Reduce motion switch on a phone `width`px wide, at the end of each phone group.
+// Its other checks run at 1440x900, where the footer has room to spare.
+function switchOnPhoneChecks(width: number) {
+  test('the Reduce motion switch shows in full with a 44px target, and its skip link focuses it in view', async () => {
+    // On a phone the footer is at its narrowest, and the switch must still show in full: its
+    // target 44px tall or more, inside the page's side margins, with nothing pushed past the
+    // screen's edge. A keyboard reaches it here too, from a phone with a keyboard or a desktop
+    // window zoomed to 400%, which lays the page out as the small phone: as on desktop, the
+    // second Tab from the top reaches "Skip to Reduce motion", and its Enter must focus the
+    // switch in view, with its brand-hot ring. A switch hidden on phones would leave that link
+    // leading nowhere. No line says why it is locked: the device allows motion.
+    assert.ok(await hasSwitch(), 'the footer has no Reduce motion switch')
+    // What the checks above left settles first: a search cleared at the end of one gives way to
+    // the intro 300 ms later, and the intro's lines rise in again.
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-intro')`, 5000),
+      'the intro never came back',
+    )
+    await browser.animationsDone()
+    const shown = await readSwitchOnPhone(width)
+    await fromTheTop()
+    const tabs: string[] = []
+    for (let press = 0; press < 2; press++) {
+      await browser.press('Tab')
+      tabs.push(await readFocus())
+    }
+    assert.deepEqual(
+      tabs,
+      [
+        'Skip to content, ring brand hot, in view; skip links on screen: Skip to content',
+        'Skip to Reduce motion, ring brand hot, in view; skip links on screen: Skip to Reduce motion',
+      ],
+      'what the first and the second Tab from the top of the page focused',
+    )
+    // Enter only once the link has focus: on the logo, say, it would leave the page.
+    await browser.press('Enter')
+    const jumped = await readFocus()
+    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+    assert.deepEqual(
+      { ...shown, jumped },
+      {
+        target: 'shown, 44px tall or more, inside the page’s side margins',
+        line: null,
+        page: 'no wider than the phone',
+        jumped:
+          'the Reduce motion switch (off), ring brand hot, in view; skip links on screen: none',
+      },
+      'the switch’s target, the line that says why it is locked, the page’s width, and what Enter on “Skip to Reduce motion” focused',
+    )
+  })
+
+  test('locked on as the device asks, the Reduce motion switch’s line wraps under it, inside the page’s margins', async () => {
+    // While the device asks for reduced motion, the line that says why the switch is locked shows
+    // beside it where there is room, and under it on a phone. Here it must sit under the chip,
+    // with its text wrapping inside the page's side margins: kept to one row, it would run 15px
+    // into the small phone's right margin, to within 2px of the screen's edge. The switch must
+    // still show in full, and the page be no wider than the phone. The device starts to ask
+    // mid-visit, as in the contrast-theme check, and allows motion again once the switch is read.
+    assert.ok(await hasSwitch(), 'the footer has no Reduce motion switch')
+    try {
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+      })
+      assert.ok(
+        await browser.waitFor(`${motionSwitch}.getAttribute('aria-disabled') === 'true'`, 5000),
+        'the switch did not lock as the device asked',
+      )
+      assert.deepEqual(
+        await readSwitchOnPhone(width),
+        {
+          target: 'shown, 44px tall or more, inside the page’s side margins',
+          line: 'under the chip, inside the page’s side margins',
+          page: 'no wider than the phone',
+        },
+        'the locked switch’s target, the line that says why it is locked, and the page’s width',
+      )
+    } finally {
+      // The device allows motion again, as load() set it.
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+      })
+      await browser.waitFor(`!${motionSwitch}.hasAttribute('aria-disabled')`, 5000)
+    }
+  })
+}
 
 describe('Windows contrast themes (forced colors)', () => {
   // A contrast theme replaces the page's colors with a few the visitor picked (forced colors).
