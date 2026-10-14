@@ -1565,13 +1565,21 @@ describe('desktop (1440x900)', () => {
     // focused Trending heading, focus ring included, under the header, and 38 to 42px of the
     // Pull section. Without the spacing every target must still land at 96px, as it always
     // has, and below 900px too, where the header scrolls away with the page.
-    const resize = (width: number) =>
-      browser.send('Emulation.setDeviceMetricsOverride', {
+    // A resized window draws a frame before anyone can press a key, and only then does the
+    // header's new height reach the page (SiteHeader's ResizeObserver sets --top-h). So each
+    // resize waits two frames. Without them, on a fast machine, Enter came first at 899px: the
+    // page jumped by the 78px row's height, and the heading then moved up to 40px.
+    const resize = async (width: number) => {
+      await browser.send('Emulation.setDeviceMetricsOverride', {
         width,
         height: 900,
         deviceScaleFactor: 1,
         mobile: false,
       })
+      await browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+    }
     const links = [
       ['#ab-trending', 'the Trending heading'],
       ['#pull', 'the Pull section'],
