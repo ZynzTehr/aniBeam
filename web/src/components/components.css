@@ -1080,6 +1080,22 @@ body:has(.ab-card[open]) {
   }
 }
 
+/* And it fades out as it closes, the same way: gone at once, it changed most of the screen in a
+   single frame too. TitleCard holds the dialog open while the fade plays, and closes it as the
+   fade ends, only with reduced motion: with motion allowed, the card goes at once, as it always
+   has. [open] ranks this rule above the motion block's animation: none, so a device that stops
+   asking for reduced motion mid-fade can't cut the fade short and leave the card open:
+   finishEntrances() in lib/motion.ts finishes it instead, and the card closes. */
+.ab-card[open].is-closing {
+  animation: ab-fade-out 0.15s linear forwards;
+}
+
+@keyframes ab-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
 /* The page dims behind the wipe as it grows from the panel, so the dim is in the motion block too.
    The fade brings the card in over the page as it is: a dim landing at once would darken the
    whole screen in the fade's first frame. */

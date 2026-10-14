@@ -97,9 +97,9 @@ test('outside the motion gate, hovering or pressing never moves anything', () =>
   assert.deepEqual(moves, [])
 })
 
-// Spec §3J: with reduced motion, the title card comes in with a 150 ms cross-fade. A fade moves
-// nothing, so it may run outside the gate, if it is that quick and plays once: one that repeats
-// would blink.
+// Spec §3J: with reduced motion, the title card comes in with a 150 ms cross-fade, and goes with
+// one. A fade moves nothing, so it may run outside the gate, if it is that quick and plays once:
+// one that repeats would blink.
 const FADE_MS = 150
 
 /** A CSS time, such as 0.15s or 150ms, in milliseconds; undefined for anything else. */
@@ -216,12 +216,13 @@ test('outside the motion gate, nothing animates but a fade of 150 ms or less, an
 
 test('outside the motion gate, nothing pauses an animation', () => {
   // A paused animation holds its frame for as long as it stays paused. Outside the gate, what
-  // plays is a quick fade (see FADE_MS), the title card's, whose first frame is see-through: held
-  // there, the card never shows to visitors who reduce motion. A rule that pauses every animation
-  // while the site is set to reduce motion, to keep the page still, does just that. So outside
-  // the gate, the animation shorthand never says paused, and animation-play-state says only
-  // running, as a value this check can't read, such as var(), could pause too. Prefixed names
-  // count as well. In the gate, a pause can hold only motion, which plays nowhere else.
+  // plays is a quick fade (see FADE_MS), the title card's. Its fade in starts see-through: held
+  // there, the card never shows to visitors who reduce motion. Held, its fade out never ends, and
+  // the card closes only once it has. A rule that pauses every animation while the site is set to
+  // reduce motion, to keep the page still, does both. So outside the gate, the animation
+  // shorthand never says paused, and animation-play-state says only running, as a value this
+  // check can't read, such as var(), could pause too. Prefixed names count as well. In the gate,
+  // a pause can hold only motion, which plays nowhere else.
   const pausing = declarations(calm).flatMap(({ rule, property, value }) => {
     const name = property.replace(/^-\w+-/, '')
     const words = value.replace(/\s*!important$/i, '').split(/[\s,]+/)
@@ -234,7 +235,7 @@ test('outside the motion gate, nothing pauses an animation', () => {
   assert.deepEqual(
     pausing,
     [],
-    'these rules pause an animation outside the gate, or may: the title card’s fade would hold its see-through first frame, and the card never show to visitors who reduce motion. Take the pause out',
+    'these rules pause an animation outside the gate, or may: the title card’s fade in would hold its see-through first frame, and the card never show to visitors who reduce motion, and its fade out would never end, and the card never close. Take the pause out',
   )
 })
 
