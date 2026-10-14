@@ -1,13 +1,23 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import assert from 'node:assert/strict'
+import { join } from 'node:path'
 import { test } from 'node:test'
+import { fileURLToPath } from 'node:url'
 
 // Spec §3J: visitors who ask for reduced motion get no sliding, zooming or swinging. Motion
 // lives only inside @media (prefers-reduced-motion: no-preference) blocks; outside them,
-// styles may change color, shadow and opacity but never animate movement. index.css is read
-// too: a rule for the whole page, such as smooth scrolling on html, would go there.
-const css = ['./components.css', '../styles/index.css']
-  .map((path) => readFileSync(new URL(path, import.meta.url), 'utf8'))
+// styles may change color, shadow and opacity but never animate movement. Every stylesheet in
+// src is read as one, not only components.css: index.css holds the rules for the whole page, as
+// smooth scrolling on html would be, and a component can bring a stylesheet of its own, which
+// ships with the rest. The development-only design prototypes in src/prototype never ship (see
+// main.tsx), so their stylesheets are left out.
+const web = fileURLToPath(new URL('../../', import.meta.url))
+const stylesheets = readdirSync(join(web, 'src'), { encoding: 'utf8', recursive: true })
+  .map((path) => join('src', path))
+  .filter((path) => path.endsWith('.css') && !path.startsWith(join('src', 'prototype')))
+  .sort()
+const css = stylesheets
+  .map((path) => readFileSync(join(web, path), 'utf8'))
   .join('\n')
   .replace(/\/\*[\s\S]*?\*\//g, '')
 
@@ -52,7 +62,10 @@ function declarations(text: string) {
   return found
 }
 
-test('the check sees the stylesheet and its motion gates', () => {
+test('the check sees every stylesheet and the motion gates', () => {
+  // So that a broken listing can't pass by reading less, it must find components.css and index.css.
+  for (const file of ['src/components/components.css', 'src/styles/index.css'])
+    assert.ok(stylesheets.includes(file), `the check misses ${file}`)
   assert.ok(css.length > 10_000 && calm.length < css.length)
 })
 

@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { test, type TestContext } from 'node:test'
 import { fileURLToPath } from 'node:url'
+import ts from 'typescript'
 import {
   deviceReducesMotion,
   reducedMotion,
@@ -239,6 +240,107 @@ function motionVariants(text: string, file: string) {
 const motionVariantsIn = (file: string) =>
   motionVariants(readFileSync(join(web, file), 'utf8'), file)
 
+// Tailwind's motion utilities hear neither the device nor the site. A class such as animate-… or
+// transition brings a rule that Tailwind writes into the site's CSS as it builds, outside every
+// motion gate, where components/motion.test.ts, which reads the stylesheets as they are written,
+// never sees it. An inline style can't sit in a gate either, as it holds no media query: a
+// transition or an animation set in a style prop runs whatever the device or the site asks. So the
+// markup leaves motion to components.css, whose gates can hold it.
+//
+// The utilities, read at the start of a class name or of the part after its variants, such as
+// hover: or md:, and negative or not: animate-…; transition and transition-…; duration-…, which on
+// its own makes every change a transition, as transition-property is all until a rule says
+// otherwise; smooth scrolling; and translate-…, rotate-…, scale-… and skew-…, which place, turn,
+// size or slant the element, so that under a variant such as hover: they move it. Each is written
+// in pieces, so that Tailwind, which reads this file for class names too, builds no rule for it.
+const MOTION_UTILITY = new RegExp(
+  `(^|:)!?-?(${[
+    'anim' + 'ate-',
+    'trans' + 'ition(-|!?$)',
+    'dura' + 'tion-',
+    'scroll-' + 'smooth',
+    '(trans' + 'late|ro' + 'tate|sc' + 'ale|sk' + 'ew)-',
+  ].join('|')})`,
+)
+
+// The style properties that animate or glide: transition, animation and their longhands, such as
+// animationDelay, and scroll-behavior, each also with a browser's prefix, such as WebkitTransition,
+// or written as in CSS, such as 'transition-duration'.
+const MOTION_STYLE = /^(-?(webkit|moz|ms|o)-?)?(transition|animation|scroll-?behavior)/i
+
+/** A class name or style property that markup sets, with the `file:line` it is set on. */
+type Found = { at: string; name: string }
+
+/**
+ * The class names and style properties that a file's markup sets. In a script, the class names are
+ * the words of every string in an attribute whose name says class, such as className, and the
+ * style properties are the property names of every object in a style attribute. A name in either
+ * is followed, once, to what the file sets it to, as with Strip's row: className={row}, where
+ * const row = grid ? '…' : '…'. TypeScript's own parser reads the script, so nothing else counts:
+ * not a comment, not the page's text, and not a string that the markup doesn't use, such as a
+ * sample's studio, Kyoto Animation. In index.html, they are the words of a class attribute and the
+ * properties of a style attribute; in a stylesheet, the class names after @apply, whose rules
+ * Tailwind copies in.
+ */
+function markup(text: string, file: string) {
+  const classNames: Found[] = []
+  const styles: Found[] = []
+  const at = (index: number) => `${file}:${text.slice(0, index).split('\n').length}`
+  if (file.endsWith('.css')) {
+    // Comments are blanked out, with their line breaks kept, so the lines still count.
+    const code = text.replace(/\/\*[\s\S]*?\*\//g, (comment) => comment.replace(/[^\n]/g, ' '))
+    for (const match of code.matchAll(/@apply\s([^;{}]*)/g))
+      for (const name of match[1].split(/\s+/))
+        if (name && name !== '!important') classNames.push({ at: at(match.index), name })
+  } else if (file.endsWith('.html')) {
+    for (const match of text.matchAll(/(?<=\s)(class|style)\s*=\s*"([^"]*)"/g)) {
+      const isClass = match[1] === 'class'
+      const names = isClass ? match[2].split(/\s+/) : (match[2].match(/[\w-]+(?=\s*:)/g) ?? [])
+      for (const name of names)
+        if (name) (isClass ? classNames : styles).push({ at: at(match.index), name })
+    }
+  } else {
+    const kind = file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS
+    const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, kind)
+    // What the file sets each name to, and every attribute in its markup.
+    const setTo = new Map<string, ts.Node[]>()
+    const attributes: ts.JsxAttribute[] = []
+    source.forEachChild(function visit(node) {
+      if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer)
+        setTo.set(node.name.text, [...(setTo.get(node.name.text) ?? []), node.initializer])
+      else if (ts.isJsxAttribute(node)) attributes.push(node)
+      node.forEachChild(visit)
+    })
+    for (const { name, initializer } of attributes) {
+      const isClass = /class/i.test(name.getText(source))
+      if (!initializer || !(isClass || name.getText(source) === 'style')) continue
+      const read = (node: ts.Node, follow: boolean): void => {
+        if (isClass && (ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node)))
+          for (const word of node.text.split(/\s+/))
+            if (word) classNames.push({ at: at(node.getStart(source)), name: word })
+        if (!isClass && (ts.isPropertyAssignment(node) || ts.isShorthandPropertyAssignment(node)))
+          styles.push({
+            at: at(node.getStart(source)),
+            name:
+              ts.isIdentifier(node.name) || ts.isStringLiteral(node.name)
+                ? node.name.text
+                : node.name.getText(source),
+          })
+        // A name, but not the property of an object, as key is in rarity.key.
+        if (
+          follow &&
+          ts.isIdentifier(node) &&
+          !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node)
+        )
+          for (const value of setTo.get(node.text) ?? []) read(value, false)
+        node.forEachChild((child) => read(child, follow))
+      }
+      read(initializer, true)
+    }
+  }
+  return { classNames, styles }
+}
+
 test('the scan finds a script asking the device, and a motion variant, however each is written', () => {
   // matchMedia with the query written in, or in double quotes through window; a query kept in a
   // constant for matchMedia further on; and GSAP's matchMedia().add(), which takes one too. Then
@@ -300,5 +402,151 @@ test('nothing in the app uses Tailwind’s motion variants, which only the devic
     appFiles.flatMap(motionVariantsIn),
     [],
     'these lines use Tailwind’s motion variants, which ask the device alone: write the rule in a motion gate in components.css, with the others',
+  )
+})
+
+/**
+ * The names found that a pattern matches, as `file:line: name`, each once: Strip's row is named by
+ * two classNames, so its constant is read twice.
+ */
+const matching = (found: Found[], pattern: RegExp) => [
+  ...new Set(
+    found.filter(({ name }) => pattern.test(name)).map(({ at, name }) => `${at}: ${name}`),
+  ),
+]
+
+test('the markup scan finds a motion utility in a class name, and motion in a style prop, wherever each is set', () => {
+  // Tailwind reads this file for class names too, so each utility here is written in pieces, as in
+  // MOTION_UTILITY: a whole one would put its rule in the site's CSS.
+  const [bounce, spin, slide, lift, grow, tilt, glide, wait, inked] = [
+    ['anim', 'ate-bounce'],
+    ['!anim', 'ate-spin'],
+    ['trans', 'ition-transform'],
+    ['hover:-trans', 'late-y-1'],
+    ['group-hover:sc', 'ale-105'],
+    ['[&>svg]:ro', 'tate-3'],
+    ['scroll-', 'smooth'],
+    ['dura', 'tion-300'],
+    ['ab-ro', 'tate-3'],
+  ].map((pieces) => pieces.join(''))
+  // In a script, the class names: one in quotes; two beside an ab- class; one in a template, and
+  // two more in it under a condition; one in a constant that a className names; and one in a prop
+  // whose name says class. The style props: the shorthand; smooth scrolling, in a constant that a
+  // style names; and longhands, in an object of several lines. Then what the scan passes over: a
+  // comment, the page's text, an ab- class whose name holds a utility's, a string the markup
+  // doesn't use, an event, and a custom property.
+  const script = [
+    `const row = grid ? 'ab-strip-row' : 'ab-strip-row ${glide}'`,
+    `const still = { scrollBehavior: 'smooth' }`,
+    `const studio = 'Kyoto Animation, a transition'`,
+    `export const Page = () => (`,
+    `  <section className="${bounce}">`,
+    `    <span className="ab-chip ${slide} ${lift}" style={{ transition: 'transform 0.3s' }} />`,
+    `    <li className={\`ab-panel ${wait} \${on ? '${grow} ${spin}' : ''}\`} />`,
+    `    <ol className={row} style={still} />`,
+    `    <Strip rowClassName="${tilt}" />`,
+    `    <li`,
+    `      style={{`,
+    `        ...accentVars(color),`,
+    `        animationDelay: '1s',`,
+    `        WebkitTransition: 'none',`,
+    `      }}`,
+    `    />`,
+    `    {/* <p className="${bounce}"> */}`,
+    `    <p>Toei Animation’s transition, {studio}</p>`,
+    `    <span className="ab-chip sr-only ${inked}" onTransitionEnd={done} style={cssVars({ '--i': i })} />`,
+    `  </section>`,
+    `)`,
+  ].join('\n')
+  // In index.html, a class and a style attribute; in a stylesheet, @apply, but not in a comment.
+  const page = [`<html lang="en" class="${glide}">`, '  <body style="animation: ab-pop 1s">'].join(
+    '\n',
+  )
+  const stylesheet = [
+    '.ab-foot p {',
+    `  @apply ${bounce} sr-only;`,
+    '  transition: opacity 0.2s;',
+    '}',
+    `/* @apply ${spin}; */`,
+  ].join('\n')
+  const read = [
+    markup(script, 'planted.tsx'),
+    markup(page, 'planted.html'),
+    markup(stylesheet, 'planted.css'),
+  ]
+  assert.deepEqual(
+    {
+      classNames: matching(
+        read.flatMap(({ classNames }) => classNames),
+        MOTION_UTILITY,
+      ),
+      styles: matching(
+        read.flatMap(({ styles }) => styles),
+        MOTION_STYLE,
+      ),
+    },
+    {
+      classNames: [
+        `planted.tsx:5: ${bounce}`,
+        `planted.tsx:6: ${slide}`,
+        `planted.tsx:6: ${lift}`,
+        `planted.tsx:7: ${wait}`,
+        `planted.tsx:7: ${grow}`,
+        `planted.tsx:7: ${spin}`,
+        `planted.tsx:1: ${glide}`,
+        `planted.tsx:9: ${tilt}`,
+        `planted.html:1: ${glide}`,
+        `planted.css:2: ${bounce}`,
+      ],
+      styles: [
+        'planted.tsx:6: transition',
+        'planted.tsx:2: scrollBehavior',
+        'planted.tsx:13: animationDelay',
+        'planted.tsx:14: WebkitTransition',
+        'planted.html:2: animation',
+      ],
+    },
+  )
+})
+
+// What the markup scan reads: the app's scripts and stylesheets, as above, and index.html, the
+// page they load into.
+const appMarkup = ['index.html', ...appFiles].map((file) =>
+  markup(readFileSync(join(web, file), 'utf8'), file),
+)
+
+test('no class name in the app uses Tailwind’s motion utilities, whose rules no motion gate holds', () => {
+  const classNames = appMarkup.flatMap((found) => found.classNames)
+  // So that a broken reading can't pass by finding nothing, it must read the switch's class names,
+  // and the row's, which Strip keeps in a constant.
+  for (const [file, name] of [
+    ['src/components/MotionSwitch.tsx', 'ab-switch'],
+    ['src/components/Strip.tsx', 'ab-strip-grid'],
+  ])
+    assert.ok(
+      classNames.some((found) => found.at.startsWith(`${file}:`) && found.name === name),
+      `the scan misses ${name} in ${file}`,
+    )
+  assert.deepEqual(
+    matching(classNames, MOTION_UTILITY),
+    [],
+    'these class names use Tailwind’s motion utilities, whose rules Tailwind writes outside every motion gate, where neither the device’s setting nor the site’s can stop them: give the element an ab- class, and its motion a rule in a motion gate in components.css',
+  )
+})
+
+test('no style prop sets a transition, an animation or scroll-behavior, which no motion gate can hold', () => {
+  const styles = appMarkup.flatMap((found) => found.styles)
+  // So that a broken reading can't pass by finding nothing, it must read Strip's style, which sets
+  // a custom property, --i.
+  assert.ok(
+    styles.some(
+      (found) => found.at.startsWith('src/components/Strip.tsx:') && found.name === '--i',
+    ),
+    'the scan misses the --i in Strip’s style',
+  )
+  assert.deepEqual(
+    matching(styles, MOTION_STYLE),
+    [],
+    'these style props set a transition, an animation or scroll-behavior, which an inline style can’t put in a motion gate, so neither the device’s setting nor the site’s can stop it: give the element an ab- class, and its motion a rule in a motion gate in components.css',
   )
 })
