@@ -424,7 +424,10 @@ img[data-broken] {
    site itself, which sets data-motion="reduce" on <html> (see lib/motion.ts), out of a media
    query's sight. So in every block like this one, the rules sit in one more rule, which holds
    only while the site's setting is off. :where() adds no specificity, so they keep their rank.
-   The build writes the nesting out as plain selectors, for browsers that can't read it. */
+   The build writes the nesting out as plain selectors, for browsers that can't read it.
+   Rules for <html> itself, such as smooth scrolling, go in & { … } inside the :where() rule,
+   which matches <html>: nested there as html { … }, a rule reaches only what lies inside <html>,
+   so it never applies. */
 @media (prefers-reduced-motion: no-preference) {
   :where(:root:not([data-motion='reduce'])) {
     /* An ink block wipes off each panel, one after another. */

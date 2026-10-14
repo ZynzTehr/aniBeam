@@ -260,6 +260,26 @@ test('every motion gate honors the switch', () => {
     [],
     `${honoring} of ${gates.length} motion gates honor the switch: these rules sit in a gate but outside ${SWITCH} { … }, so the site’s own setting, data-motion="reduce" on <html>, can’t stop them`,
   )
+
+  // The :where() rule matches <html> itself, and a rule nested in it without & reads as one for
+  // what lies inside <html>. So html { … } or :root { … } there, as smooth scrolling might be
+  // written, looks for an <html> inside <html> and never applies, and nothing says so. What
+  // <html> itself gets goes in & { … }, the one form this takes: any rule there that names html
+  // or :root fails, even &:root, which does reach <html>.
+  const wrapped = declarations(css).filter(({ within }) => within.includes(SWITCH))
+  assert.ok(wrapped.length > 0, `the check found no rules in ${SWITCH}`)
+  // html as a tag, not as part of a name such as .ab-html.
+  const root = /(?<![\w.#:-])html(?![\w-])|:root(?![\w-])/i
+  assert.deepEqual(
+    wrapped.flatMap(({ within, property, value }) => {
+      const nested = within.slice(within.indexOf(SWITCH) + 1)
+      return nested.some((prelude) => !prelude.startsWith('@') && root.test(prelude))
+        ? [[...nested, `${property}: ${value}`].join(' { ') + ' }'.repeat(nested.length)]
+        : []
+    }),
+    [],
+    `these rules sit in ${SWITCH} { … } and name html or :root: that rule matches <html>, and nested in it, html { … } or :root { … } looks for an <html> inside <html>, so it never applies. Write what <html> itself gets in & { … } there`,
+  )
 })
 
 test('nothing depends on reduce alone', () => {
