@@ -1633,11 +1633,16 @@ describe('desktop (1440x900)', () => {
       await browser.evaluate(
         'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
       )
-      return browser.evaluate<{ top: number; hidden: number; ring: boolean }>(`(() => {
+      return browser.evaluate<{
+        top: number
+        hidden: number
+        ring: boolean
+        below: number
+      }>(`(() => {
         const target = document.querySelector('${href}'), top = target.getBoundingClientRect().top
         const ring = document.activeElement === target
         const header = document.querySelector('.ab-top').getBoundingClientRect().bottom
-        return { top, ring, hidden: Math.round(header - (ring ? top - 7 : top)) }
+        return { top, ring, hidden: Math.round(header - (ring ? top - 7 : top)), below: Math.round(top - header) }
       })()`)
     }
     const problems: string[] = []
@@ -1664,10 +1669,16 @@ describe('desktop (1440x900)', () => {
         await resize(width)
         await browser.animationsDone()
         for (const [href, name] of links) {
-          const { hidden, ring } = await jump(href)
+          const { hidden, ring, below } = await jump(href)
           if (hidden > 0)
             problems.push(
               `${width}px with text spacing: ${hidden}px of ${name}${ring ? ' and its focus ring' : ''} is under the header`,
+            )
+          // Clear of the header is not enough: the same 18px gap as on one row, or an 8px gap
+          // (which still clears the focus ring, by 1px) would pass.
+          else if (Math.abs(below - 18) > 1)
+            problems.push(
+              `${width}px with text spacing: ${name} lands ${below}px below the header, not 18px`,
             )
         }
       }
