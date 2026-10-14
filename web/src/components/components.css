@@ -1823,7 +1823,8 @@ body:has(.ab-card[open]) {
   padding-top: clamp(24px, 4vw, 48px);
 }
 
-/* Hidden until focused: lets keyboard users jump past the header to the page. */
+/* Hidden until focused: lets keyboard users jump past the header to the page, or to the Reduce
+   motion switch in the footer. Both links sit here, and only the focused one shows. */
 .ab-skip {
   position: absolute;
   top: 8px;

@@ -381,6 +381,73 @@ async function readSwitch() {
   return { ...state, ring: hot >= 1000 ? 'brand hot' : `${hot} brand-hot pixels` }
 }
 
+/**
+ * Leaves the keyboard at the top of the page, as a fresh load does: nothing focused, and the next
+ * Tab goes to the first link on the page. Blurring isn't enough: Chrome's next Tab goes on from
+ * the element that had focus, or from where the last link jumped to. So a stand-in put before
+ * everything else on the page takes focus, and goes.
+ */
+const fromTheTop = () =>
+  browser.evaluate(`(() => {
+    const start = document.createElement('div')
+    start.tabIndex = -1
+    document.body.prepend(start)
+    start.focus()
+    start.remove()
+    scrollTo(0, 0)
+    return true
+  })()`)
+
+/**
+ * Where keyboard focus is, two frames after a key, in a few words: what has it (a link by its
+ * text, or the Reduce motion switch, on or off), and whether it shows as focused from the
+ * keyboard (:focus-visible); its ring, in brand-hot pixels within 10px of what draws it (the
+ * link, or the switch's chip); whether that and its ring are wholly in view, with nothing drawn
+ * over them; and the skip links on screen.
+ */
+async function readFocus() {
+  const state = await browser.evaluate<{
+    name: string
+    place?: string
+    around: { x: number; y: number; width: number; height: number } | null
+    links: string[]
+  }>(`(async () => {
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const focused = document.activeElement, toggle = ${motionSwitch}
+    const links = [...document.querySelectorAll('a')].filter((a) => {
+      const r = a.getBoundingClientRect()
+      return a.textContent.startsWith('Skip to') && r.bottom > 0 && r.top < innerHeight
+    }).map((a) => a.textContent)
+    if (!focused || focused === document.body) return { name: 'nothing', around: null, links }
+    let name = focused.textContent.trim() || focused.tagName.toLowerCase()
+    if (focused === toggle) name = 'the Reduce motion switch (' + (toggle.checked ? 'on' : 'off') + ')'
+    if (!focused.matches(':focus-visible')) name += ' (not :focus-visible)'
+    // What draws the ring (the link, or the switch's chip), and the ring, 4px wide and 3px out.
+    const shown = focused === toggle ? toggle.nextElementSibling : focused
+    const r = shown.getBoundingClientRect()
+    const [top, left, bottom, right] = [r.top - 7, r.left - 7, r.bottom + 7, r.right + 7]
+    const whole = top >= 0 && left >= 0 && bottom <= innerHeight && right <= innerWidth
+    const gone = bottom <= 0 || top >= innerHeight || right <= 0 || left >= innerWidth
+    // What the screen shows at its middle: itself, unless something is drawn over it.
+    const over = whole && document.elementFromPoint((left + right) / 2, (top + bottom) / 2)
+    let place = 'in view'
+    if (gone) place = 'out of view'
+    else if (!whole) place = 'partly out of view'
+    else if (!shown.contains(over))
+      place = 'under ' + (over.closest('[class]')?.classList[0] ?? over.tagName.toLowerCase())
+    const x = Math.max(0, Math.floor(r.left + scrollX) - 10)
+    const y = Math.max(0, Math.floor(r.top + scrollY) - 10)
+    const width = Math.ceil(r.right + scrollX) + 10 - x
+    const height = Math.ceil(r.bottom + scrollY) + 10 - y
+    return { name, place, around: { x, y, width, height }, links }
+  })()`)
+  const links = `skip links on screen: ${state.links.join(', ') || 'none'}`
+  if (!state.around) return `${state.name}; ${links}`
+  const hot = hotPixels(await screenPixels(state.around))
+  const ring = hot >= 1000 ? 'brand hot' : `${hot} brand-hot pixels`
+  return `${state.name}, ring ${ring}, ${state.place}; ${links}`
+}
+
 before(async () => {
   browser = await Browser.open()
 })
@@ -478,6 +545,38 @@ describe('desktop (1440x900)', () => {
     assert.deepEqual(skip, { text: 'Skip to content', shown: true })
     await browser.press('Enter')
     assert.equal(await browser.evaluate('location.hash'), '#main')
+  })
+
+  test('the second Tab reaches a visible skip link that focuses the Reduce motion switch in view', async () => {
+    // The switch sits in the footer, past every title on the page, some 40 Tab stops in. So a
+    // second skip link, after "Skip to content" and in its place, takes keyboard users there: its
+    // Enter must focus the switch, for Space to turn it on, and bring it into view with its
+    // brand-hot ring. Each skip link shows only while it has focus. Each step says in a few words
+    // what has focus, its ring (1,500 to 2,000 brand-hot pixels for a whole one here, and 0 for
+    // none), whether it is in view, and the skip links on screen.
+    await fromTheTop()
+    const tabs: string[] = []
+    for (let press = 0; press < 2; press++) {
+      await browser.press('Tab')
+      tabs.push(await readFocus())
+    }
+    assert.deepEqual(
+      tabs,
+      [
+        'Skip to content, ring brand hot, in view; skip links on screen: Skip to content',
+        'Skip to Reduce motion, ring brand hot, in view; skip links on screen: Skip to Reduce motion',
+      ],
+      'what the first and the second Tab from the top of the page focused',
+    )
+    // Enter only once the link has focus: on the logo, say, it would leave the page.
+    await browser.press('Enter')
+    const jumped = await readFocus()
+    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+    assert.equal(
+      jumped,
+      'the Reduce motion switch (off), ring brand hot, in view; skip links on screen: none',
+      'what Enter on “Skip to Reduce motion” focused',
+    )
   })
 
   test('picking the 1980s chip swaps the strip to 1980s titles', async () => {

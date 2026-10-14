@@ -148,6 +148,11 @@ export default function App() {
       <a className="ab-skip" href="#main">
         Skip to content
       </a>
+      {/* The Reduce motion switch sits in the footer, past every title on the page, some 40 Tab
+          stops in. This link, in the same place as the one above, takes keyboard users to it. */}
+      <a className="ab-skip" href="#reduce-motion">
+        Skip to Reduce motion
+      </a>
       <SiteHeader
         links={[
           { href: '#ab-trending', label: 'Trending' },
@@ -254,7 +259,7 @@ export default function App() {
         </Strip>
       </main>
       <footer className="ab-foot">
-        <MotionSwitch />
+        <MotionSwitch id="reduce-motion" />
         <p>Data from AniList. AniBeam is not affiliated with AniList.</p>
       </footer>
       {opened && (

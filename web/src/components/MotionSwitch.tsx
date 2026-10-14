@@ -6,9 +6,11 @@ import { deviceReducesMotion, saveMotionChoice, watchDeviceMotion } from '../lib
  * chip look. On, it sets data-motion="reduce" on <html>, which every motion rule and script obeys
  * (see lib/motion.ts), and saves the choice for later visits; off, it takes both away. While the
  * device asks for reduced motion, motion stays reduced whatever the site says, so the switch shows
- * on and locked, with a line that says why.
+ * on and locked, with a line that says why. `id` goes on the checkbox itself, so a link to it
+ * (App's second skip link) focuses the switch as well as bringing it into view: a link's target
+ * takes focus when it can, and of the switch's parts only the checkbox can.
  */
-export function MotionSwitch() {
+export function MotionSwitch({ id }: { id: string }) {
   const why = useId()
   const device = useSyncExternalStore(watchDeviceMotion, deviceReducesMotion)
   // main.tsx has already put a saved choice back on <html>, before React's first render. An
@@ -27,6 +29,7 @@ export function MotionSwitch() {
             why: aria-disabled, not disabled. So the click is cancelled (Space clicks too), and
             React's change event, which that click still sends, changes nothing. */}
         <input
+          id={id}
           type="checkbox"
           role="switch"
           checked={device || site}
