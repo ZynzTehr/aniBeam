@@ -1707,6 +1707,57 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('with WCAG text spacing, link targets keep 18px under the header at every width from 900px', async () => {
+    // The check above jumps with the spacing at 900 and 960px only, but the header keeps its
+    // second row up to about 965px, and above that it is a taller single row (about 80px). A
+    // margin that followed the header's height only up to 960px hid 48px of the focused Trending
+    // heading at 963px. Every 5px from 900 to 1000px, and at 1100 and 1440px, each target's scroll
+    // margin must be the header's measured height and 18px. No keys: the margin is what the
+    // browser scrolls by when a link is followed.
+    const frames = () =>
+      browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+    const resize = (width: number) =>
+      browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 900,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+    const widths = [...Array.from({ length: 21 }, (_, i) => 900 + 5 * i), 1100, 1440]
+    const off: string[] = []
+    await browser.evaluate(`(() => {
+      const style = document.head.appendChild(document.createElement('style'))
+      style.id = 'text-spacing'
+      style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+      return true
+    })()`)
+    try {
+      for (const width of widths) {
+        await resize(width)
+        await frames()
+        const found = await browser.evaluate<string[]>(`(() => {
+          const header = document.querySelector('.ab-top').offsetHeight
+          return ['#ab-trending', '#pull', '#decades'].flatMap((target) => {
+            const margin = parseFloat(getComputedStyle(document.querySelector(target)).scrollMarginTop)
+            return Math.abs(margin - (header + 18)) > 1 ? [target + ': ' + margin + 'px under a ' + header + 'px header'] : []
+          })
+        })()`)
+        for (const line of found) off.push(`${width}px: ${line}`)
+      }
+    } finally {
+      await browser.evaluate(`document.getElementById('text-spacing')?.remove(); true`)
+      await resize(1440)
+      await frames()
+    }
+    assert.deepEqual(
+      off,
+      [],
+      'link targets whose scroll margin is not the header’s height and 18px',
+    )
+  })
+
   test('after a resize across 900px made far down the page, the intro still ends at the fold', async () => {
     // The intro fills the first screen under the header, by the header's height (--top-h), and
     // the header changes rows at 900px: one 78px row from there up, 134px below, where it
