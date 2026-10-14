@@ -91,8 +91,7 @@ const frames = () =>
   )
 
 /** Each part as `class: land, how much of it shows (0 to 1), and the opacity it shows with`. */
-const partStates = () =>
-  browser.evaluate<{ name: string; land: string; shown: number; opacity: number }[]>(`(() => {
+const STATES = `(() => {
     // As an IntersectionObserver sees it: inside the screen, and a card inside its row, which
     // scrolls sideways and clips what lies past its edges.
     const seen = (el) => {
@@ -110,31 +109,53 @@ const partStates = () =>
       land: el.dataset.land,
       shown: Math.round(seen(el) * 100) / 100,
       opacity: Number(getComputedStyle(face(el)).opacity),
+      // A transform or an opacity left inline, as a GSAP slam sets them (native sets none).
+      inline: [el, ...el.querySelectorAll('*')].some((e) => e.style.transform || e.style.opacity),
     }))
-  })()`)
+  })()`
+type PartState = { name: string; land: string; shown: number; opacity: number; inline: boolean }
+const partStates = () => browser.evaluate<PartState[]>(STATES)
 
-for (const engine of ['native'] as const) {
+/**
+ * Waits, frame by frame, up to `ms`, for no part 15% or more on screen to be waiting, and returns
+ * the ones still waiting then. Both engines get the same grace: GSAP batches what scrolls in.
+ */
+const waitingAfter = (ms: number) =>
+  browser.evaluate<PartState[]>(`new Promise((resolve) => {
+    const since = performance.now()
+    const look = () => {
+      const waiting = ${STATES}.filter((p) => p.land === 'wait' && p.shown >= 0.15)
+      if (!waiting.length || performance.now() - since > ${ms}) resolve(waiting)
+      else requestAnimationFrame(look)
+    }
+    requestAnimationFrame(look)
+  })`)
+
+for (const engine of ENGINES) {
   test(`with ${engine}, parts below the first screen wait, see-through, and none waits once 15% of it shows`, async () => {
     await browser.load({ url: withEngine(engine) })
     assert.ok(await browser.titlesShown())
     await frames()
     const atLoad = (await partStates()).filter((p) => p.shown === 0)
     const notWaiting = atLoad.filter((p) => p.land !== 'wait' || p.opacity !== 0)
-    // Down the whole page in 150px steps: nothing 15% or more on screen may still be waiting.
+    // Down the whole page in 150px steps: nothing 15% or more on screen may still be waiting
+    // 200ms later, the most either engine is given to start a part's slam.
     const waiting: string[] = []
     const end = await browser.evaluate<number>(
       'document.documentElement.scrollHeight - innerHeight',
     )
     for (let y = 0; y <= end; y += 150) {
       await browser.evaluate(`scrollTo(0, ${y}); true`)
-      await frames()
-      for (const p of await partStates())
-        if (p.land === 'wait' && p.shown >= 0.15) waiting.push(`${y}px: ${p.name} (${p.shown})`)
+      for (const p of await waitingAfter(200)) waiting.push(`${y}px: ${p.name} (${p.shown})`)
     }
     // Once their slams have played, the parts that landed show in full and play nothing more.
-    await browser.animationsDone()
+    // Done is the engine's own word for it: animationsDone() can't see GSAP's tweens.
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('[data-land="go"]')`, 5_000),
+      'parts still landing 5s later',
+    )
     const unlanded = (await partStates()).filter(
-      (p) => p.shown >= 0.15 && (p.land !== 'done' || p.opacity !== 1),
+      (p) => p.shown >= 0.15 && (p.land !== 'done' || p.opacity !== 1 || p.inline),
     )
     assert.ok(atLoad.length > 10, 'nothing below the first screen to check')
     assert.deepEqual(

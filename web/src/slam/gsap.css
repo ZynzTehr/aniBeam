@@ -1,0 +1,9 @@
+/* Draft PR 3 (never merged): what the GSAP engine needs from CSS (see gsap.ts). GSAP can't
+   reach a ::after, so the ink block's wipe follows --ink, which GSAP tweens from 1 to 0. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(:root:not([data-motion='reduce'])) {
+    &[data-slam='gsap'] .ab-panel[data-land='go']::after {
+      transform: scaleX(var(--ink, 0));
+    }
+  }
+}
