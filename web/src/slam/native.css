@@ -1,0 +1,69 @@
+/* Draft PR 3 (never merged): the native engine's slam (see native.ts). The rules sit under
+   [data-slam='native'] on <html>, which also ranks them above slam.css's, whatever order the
+   two files load in. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(:root:not([data-motion='reduce'])) {
+    /* A solid ink panel slams in, then the ink wipes off, the cover settles and the caption
+       pops. --k is the part's place among those landing together. */
+    &[data-slam='native'] .ab-panel[data-land='go'] {
+      animation: ab-panel-slam 0.5s cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
+      animation-delay: calc(var(--k, 0) * var(--slam-stagger));
+    }
+
+    &[data-slam='native'] .ab-panel[data-land='go']::after {
+      animation: ab-ink 0.6s cubic-bezier(0.75, 0, 0.2, 1) both;
+      animation-delay: calc(var(--k, 0) * var(--slam-stagger) + 160ms);
+    }
+
+    &[data-slam='native'] .ab-panel[data-land='go'] .ab-img img {
+      animation: ab-settle 1s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+      animation-delay: calc(var(--k, 0) * var(--slam-stagger) + 200ms);
+    }
+
+    &[data-slam='native'] .ab-panel[data-land='go'] .ab-caption {
+      animation: ab-pop 0.6s var(--spring) backwards;
+      animation-delay: calc(var(--k, 0) * var(--slam-stagger) + 520ms);
+    }
+
+    /* Decade and search cards snap in, closer together; each heading's effect booms; the pull
+       machine drops in with the spring. */
+    &[data-slam='native'] .ab-strip-item[data-land='go'] > .ab-strip-panel {
+      animation: ab-pop 0.6s var(--spring) backwards;
+      animation-delay: calc(var(--k, 0) * var(--slam-stagger) * 2 / 3);
+    }
+
+    &[data-slam='native'] .ab-sfx[data-land='go'] > span {
+      animation: ab-boom 0.7s var(--spring) backwards;
+    }
+
+    &[data-slam='native'] .ab-machine[data-land='go'] {
+      animation: ab-machine-drop 0.6s var(--spring) backwards;
+    }
+  }
+}
+
+@keyframes ab-panel-slam {
+  0% {
+    opacity: 0;
+    transform: scale(var(--slam-scale)) rotate(var(--slam-tilt));
+  }
+
+  25% {
+    opacity: 1;
+  }
+
+  62% {
+    transform: scale(0.985) rotate(calc(var(--slam-tilt) * -0.12));
+  }
+
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes ab-machine-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-48px) scale(1.06);
+  }
+}

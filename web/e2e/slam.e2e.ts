@@ -84,3 +84,87 @@ test('the knobs come from the address, and out-of-range values are ignored', asy
     { tuned: ['1.3', '-4deg', '120ms'], ignored: ['1.14', '-2.5deg', '90ms'] },
   )
 })
+
+const frames = () =>
+  browser.evaluate(
+    'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+  )
+
+/** Each part as `class: land, how much of it shows (0 to 1), and the opacity it shows with`. */
+const partStates = () =>
+  browser.evaluate<{ name: string; land: string; shown: number; opacity: number }[]>(`(() => {
+    // As an IntersectionObserver sees it: inside the screen, and a card inside its row, which
+    // scrolls sideways and clips what lies past its edges.
+    const seen = (el) => {
+      const r = el.getBoundingClientRect()
+      const row = el.closest('.ab-strip-row')?.getBoundingClientRect()
+      const [top, bottom] = [Math.max(r.top, 0, row?.top ?? 0), Math.min(r.bottom, innerHeight, row?.bottom ?? Infinity)]
+      const [left, right] = [Math.max(r.left, 0, row?.left ?? 0), Math.min(r.right, innerWidth, row?.right ?? Infinity)]
+      const shown = Math.max(0, bottom - top) * Math.max(0, right - left)
+      return r.width && r.height ? shown / (r.width * r.height) : 0
+    }
+    // What fades while a part waits: the part, or the card in a list item, or a heading's effect.
+    const face = (el) => el.matches('.ab-strip-item') ? el.firstElementChild : el.matches('.ab-sfx') ? el.lastElementChild : el
+    return ${PARTS}.map((el) => ({
+      name: el.className.split(' ')[0],
+      land: el.dataset.land,
+      shown: Math.round(seen(el) * 100) / 100,
+      opacity: Number(getComputedStyle(face(el)).opacity),
+    }))
+  })()`)
+
+for (const engine of ['native'] as const) {
+  test(`with ${engine}, parts below the first screen wait, see-through, and none waits once 15% of it shows`, async () => {
+    await browser.load({ url: withEngine(engine) })
+    assert.ok(await browser.titlesShown())
+    await frames()
+    const atLoad = (await partStates()).filter((p) => p.shown === 0)
+    const notWaiting = atLoad.filter((p) => p.land !== 'wait' || p.opacity !== 0)
+    // Down the whole page in 150px steps: nothing 15% or more on screen may still be waiting.
+    const waiting: string[] = []
+    const end = await browser.evaluate<number>(
+      'document.documentElement.scrollHeight - innerHeight',
+    )
+    for (let y = 0; y <= end; y += 150) {
+      await browser.evaluate(`scrollTo(0, ${y}); true`)
+      await frames()
+      for (const p of await partStates())
+        if (p.land === 'wait' && p.shown >= 0.15) waiting.push(`${y}px: ${p.name} (${p.shown})`)
+    }
+    // Once their slams have played, the parts that landed show in full and play nothing more.
+    await browser.animationsDone()
+    const unlanded = (await partStates()).filter(
+      (p) => p.shown >= 0.15 && (p.land !== 'done' || p.opacity !== 1),
+    )
+    assert.ok(atLoad.length > 10, 'nothing below the first screen to check')
+    assert.deepEqual(
+      { notWaiting, waiting, unlanded },
+      { notWaiting: [], waiting: [], unlanded: [] },
+    )
+  })
+
+  test(`with ${engine}, Tab lands a waiting part at once, never see-through or mid-slam`, async () => {
+    await browser.load({ url: withEngine(engine) })
+    assert.ok(await browser.titlesShown())
+    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+    // Tab until the focus is in a part (the first trending panel, below the first screen).
+    let met: { land: string; moving: number; opacity: number } | null = null
+    for (let i = 0; i < 40 && !met; i++) {
+      await browser.press('Tab')
+      met = await browser.evaluate(`(() => {
+        const part = document.activeElement.closest('[data-land]')
+        if (!part) return null
+        // Mid-slam: a slam or entrance keyframe still running (native), or a transform or an
+        // opacity still set inline (GSAP). Focus has effects of its own, such as speed lines.
+        const slams = ${JSON.stringify([...ENTRANCES, 'ab-panel-slam', 'ab-machine-drop'])}
+        const inline = [part, ...part.querySelectorAll('*')].filter((el) => el.style.transform || el.style.opacity)
+        return {
+          land: part.dataset.land,
+          moving: part.getAnimations({ subtree: true }).filter((a) => a.playState === 'running' && slams.includes(a.animationName)).length + inline.length,
+          opacity: Number(getComputedStyle(part).opacity),
+        }
+      })()`)
+    }
+    assert.deepEqual(met, { land: 'done', moving: 0, opacity: 1 })
+  })
+}

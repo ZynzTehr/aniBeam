@@ -3,9 +3,13 @@ import { applyKnobs, setLand, watchParts } from './parts.ts'
 import type { SlamEngine } from './switch.ts'
 
 /** Starts the scroll-slam prototype with `engine` (see switch.ts). Loaded only when asked for. */
-export function startSlam(engine: SlamEngine) {
+export async function startSlam(engine: SlamEngine) {
   document.documentElement.dataset.slam = engine
   applyKnobs(location.search)
-  // Until an engine lands them, every part shows at once.
-  watchParts((parts) => parts.forEach((part) => setLand(part, 'done')))
+  if (engine === 'native') {
+    const { startNative } = await import('./native.ts')
+    startNative()
+  }
+  // Until the GSAP engine lands them, its parts show at once.
+  else watchParts((parts) => parts.forEach((part) => setLand(part, 'done')))
 }

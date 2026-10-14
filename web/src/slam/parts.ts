@@ -36,6 +36,22 @@ export function watchParts(onParts: (parts: HTMLElement[]) => void) {
 }
 
 /**
+ * Keyboard focus never meets a part that is see-through or still moving: focus inside a part
+ * lands it at once (done), and `onLanded` lets the engine stop anything it was playing there. The
+ * listener runs in the capture phase, before the strip's own focus handler scrolls the row.
+ */
+export function landOnFocus(onLanded: (part: HTMLElement) => void) {
+  const land = (event: FocusEvent) => {
+    const part = (event.target as Element | null)?.closest?.<HTMLElement>('[data-land]')
+    if (!part || landOf(part) === 'done') return
+    setLand(part, 'done')
+    onLanded(part)
+  }
+  document.addEventListener('focusin', land, true)
+  return () => document.removeEventListener('focusin', land, true)
+}
+
+/**
  * The tuning knobs, from the address for trying values on a phone: &scale= (how big a panel
  * starts, 1.14), &tilt= (its starting tilt in degrees, -2.5) and &stagger= (milliseconds between
  * parts that come into view together, 90). Out-of-range values are ignored.
