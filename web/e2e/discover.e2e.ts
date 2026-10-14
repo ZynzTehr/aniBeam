@@ -2259,6 +2259,53 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     )
   })
 
+  test('a title card shows in full 400 ms after it opens, by the page’s own clock, with no animation left playing or paused', async () => {
+    // The check above plays the opening by hand, setting each animation's time itself, so it
+    // never sees what the page's own clock does. A fade that never plays, written paused or held
+    // by a rule that pauses every animation while the site is set to reduce motion, keeps the
+    // card on its see-through first frame for good, and passes there. Here the page plays the
+    // opening itself, and the wait is timed in the page, on the clock the fade runs on: 400 ms
+    // after the card opens, well past the 150 ms fade, the card must show in full, and no
+    // animation on the page may be left playing or paused.
+    await browser.evaluate(`document.querySelector('dialog.ab-card')?.close(); true`)
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000),
+      'the title card the check above opened did not close',
+    )
+    type Shown = { opacity: string; unfinished: string[] }
+    const shown = await browser.evaluate<Shown | null>(`(async () => {
+      const start = performance.now()
+      document.querySelector('.ab-grid .ab-link').click()
+      let card
+      while (!(card = document.querySelector('dialog.ab-card'))?.open && performance.now() - start < 5000)
+        await new Promise((resolve) => setTimeout(resolve, 5))
+      if (!card?.open) return null
+      await new Promise((resolve) => setTimeout(resolve, 400))
+      // Then two frames, so that what is read has been drawn.
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      return {
+        opacity: getComputedStyle(card).opacity,
+        unfinished: document.getAnimations().filter((a) => a.playState !== 'finished').map((a) => {
+          const { target, pseudoElement } = a.effect
+          const where = target === card && !pseudoElement ? 'the card' : [target.localName, ...target.classList].join('.') + (pseudoElement ?? '')
+          return where + ': ' + (a.animationName ?? (a.transitionProperty ? 'a transition of ' + a.transitionProperty : 'a script’s animation')) + ', ' + a.playState
+        }),
+      }
+    })()`)
+    // Closed before anything fails, so the checks below start with no card open.
+    await browser.press('Escape')
+    assert.ok(shown, 'the title card did not open')
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000),
+      'the title card did not close',
+    )
+    assert.deepEqual(
+      shown,
+      { opacity: '1', unfinished: [] },
+      'the title card 400 ms after it opened, by the page’s own clock: its opacity, and each animation on the page not yet finished (where it runs, what it is, and whether it is running or paused)',
+    )
+  })
+
   test('hovering a panel or holding the lever moves nothing', async () => {
     await browser.evaluate(`document.querySelector('dialog.ab-card')?.close(); true`)
     await sleep(300)

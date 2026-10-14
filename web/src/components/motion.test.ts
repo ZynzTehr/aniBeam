@@ -214,6 +214,30 @@ test('outside the motion gate, nothing animates but a fade of 150 ms or less, an
   )
 })
 
+test('outside the motion gate, nothing pauses an animation', () => {
+  // A paused animation holds its frame for as long as it stays paused. Outside the gate, what
+  // plays is a quick fade (see FADE_MS), the title card's, whose first frame is see-through: held
+  // there, the card never shows to visitors who reduce motion. A rule that pauses every animation
+  // while the site is set to reduce motion, to keep the page still, does just that. So outside
+  // the gate, the animation shorthand never says paused, and animation-play-state says only
+  // running, as a value this check can't read, such as var(), could pause too. Prefixed names
+  // count as well. In the gate, a pause can hold only motion, which plays nowhere else.
+  const pausing = declarations(calm).flatMap(({ rule, property, value }) => {
+    const name = property.replace(/^-\w+-/, '')
+    const words = value.replace(/\s*!important$/i, '').split(/[\s,]+/)
+    const pauses =
+      name === 'animation'
+        ? words.some((word) => /^paused$/i.test(word))
+        : name === 'animation-play-state' && words.some((word) => !/^running$/i.test(word))
+    return pauses ? [`${rule} { ${property}: ${value} }`] : []
+  })
+  assert.deepEqual(
+    pausing,
+    [],
+    'these rules pause an animation outside the gate, or may: the title card’s fade would hold its see-through first frame, and the card never show to visitors who reduce motion. Take the pause out',
+  )
+})
+
 // Visitors can also ask for reduced motion on the site itself. Its Reduce motion switch sets
 // data-motion="reduce" on <html> (see lib/motion.ts), which a media query can't see. So inside
 // each gate, the rules sit in one more rule, which holds only while the switch is off. :where()
