@@ -70,20 +70,121 @@ test('outside the motion gate, hovering or pressing never moves anything', () =>
   assert.deepEqual(moves, [])
 })
 
-test('outside the motion gate, nothing animates or scrolls smoothly', () => {
+// Spec §3J: with reduced motion, the title card comes in with a 150 ms cross-fade. A fade moves
+// nothing, so it may run outside the gate, if it is that quick and plays once: one that repeats
+// would blink.
+const FADE_MS = 150
+
+/** A CSS time, such as 0.15s or 150ms, in milliseconds; undefined for anything else. */
+const msOf = (word: string) => {
+  const time = /^(-?\d*\.?\d+)(m?s)$/i.exec(word.trim())
+  return time ? Number(time[1]) * (time[2].toLowerCase() === 's' ? 1000 : 1) : undefined
+}
+
+// The words the animation shorthand can hold besides names, times and counts.
+const KEYWORDS =
+  /^((cubic-bezier|steps|linear)\(.*\)|ease|ease-in|ease-out|ease-in-out|linear|step-start|step-end|normal|reverse|alternate|alternate-reverse|none|forwards|backwards|both|running|paused)$/i
+
+/**
+ * What makes an animation shorthand's value more than a quick fade, for each animation it names:
+ * what its keyframes change besides opacity, a duration over FADE_MS, and a count other than
+ * once. '' when each one is a quick fade, or it names none.
+ */
+function notAFade(value: string) {
+  const reasons: string[] = []
+  // The animations a comma separates, each in words; a function such as
+  // cubic-bezier(0.2, 0.8, 0.2, 1) is one word.
+  for (const animation of value.replace(/\s*!important$/i, '').split(/,(?![^(]*\))/)) {
+    let ms: number | undefined
+    let times = 1
+    const names: string[] = []
+    for (const word of animation.match(/[\w-]+\([^)]*\)|\S+/g) ?? []) {
+      // The first time is the duration; the second, the delay, moves nothing.
+      if (msOf(word) !== undefined) ms ??= msOf(word)
+      else if (/^(\d*\.?\d+|infinite)$/i.test(word))
+        times = /infinite/i.test(word) ? Infinity : Number(word)
+      else if (word.includes('(') && !KEYWORDS.test(word))
+        reasons.push(`this check can't read ${word}`)
+      else if (!KEYWORDS.test(word)) names.push(word)
+    }
+    for (const name of names) {
+      const changes = new Set(
+        declarations(css)
+          .filter(({ within }) => within.includes(`@keyframes ${name}`))
+          .map(({ property }) => property),
+      )
+      if (!changes.size) reasons.push(`no @keyframes ${name} says what it changes`)
+      changes.delete('opacity')
+      if (changes.size) reasons.push(`${name} changes ${[...changes].join(' and ')}`)
+      if ((ms ?? 0) > FADE_MS) reasons.push(`it runs ${ms} ms`)
+      if (times !== 1)
+        reasons.push(times === Infinity ? 'it repeats forever' : `it runs ${times} times`)
+    }
+  }
+  return reasons.join('; ')
+}
+
+test('the fade check reads what an animation changes, how long it runs and how often', () => {
+  // A reading that misses a duration, a count or a name would pass any animation, so it is read
+  // here on the title card's own fade and the pop's keyframes, as rules outside the gate could
+  // name them.
+  const values = [
+    'ab-fade 0.15s linear',
+    'ab-fade 150ms',
+    'none',
+    'ab-fade 0.2s linear 0.1s',
+    'ab-fade 0.15s cubic-bezier(0.2, 0.8, 0.2, 1) infinite',
+    'ab-fade 0.15s linear 2 alternate',
+    'ab-fade 0.15s, ab-pop 0.1s both',
+    'ab-fade var(--fade)',
+    'ab-faded 0.15s',
+  ]
+  assert.deepEqual(Object.fromEntries(values.map((value) => [value, notAFade(value)])), {
+    'ab-fade 0.15s linear': '',
+    'ab-fade 150ms': '',
+    none: '',
+    'ab-fade 0.2s linear 0.1s': 'it runs 200 ms',
+    'ab-fade 0.15s cubic-bezier(0.2, 0.8, 0.2, 1) infinite': 'it repeats forever',
+    'ab-fade 0.15s linear 2 alternate': 'it runs 2 times',
+    'ab-fade 0.15s, ab-pop 0.1s both': 'ab-pop changes transform',
+    'ab-fade var(--fade)': "this check can't read var(--fade)",
+    'ab-faded 0.15s': 'no @keyframes ab-faded says what it changes',
+  })
+})
+
+test('outside the motion gate, nothing animates but a fade of 150 ms or less, and nothing scrolls smoothly', () => {
   // The @keyframes sit outside the gate and do nothing until a rule names them, so that rule
-  // belongs inside it, whatever its keyframes change. So do the timelines that tie an animation
-  // to scrolling (the splash parallax's), and smooth scrolling, which glides the page to
-  // wherever a link or a script sends it. animation: none stops one, so it may stay outside.
-  const moving = declarations(calm)
-    .filter(({ property, value }) => {
-      if (property === 'animation' || property === 'animation-name')
-        return !/^none(\s*!important)?$/i.test(value)
-      if (property === 'scroll-behavior') return /^smooth/i.test(value)
-      return /^(animation|view|scroll)-timeline/.test(property)
-    })
-    .map(({ rule, property, value }) => `${rule} { ${property}: ${value} }`)
-  assert.deepEqual(moving, [])
+  // belongs inside it, unless it is a quick fade (see FADE_MS). Only the animation shorthand
+  // says what plays, how long and how often, all at once, so a fade outside uses it, and no
+  // longhand there may name an animation, lengthen one or repeat it. The timelines that tie an
+  // animation to scrolling (the splash parallax's) belong inside too, and so does smooth
+  // scrolling, which glides the page to wherever a link or a script sends it. animation: none
+  // stops one, so it may stay outside.
+  const moving = declarations(calm).flatMap(({ rule, property, value }) => {
+    const each = value
+      .replace(/\s*!important$/i, '')
+      .split(/,(?![^(]*\))/)
+      .map((part) => part.trim())
+    let why = ''
+    if (property === 'animation') why = notAFade(value)
+    else if (property === 'animation-name' && each.some((name) => !/^none$/i.test(name)))
+      why = 'a longhand, which says neither how long nor how often'
+    else if (
+      property === 'animation-duration' &&
+      each.some((time) => (msOf(time) ?? Infinity) > FADE_MS)
+    )
+      why = `longer than ${FADE_MS} ms`
+    else if (property === 'animation-iteration-count' && each.some((count) => count !== '1'))
+      why = 'it repeats'
+    else if (property === 'scroll-behavior' && /^smooth/i.test(value)) why = 'it glides the page'
+    else if (/^(animation|view|scroll)-timeline/.test(property)) why = 'tied to scrolling'
+    return why ? [`${rule} { ${property}: ${value} }: ${why}`] : []
+  })
+  assert.deepEqual(
+    moving,
+    [],
+    `these rules animate or scroll outside the gate, where only a fade may run (spec §3J): the animation shorthand, naming keyframes that change opacity alone, played once, in ${FADE_MS} ms or less. Put them in the gate`,
+  )
 })
 
 // Visitors can also ask for reduced motion on the site itself. Its Reduce motion switch sets

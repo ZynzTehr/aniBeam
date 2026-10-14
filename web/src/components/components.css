@@ -1063,8 +1063,25 @@ body:has(.ab-card[open]) {
   inset: 0;
 }
 
+/* With reduced motion, the card fades in over 150 ms (spec §3J): shown at once, it switched most
+   of the screen to the title's color in a single frame. Linear spreads the change evenly over the
+   fade's nine frames, where an easing would crowd it into a few. With motion allowed, the motion
+   block below swaps the fade for the wipe. */
+.ab-card[open] {
+  animation: ab-fade 0.15s linear;
+}
+
+@keyframes ab-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* The page dims behind the wipe as it grows from the panel, so the dim is in the motion block too.
+   The fade brings the card in over the page as it is: a dim landing at once would darken the
+   whole screen in the fade's first frame. */
 .ab-card::backdrop {
-  background: rgb(20 20 20 / 0.35);
+  background: none;
 }
 
 .ab-card:focus-visible,
@@ -1307,6 +1324,15 @@ body:has(.ab-card[open]) {
 /* ---------- Motion (only when the visitor allows it) ---------- */
 @media (prefers-reduced-motion: no-preference) {
   :where(:root:not([data-motion='reduce'])) {
+    /* The wipe brings the card in, in place of the fade, over the page dimmed behind it. */
+    .ab-card[open] {
+      animation: none;
+    }
+
+    .ab-card::backdrop {
+      background: rgb(20 20 20 / 0.35);
+    }
+
     .ab-card[open] .ab-wipe {
       animation: ab-wipe 0.55s cubic-bezier(0.75, 0, 0.15, 1) both;
     }

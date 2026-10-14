@@ -10,7 +10,7 @@ export type OpenTitle = (media: Media, from: HTMLElement) => void
 
 /**
  * A title's full-screen card: its color floods the screen with speed lines, then the card
- * lands and the title slams in word by word (reduced motion: it simply appears). It opens as
+ * lands and the title slams in word by word (reduced motion: it fades in). It opens as
  * a native modal dialog, so the page behind goes inert, Esc closes it, and the browser returns
  * focus to whatever opened it. `from` is that element's position, where the wipe starts.
  */

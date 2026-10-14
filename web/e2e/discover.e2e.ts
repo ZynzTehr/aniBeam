@@ -269,6 +269,37 @@ async function screenPixels(clip: { x: number; y: number; width: number; height:
   })()`)
 }
 
+/**
+ * How much of the screen changed since the last call: the share, in percent, of its pixels whose
+ * red, green and blue changed by more than 60 together, the measure the research used for a cut
+ * (R1 in its measurements). The screen is taken at half size each way, which keeps it quick and
+ * changes the share by about a point, and compared with the last one in the page. With `first`,
+ * it only keeps the screen, and returns null.
+ */
+async function screenChange(first = false) {
+  const clip = await browser.evaluate<object>(
+    `({ x: scrollX, y: scrollY, width: innerWidth, height: innerHeight })`,
+  )
+  const { data } = await browser.send('Page.captureScreenshot', {
+    format: 'png',
+    clip: { ...clip, scale: 0.5 },
+  })
+  return browser.evaluate<number | null>(`(async () => {
+    const bytes = Uint8Array.from(atob(${JSON.stringify(data)}), (c) => c.charCodeAt(0))
+    const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+    const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+    context.drawImage(image, 0, 0)
+    const now = context.getImageData(0, 0, image.width, image.height).data
+    const last = window.__lastScreen
+    window.__lastScreen = now
+    if (${first} || !last) return null
+    let changed = 0
+    for (let i = 0; i < now.length; i += 4)
+      if (Math.abs(now[i] - last[i]) + Math.abs(now[i + 1] - last[i + 1]) + Math.abs(now[i + 2] - last[i + 2]) > 60) changed++
+    return Math.round((changed / (now.length / 4)) * 1000) / 10
+  })()`)
+}
+
 /** How many pixels are brand hot, within 60 of #ff2d55. */
 const hotPixels = ({ rgb }: { rgb: number[] }) =>
   rgb.filter(
@@ -1634,6 +1665,36 @@ describe('desktop (1440x900)', () => {
     assert.ok(drifting, `the splash cover stayed put with half its panel scrolled away: ${halfOut}`)
   })
 
+  test('with motion allowed, a title card wipes in over the dimmed page, without the fade', async () => {
+    // The card's base rules are what reduced motion gets (see that group): it fades in, over the
+    // page as it is. The motion gate swaps the fade for the wipe, which grows from the panel over
+    // the page dimmed behind it. A gate missing either rule would fade the wipe in as well, or
+    // grow it over a page that stays bright.
+    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
+    assert.ok(
+      await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5_000),
+      'the title card did not open',
+    )
+    const look = await browser.evaluate<{ card: string; wipe: string; backdrop: string }>(`(() => {
+      const card = document.querySelector('dialog.ab-card')
+      return {
+        card: getComputedStyle(card).animationName,
+        wipe: getComputedStyle(card.querySelector('.ab-wipe')).animationName,
+        backdrop: getComputedStyle(card, '::backdrop').backgroundColor,
+      }
+    })()`)
+    await browser.press('Escape')
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000),
+      'the title card did not close',
+    )
+    assert.deepEqual(
+      look,
+      { card: 'none', wipe: 'ab-wipe', backdrop: 'rgba(20, 20, 20, 0.35)' },
+      'with motion allowed, the animation on the title card itself, the one on its wipe, and its backdrop’s color',
+    )
+  })
+
   test('every trending panel shows a brand-hot focus ring when tabbed to', async () => {
     // A panel's ring is its link's outline: 4px of brand hot, 3px out. Panels 4 and 5 share the
     // diagonal cut, whose clip-paths cut that ring away, so tabbing to them showed nothing; their
@@ -2131,13 +2192,71 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     assert.ok(await browser.titlesShown())
   })
 
-  test('the title card appears at once, without the color wipe', async () => {
-    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
-    await sleep(150)
-    const card = await browser.evaluate<{ opacity: string; wipe: string }>(
-      `({ opacity: getComputedStyle(document.querySelector('.ab-sheet')).opacity, wipe: getComputedStyle(document.querySelector('.ab-wipe')).animationName })`,
+  test('opening a title card runs one fade of 150 ms or less, and no frame of it changes a quarter of the screen', async () => {
+    // Spec §3J: with reduced motion, the card comes in with a 150 ms cross-fade, not its color
+    // wipe. Shown at once, it switched most of the screen to the title's color in a single frame:
+    // 61% of it here, and 78-80% in the research's measurements (R1). Each animation the opening
+    // starts is noted as the card opens, before a frame is drawn, and held at its start: where it
+    // runs, what its keyframes change, how long it takes and how often it runs. Then the opening
+    // is played by hand, one 60 Hz frame at a time, each frame compared with the one before
+    // (screenChange). An even fade spreads the change over its nine frames, and no frame here
+    // changes more than 12% of the screen. The images on screen are drawn first, so that what
+    // changes is the card's doing.
+    await browser.evaluate(`(async () => {
+      const onScreen = (img) => { const r = img.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth }
+      await Promise.all([...document.images].filter(onScreen).map((img) => img.decode().catch(() => {})))
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      return true
+    })()`)
+    await screenChange(true)
+    const started = await browser.evaluate<string[] | null>(`new Promise((resolve) => {
+      const running = new Set(document.getAnimations())
+      const watch = new MutationObserver(() => {
+        const card = document.querySelector('dialog.ab-card')
+        if (!card?.open) return
+        watch.disconnect()
+        window.__opening = document.getAnimations().filter((a) => !running.has(a))
+        resolve(window.__opening.map((a) => {
+          a.pause()
+          const { target, pseudoElement } = a.effect
+          const where = target === card && !pseudoElement ? 'the card' : [target.localName, ...target.classList].join('.') + (pseudoElement ?? '')
+          const changes = a.transitionProperty ? [a.transitionProperty] : [...new Set(a.effect.getKeyframes().flatMap(Object.keys))].filter((key) => !['offset', 'computedOffset', 'easing', 'composite'].includes(key)).sort()
+          const { delay, duration, iterations } = a.effect.getTiming()
+          const ms = delay + duration
+          return where + ': ' + changes.join(', ') + ', ' + (ms <= 150 ? 'in 150 ms or less' : 'in ' + Math.round(ms) + ' ms') + ', ' + (iterations === 1 ? 'once' : iterations === Infinity ? 'forever' : iterations + ' times')
+        }))
+      })
+      watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open'] })
+      setTimeout(() => resolve(null), 5000)
+      document.querySelector('.ab-grid .ab-link').click()
+    })`)
+    assert.ok(started, 'the title card did not open')
+    // The card's cover is drawn before the first frame is taken, so it can't come in between two.
+    await browser.evaluate(
+      `document.querySelector('dialog.ab-card img').decode().catch(() => {}).then(() => true)`,
     )
-    assert.deepEqual(card, { opacity: '1', wipe: 'none' })
+    // Frames up to the opening's end, and one past it; 300 ms at most, as longer fails anyway.
+    const end = await browser.evaluate<number>(
+      `Math.min(300, Math.max(0, ...window.__opening.map((a) => a.effect.getComputedTiming().endTime)))`,
+    )
+    const frames = [...Array(Math.ceil((end * 60) / 1000)).keys()].map((k) => (k * 1000) / 60)
+    const changed: number[] = []
+    for (const at of [...frames, end + 1]) {
+      await browser.evaluate(`(() => {
+        for (const a of window.__opening) a.currentTime = ${at}
+        return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))
+      })()`)
+      changed.push((await screenChange()) ?? 0)
+    }
+    await browser.evaluate(
+      `for (const a of window.__opening) a.cancel(); delete window.__opening; delete window.__lastScreen; true`,
+    )
+    const most = Math.max(...changed)
+    assert.deepEqual(
+      { started, most: most < 25 ? 'under a quarter' : `${most}%` },
+      { started: ['the card: opacity, in 150 ms or less, once'], most: 'under a quarter' },
+      'the animations opening the title card started (where each ran, what its keyframes change, how long it took and how often it ran), and the most of the screen one 60 Hz frame of the opening changed',
+    )
   })
 
   test('hovering a panel or holding the lever moves nothing', async () => {
