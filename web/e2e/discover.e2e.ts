@@ -2695,13 +2695,13 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
   })
 
   test('a title card shows in full 400 ms after it opens, by the page’s own clock, with no animation left playing or paused', async () => {
-    // The check above plays the opening by hand, setting each animation's time itself, so it
-    // never sees what the page's own clock does. A fade that never plays, written paused or held
-    // by a rule that pauses every animation while the site is set to reduce motion, keeps the
-    // card on its see-through first frame for good, and passes there. Here the page plays the
-    // opening itself, and the wait is timed in the page, on the clock the fade runs on: 400 ms
-    // after the card opens, well past the 150 ms fade, the card must show in full, and no
-    // animation on the page may be left playing or paused.
+    // Here nothing is set by hand: the page plays the opening itself, on its own clock. An
+    // animation that never plays, written paused or held by a rule that pauses every animation
+    // while the site is set to reduce motion, keeps its first frame for good, which can hide the
+    // card, and only the page's own clock shows that. So the wait is timed in the page, on the
+    // clock its animations run on: 400 ms after the card opens, well past anything the opening
+    // plays under reduced motion, the card must show in full, and no animation on the page may be
+    // left playing or paused.
     await browser.evaluate(`document.querySelector('dialog.ab-card')?.close(); true`)
     assert.ok(
       await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000),

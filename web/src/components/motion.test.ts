@@ -307,13 +307,13 @@ test('outside the motion gate, nothing animates but a fade of 150 ms or less, an
 
 test('outside the motion gate, nothing pauses an animation', () => {
   // A paused animation holds its frame for as long as it stays paused. Outside the gate, what
-  // plays is a quick fade (see FADE_MS), the title card's. Its fade in starts see-through: held
-  // there, the card never shows to visitors who reduce motion. Held, its fade out never ends, and
-  // the card closes only once it has. A rule that pauses every animation while the site is set to
-  // reduce motion, to keep the page still, does both. So outside the gate, the animation
-  // shorthand never says paused, and animation-play-state says only running, as a value this
-  // check can't read, such as var(), could pause too. Prefixed names count as well. In the gate,
-  // a pause can hold only motion, which plays nowhere else.
+  // a rule pauses stays paused for visitors who reduce motion too. Paused on its first frame, an
+  // animation never shows what it brings in, and one the page waits on to end never ends. A rule
+  // that pauses every animation while the site is set to reduce motion, to keep the page still,
+  // holds all that plays then. So outside the gate, the animation shorthand never says paused,
+  // and animation-play-state says only running, as a value this check can't read, such as var(),
+  // could pause too. Prefixed names count as well. In the gate, a pause can hold only motion,
+  // which plays nowhere else.
   const pausing = declarations(calm).flatMap(({ rule, property, value }) => {
     const name = property.replace(/^-\w+-/, '')
     const words = value.replace(/\s*!important$/i, '').split(/[\s,]+/)
@@ -326,7 +326,7 @@ test('outside the motion gate, nothing pauses an animation', () => {
   assert.deepEqual(
     pausing,
     [],
-    'these rules pause an animation outside the gate, or may: the title card’s fade in would hold its see-through first frame, and the card never show to visitors who reduce motion, and its fade out would never end, and the card never close. Take the pause out',
+    'these rules pause an animation outside the gate, or may: a paused animation there would hold its frame for good, for visitors who reduce motion too. Take the pause out',
   )
 })
 
