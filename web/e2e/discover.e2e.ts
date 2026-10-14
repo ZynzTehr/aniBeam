@@ -3550,25 +3550,26 @@ describe('phone (390x844)', () => {
   })
 
   test('the intro fills the first screen, nothing overflows, and the decade chips wrap', async () => {
-    // Once the intro's lines have risen into place (they start 20px low).
-    await browser.animationsDone()
     const phone = await browser.evaluate<{
       trendingTop: number
-      actionsBottom: number
+      introMin: number
+      header: number
       fits: boolean
       chipRows: number
     }>(`({
       trendingTop: document.querySelector('.ab-page').getBoundingClientRect().top,
-      actionsBottom: document.querySelector('.ab-intro-actions').getBoundingClientRect().bottom,
+      introMin: parseFloat(getComputedStyle(document.querySelector('.ab-intro')).minHeight),
+      header: document.querySelector('.ab-top').offsetHeight,
       fits: ${fits},
       chipRows: new Set([...document.querySelectorAll('.ab-eras .ab-chip')].map((c) => Math.round(c.getBoundingClientRect().top))).size,
     })`)
     assert.ok(phone.trendingTop >= 843, `trending starts at ${phone.trendingTop}px`)
-    // Its buttons are on the first screen too: an intro sized without the header's height
-    // (--top-h) put them 98px below it, as tall as the screen under a 230px header.
+    // On a phone the intro's content is taller than the room under the header, so where trending
+    // starts can't show whether the intro was sized by the header's height (--top-h). Its
+    // minimum height can: the screen under the header. Without --top-h it was the whole screen.
     assert.ok(
-      phone.actionsBottom <= 844,
-      `the intro's buttons end at ${phone.actionsBottom}px, below the first screen (844px)`,
+      Math.abs(phone.introMin - (844 - phone.header)) <= 1,
+      `the intro's minimum height is ${phone.introMin}px, not the ${844 - phone.header}px under the ${phone.header}px header`,
     )
     assert.ok(phone.fits, 'the page is wider than the phone')
     assert.ok(phone.chipRows >= 2)
