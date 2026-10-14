@@ -364,13 +364,34 @@ async function clickSwitch() {
   await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
 }
 
+// The line beside the Reduce motion switch that says why it is locked, if one shows, as far as
+// checkVisibility() can tell: a line clipped to a pixel, as sr-only clips it, still passes (see
+// readWhyLine). The locked check must find it, so the unlocked one, which must not, can't pass by
+// looking in the wrong place.
+const whyLine = `[...document.querySelectorAll('.ab-foot .ab-motion-why')].find((line) => line.checkVisibility())`
+
+/**
+ * What a screen reader reads out after the Reduce motion switch's name and state: its
+ * description, as Chrome's accessibility tree gives it, or null if it has none. aria-describedby
+ * reads a line out even while the line is hidden, so only the tree can say what is heard.
+ */
+async function switchDescription(): Promise<string | null> {
+  const { result } = await browser.send('Runtime.evaluate', { expression: motionSwitch })
+  const { nodes } = await browser.send('Accessibility.getPartialAXTree', {
+    objectId: result.objectId,
+    fetchRelatives: false,
+  })
+  return nodes[0]?.description?.value || null
+}
+
 /**
  * The Reduce motion switch as the page shows it, two frames after it is scrolled to the middle of
  * the screen: whether it is on, locked (aria-disabled) and focused from the keyboard; the line
- * that aria-describedby ties to it, if it shows; its chip's fill, border, shadow and lift; the
- * site's setting on <html> and the choice saved for later visits; the brand-hot pixels within
- * 10px of the chip, its focus ring; and the transitions its knob (the chip's ::after) ran since
- * the last time this was asked.
+ * that says why it is locked, if one shows, and the description a screen reader reads out with
+ * the switch (see switchDescription); its chip's fill, border, shadow and lift; the site's
+ * setting on <html> and the choice saved for later visits; the brand-hot pixels within 10px of
+ * the chip, its focus ring; and the transitions its knob (the chip's ::after) ran since the last
+ * time this was asked.
  */
 async function readSwitch() {
   const state = await browser.evaluate<{
@@ -393,14 +414,14 @@ async function readSwitch() {
     }
     chip.scrollIntoView({ block: 'center' })
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-    const why = document.getElementById(input.getAttribute('aria-describedby') ?? '')
+    const why = ${whyLine}
     const style = getComputedStyle(chip), r = chip.getBoundingClientRect()
     const x = Math.floor(r.left + scrollX) - 10, y = Math.floor(r.top + scrollY) - 10
     return {
       checked: input.checked,
       locked: input.getAttribute('aria-disabled'),
       focused: document.activeElement === input && input.matches(':focus-visible'),
-      why: why?.checkVisibility() ? why.textContent : null,
+      why: why?.textContent ?? null,
       look: { fill: style.backgroundColor, border: style.borderTopStyle, shadow: style.boxShadow, lift: style.transform },
       motion: document.documentElement.dataset.motion ?? null,
       saved: localStorage.getItem('anibeam:motion'),
@@ -409,7 +430,55 @@ async function readSwitch() {
     }
   })()`)
   const hot = hotPixels(await screenPixels(state.around))
-  return { ...state, ring: hot >= 1000 ? 'brand hot' : `${hot} brand-hot pixels` }
+  return {
+    ...state,
+    ring: hot >= 1000 ? 'brand hot' : `${hot} brand-hot pixels`,
+    description: await switchDescription(),
+  }
+}
+
+/**
+ * The line that says why the Reduce motion switch is locked, as a sighted visitor sees it, two
+ * frames after it is scrolled to the middle of the screen, or null if none shows: its size, its
+ * clip-path, and the contrast its text shows on screen (see pixelContrast), each in words if it
+ * passes (200x16px or more, none, 4.5:1 or better), or else as measured. That it shows to the
+ * page isn't enough: it could still be clipped to a pixel, as sr-only clips it, or too faint.
+ */
+async function readWhyLine() {
+  const line = await browser.evaluate<{
+    width: number
+    height: number
+    clip: string
+    text: { x: number; y: number; width: number; height: number }
+  } | null>(`(async () => {
+    const line = ${whyLine}
+    if (!line) return null
+    line.scrollIntoView({ block: 'center' })
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    // The text's box, in whole pixels from the top left of the page, rounded inward: its edge
+    // pixels are partly the page around it.
+    const range = document.createRange()
+    range.selectNodeContents(line)
+    const r = line.getBoundingClientRect(), t = range.getBoundingClientRect()
+    const x = Math.ceil(t.left + scrollX), y = Math.ceil(t.top + scrollY)
+    return {
+      width: Math.round(r.width),
+      height: Math.round(r.height),
+      clip: getComputedStyle(line).clipPath,
+      text: { x, y, width: Math.floor(t.right + scrollX) - x, height: Math.floor(t.bottom + scrollY) - y },
+    }
+  })()`)
+  if (!line) return null
+  // A line with no text has no box to take a picture of, and nothing on screen to read.
+  const contrast = line.text.width > 0 && line.text.height > 0 ? await pixelContrast(line.text) : 1
+  return {
+    size:
+      line.width >= 200 && line.height >= 16
+        ? '200x16px or more'
+        : `${line.width}x${line.height}px`,
+    clip: line.clip,
+    contrast: contrast >= 4.5 ? '4.5:1 or better' : `${contrast}:1`,
+  }
 }
 
 /**
@@ -1984,7 +2053,10 @@ describe('desktop (1440x900)', () => {
     // brand hot, as on the decade chips: the vibe chips' white ring, made for the pull machine's
     // pink, would vanish on paper. The ring is counted in brand-hot pixels around the chip: about
     // 1,800 for a whole one, and 0 for none. Its knob slides as it turns off, with motion allowed
-    // again, but not as it turns on: the setting it turns on stops that slide too.
+    // again, but not as it turns on: the setting it turns on stops that slide too. The line that
+    // says why the switch is locked is for a locked switch alone (see the reduced motion group):
+    // here no such line shows, and a screen reader hears no description, as it would from a line
+    // hidden from sight but still tied to the switch by aria-describedby.
     const place = await browser.evaluate<{ name: string; height: number; above: boolean } | null>(
       `(() => {
         const input = ${motionSwitch}
@@ -2010,17 +2082,18 @@ describe('desktop (1440x900)', () => {
     }
     await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
     // Each step in a few words: on or off, focused from the keyboard or not, its ring, the line
-    // it is described by, data-motion on <html>, the saved choice, and whether its knob slid.
+    // that says why it is locked and its description (null for none), data-motion on <html>, the
+    // saved choice, and whether its knob slid.
     const said = steps.map(
       (s) =>
-        `${s.checked ? 'on' : 'off'}, ${s.focused ? 'focused' : 'not focused'}, ring ${s.ring}, line ${s.why}, data-motion ${s.motion}, saved ${s.saved}, knob ${s.slid.includes('transform') ? 'slid' : 'still'}`,
+        `${s.checked ? 'on' : 'off'}, ${s.focused ? 'focused' : 'not focused'}, ring ${s.ring}, line ${JSON.stringify(s.why)}, description ${JSON.stringify(s.description)}, data-motion ${s.motion}, saved ${s.saved}, knob ${s.slid.includes('transform') ? 'slid' : 'still'}`,
     )
     assert.deepEqual(
       said,
       [
-        'off, focused, ring brand hot, line null, data-motion null, saved null, knob still',
-        'on, focused, ring brand hot, line null, data-motion reduce, saved reduce, knob still',
-        'off, focused, ring brand hot, line null, data-motion null, saved null, knob slid',
+        'off, focused, ring brand hot, line null, description null, data-motion null, saved null, knob still',
+        'on, focused, ring brand hot, line null, description null, data-motion reduce, saved reduce, knob still',
+        'off, focused, ring brand hot, line null, description null, data-motion null, saved null, knob slid',
       ],
       'the switch as Tab reached it, then after Space, and after Space again',
     )
@@ -2503,12 +2576,16 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
       // the switch shows on and locked, though the site's own setting is off: yellow, flat and
       // dashed, with a line saying why. It stays focusable, marked aria-disabled rather than
       // disabled, so a screen reader reaches it and hears the line, which aria-describedby ties to
-      // it. A click or Space changes nothing, not even a choice saved on an earlier visit, which
-      // holds again once the device stops asking, and the switch sends no change or input event,
-      // as for a change that never happened.
+      // it: the line is its description in Chrome's accessibility tree. A sighted visitor must be
+      // able to read the line too: a box of 200x16px or more, not clipped away (as sr-only keeps
+      // text for screen readers alone), and 4.5:1 or better as the screen shows it. It is about
+      // 303x20px, at 16:1, today. A click or Space changes nothing, not even a choice saved on an
+      // earlier visit, which holds again once the device stops asking, and the switch sends no
+      // change or input event, as for a change that never happened.
       assert.ok(await hasSwitch(), 'the footer has no Reduce motion switch')
       await tabToSwitch()
       const reached = await readSwitch()
+      const seen = await readWhyLine()
       assert.deepEqual(
         {
           checked: reached.checked,
@@ -2516,6 +2593,8 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
           focused: reached.focused,
           ring: reached.ring,
           why: reached.why,
+          seen,
+          description: reached.description,
           look: reached.look,
           motion: reached.motion,
         },
@@ -2525,10 +2604,12 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
           focused: true,
           ring: 'brand hot',
           why: 'On because your device is set to reduce motion.',
+          seen: { size: '200x16px or more', clip: 'none', contrast: '4.5:1 or better' },
+          description: 'On because your device is set to reduce motion.',
           look: { fill: 'rgb(255, 212, 0)', border: 'dashed', shadow: 'none', lift: 'none' },
           motion: null,
         },
-        'the switch as Tab reached it, with the device asking and the site’s setting off: on, aria-disabled, focused from the keyboard, its ring, the line it is described by, its chip’s fill, border, shadow and lift, and data-motion on <html>',
+        'the switch as Tab reached it, with the device asking and the site’s setting off: on, aria-disabled, focused from the keyboard, its ring, the line that says why and how it shows (its size, clip-path and contrast on screen), the description a screen reader reads out, its chip’s fill, border, shadow and lift, and data-motion on <html>',
       )
       try {
         await browser.evaluate(`localStorage.setItem('anibeam:motion', 'reduce'); true`)
