@@ -622,6 +622,32 @@ async function readFocus() {
   return `${state.name}, ring ${ring}, ${state.place}; ${links}`
 }
 
+// Loads the page afresh and lists the parts of the intro that moved after they were drawn, as
+// Chrome reports them in its layout shifts from the very start of the load ("part: from → to").
+// The intro fills the screen under the header, so it needs the header's height, which SiteHeader
+// publishes as --top-h; until it was published, the intro was sized by the CSS fallback, 80px.
+async function introMovesOnLoad(options: Parameters<Browser['load']>[0]) {
+  const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `window.__shifts = []
+      new PerformanceObserver((list) => window.__shifts.push(...list.getEntries())).observe({ type: 'layout-shift', buffered: true })`,
+  })
+  try {
+    await browser.load(options)
+    assert.ok(await browser.titlesShown())
+    await browser.animationsDone()
+    return await browser.evaluate<string[]>(`(() => {
+      const intro = document.querySelector('.ab-intro')
+      return window.__shifts.flatMap((shift) =>
+        shift.sources
+          .filter((source) => source.node && intro.contains(source.node))
+          .map((source) => (source.node.className || source.node.nodeName.toLowerCase()) + ': ' + Math.round(source.previousRect.top) + ' → ' + Math.round(source.currentRect.top) + 'px'),
+      )
+    })()`)
+  } finally {
+    await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+  }
+}
+
 before(async () => {
   browser = await Browser.open()
 })
@@ -2250,6 +2276,17 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('the intro is drawn where it stays from its first frame, under a header of one row or two', async () => {
+    // As on a phone (see the phone check of the same name). From 820 to about 1000px the header
+    // takes two rows, 134px, and sized by the 80px fallback the intro's first frame was 27px off;
+    // at 1440px it takes one row, 78px. The page stays loaded at the last width, 860px.
+    const moved: string[] = []
+    for (const width of [1440, 860])
+      for (const part of await introMovesOnLoad({ width, height: 900 }))
+        moved.push(`${width}px: ${part}`)
+    assert.deepEqual(moved, [], 'parts of the intro that moved after they were drawn')
+  })
+
   test('the console stays free of errors and warnings', () => {
     assert.deepEqual(browser.problems, [])
   })
@@ -3465,34 +3502,17 @@ describe('phone (390x844)', () => {
   })
 
   test('the intro is drawn where it stays, from its first frame', async () => {
-    // The intro fills the screen under the header, so it needs the header's height, which
-    // SiteHeader publishes as --top-h. On a phone the header takes three rows, 230px. Until it
-    // was published, the intro was sized by the CSS fallback, 80px, so the first frame drew the
-    // headline 67px lower than where it then jumped: layout shifts of about 0.04, in one to
-    // three frames, on every load. Chrome reports each shift with the parts that moved, and
-    // none may be in the intro. Chrome's phone emulation marks these shifts as just after input
-    // (which web-vitals would skip), though no key or click was sent; a plain window of the same
-    // size reports the same shifts without the mark, as a visitor's would. So every one counts.
-    const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
-      source: `window.__shifts = []
-        new PerformanceObserver((list) => window.__shifts.push(...list.getEntries())).observe({ type: 'layout-shift', buffered: true })`,
-    })
-    try {
-      await browser.load({ width: 390, height: 844, phone: true })
-      assert.ok(await browser.titlesShown())
-      await browser.animationsDone()
-      const moved = await browser.evaluate<string[]>(`(() => {
-        const intro = document.querySelector('.ab-intro')
-        return window.__shifts.flatMap((shift) =>
-          shift.sources
-            .filter((source) => source.node && intro.contains(source.node))
-            .map((source) => (source.node.className || source.node.nodeName.toLowerCase()) + ': ' + Math.round(source.previousRect.top) + ' → ' + Math.round(source.currentRect.top) + 'px'),
-        )
-      })()`)
-      assert.deepEqual(moved, [], 'parts of the intro that moved after they were drawn')
-    } finally {
-      await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
-    }
+    // On a phone the header takes three rows, 230px. Sized by the 80px fallback, the first frame
+    // drew the headline 67px lower than where it then jumped: layout shifts of about 0.04, in one
+    // to three frames, on every load. Chrome's phone emulation marks these shifts as just after
+    // input (which web-vitals would skip), though no key or click was sent; a plain window of the
+    // same size reports the same shifts without the mark, as a visitor's would. So every one
+    // counts (see introMovesOnLoad).
+    assert.deepEqual(
+      await introMovesOnLoad({ width: 390, height: 844, phone: true }),
+      [],
+      'parts of the intro that moved after they were drawn',
+    )
   })
 
   test('the intro’s speed lines stay under the header', async () => {
