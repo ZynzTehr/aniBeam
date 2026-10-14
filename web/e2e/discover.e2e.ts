@@ -1748,6 +1748,40 @@ describe('desktop (1440x900)', () => {
     assert.deepEqual(off, [], 'after a resize, the intro no longer ends at the fold')
   })
 
+  test('at every width from 540 to 1440px, the intro ends at the fold', async () => {
+    // The intro fills the first screen under the header at any width, whatever height the
+    // header takes there, not just at 1440px: an intro sized by a fixed 134px from 900 to 1024px,
+    // where the header is one 78px row, ended 56px above the fold. Each side of the header's
+    // changes at 900 and about 820px is measured, at the top of the page.
+    const frames = () =>
+      browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+    const resize = (width: number) =>
+      browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height: 900,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+    const off: string[] = []
+    try {
+      for (const width of [1440, 1024, 1000, 960, 900, 899, 860, 821, 820, 700, 540]) {
+        await resize(width)
+        await frames()
+        const top = await browser.evaluate<number>(
+          `scrollTo(0, 0), document.querySelector('.ab-page').getBoundingClientRect().top`,
+        )
+        if (Math.abs(top - 900) > 1)
+          off.push(`${width}px: trending starts at ${Math.round(top)}px, not 900px`)
+      }
+    } finally {
+      await resize(1440)
+      await frames()
+    }
+    assert.deepEqual(off, [], 'widths where the intro does not end at the fold')
+  })
+
   test('every label on the pull machine reads at 4.5:1 or better', async () => {
     // WCAG contrast of every piece of text on the machine, text a ::before or ::after adds
     // included, so a label added later is measured too. Each is measured as the screen shows
