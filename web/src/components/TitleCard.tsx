@@ -37,9 +37,31 @@ export function TitleCard({
   const [leaving, setLeaving] = useState(false)
   const playsBack = () => !closing && !leaving && !reducedMotion()
 
-  // No cleanup: removing the element closes the dialog.
+  // Landed: the card has finished opening, its wipe and slam played (its fade, under reduced
+  // motion). The close button's look for the keyboard's focus waits for it (see .ab-card.is-landed),
+  // so that it plays on a card already on screen.
+  const [landed, setLanded] = useState(false)
+
+  // No cleanup for the dialog: removing the element closes it. The landing is heard only while
+  // this effect is the one that counts (StrictMode runs it twice).
   useEffect(() => {
-    if (ref.current && !ref.current.open) ref.current.showModal()
+    const card = ref.current
+    if (!card) return
+    if (!card.open) card.showModal()
+    let current = true
+    const opening = card
+      .getAnimations({ subtree: true })
+      .filter(
+        (animation) =>
+          animation.timeline === document.timeline &&
+          animation.effect?.getComputedTiming().endTime !== Infinity,
+      )
+    void Promise.allSettled(opening.map((animation) => animation.finished)).then(() => {
+      if (current) setLanded(true)
+    })
+    return () => {
+      current = false
+    }
   }, [])
 
   // With no fade to end, as when a stylesheet of the visitor's own turns animations off, the card
@@ -80,7 +102,14 @@ export function TitleCard({
   return (
     <dialog
       ref={ref}
-      className={closing ? 'ab-card is-closing' : leaving ? 'ab-card is-leaving' : 'ab-card'}
+      className={[
+        'ab-card',
+        landed && 'is-landed',
+        closing && 'is-closing',
+        leaving && 'is-leaving',
+      ]
+        .filter(Boolean)
+        .join(' ')}
       aria-labelledby="ab-card-title"
       // Esc closes the card unless the page holds it open, which the browser allows once for each
       // thing the visitor does on the page: the cancel event is cancelable then.

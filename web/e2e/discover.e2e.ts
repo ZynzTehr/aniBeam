@@ -2286,6 +2286,68 @@ describe('desktop (1440x900)', () => {
     })
   })
 
+  test('with motion allowed, a title card opened from the keyboard gives its focused close button the hover look once it has finished opening, and at once when Tab comes back to it', async () => {
+    // Opened with Enter, the card puts the keyboard's focus on its close button, which takes the
+    // hover look then too (see the check above), but only once the card has finished opening, so
+    // that its fold plays on a card already on screen, as the user asked. Its focus ring shows at
+    // once. Tab away and back, and the look comes at once.
+    const seen: Record<string, object | string> = {}
+    try {
+      await browser.evaluate(`(() => {
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.focus()
+        return true
+      })()`)
+      await browser.press('Enter')
+      // The opening is held as it starts (its animations, not the button's own transitions), so
+      // the card stays mid-opening however fast the machine, while a look that didn't wait would
+      // have had time to arrive. Then it plays on.
+      await browser.evaluate(
+        `document.querySelector('dialog.ab-card').getAnimations({ subtree: true }).filter((a) => a instanceof CSSAnimation).forEach((a) => a.pause()); true`,
+      )
+      await sleep(500)
+      seen.opening = await browser.evaluate(closeButton)
+      seen.focus = await browser.evaluate<string>(
+        `document.activeElement.matches('dialog.ab-card .ab-close') ? 'on the close button' : 'elsewhere'`,
+      )
+      await browser.evaluate(
+        `document.querySelector('dialog.ab-card').getAnimations({ subtree: true }).filter((a) => a instanceof CSSAnimation).forEach((a) => a.play()); true`,
+      )
+      await cardInFull()
+      await sleep(700)
+      seen.opened = await browser.evaluate(closeButton)
+      await browser.press('Tab')
+      await sleep(700)
+      seen.tabbedAway = await browser.evaluate(closeButton)
+      await browser.press('Tab', true)
+      await sleep(700)
+      seen.tabbedBack = await browser.evaluate(closeButton)
+    } finally {
+      await closeCardLeft()
+    }
+    const rest = {
+      fill: 'rgb(255, 255, 255)',
+      edge: 'rgb(20, 20, 20)',
+      icon: 'X',
+      drawnIn: 'rgb(20, 20, 20)',
+      speedLines: 'hidden',
+    }
+    const burst = {
+      fill: 'rgb(255, 45, 85)',
+      edge: 'rgb(255, 45, 85)',
+      icon: 'arrow pointing left',
+      drawnIn: 'rgb(255, 255, 255)',
+      speedLines: 'shown',
+    }
+    assert.deepEqual(seen, {
+      opening: rest,
+      focus: 'on the close button',
+      opened: burst,
+      tabbedAway: rest,
+      tabbedBack: burst,
+    })
+  })
+
   test('every trending panel shows a brand-hot focus ring when tabbed to', async () => {
     // A panel's ring is its link's outline: 4px of brand hot, 3px out. Panels 4 and 5 share the
     // diagonal cut, whose clip-paths cut that ring away, so tabbing to them showed nothing; their
@@ -3162,6 +3224,52 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     assert.ok(await browser.titlesShown())
   })
 
+  test('a title card opened from the keyboard turns its focused close button red once it has faded in, its X white and still', async () => {
+    // As with motion allowed, the focus look waits for the card to finish opening, here its fade,
+    // and is only a change of color.
+    const seen: Record<string, object> = {}
+    try {
+      await browser.evaluate(`(() => {
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.focus()
+        return true
+      })()`)
+      await browser.press('Enter')
+      // The opening is held as it starts (its animations, not the button's own transitions), so
+      // the card stays mid-opening however fast the machine, while a look that didn't wait would
+      // have had time to arrive. Then it plays on.
+      await browser.evaluate(
+        `document.querySelector('dialog.ab-card').getAnimations({ subtree: true }).filter((a) => a instanceof CSSAnimation).forEach((a) => a.pause()); true`,
+      )
+      await sleep(500)
+      seen.opening = await browser.evaluate(closeButton)
+      await browser.evaluate(
+        `document.querySelector('dialog.ab-card').getAnimations({ subtree: true }).filter((a) => a instanceof CSSAnimation).forEach((a) => a.play()); true`,
+      )
+      await cardInFull()
+      await sleep(700)
+      seen.opened = await browser.evaluate(closeButton)
+    } finally {
+      await closeCardLeft()
+    }
+    assert.deepEqual(seen, {
+      opening: {
+        fill: 'rgb(255, 255, 255)',
+        edge: 'rgb(20, 20, 20)',
+        icon: 'X',
+        drawnIn: 'rgb(20, 20, 20)',
+        speedLines: 'hidden',
+      },
+      opened: {
+        fill: 'rgb(255, 45, 85)',
+        edge: 'rgb(255, 45, 85)',
+        icon: 'X',
+        drawnIn: 'rgb(255, 255, 255)',
+        speedLines: 'hidden',
+      },
+    })
+  })
+
   test('hovering the close button turns it brand red, its X white, and moves nothing: no fold, no speed lines', async () => {
     // Reduced motion keeps the color, which moves nothing, and drops the fold and the ring.
     const seen: Record<string, object> = {}
@@ -3479,9 +3587,23 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
       card: 'gone',
       focus: 'back on its panel',
     }
+    // Esc makes the browser show the keyboard's focus, which is on the close button, so on the
+    // opened card the button takes its focus look as the card fades: under reduced motion, a
+    // change of color, each with its own 250 ms transition.
+    const focusLook = [
+      'button.ab-close: background-color, in 250 ms, once',
+      'button.ab-close: border-bottom-color, in 250 ms, once',
+      'button.ab-close: border-left-color, in 250 ms, once',
+      'button.ab-close: border-right-color, in 250 ms, once',
+      'button.ab-close: border-top-color, in 250 ms, once',
+      'span.ab-x: color, in 250 ms, once',
+    ]
     assert.deepEqual(
       seen,
-      { 'Esc, then the button': atOnce, 'the button, then Esc': atOnce },
+      {
+        'Esc, then the button': { ...atOnce, started: [...focusLook, ...atOnce.started] },
+        'the button, then Esc': atOnce,
+      },
       'a second request to close the title card as it faded out, each way round: the animations the first request started (held as they started), how soon the dialog closed after the second, whether the card left the page, and where the focus went',
     )
   })

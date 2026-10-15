@@ -1207,15 +1207,18 @@ body:has(.ab-card[open]) {
   transform: scaleX(0);
 }
 
-/* Hovered (where a pointer can hover), or on the card's way back, the button floods brand red and
-   its X turns white: colors, which move nothing, so this holds under reduced motion too. The fold
+/* Hovered (where a pointer can hover), on the card's way back, or with the keyboard's focus once
+   the card has landed (finished opening: see TitleCard), the button floods brand red and its X
+   turns white: colors, which move nothing, so this holds under reduced motion too. The fold
    into an arrow and the ring of speed lines move, so they wait in the motion block. */
-.ab-card.is-leaving .ab-close {
+.ab-card.is-leaving .ab-close,
+.ab-card.is-landed .ab-close:focus-visible {
   border-color: var(--hot);
   background-color: var(--hot);
 }
 
-.ab-card.is-leaving .ab-close .ab-x {
+.ab-card.is-leaving .ab-close .ab-x,
+.ab-card.is-landed .ab-close:focus-visible .ab-x {
   color: #fff;
 }
 
@@ -1511,8 +1514,8 @@ body:has(.ab-card[open]) {
     }
 
     /* The close button's X folds into a back arrow, its shaft growing out and its two strokes
-       shortening into the head at its left end, as a ring of speed lines flashes out: on hover,
-       and on the card's way back. */
+       shortening into the head at its left end, as a ring of speed lines flashes out: on hover, on
+       the card's way back, and with the keyboard's focus once the card has landed. */
     .ab-x i {
       transition: transform 0.45s var(--spring);
     }
@@ -1524,19 +1527,23 @@ body:has(.ab-card[open]) {
         transform 0.45s var(--spring);
     }
 
-    .ab-card.is-leaving .ab-close .ab-x i:nth-child(1) {
+    .ab-card.is-leaving .ab-close .ab-x i:nth-child(1),
+    .ab-card.is-landed .ab-close:focus-visible .ab-x i:nth-child(1) {
       transform: translate(-6px, -3.9px) rotate(-45deg) scaleX(0.5);
     }
 
-    .ab-card.is-leaving .ab-close .ab-x i:nth-child(2) {
+    .ab-card.is-leaving .ab-close .ab-x i:nth-child(2),
+    .ab-card.is-landed .ab-close:focus-visible .ab-x i:nth-child(2) {
       transform: translate(-6px, 3.9px) rotate(45deg) scaleX(0.5);
     }
 
-    .ab-card.is-leaving .ab-close .ab-x i:nth-child(3) {
+    .ab-card.is-leaving .ab-close .ab-x i:nth-child(3),
+    .ab-card.is-landed .ab-close:focus-visible .ab-x i:nth-child(3) {
       transform: scaleX(0.9);
     }
 
-    .ab-card.is-leaving .ab-close::before {
+    .ab-card.is-leaving .ab-close::before,
+    .ab-card.is-landed .ab-close:focus-visible::before {
       opacity: 1;
       transform: none;
     }
