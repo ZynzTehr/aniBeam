@@ -89,15 +89,16 @@ test('the production build holds nothing from e2e/, which must stay out of the a
 // reads the build for any trace of them: a file made from their folders (a stylesheet of theirs
 // would join the app's own, under its name), a file named like one, the prototypes' switcher
 // label, the gallery's heading, ScrollTrigger's name, or a check of the address for one: the word
-// gallery anywhere (nothing that ships holds it), or variant as a quoted word, as a check names
-// it (React DOM's own font-variant and fontVariant aren't quoted so). A stylesheet of theirs
-// brought in by a CSS @import leaves no trace among the files the build was made from, so the
-// production stylesheet is also read for a class that only their stylesheets name.
+// gallery anywhere (nothing that ships holds it), or variant as a word of its own, quoted or in
+// ?variant=, as a check names it (React DOM's font-variant and fontVariant hold it inside a word).
+// A stylesheet of theirs brought in by a CSS @import leaves no trace among the files the build was
+// made from, so the production stylesheet is also read for a class that only their stylesheets
+// name.
 const DEVELOPMENT_ONLY = {
   folders: /^src\/(gallery|prototype)\//i,
   names: /gallery|prototype|variant/i,
   markers: ['Design prototype switcher', 'AniBeam component gallery', 'ScrollTrigger'],
-  addresses: /gallery|(["'`])variant\1/gi,
+  addresses: /gallery|(?<![\w-])variant(?![\w-])/gi,
 }
 
 // The class names in a stylesheet's selectors, unescaped, as Tailwind writes md:flex as .md\:flex.
@@ -124,6 +125,8 @@ test('the production build holds no development-only code', () => {
     'new URLSearchParams(location.search).has(`variant`)',
     "location.search.includes('gallery')",
     'new URLSearchParams(location.search).get("variant")',
+    "location.search.startsWith('?variant=')",
+    '/[?&]variant=/.test(location.search)',
   ])
     assert.equal(check.match(DEVELOPMENT_ONLY.addresses)?.length, 1, `the pattern misses ${check}`)
   for (const word of ['font-variant-numeric', 'fontVariant', 'fontVariantCaps'])
@@ -161,7 +164,11 @@ test('the production build holds no development-only code', () => {
         .map((name) => `${file.fileName}: .${name}, a development-only class`),
     ]
   })
-  assert.deepEqual(traces, [], 'the production build holds these traces of development-only code')
+  assert.deepEqual(
+    traces,
+    [],
+    'the production build holds these traces of development-only code (should a shipped feature ever say "gallery", narrow that word here)',
+  )
 })
 
 // Tailwind makes a utility of any word that names one in the files it reads, even in a comment, so
