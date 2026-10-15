@@ -10,6 +10,23 @@ import { accentVars } from '../theming/deriveAccent.ts'
 import { MOODS, type Mood } from './moods.ts'
 import { pickTitle, pullable } from './pick.ts'
 
+// What the machine says before a pull: with no titles yet, with none it may hand out, or with some.
+const HINTS = {
+  empty: (
+    <>The machine fills up with titles once AniList answers. It&rsquo;s not something you did.</>
+  ),
+  unpullable: (
+    <>None of the titles on this page can come out of the machine. Try another decade below.</>
+  ),
+  ready: (
+    <>
+      Pick a vibe, then pull. Every capsule holds a real anime from what&rsquo;s on this page.
+      Coming soon: mood sliders for finer picks.
+    </>
+  ),
+}
+type Hint = keyof typeof HINTS
+
 function rarityOf(score: number | null) {
   if (score === null) return { key: 'mystery', label: 'Mystery', stars: '?', sfx: '!?' }
   if (score >= 85) return { key: 'ssr', label: 'SSR', stars: '★★★', sfx: 'SSR!!' }
@@ -45,6 +62,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
   }
 
   const rarity = pulled ? rarityOf(pulled.averageScore) : null
+  const hint: Hint = !pool.length ? 'empty' : !titles.length ? 'unpullable' : 'ready'
   return (
     <section id="pull" className="ab-pull" aria-labelledby="ab-pull-title">
       <h2 id="ab-pull-title" className="ab-sfx ab-sfx-small">
@@ -142,20 +160,22 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
                 </>
               )}
             </div>
-          ) : !pool.length ? (
-            <p className="ab-hint">
-              The machine fills up with titles once AniList answers. It&rsquo;s not something you
-              did.
-            </p>
-          ) : !titles.length ? (
-            <p className="ab-hint">
-              None of the titles on this page can come out of the machine. Try another decade below.
-            </p>
           ) : (
-            <p className="ab-hint">
-              Pick a vibe, then pull. Every capsule holds a real anime from what&rsquo;s on this
-              page. Coming soon: mood sliders for finer picks.
-            </p>
+            // The hint that applies, then the others, unseen, in the same place: the box takes the
+            // tallest one's size whichever shows, so it doesn't grow as titles arrive and change
+            // what it says (on a phone, that pushed the decades down).
+            <div className="ab-hints">
+              <p key={hint} className="ab-hint">
+                {HINTS[hint]}
+              </p>
+              {(Object.keys(HINTS) as Hint[])
+                .filter((other) => other !== hint)
+                .map((other) => (
+                  <p key={other} className="ab-hint ab-hint-room" aria-hidden="true">
+                    {HINTS[other]}
+                  </p>
+                ))}
+            </div>
           )}
         </div>
       </div>

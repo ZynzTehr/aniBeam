@@ -901,6 +901,21 @@ body:has(.ab-card[open]) {
   text-align: center;
 }
 
+/* The hints share one place (see PullMachine): the box keeps the tallest one's size, whichever
+   shows, and the one that shows sits in its middle. */
+.ab-hints {
+  display: grid;
+}
+
+.ab-hints > .ab-hint {
+  grid-area: 1 / 1;
+  align-self: center;
+}
+
+.ab-hint-room {
+  visibility: hidden;
+}
+
 .ab-hint::after {
   position: absolute;
   bottom: -26px;

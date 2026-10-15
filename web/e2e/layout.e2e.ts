@@ -132,3 +132,63 @@ test('while a decade loads, the strip draws one row of cards, its empty ones, as
   }
   assert.deepEqual(seen, [], 'the strip changes size as its titles land')
 })
+
+test("the pull machine's hint keeps its size as the titles land and change what it says", async () => {
+  // Before any titles it says they're on their way; once they land, to pick a vibe and pull. On a
+  // phone the machine sits above the decades, so a hint that grew pushed them down.
+  const seen: string[] = []
+  for (const screen of [PHONE, DESKTOP]) {
+    await browser.forget()
+    await browser.holdAniList(2500)
+    await browser.load({ ...screen, reduceMotion: true })
+    // The box's height and the hint it shows: one, the others there only to hold the room, hidden
+    // from eyes and from screen readers.
+    const hint = `(() => {
+      const box = document.querySelector('.ab-reveal')
+      const hints = [...box.querySelectorAll('.ab-hint')]
+      const shown = hints.filter((hint) => getComputedStyle(hint).visibility === 'visible')
+      const read = hints.filter((hint) => !hint.closest('[aria-hidden="true"]'))
+      if (shown.length !== 1 || read.length !== 1 || shown[0] !== read[0])
+        return shown.length + ' hints shown, ' + read.length + ' read by screen readers'
+      // The hints share one place, as tall as the tallest (the box can be taller, from 821px wide,
+      // holding the room of a pulled title).
+      const tallest = Math.max(...hints.map((hint) => hint.getBoundingClientRect().height))
+      const place = box.querySelector('.ab-hints').getBoundingClientRect().height
+      if (Math.abs(place - tallest) > 1)
+        return 'the hints take ' + Math.round(place) + 'px for a tallest of ' + Math.round(tallest) + 'px'
+      return Math.round(box.getBoundingClientRect().height) + 'px: ' + shown[0].textContent.split('.')[0]
+    })()`
+    const before = await browser.evaluate<string>(hint)
+    assert.ok(await browser.titlesShown())
+    await browser.holdAniList(0)
+    const after = await browser.evaluate<string>(hint)
+    if (
+      !/^\d+px: /.test(before) ||
+      !/^\d+px: /.test(after) ||
+      before.split(':')[0] !== after.split(':')[0]
+    )
+      seen.push(`${screen.width}px: ${before}, then ${after}`)
+  }
+  assert.deepEqual(seen, [], 'the hint changes size')
+})
+
+test('a slow first load, seen at the decades, jumps under 0.1, on a phone and on a wide screen', async () => {
+  // The answer held 2.5 s, the visitor already down at the decades as it lands.
+  const seen: string[] = []
+  for (const screen of [PHONE, DESKTOP])
+    for (const reduceMotion of [false, true]) {
+      await browser.forget()
+      await browser.holdAniList(2500)
+      await browser.load({ ...screen, reduceMotion })
+      await browser.evaluate(
+        `document.getElementById('decades').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
+      )
+      assert.ok(await browser.titlesShown())
+      await browser.holdAniList(0)
+      await sleep(1500)
+      const { value } = await browser.layoutShift()
+      if (value >= 0.1)
+        seen.push(`${screen.width}px${reduceMotion ? ', reduced motion' : ''}: ${await shifted()}`)
+    }
+  assert.deepEqual(seen, [], 'the page jumps under the visitor as the titles land')
+})
