@@ -3171,16 +3171,23 @@ const closeButton = `(() => {
 
 /**
  * Closes the open title card with Esc and says how its closing replayed the opening: for each part
- * of the card (a title word by its place), whether its way back plays its opening's keyframes in
- * reverse, in half the time, ending at (T - its start) / 2, where T is when the opening ended;
+ * of the card (a title word by its place), whether its way back plays its opening's keyframes (the
+ * same offsets, values and easing) in reverse, in half the time, ending at (T - its start) / 2, where T is when the opening ended;
  * whether the backdrop lifts by T / 2; and whether the card closes at T / 2. The card must have
  * finished opening, and have been opened with the keyboard, so the page may hold it on Esc.
  */
 async function wayBackOff() {
   // Each animation in the card by the part it plays on (a title word by its place), its
-  // keyframes' name, and its timing in ms. Only the card's: the intro behind it has entrances
-  // of the same names.
-  type Play = { part: string; name: string; delay: number; duration: number; direction: string }
+  // keyframes' name, its timing in ms, and its keyframes as they play: each one's offset, values
+  // and easing. Only the card's: the intro behind it has entrances of the same names.
+  type Play = {
+    part: string
+    name: string
+    delay: number
+    duration: number
+    direction: string
+    frames: string
+  }
   const plays = (names: string) =>
     browser.evaluate<
       Play[]
@@ -3188,7 +3195,8 @@ async function wayBackOff() {
       const { target, pseudoElement } = a.effect
       const word = target.style.getPropertyValue('--w')
       const { delay, duration, direction } = a.effect.getTiming()
-      return { part: [target.localName, ...target.classList].join('.') + (pseudoElement ?? '') + (word ? ' word ' + word : ''), name: a.animationName, delay, duration, direction }
+      const frames = JSON.stringify(a.effect.getKeyframes().map(({ computedOffset, offset, composite, ...rest }) => ({ offset: computedOffset, ...rest })))
+      return { part: [target.localName, ...target.classList].join('.') + (pseudoElement ?? '') + (word ? ' word ' + word : ''), name: a.animationName, delay, duration, direction, frames }
     })`)
   const opening = await plays(
     `(name) => ['ab-wipe', 'ab-sheet', 'ab-art', 'ab-fall', 'ab-slam', 'ab-rise'].includes(name)`,
@@ -3224,6 +3232,9 @@ async function wayBackOff() {
       off.push(
         `${open.part}: ${back.name} ${back.direction}, ${back.delay} + ${back.duration} ms, for ${open.name} at ${open.delay} + ${open.duration} ms`,
       )
+    // The way back's keyframes are copies of the opening's: they must not drift from them.
+    if (back && back.frames !== open.frames)
+      off.push(`${open.part}: ${back.name}'s keyframes ${back.frames}, for ${open.frames}`)
   }
   const undim = closing.find((a) => a.name === 'ab-undim')
   if (!undim || !near(undim.delay + undim.duration, T / 2))
