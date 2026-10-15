@@ -192,13 +192,16 @@ test('the production stylesheet is made from the files that ship, and no others'
 
 // The bundle's weight, as each PR reports it: every file brotli-compressed at quality 11. Each part
 // must stay within its budget, its size rounded up to the next 500 bytes (on 2026-10-15: the JS
-// every visit loads, 78,154 B; the CSS, 8,291 B, once Tailwind read only the files that ship; and
-// the JS loaded only when needed, the samples for when AniList can't be reached, 3,337 B). A
-// change that needs more raises its number here and says why.
+// every visit loads, 78,154 B; the CSS, 8,291 B, once Tailwind read only the files that ship; the
+// JS loaded only when needed, the samples for when AniList can't be reached, 3,337 B; and every
+// other file the build makes, index.html and any a module imports, such as an image, 342 B). A
+// change that needs more raises its number here and says why. The fonts in web/public are copied
+// as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
   'the JS every visit loads': 78_500,
   'the CSS': 8_500,
   'the JS loaded only when needed': 3_500,
+  'every other file': 500,
 }
 
 const brotli = (content: string | Uint8Array) =>
@@ -219,17 +222,22 @@ test('the production bundle stays within its byte budget', () => {
     'the JS every visit loads': 0,
     'the CSS': 0,
     'the JS loaded only when needed': 0,
+    'every other file': 0,
   }
   for (const file of output) {
     if (file.type === 'chunk')
       sizes[
         loaded.has(file.fileName) ? 'the JS every visit loads' : 'the JS loaded only when needed'
       ] += brotli(file.code)
-    else if (file.fileName.endsWith('.css')) sizes['the CSS'] += brotli(file.source)
+    else
+      sizes[file.fileName.endsWith('.css') ? 'the CSS' : 'every other file'] += brotli(file.source)
   }
-  // So that a reading that misses can't pass, it must find the app's code and its stylesheet.
+  // So that a reading that misses can't pass, it must find the app's code, its stylesheet and its
+  // page.
   assert.ok(
-    sizes['the JS every visit loads'] > 50_000 && sizes['the CSS'] > 5_000,
+    sizes['the JS every visit loads'] > 50_000 &&
+      sizes['the CSS'] > 5_000 &&
+      sizes['every other file'] > 200,
     `this reading misses part of the build: ${JSON.stringify(sizes)}`,
   )
   const over = Object.entries(BUDGET)
