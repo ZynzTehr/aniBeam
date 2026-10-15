@@ -16,3 +16,15 @@ test('a stop from -2 to 2 reads as its word', () => {
   assert.equal(wordOf('tone', 0), 'No preference')
   assert.equal(wordOf('complexity', 2), 'Very cerebral')
 })
+
+test("each axis's words run from its low end to its high end, as its track does", () => {
+  for (const [name, { ends, words }] of Object.entries(AXES)) {
+    const [low, high] = ends.map((end) => end.toLowerCase())
+    const [veryLow, lowWord, , highWord, veryHigh] = words.map((word) => word.toLowerCase())
+    // -1 is the low end's word, and -2 more of it; 1 begins the high end's, and 2 is more of it.
+    assert.equal(lowWord, low, `${name} at -1`)
+    assert.ok(veryLow.endsWith(lowWord) && veryLow !== lowWord, `${name} at -2: ${veryLow}`)
+    assert.ok(high.startsWith(highWord), `${name} at 1: ${highWord}, toward ${high}`)
+    assert.ok(veryHigh.endsWith(highWord) && veryHigh !== highWord, `${name} at 2: ${veryHigh}`)
+  }
+})
