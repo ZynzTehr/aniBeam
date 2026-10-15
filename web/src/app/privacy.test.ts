@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { relative, resolve } from 'node:path'
 import { before, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
+import { brotliCompressSync, constants } from 'node:zlib'
 import { build, type Rolldown } from 'vite'
 
 const web = fileURLToPath(new URL('../../', import.meta.url))
@@ -115,4 +116,56 @@ test('the production build holds no development-only code', () => {
     ]
   })
   assert.deepEqual(traces, [], 'the production build holds these traces of development-only code')
+})
+
+// The bundle's weight, as each PR reports it: every file brotli-compressed at quality 11. Each part
+// must stay within its budget, today's size rounded up to the next 500 bytes (on 2026-10-15: the
+// JS every visit loads, 78,154 B; the CSS, 8,888 B; and the JS loaded only when needed, the samples
+// for when AniList can't be reached, 3,337 B). A change that needs more raises its number here and
+// says why.
+const BUDGET = {
+  'the JS every visit loads': 78_500,
+  'the CSS': 9_000,
+  'the JS loaded only when needed': 3_500,
+}
+
+const brotli = (content: string | Uint8Array) =>
+  brotliCompressSync(content, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length
+
+test('the production bundle stays within its byte budget', () => {
+  // Every visit loads the entry and what it imports, but not what it imports only when asked to
+  // (import()), as it does the samples.
+  const chunks = output.filter((file) => file.type === 'chunk')
+  const loaded = new Set<string>()
+  const load = (name: string) => {
+    if (loaded.has(name)) return
+    loaded.add(name)
+    chunks.find((chunk) => chunk.fileName === name)?.imports.forEach(load)
+  }
+  chunks.filter((chunk) => chunk.isEntry).forEach((chunk) => load(chunk.fileName))
+  const sizes: Record<keyof typeof BUDGET, number> = {
+    'the JS every visit loads': 0,
+    'the CSS': 0,
+    'the JS loaded only when needed': 0,
+  }
+  for (const file of output) {
+    if (file.type === 'chunk')
+      sizes[
+        loaded.has(file.fileName) ? 'the JS every visit loads' : 'the JS loaded only when needed'
+      ] += brotli(file.code)
+    else if (file.fileName.endsWith('.css')) sizes['the CSS'] += brotli(file.source)
+  }
+  // So that a reading that misses can't pass, it must find the app's code and its stylesheet.
+  assert.ok(
+    sizes['the JS every visit loads'] > 50_000 && sizes['the CSS'] > 5_000,
+    `this reading misses part of the build: ${JSON.stringify(sizes)}`,
+  )
+  const over = Object.entries(BUDGET)
+    .filter(([part, budget]) => sizes[part as keyof typeof BUDGET] > budget)
+    .map(([part, budget]) => `${part}: ${sizes[part as keyof typeof BUDGET]} B, over ${budget} B`)
+  assert.deepEqual(
+    over,
+    [],
+    'over budget (brotli, quality 11): if the bytes are worth it, raise the budget above and say why',
+  )
 })
