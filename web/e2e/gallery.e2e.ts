@@ -317,6 +317,10 @@ test(
         input.getAttribute('aria-valuetext'),
         slider.querySelector('.ab-slider-value').textContent,
         slider.querySelector('output') ? 'an output' : 'plain text',
+        // A screen reader hears the word from the input; shown beside it, it would be read twice.
+        ['.ab-slider-value', '.ab-slider-ends'].every((part) => slider.querySelector(part)?.getAttribute('aria-hidden') === 'true')
+          ? 'hidden from screen readers'
+          : 'read by screen readers too',
         input.getBoundingClientRect().height >= 44 ? '44px or taller' : input.getBoundingClientRect().height + 'px tall',
       ].join(' | ')
     })()`)
@@ -330,7 +334,7 @@ test(
       read.push(await focused())
     }
     const as = (word: string) =>
-      `Energy | -2 to 2 by 1 | ${word} | ${word} | plain text | 44px or taller`
+      `Energy | -2 to 2 by 1 | ${word} | ${word} | plain text | hidden from screen readers | 44px or taller`
     assert.deepEqual(
       read,
       [
