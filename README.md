@@ -105,6 +105,8 @@ The components live in `web/src/components`, with their styles in `components.cs
 
 Each title tints its panel, card or capsule with its AniList cover color. `deriveAccent` in `web/src/features/theming` turns that color into two colors. The fill reaches 4.5:1 contrast against ink, and the text color reaches 4.5:1 on the dotted paper. Only lightness and chroma change, so the hue stays the title's own. The tests check 5,832 colors spread across the RGB cube.
 
+Opening a title floods the screen with its color from the panel picked, with speed lines, then the card lands and the title slams in word by word. Closing plays all of that backwards at twice the speed, about 0.8 s for a short title: the part that arrived last leaves first, and the color shrinks back into the panel. The close button floods brand red as its X folds into a back arrow, with a ring of speed lines: on hover, on the way back, and with the keyboard's focus once the card has finished opening. Under reduced motion the card fades in and out over 150 ms, and the button only changes color.
+
 The design prototypes in `web/src/prototype` are for development only. Add `?variant=A`, `B`, `C` or `D` to the dev server's URL to open one. Production builds leave them out.
 
 ### Reduced motion
@@ -124,7 +126,7 @@ The site's setting lives in one place, `data-motion="reduce"` on `<html>`. Style
 In the app's scripts, `web/src/lib/motion.ts` is the one place that asks the device:
 
 - `reducedMotion()` is true when `<html>` has `data-motion="reduce"` or the device asks for reduced motion. A script that moves anything asks it each time it is about to move, as the pull's reveal does.
-- `deviceReducesMotion()` and `watchDeviceMotion()` read the device's setting alone and follow its changes, for the switch's locked state.
+- `deviceReducesMotion()` and `watchDeviceMotion()` read the device's setting alone and follow its changes, for the switch's locked state, and so that a title card playing its way back closes at once if the device starts asking for reduced motion.
 - `savedMotionChoice()` and `saveMotionChoice()` read and write the saved choice, in try/catch.
 - `finishEntrances()` finishes the animations that motion coming back on starts over, on the page's own clock only: the splash cover's drift follows the scroll, and transitions such as the switch's knob run on.
 - `watchMotionBackOn()` calls back each time motion comes back on, by the switch or on the device, before the browser draws a frame of it, and the switch has it finish the entrances then. It watches the size of `.ab-motion-sentinel`, a box in the footer that no one sees, which the motion gates widen from 1px to 2px: a ResizeObserver calls back after layout, before the frame is drawn, while the media query's change event comes a frame late in Chrome.

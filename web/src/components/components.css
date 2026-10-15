@@ -1100,10 +1100,11 @@ body:has(.ab-card[open]) {
 
 /* And it fades out as it closes, the same way: gone at once, it changed most of the screen in a
    single frame too. TitleCard holds the dialog open while the fade plays, and closes it as the
-   fade ends, only with reduced motion: with motion allowed, the card goes at once, as it always
-   has. [open] ranks this rule above the motion block's animation: none, so a device that stops
-   asking for reduced motion mid-fade can't cut the fade short and leave the card open:
-   finishEntrances() in lib/motion.ts finishes it instead, and the card closes. */
+   fade ends, only with reduced motion: with motion allowed, the card plays its opening backwards
+   instead (see .ab-card.is-leaving in the motion block). [open] ranks this rule above the motion
+   block's animation: none, so a device that stops asking for reduced motion mid-fade can't cut
+   the fade short and leave the card open: finishEntrances() in lib/motion.ts finishes it
+   instead, and the card closes. */
 .ab-card[open].is-closing {
   animation: ab-fade-out 0.15s linear forwards;
 }
@@ -1167,15 +1168,92 @@ body:has(.ab-card[open]) {
   border-radius: 50%;
   background: #fff;
   cursor: pointer;
+  /* Its own stacking context, so its ring of speed lines (::before) draws just behind it. */
+  isolation: isolate;
+  transition:
+    background-color 0.25s,
+    border-color 0.25s;
 }
 
-.ab-close svg {
+/* The close button's X, drawn with three bars so it can fold into a back arrow (in the motion
+   block): two crossed, and a third, the arrow's shaft, folded away. */
+.ab-x {
+  position: relative;
   width: 22px;
   height: 22px;
-  fill: none;
-  stroke: var(--ink);
-  stroke-linecap: round;
-  stroke-width: 3;
+  color: var(--ink);
+  transition: color 0.25s;
+}
+
+.ab-x i {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 3px;
+  margin: -1.5px 0 0 -11px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.ab-x i:nth-child(1) {
+  transform: rotate(45deg);
+}
+
+.ab-x i:nth-child(2) {
+  transform: rotate(-45deg);
+}
+
+.ab-x i:nth-child(3) {
+  transform: scaleX(0);
+}
+
+/* Hovered (where a pointer can hover), on the card's way back, or with the keyboard's focus once
+   the card has landed (finished opening: see TitleCard), the button floods brand red and its X
+   turns white: colors, which move nothing, so this holds under reduced motion too. The fold
+   into an arrow and the ring of speed lines move, so they wait in the motion block. */
+.ab-card.is-leaving .ab-close,
+.ab-card.is-landed .ab-close:focus-visible {
+  border-color: var(--hot);
+  background-color: var(--hot);
+}
+
+.ab-card.is-leaving .ab-close .ab-x,
+.ab-card.is-landed .ab-close:focus-visible .ab-x {
+  color: #fff;
+}
+
+@media (hover: hover) {
+  .ab-close:hover {
+    border-color: var(--hot);
+    background-color: var(--hot);
+  }
+
+  .ab-close:hover .ab-x {
+    color: #fff;
+  }
+}
+
+/* The ring of speed lines around the button, like a manga impact, hidden until it flashes out. */
+.ab-close::before {
+  position: absolute;
+  z-index: -1;
+  background: repeating-conic-gradient(var(--hot) 0deg 5deg, transparent 5deg 20deg);
+  border-radius: 50%;
+  content: '';
+  inset: -16px;
+  mask: radial-gradient(circle, transparent 52%, #000 54% 70%, transparent 72%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Contrast themes (forced colors) paint every background in the page's color, and the X's bars
+   are backgrounds: the X vanished into the button. They take the theme's text color for buttons.
+   The red fill and the speed lines drop out, as the theme wants. */
+@media (forced-colors: active) {
+  .ab-x i {
+    background: ButtonText;
+  }
 }
 
 .ab-sheet-art {
@@ -1397,6 +1475,113 @@ body:has(.ab-card[open]) {
       animation: ab-rise 0.6s var(--spring) both 0.9s;
     }
 
+    /* Closing plays all that backwards, twice as fast: each part's keyframes in reverse, in half
+       the time, so the part that arrived last leaves first, and the wipe shrinks back into the
+       panel last of all, as TitleCard closes the dialog. --T is when the opening ended: as the
+       native title lands, or later for a long title, whose --n words land one after another. A
+       part that started arriving at s leaves by (T - s) / 2. The keyframes are copies under their
+       own names: changing an ended animation's direction would only jump it to its other end. */
+    .ab-card[open].is-leaving {
+      --T: max(1.55s, calc(1.3s + (var(--n) - 1) * 70ms));
+    }
+
+    /* With no native title, the opening ends as the facts and buttons land, at 1.5s. */
+    .ab-card[open].is-leaving:not(:has(.ab-native)) {
+      --T: max(1.5s, calc(1.3s + (var(--n) - 1) * 70ms));
+    }
+
+    .ab-card[open].is-leaving .ab-native {
+      animation: ab-fall-back 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) reverse both;
+      animation-delay: calc((var(--T) - 1.55s) / 2);
+    }
+
+    .ab-card[open].is-leaving .ab-title span {
+      animation: ab-slam-back 0.35s var(--spring) reverse both;
+      animation-delay: calc((var(--T) - 1.3s - var(--w) * 70ms) / 2);
+    }
+
+    .ab-card[open].is-leaving .ab-genres,
+    .ab-card[open].is-leaving .ab-facts,
+    .ab-card[open].is-leaving .ab-row-actions {
+      animation: ab-rise-back 0.3s var(--spring) reverse both;
+      animation-delay: calc((var(--T) - 1.5s) / 2);
+    }
+
+    .ab-card[open].is-leaving .ab-sheet-art img {
+      animation: ab-art-back 0.4s var(--spring) reverse both;
+      animation-delay: calc((var(--T) - 1.3s) / 2);
+    }
+
+    .ab-card[open].is-leaving .ab-sheet {
+      animation: ab-sheet-back 0.325s var(--spring) reverse both;
+      animation-delay: calc((var(--T) - 1s) / 2);
+    }
+
+    .ab-card[open].is-leaving .ab-wipe {
+      animation: ab-wipe-back 0.275s cubic-bezier(0.75, 0, 0.15, 1) reverse both;
+      animation-delay: calc((var(--T) - 0.55s) / 2);
+    }
+
+    /* The page brightens again as the wipe shrinks back. */
+    .ab-card.is-leaving::backdrop {
+      animation: ab-undim 0.275s linear both;
+      animation-delay: calc((var(--T, 1.55s) - 0.55s) / 2);
+    }
+
+    /* The close button's X folds into a back arrow, its shaft growing out and its two strokes
+       shortening into the head at its left end, as a ring of speed lines flashes out: on hover, on
+       the card's way back, and with the keyboard's focus once the card has landed. */
+    .ab-x i {
+      transition: transform 0.45s var(--spring);
+    }
+
+    .ab-close::before {
+      transform: scale(0.6) rotate(-20deg);
+      transition:
+        opacity 0.2s,
+        transform 0.45s var(--spring);
+    }
+
+    .ab-card.is-leaving .ab-close .ab-x i:nth-child(1),
+    .ab-card.is-landed .ab-close:focus-visible .ab-x i:nth-child(1) {
+      transform: translate(-6px, -3.9px) rotate(-45deg) scaleX(0.5);
+    }
+
+    .ab-card.is-leaving .ab-close .ab-x i:nth-child(2),
+    .ab-card.is-landed .ab-close:focus-visible .ab-x i:nth-child(2) {
+      transform: translate(-6px, 3.9px) rotate(45deg) scaleX(0.5);
+    }
+
+    .ab-card.is-leaving .ab-close .ab-x i:nth-child(3),
+    .ab-card.is-landed .ab-close:focus-visible .ab-x i:nth-child(3) {
+      transform: scaleX(0.9);
+    }
+
+    .ab-card.is-leaving .ab-close::before,
+    .ab-card.is-landed .ab-close:focus-visible::before {
+      opacity: 1;
+      transform: none;
+    }
+
+    @media (hover: hover) {
+      .ab-close:hover .ab-x i:nth-child(1) {
+        transform: translate(-6px, -3.9px) rotate(-45deg) scaleX(0.5);
+      }
+
+      .ab-close:hover .ab-x i:nth-child(2) {
+        transform: translate(-6px, 3.9px) rotate(45deg) scaleX(0.5);
+      }
+
+      .ab-close:hover .ab-x i:nth-child(3) {
+        transform: scaleX(0.9);
+      }
+
+      .ab-close:hover::before {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
     /* The capsule shows only here, where it moves (see .ab-drop above). */
     .ab-drop {
       display: block;
@@ -1476,6 +1661,60 @@ body:has(.ab-card[open]) {
   from {
     opacity: 0;
     transform: translateY(20px);
+  }
+}
+
+/* The title card's way back (see .ab-card.is-leaving): the opening's keyframes, under their own
+   names, played in reverse. */
+@keyframes ab-wipe-back {
+  from {
+    clip-path: inset(var(--t) var(--r) var(--b) var(--l));
+  }
+
+  to {
+    clip-path: inset(0);
+  }
+}
+
+@keyframes ab-sheet-back {
+  from {
+    opacity: 0;
+    transform: translateY(40px) rotate(-2deg) scale(0.92);
+  }
+}
+
+@keyframes ab-art-back {
+  from {
+    opacity: 0;
+    transform: rotate(-14deg) scale(0.7);
+  }
+}
+
+@keyframes ab-fall-back {
+  from {
+    opacity: 0;
+    transform: translateY(-16%);
+  }
+}
+
+@keyframes ab-slam-back {
+  from {
+    filter: blur(8px);
+    opacity: 0;
+    transform: translateY(50%) scale(1.5) rotate(-4deg);
+  }
+}
+
+@keyframes ab-rise-back {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+@keyframes ab-undim {
+  to {
+    background: transparent;
   }
 }
 
