@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
-import { relative, resolve } from 'node:path'
+import { readFileSync } from 'node:fs'
+import { join, relative, resolve } from 'node:path'
 import { before, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { brotliCompressSync, constants } from 'node:zlib'
@@ -83,11 +84,11 @@ test('the production build holds nothing from e2e/, which must stay out of the a
 // Development-only code: the Phase 2 design prototypes in src/prototype, the component gallery to
 // come in src/gallery, and GSAP's ScrollTrigger, which only the draft scroll prototype used.
 // main.tsx opens the prototypes by address, inside import.meta.env.DEV, which a production build
-// reads as false, so the pages, their files and the address check are all left out. This reads the build for any trace of them: a file made from
-// their folder (a stylesheet of theirs would join the app's own, under its name), a file named like
-// one, the prototypes' switcher label, ScrollTrigger's name, or a check of the address for one.
-// The checks are matched as the calls the minifier writes, .has(`variant`), because React DOM's
-// code holds the word font-variant.
+// reads as false, so the pages, their files and the address check are all left out. This reads the
+// build for any trace of them: a file made from their folder (a stylesheet of theirs would join the
+// app's own, under its name), a file named like one, the prototypes' switcher label,
+// ScrollTrigger's name, or a check of the address for one. The checks are matched as the calls the
+// minifier writes, .has(`variant`), because React DOM's code holds the word font-variant.
 const DEVELOPMENT_ONLY = {
   folders: /^src\/(gallery|prototype)\//i,
   names: /gallery|prototype|variant/i,
@@ -118,14 +119,49 @@ test('the production build holds no development-only code', () => {
   assert.deepEqual(traces, [], 'the production build holds these traces of development-only code')
 })
 
+// Tailwind makes a utility of any word that names one in the files it reads, even in a comment, so
+// styles/index.css has it read only the files that ship. These are canaries: utilities named only
+// in files that don't ship, in the tests (such as this comment's italic and underline), the
+// prototypes and the scripts. A rule for any of them in
+// the production stylesheet means Tailwind read where it shouldn't. Its rule for sr-only, which the
+// app uses, shows it still reads the app.
+const CANARIES = {
+  italic: 'src/app/privacy.test.ts',
+  underline: 'src/app/privacy.test.ts',
+  overline: 'src/prototype/Prototype.tsx',
+  'line-through': 'scripts/refresh-samples.ts',
+}
+
+test('the production stylesheet is made from the files that ship, and no others', () => {
+  const css = output
+    .filter((file) => file.type === 'asset' && file.fileName.endsWith('.css'))
+    .map((file) => (file.type === 'asset' ? Buffer.from(file.source).toString('utf8') : ''))
+    .join('\n')
+  const ruled = (utility: string) => new RegExp(`\\.${utility}\\{`).test(css)
+  assert.ok(
+    ruled('sr-only'),
+    'the production stylesheet has no rule for sr-only, which the app uses',
+  )
+  // A canary taken out of its file would pass without proving anything.
+  for (const [utility, file] of Object.entries(CANARIES))
+    assert.match(readFileSync(join(web, file), 'utf8'), new RegExp(`\\b${utility}\\b`), file)
+  assert.deepEqual(
+    Object.entries(CANARIES)
+      .filter(([utility]) => ruled(utility))
+      .map(([utility, file]) => `.${utility}, named in ${file}`),
+    [],
+    'the production stylesheet has rules for words that only files which do not ship hold',
+  )
+})
+
 // The bundle's weight, as each PR reports it: every file brotli-compressed at quality 11. Each part
-// must stay within its budget, today's size rounded up to the next 500 bytes (on 2026-10-15: the
-// JS every visit loads, 78,154 B; the CSS, 8,888 B; and the JS loaded only when needed, the samples
-// for when AniList can't be reached, 3,337 B). A change that needs more raises its number here and
-// says why.
+// must stay within its budget, its size rounded up to the next 500 bytes (on 2026-10-15: the JS
+// every visit loads, 78,154 B; the CSS, 8,291 B, once Tailwind read only the files that ship; and
+// the JS loaded only when needed, the samples for when AniList can't be reached, 3,337 B). A
+// change that needs more raises its number here and says why.
 const BUDGET = {
   'the JS every visit loads': 78_500,
-  'the CSS': 9_000,
+  'the CSS': 8_500,
   'the JS loaded only when needed': 3_500,
 }
 
@@ -166,6 +202,6 @@ test('the production bundle stays within its byte budget', () => {
   assert.deepEqual(
     over,
     [],
-    'over budget (brotli, quality 11): if the bytes are worth it, raise the budget above and say why',
+    'over budget (brotli, quality 11): if the bytes are worth it, raise its budget and say why',
   )
 })
