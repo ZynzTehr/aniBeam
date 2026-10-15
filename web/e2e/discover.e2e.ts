@@ -4463,6 +4463,70 @@ describe('Windows contrast themes (forced colors)', () => {
   // Emulated media features are replaced as a whole: this clears forced colors.
   after(() => browser.send('Emulation.setEmulatedMedia', { features: [] }))
 
+  test('the title card’s close button shows its X in both palettes, at rest and hovered, at 3:1 or better', async () => {
+    // A theme paints every background in its page color, and the close button's X is drawn with
+    // bars, which are backgrounds: it vanished into the button, an empty circle. In each palette,
+    // the bars must stand out from the button at 3:1 or better, as an icon needs, at rest and
+    // with the mouse on it (the red fill and the speed lines drop out, as the theme wants).
+    const seen: string[] = []
+    const theme = (scheme: string) =>
+      browser.send('Emulation.setEmulatedMedia', {
+        features: [
+          { name: 'prefers-reduced-motion', value: 'reduce' },
+          { name: 'forced-colors', value: 'active' },
+          { name: 'prefers-color-scheme', value: scheme },
+        ],
+      })
+    const contrast = `(() => {
+      const button = document.querySelector('dialog.ab-card .ab-close')
+      const rgb = (color) => color.match(/[\\d.]+/g).slice(0, 3).map(Number)
+      const lum = ([r, g, b]) => [r, g, b].map((v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }).reduce((sum, v, k) => sum + v * [0.2126, 0.7152, 0.0722][k], 0)
+      const bars = getComputedStyle(button.querySelector('.ab-x i')).backgroundColor, fill = getComputedStyle(button).backgroundColor
+      const [a, b] = [lum(rgb(bars)), lum(rgb(fill))].sort((x, y) => y - x)
+      return { bars, fill, ratio: Math.round(((a + 0.05) / (b + 0.05)) * 100) / 100 }
+    })()`
+    try {
+      for (const scheme of ['light', 'dark']) {
+        await theme(scheme)
+        await browser.evaluate(`(async () => {
+          window.__opener = document.querySelector('.ab-grid .ab-link')
+          window.__opener.scrollIntoView({ block: 'center' })
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+          return true
+        })()`)
+        await clickMiddle('window.__opener')
+        assert.ok(
+          await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+          'the title card did not open',
+        )
+        await cardInFull()
+        for (const on of [false, true]) {
+          await hoverClose(on)
+          const { bars, fill, ratio } = await browser.evaluate<{
+            bars: string
+            fill: string
+            ratio: number
+          }>(contrast)
+          if (ratio < 3)
+            seen.push(
+              `${scheme}, ${on ? 'hovered' : 'at rest'}: X in ${bars} on ${fill}, ${ratio}:1`,
+            )
+        }
+        await hoverClose(false)
+        await closeCardLeft()
+      }
+    } finally {
+      await closeCardLeft()
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [
+          { name: 'prefers-reduced-motion', value: 'reduce' },
+          { name: 'forced-colors', value: 'active' },
+        ],
+      })
+    }
+    assert.deepEqual(seen, [], 'close buttons whose X doesn’t stand out at 3:1')
+  })
+
   test('the chosen decade and vibe stand out, with a readable label and the theme’s focus ring', async () => {
     // The theme drops a chosen chip's yellow fill and its shadow, which left it looking like the
     // rest. It must still differ from an unchosen chip, its label must read at 4.5:1 or better

@@ -1246,6 +1246,15 @@ body:has(.ab-card[open]) {
   pointer-events: none;
 }
 
+/* Contrast themes (forced colors) paint every background in the page's color, and the X's bars
+   are backgrounds: the X vanished into the button. They take the theme's text color for buttons.
+   The red fill and the speed lines drop out, as the theme wants. */
+@media (forced-colors: active) {
+  .ab-x i {
+    background: ButtonText;
+  }
+}
+
 .ab-sheet-art {
   position: relative;
   display: grid;
