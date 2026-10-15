@@ -2205,6 +2205,10 @@ describe('desktop (1440x900)', () => {
       seen.hovered = await browser.evaluate(closeButton)
       await hoverClose(false)
       // Leaving: the way back is held where it is, so the card stays open while the button changes.
+      // The keyboard's focus goes to the card's AniList link first: Esc shows the keyboard's focus,
+      // and on the close button its own look (see the next check) would stand in for this one,
+      // which is what a tap on a phone gets.
+      await browser.evaluate(`document.querySelector('dialog.ab-card .ab-btn-ink').focus(); true`)
       await browser.press('Escape')
       await browser.evaluate(
         `document.getAnimations().filter((a) => a instanceof CSSAnimation && /-back$|undim/.test(a.animationName)).forEach((a) => a.pause()); true`,
