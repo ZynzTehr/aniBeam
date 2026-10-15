@@ -853,7 +853,8 @@ describe('desktop (1440x900)', () => {
       'Chat about it Soon (disabled)',
     ])
     await browser.press('Escape')
-    await sleep(400)
+    // With motion allowed, the card plays its opening backwards before it closes.
+    await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000)
     const back = await browser.evaluate<{ open: boolean; focus: string }>(
       `({ open: Boolean(document.querySelector('dialog.ab-card')), focus: document.activeElement.className })`,
     )
@@ -2004,47 +2005,230 @@ describe('desktop (1440x900)', () => {
     assert.ok(drifting, `the splash cover stayed put with half its panel scrolled away: ${halfOut}`)
   })
 
-  test('with motion allowed, a title card wipes in over the dimmed page, without the fade, and Esc closes it at once', async () => {
+  test('with motion allowed, a title card wipes in over the dimmed page, without the fade, and closes by playing its opening backwards, twice as fast', async () => {
     // The card's base rules are what reduced motion gets (see that group): it fades in, over the
     // page as it is, and fades out as it closes. The motion gate swaps the fade for the wipe, which
     // grows from the panel over the page dimmed behind it. A gate missing either rule would fade
-    // the wipe in as well, or grow it over a page that stays bright. Closing, the card goes at
-    // once, as it always has. It is opened with Enter, as a visitor might: the browser lets a page
-    // hold its dialog open on Esc, as the fade out does, only once the visitor has done something
+    // the wipe in as well, or grow it over a page that stays bright. Closing replays the opening
+    // backwards at twice its speed: each part's keyframes in reverse, in half the time, so the
+    // part that arrived last leaves first and the wipe shrinks back into the panel last of all. T
+    // is when the opening ended; a part that started arriving at s leaves by (T - s) / 2, and the
+    // card closes as the wipe ends, at T / 2. It is opened with Enter, as a visitor might: the
+    // browser lets a page hold its dialog open on Esc only once the visitor has done something
     // on the page, so Esc would close a card a script opened at once whatever the page did.
-    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').focus(); true`)
-    await browser.press('Enter')
-    assert.ok(
-      await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5_000),
-      'the title card did not open',
-    )
-    const look = await browser.evaluate<{ card: string; wipe: string; backdrop: string }>(`(() => {
-      const card = document.querySelector('dialog.ab-card')
-      return {
-        card: getComputedStyle(card).animationName,
-        wipe: getComputedStyle(card.querySelector('.ab-wipe')).animationName,
-        backdrop: getComputedStyle(card, '::backdrop').backgroundColor,
+    try {
+      await browser.evaluate(`(() => {
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.focus()
+        return true
+      })()`)
+      await browser.press('Enter')
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5_000),
+        'the title card did not open',
+      )
+      const look = await browser.evaluate<{
+        card: string
+        wipe: string
+        backdrop: string
+      }>(`(() => {
+        const card = document.querySelector('dialog.ab-card')
+        return {
+          card: getComputedStyle(card).animationName,
+          wipe: getComputedStyle(card.querySelector('.ab-wipe')).animationName,
+          backdrop: getComputedStyle(card, '::backdrop').backgroundColor,
+        }
+      })()`)
+      await cardInFull()
+      // Each animation in the card by the part it plays on (a title word by its place), its
+      // keyframes' name, and its timing in ms. Only the card's: the intro behind it has entrances
+      // of the same names.
+      type Play = { part: string; name: string; delay: number; duration: number; direction: string }
+      const plays = (names: string) =>
+        browser.evaluate<
+          Play[]
+        >(`document.getAnimations().filter((a) => a.effect.target.closest('dialog.ab-card') && (${names})(a.animationName)).map((a) => {
+          const { target, pseudoElement } = a.effect
+          const word = target.style.getPropertyValue('--w')
+          const { delay, duration, direction } = a.effect.getTiming()
+          return { part: [target.localName, ...target.classList].join('.') + (pseudoElement ?? '') + (word ? ' word ' + word : ''), name: a.animationName, delay, duration, direction }
+        })`)
+      const opening = await plays(
+        `(name) => ['ab-wipe', 'ab-sheet', 'ab-art', 'ab-fall', 'ab-slam', 'ab-rise'].includes(name)`,
+      )
+      await browser.evaluate(`(() => {
+        const card = document.querySelector('dialog.ab-card')
+        addEventListener('keydown', () => { window.__escAt ??= performance.now() }, { capture: true, once: true })
+        card.addEventListener('close', () => { window.__closedAt = performance.now() }, { once: true })
+        return true
+      })()`)
+      await browser.press('Escape')
+      const closing = await plays(`(name) => name.endsWith('-back') || name === 'ab-undim'`)
+      assert.ok(
+        await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000),
+        'the title card did not close',
+      )
+      const { took, focus } = await browser.evaluate<{ took: number; focus: string }>(
+        `({ took: window.__closedAt - window.__escAt, focus: ${focusPlace} })`,
+      )
+      const T = Math.max(...opening.map((a) => a.delay + a.duration))
+      const near = (a: number, b: number) => Math.abs(a - b) <= 1
+      const off: string[] = []
+      for (const open of opening) {
+        const back = closing.find((a) => a.part === open.part)
+        if (!back) off.push(`${open.part}: no closing animation`)
+        else if (
+          back.name !== `${open.name}-back` ||
+          back.direction !== 'reverse' ||
+          !near(back.duration, open.duration / 2) ||
+          !near(back.delay + back.duration, (T - open.delay) / 2)
+        )
+          off.push(
+            `${open.part}: ${back.name} ${back.direction}, ${back.delay} + ${back.duration} ms, for ${open.name} at ${open.delay} + ${open.duration} ms`,
+          )
       }
-    })()`)
-    await browser.press('Escape')
-    const closed = await browser.evaluate<boolean>(
-      `!document.querySelector('dialog.ab-card')?.open`,
-    )
-    assert.ok(
-      await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000),
-      'the title card did not close',
-    )
-    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+      const undim = closing.find((a) => a.name === 'ab-undim')
+      if (!undim || !near(undim.delay + undim.duration, T / 2))
+        off.push(`::backdrop: ${undim ? `${undim.delay} + ${undim.duration} ms` : 'not lifted'}`)
+      // The card closes as the wipe ends, give or take a frame or two.
+      if (took < T / 2 - 20 || took > T / 2 + 100)
+        off.push(`closed ${Math.round(took)} ms after Esc, not at ${T / 2} ms`)
+      assert.ok(opening.length >= 8, `only ${opening.length} parts animated as the card opened`)
+      assert.deepEqual(
+        { ...look, off, focus },
+        {
+          card: 'none',
+          wipe: 'ab-wipe',
+          backdrop: 'rgba(20, 20, 20, 0.35)',
+          off: [],
+          focus: 'back on its panel',
+        },
+        'with motion allowed, the animation on the title card itself, the one on its wipe, its backdrop’s color, how its closing replayed the opening, and where the focus went',
+      )
+    } finally {
+      await closeCardLeft()
+    }
+  })
+
+  test('with motion allowed, a second request to close a title card as it plays backwards, with Esc or its button, closes it at once, with focus back on its panel', async () => {
+    // As with the fade under reduced motion (see that group): asked to close again while it plays
+    // its opening backwards, the card must close at once, not wait for the wipe to shrink back. The
+    // closing is held as it starts, so the second request comes mid-way however slow the machine.
+    const request = {
+      Esc: () => browser.press('Escape'),
+      'the button': () => clickMiddle(`document.querySelector('dialog.ab-card .ab-close')`),
+    }
+    const seen: Record<string, object> = {}
+    for (const [first, second] of [
+      ['Esc', 'the button'],
+      ['the button', 'Esc'],
+    ] as const) {
+      try {
+        await browser.evaluate(`(async () => {
+          window.__opener = document.querySelector('.ab-grid .ab-link')
+          window.__opener.scrollIntoView({ block: 'center' })
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+          return true
+        })()`)
+        await clickMiddle('window.__opener')
+        assert.ok(
+          await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+          'the title card did not open',
+        )
+        await cardInFull()
+        await browser.evaluate(watchClosing(true))
+        await request[first]()
+        const started = await browser.evaluate<string[] | null>('window.__closingStarted')
+        await browser.evaluate(watchSecondRequest)
+        await request[second]()
+        const closed = await browser.evaluate<string>('window.__secondRequest')
+        const gone = await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000)
+        seen[`${first}, then ${second}`] = {
+          backwards: started?.some((s) => s.startsWith('div.ab-wipe: clipPath')) ?? false,
+          closed,
+          card: gone ? 'gone' : 'still on the page',
+          focus: await browser.evaluate<string>(focusPlace),
+        }
+      } finally {
+        await closeCardLeft()
+      }
+    }
+    const atOnce = {
+      backwards: true,
+      closed: 'before the next frame',
+      card: 'gone',
+      focus: 'back on its panel',
+    }
     assert.deepEqual(
-      { ...look, esc: closed ? 'closed it at once' : 'left it open' },
-      {
-        card: 'none',
-        wipe: 'ab-wipe',
-        backdrop: 'rgba(20, 20, 20, 0.35)',
-        esc: 'closed it at once',
-      },
-      'with motion allowed, the animation on the title card itself, the one on its wipe, its backdrop’s color, and what Esc did',
+      seen,
+      { 'Esc, then the button': atOnce, 'the button, then Esc': atOnce },
+      'a second request to close the title card as it played backwards, each way round: whether the first started the wipe back, how soon the dialog closed after the second, whether the card left the page, and where the focus went',
     )
+  })
+
+  test('with motion allowed, a title card that starts playing backwards still closes as the device starts asking for reduced motion, with focus back on its panel', async () => {
+    // Turning reduced motion on mid-way closes the motion gate, which ends the closing animations
+    // early (they are cancelled, not finished). The card must close all the same, not stay open
+    // over a page out of reach.
+    try {
+      await browser.evaluate(`(async () => {
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.scrollIntoView({ block: 'center' })
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        return true
+      })()`)
+      await clickMiddle('window.__opener')
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+        'the title card did not open',
+      )
+      await cardInFull()
+      await browser.evaluate(watchClosing(false))
+      await browser.press('Escape')
+      const started = await browser.evaluate<string[] | null>('window.__closingStarted')
+      assert.ok(started?.length, 'the title card did not start to play backwards')
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+      })
+      const after = await browser.evaluate<{ card: string; focus: string }>(closed400msOn)
+      assert.deepEqual(after, { card: 'gone', focus: 'back on its panel' })
+    } finally {
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+      })
+      await closeCardLeft()
+    }
+  })
+
+  test('with motion allowed and every animation turned off by a stylesheet of the visitor’s own, Esc still closes a title card at once, with focus back on its panel', async () => {
+    // With no reverse to play, the card must not wait for one: it closes at once, as before.
+    try {
+      await browser.evaluate(`(() => {
+        const visitors = document.createElement('style')
+        visitors.id = 'visitors-own'
+        visitors.textContent = '*, *::before, *::after { animation: none !important }'
+        document.head.append(visitors)
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.focus()
+        return true
+      })()`)
+      await browser.press('Enter')
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+        'the title card did not open',
+      )
+      await cardInFull()
+      await browser.evaluate(watchSecondRequest)
+      await browser.press('Escape')
+      const closed = await browser.evaluate<string>('window.__secondRequest')
+      assert.deepEqual(
+        { closed, focus: await browser.evaluate<string>(focusPlace) },
+        { closed: 'before the next frame', focus: 'back on its panel' },
+      )
+    } finally {
+      await browser.evaluate(`document.getElementById('visitors-own')?.remove(); true`)
+      await closeCardLeft()
+    }
   })
 
   test('every trending panel shows a brand-hot focus ring when tabbed to', async () => {

@@ -2,7 +2,7 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { formatOf, nextEpisode, seasonOf, studioOf, titleOf } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
-import { reducedMotion } from '../lib/motion.ts'
+import { reducedMotion, watchDeviceMotion } from '../lib/motion.ts'
 import { markBroken, markLoaded } from './cover.ts'
 import { cssVars } from './cssVars.ts'
 
@@ -11,10 +11,10 @@ export type OpenTitle = (media: Media, from: HTMLElement) => void
 
 /**
  * A title's full-screen card: its color floods the screen with speed lines, then the card
- * lands and the title slams in word by word (reduced motion: it fades in, and fades out as it
- * closes). It opens as a native modal dialog, so the page behind goes inert, Esc closes it, and
- * the browser returns focus to whatever opened it. `from` is that element's position, where the
- * wipe starts.
+ * lands and the title slams in word by word, and closing plays all that backwards (reduced
+ * motion: it fades in, and fades out as it closes). It opens as a native modal dialog, so the
+ * page behind goes inert, Esc closes it, and the browser returns focus to whatever opened it.
+ * `from` is that element's position, where the wipe starts, and where it shrinks back to.
  */
 export function TitleCard({
   media,
@@ -31,6 +31,11 @@ export function TitleCard({
   // focus. Asked to close again meanwhile, it closes at once.
   const [closing, setClosing] = useState(false)
   const fadesOut = () => !closing && reducedMotion()
+  // With motion allowed, the card plays its opening backwards before it closes (see
+  // .ab-card.is-leaving): the dialog stays open while it plays, and closes as the wipe, last to
+  // go, ends. Asked to close again meanwhile, it closes at once.
+  const [leaving, setLeaving] = useState(false)
+  const playsBack = () => !closing && !leaving && !reducedMotion()
 
   // No cleanup: removing the element closes the dialog.
   useEffect(() => {
@@ -47,8 +52,25 @@ export function TitleCard({
     return () => clearTimeout(timer)
   }, [closing])
 
+  // With no way back to play, as when a stylesheet of the visitor's own turns animations off, the
+  // card closes at once. Asking for the wipe's animations brings its styles up to date first, so
+  // a way back that plays is there to find. And if the device starts asking for reduced motion
+  // mid-way, the motion gate closes and the way back stops before it ends, so the card closes at
+  // once then too, rather than staying open. (The site's own switch is out of reach meanwhile:
+  // the card is modal.)
+  useEffect(() => {
+    const card = ref.current
+    const wipe = card?.querySelector('.ab-wipe')
+    if (!leaving || !card || !wipe) return
+    if (wipe.getAnimations().length === 0) return card.close()
+    return watchDeviceMotion(() => {
+      if (reducedMotion()) card.close()
+    })
+  }, [leaving])
+
   function close() {
     if (fadesOut()) setClosing(true)
+    else if (playsBack()) setLeaving(true)
     else ref.current?.close()
   }
 
@@ -58,17 +80,20 @@ export function TitleCard({
   return (
     <dialog
       ref={ref}
-      className={closing ? 'ab-card is-closing' : 'ab-card'}
+      className={closing ? 'ab-card is-closing' : leaving ? 'ab-card is-leaving' : 'ab-card'}
       aria-labelledby="ab-card-title"
       // Esc closes the card unless the page holds it open, which the browser allows once for each
       // thing the visitor does on the page: the cancel event is cancelable then.
       onCancel={(event) => {
-        if (!event.cancelable || !fadesOut()) return
+        if (!event.cancelable) return
+        if (fadesOut()) setClosing(true)
+        else if (playsBack()) setLeaving(true)
+        else return
         event.preventDefault()
-        setClosing(true)
       }}
       onAnimationEnd={(event) => {
         if (closing && event.target === event.currentTarget) event.currentTarget.close()
+        if (leaving && event.animationName === 'ab-wipe-back') event.currentTarget.close()
       }}
       onClose={onClose}
       style={{
@@ -78,6 +103,8 @@ export function TitleCard({
           '--l': `${Math.max(0, from.left)}px`,
           '--r': `${Math.max(0, innerWidth - from.right)}px`,
           '--b': `${Math.max(0, innerHeight - from.bottom)}px`,
+          // The title's words, which land one after another: the closing's timing counts them.
+          '--n': title.split(' ').length,
         }),
       }}
     >

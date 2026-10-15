@@ -1397,6 +1397,54 @@ body:has(.ab-card[open]) {
       animation: ab-rise 0.6s var(--spring) both 0.9s;
     }
 
+    /* Closing plays all that backwards, twice as fast: each part's keyframes in reverse, in half
+       the time, so the part that arrived last leaves first, and the wipe shrinks back into the
+       panel last of all, as TitleCard closes the dialog. --T is when the opening ended (later for a
+       long title, whose --n words land one after another); a part that started arriving at s
+       leaves by (T - s) / 2. The keyframes are copies under their own names: changing an ended
+       animation's direction would only jump it to its other end. */
+    .ab-card[open].is-leaving {
+      --T: max(1.55s, calc(1.3s + (var(--n) - 1) * 70ms));
+    }
+
+    .ab-card[open].is-leaving .ab-native {
+      animation: ab-fall-back 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) reverse both;
+      animation-delay: calc((var(--T) - 1.55s) / 2);
+    }
+
+    .ab-card[open].is-leaving .ab-title span {
+      animation: ab-slam-back 0.35s var(--spring) reverse both;
+      animation-delay: calc((var(--T) - 1.3s - var(--w) * 70ms) / 2);
+    }
+
+    .ab-card[open].is-leaving .ab-genres,
+    .ab-card[open].is-leaving .ab-facts,
+    .ab-card[open].is-leaving .ab-row-actions {
+      animation: ab-rise-back 0.3s var(--spring) reverse both;
+      animation-delay: calc((var(--T) - 1.5s) / 2);
+    }
+
+    .ab-card[open].is-leaving .ab-sheet-art img {
+      animation: ab-art-back 0.4s var(--spring) reverse both;
+      animation-delay: calc((var(--T) - 1.3s) / 2);
+    }
+
+    .ab-card[open].is-leaving .ab-sheet {
+      animation: ab-sheet-back 0.325s var(--spring) reverse both;
+      animation-delay: calc((var(--T) - 1s) / 2);
+    }
+
+    .ab-card[open].is-leaving .ab-wipe {
+      animation: ab-wipe-back 0.275s cubic-bezier(0.75, 0, 0.15, 1) reverse both;
+      animation-delay: calc((var(--T) - 0.55s) / 2);
+    }
+
+    /* The page brightens again as the wipe shrinks back. */
+    .ab-card.is-leaving::backdrop {
+      animation: ab-undim 0.275s linear both;
+      animation-delay: calc((var(--T, 1.55s) - 0.55s) / 2);
+    }
+
     /* The capsule shows only here, where it moves (see .ab-drop above). */
     .ab-drop {
       display: block;
@@ -1476,6 +1524,60 @@ body:has(.ab-card[open]) {
   from {
     opacity: 0;
     transform: translateY(20px);
+  }
+}
+
+/* The title card's way back (see .ab-card.is-leaving): the opening's keyframes, under their own
+   names, played in reverse. */
+@keyframes ab-wipe-back {
+  from {
+    clip-path: inset(var(--t) var(--r) var(--b) var(--l));
+  }
+
+  to {
+    clip-path: inset(0);
+  }
+}
+
+@keyframes ab-sheet-back {
+  from {
+    opacity: 0;
+    transform: translateY(40px) rotate(-2deg) scale(0.92);
+  }
+}
+
+@keyframes ab-art-back {
+  from {
+    opacity: 0;
+    transform: rotate(-14deg) scale(0.7);
+  }
+}
+
+@keyframes ab-fall-back {
+  from {
+    opacity: 0;
+    transform: translateY(-16%);
+  }
+}
+
+@keyframes ab-slam-back {
+  from {
+    filter: blur(8px);
+    opacity: 0;
+    transform: translateY(50%) scale(1.5) rotate(-4deg);
+  }
+}
+
+@keyframes ab-rise-back {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+}
+
+@keyframes ab-undim {
+  to {
+    background: transparent;
   }
 }
 
