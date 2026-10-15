@@ -149,6 +149,43 @@ test('a title card taller than the screen shows its focus ring, inside its edge,
   assert.deepEqual(seen, [], 'the focused card shows no ring on the screen')
 })
 
+test('a chip Tab reaches at the foot of the screen shows its whole pill and focus ring', async () => {
+  // A chip's radio button is see-through, and Tab scrolls only if what takes focus isn't on the
+  // screen yet (a script's focus() centres it instead): were that the button's own 13px box, its
+  // pill, and the ring 7px beyond, could hang off the screen's foot while it shows. So for each
+  // group, focus goes to the stop before its chosen chip, the chip's pill is put 20px above the
+  // screen's foot, the rest below, and Tab moves on to it.
+  const seen: string[] = []
+  for (const screen of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844, phone: true },
+  ]) {
+    await browser.load({ ...screen, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    for (const group of ['.ab-moods', '.ab-eras']) {
+      const chip = `document.querySelector('${group} input:checked')`
+      await browser.evaluate(`${chip}.focus({ preventScroll: true }); true`)
+      await browser.press('Tab', true)
+      await browser.evaluate(`(() => {
+        const label = ${chip}.nextElementSibling
+        scrollTo({ top: label.getBoundingClientRect().top + scrollY - innerHeight + 20, behavior: 'instant' })
+        return true
+      })()`)
+      await browser.press('Tab')
+      const shown = await browser.evaluate<string>(`(() => {
+        const input = ${chip}, label = input.nextElementSibling
+        if (document.activeElement !== input) return 'Tab missed the chip'
+        const pill = label.getBoundingClientRect(), ring = 7
+        const cut = [pill.top - ring < 0 && 'the top', pill.bottom + ring > innerHeight && 'the bottom'].filter(Boolean)
+        return label.textContent + (cut.length ? ', cut off at ' + cut.join(' and ') + ' (pill ' + Math.round(pill.top) + ' to ' + Math.round(pill.bottom) + 'px, the screen ' + innerHeight + 'px)' : '')
+      })()`)
+      if (shown.includes(',') || shown.startsWith('Tab missed'))
+        seen.push(`${screen.width}px: ${shown}`)
+    }
+  }
+  assert.deepEqual(seen, [], 'chips whose pill or ring Tab leaves off the screen')
+})
+
 /** The pixels of part of the page as the screen shows it, as red, green and blue for each pixel. */
 async function screenPixels(clip: { x: number; y: number; width: number; height: number }) {
   const png = await browser.screenshot(clip)
