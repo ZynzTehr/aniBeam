@@ -246,11 +246,9 @@ test('Tailwind skips every test in src, .ts and .tsx alike', () => {
   )
 })
 
-// The other way round: Tailwind told to read too little would leave out the rule of a class the
-// app uses, without a word. So every class in a className of the app's own code, but for its own
-// ab- and is- classes, must have its rule in the production stylesheet. TypeScript's parser reads
-// the markup, so a word in a comment or the page's text doesn't count.
-test('every Tailwind class the app uses has its rule in the production stylesheet', () => {
+// Every class in a className of the app's own code, with the file that sets it. TypeScript's
+// parser reads the markup, so a word in a comment or the page's text doesn't count.
+function classNamesInApp() {
   const used = new Map<string, string>()
   const scripts = readdirSync(join(web, 'src'), { encoding: 'utf8', recursive: true })
     .map((path) => join('src', path))
@@ -278,13 +276,51 @@ test('every Tailwind class the app uses has its rule in the production styleshee
   }
   // So that a reading that misses can't pass, it must find the app's own classes and sr-only.
   assert.ok(used.has('ab-panel') && used.has('sr-only'), "this reading misses the app's classes")
+  return used
+}
+
+// The other way round: Tailwind told to read too little would leave out the rule of a class the
+// app uses, without a word. So every class the app's markup sets, but for its own ab- and is-
+// classes, must have its rule in the production stylesheet.
+test('every Tailwind class the app uses has its rule in the production stylesheet', () => {
   const ruled = classesIn(productionCss())
   assert.deepEqual(
-    [...used]
+    [...classNamesInApp()]
       .filter(([name]) => !/^(ab|is)-/.test(name) && !ruled.has(name))
       .map(([name, file]) => `${name}, in ${file}`),
     [],
     'the production stylesheet has no rule for these Tailwind classes: Tailwind skips their files',
+  )
+})
+
+// Classes the markup sets that no rule styles, on purpose: the trending page's empty panels, which
+// the gallery's checks count, and the title card's text column, a plain block.
+const UNSTYLED = ['ab-skeleton', 'ab-sheet-copy']
+
+// And the app's own classes: a misspelt one, such as ab-slider-header for ab-slider-head, styles
+// nothing, without a word. Each must have a rule in the app's stylesheets (all of src's but the
+// development-only pages'), as written, not as built: a component's own stylesheet ships only with
+// it. A class made in code, as ab-${rarity.key} is, reads as its start, ab-, and is passed over.
+test("every one of the app's own classes in its markup has a rule in its stylesheets", () => {
+  const styled = new Set(
+    readdirSync(join(web, 'src'), { encoding: 'utf8', recursive: true })
+      .map((path) => join('src', path))
+      .filter((path) => path.endsWith('.css') && !DEVELOPMENT_ONLY.folders.test(path))
+      .flatMap((path) => [...classesIn(readFileSync(join(web, path), 'utf8'))]),
+  )
+  const used = classNamesInApp()
+  // The list of unstyled classes must stay true, so that it can't hide one.
+  for (const name of UNSTYLED) {
+    assert.ok(used.has(name), `${name} is no longer used: take it off the list`)
+    assert.ok(!styled.has(name), `${name} has a rule now: take it off the list`)
+  }
+  assert.deepEqual(
+    [...used]
+      .filter(([name]) => /^(ab|is)-/.test(name) && !name.endsWith('-'))
+      .filter(([name]) => !styled.has(name) && !UNSTYLED.includes(name))
+      .map(([name, file]) => `${name}, in ${file}`),
+    [],
+    "these classes in the app's markup have no rule in its stylesheets: misspelt?",
   )
 })
 
