@@ -356,6 +356,168 @@ test('Tab walks every stop of the page in order and Shift+Tab walks them back, e
   assert.deepEqual(seen, { '1440px': expected, '390px': expected })
 })
 
+test('by keyboard alone, Esc empties the search box, arrow keys choose a vibe and a decade, and Space pulls, opens a title card on its Close button and closes it', async () => {
+  // On a desktop with motion and on a phone with reduced motion (see keyboardJourney).
+  const seen: Record<string, unknown> = {}
+  for (const screen of [
+    { width: 1440, height: 900, reduceMotion: false },
+    { width: 390, height: 844, phone: true, reduceMotion: true },
+  ])
+    seen[`${screen.width}px`] = await keyboardJourney(screen)
+  const expected = {
+    search: { box: '', results: false, focus: 'Search titles', then: 'See what’s trending' },
+    vibes: [
+      'Pick a vibe: Cozy',
+      'Pick a vibe: Any vibe',
+      'Pick a vibe: Tearjerker',
+      'Pick a vibe: Any vibe',
+    ],
+    lever: 'Pull!',
+    pull: {
+      focus: 'Again!',
+      count: '1 pull this visit',
+      heard: true,
+      then: ['Open the title card for the pulled title', 'Open title card'],
+    },
+    card: { first: 'Close title card', round: 'round the card' },
+    closed: 'Open title card',
+    decades: {
+      arrows: [
+        'Decade: 1980s, with titles from the 1980s',
+        'Decade: 1990s, with titles from the 1990s',
+      ],
+      then: 'a title in Browse by decade',
+    },
+  }
+  assert.deepEqual(seen, { '1440px': expected, '390px': expected })
+})
+
+/**
+ * Loads the page and uses it by keyboard alone, and says what each step found. Each step goes on
+ * from where the last left focus, and Tab finds the next control by its name (the walk holds their
+ * order). A step that can't go on says why, and ends the journey there.
+ */
+async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
+  await browser.load(screen)
+  assert.ok(await browser.titlesShown())
+  await browser.evaluate(SETTLED)
+  const journey: Record<string, unknown> = {}
+  const focus = async () =>
+    (await browser.evaluate<{ name: string } | null>(STOP))?.name ?? 'nothing'
+  const tabTo = async (name: string) => {
+    for (let stop = 0; stop < 60; stop++) {
+      await browser.press('Tab')
+      if ((await focus()) === name) return true
+    }
+    journey.stopped = `Tab never reached "${name}"`
+    return false
+  }
+  const next = async () => {
+    await browser.press('Tab')
+    return focus()
+  }
+
+  // Esc in a search box empties it (its own key in the browser), so the intro comes back.
+  if (!(await tabTo('Search titles'))) return journey
+  await browser.search('frieren')
+  assert.ok(
+    await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`),
+    'no results appeared',
+  )
+  await browser.press('Escape')
+  await browser.waitFor(`document.querySelector('.ab-intro')`, 5_000)
+  journey.search = {
+    box: await browser.evaluate<string>(`document.querySelector('.ab-search input').value`),
+    results: await browser.evaluate<boolean>(`Boolean(document.querySelector('.ab-results'))`),
+    focus: await focus(),
+    then: await next(),
+  }
+
+  // The arrows move the choice with focus, round the group: the vibe chosen is the one focused.
+  const chosen = async () =>
+    `${await focus()}${(await browser.evaluate<boolean>(`document.activeElement.checked`)) ? '' : ' (not chosen)'}`
+  if (!(await tabTo('Pick a vibe: Any vibe'))) return journey
+  const vibes: string[] = []
+  for (const key of ['ArrowRight', 'ArrowLeft', 'ArrowLeft', 'ArrowRight'] as const) {
+    await browser.press(key)
+    vibes.push(await chosen())
+  }
+  journey.vibes = vibes
+
+  // Space pulls, and focus stays on the lever. With motion the capsule opens 900 ms later, and its
+  // title takes focus only then (it is inert until it shows).
+  journey.lever = await next()
+  await browser.press('Space')
+  if (!(await browser.waitFor(`document.querySelector('.ab-result.is-open')`, 5_000))) {
+    journey.stopped = `Space on "${await focus()}" pulled nothing`
+    return journey
+  }
+  const pulled = await browser.evaluate<string>(
+    `document.querySelector('.ab-result h3').textContent`,
+  )
+  journey.pull = {
+    focus: await focus(),
+    count: await browser.evaluate<string>(`document.querySelector('.ab-count').textContent`),
+    heard: (
+      await browser.evaluate<string>(
+        `document.querySelector('.ab-pull [role="status"]').textContent`,
+      )
+    ).startsWith(`Pull 1: ${pulled},`),
+    then: [(await next()).replace(pulled, 'the pulled title'), await next()],
+  }
+
+  // Space on Open title card opens the card, on its Close button. Tab goes round the card and never
+  // to the page behind it: past its last control Chrome takes focus to its own (none, run like
+  // this), then back to the card. Taller than the screen, the card is a stop of its own.
+  const opener = await focus()
+  await browser.press('Space')
+  if (!(await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 5_000))) {
+    journey.stopped = `Space on "${opener}" opened no title card`
+    return journey
+  }
+  const first = await focus()
+  const round: string[] = []
+  for (let stop = 0; stop < 6; stop++) {
+    await browser.press('Tab')
+    const where = await browser.evaluate<string>(`(() => {
+      const focused = document.activeElement
+      return !focused || focused === document.body ? 'nothing' : focused.matches('dialog') ? 'the card' : focused.closest('dialog') ? 'in it' : 'the page'
+    })()`)
+    round.push(where === 'in it' ? await focus() : where)
+  }
+  const goesRound =
+    !round.includes('the page') &&
+    round.includes('Open on AniList') &&
+    round.includes('Close title card')
+  journey.card = { first, round: goesRound ? 'round the card' : round }
+
+  // Space on Close closes the card, with focus back on what opened it.
+  for (let stop = 0; stop < 6 && (await focus()) !== 'Close title card'; stop++)
+    await browser.press('Tab')
+  await browser.press('Space')
+  if (!(await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000))) {
+    journey.stopped = `Space on "${await focus()}" didn't close the title card`
+    return journey
+  }
+  journey.closed = await focus()
+
+  // The arrows on the decade chips change the strip's titles too, once its pause is over: the
+  // decades of the years its titles show.
+  const decadesShown = `[...new Set([...document.getElementById('decades').closest('section').querySelectorAll('.ab-strip-panel[href]')].map((panel) => Math.floor(Number(panel.textContent.match(/\\d{4}(?!.*\\d{4})/)?.[0]) / 10) * 10 + 's'))].join(' and ')`
+  if (!(await tabTo('Decade: 1990s'))) return journey
+  const decades: string[] = []
+  for (const [key, decade] of [
+    ['ArrowLeft', '1980s'],
+    ['ArrowRight', '1990s'],
+  ] as const) {
+    await browser.press(key)
+    await browser.waitFor(`${decadesShown} === '${decade}'`, 10_000)
+    decades.push(`${await chosen()}, with titles from the ${await browser.evaluate(decadesShown)}`)
+  }
+  journey.decades = { arrows: decades, then: await next() }
+  return journey
+}
+
 /**
  * How much the focused stop changes as focus comes off it, as a share of what WCAG's measure for a
  * focus indicator asks (2.4.13): the area of a 2px line around it, changed at 3:1 or better. It
