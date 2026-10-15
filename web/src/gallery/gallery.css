@@ -4,17 +4,32 @@
  * index.css keeps this folder out of what Tailwind reads, so nothing here reaches the production
  * stylesheet. Every class starts with gal-.
  */
+/* The page and each part are one column as wide as the screen: a grid column grows to fit what it
+   holds unless told otherwise, and a strip's row of covers, which scrolls sideways on its own, would
+   stretch the whole page. */
+.gal,
+.gal-part {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .gal {
   display: grid;
   gap: 48px;
   padding-bottom: 64px;
 }
 
+.gal-head,
+.gal-title,
+.gal-note,
+.gal-cases {
+  margin-inline: var(--page-x);
+}
+
 .gal-head {
   display: grid;
   gap: 12px;
   max-width: 72ch;
-  padding: 40px var(--page-x) 0;
+  padding-top: 40px;
 }
 
 .gal-head h1 {
@@ -22,8 +37,35 @@
   font: 400 clamp(32px, 5vw, 56px) / 1 var(--display);
 }
 
-.gal-head p {
-  margin: 0;
+.gal-head p,
+.gal-note {
+  max-width: 72ch;
+  margin-block: 0;
   font-weight: 700;
   text-wrap: pretty;
+}
+
+/* A part of the gallery opens with a rule across the page, so it can't pass for a section of the
+   app's own. */
+.gal-part {
+  display: grid;
+  gap: 16px;
+  padding-top: 24px;
+  border-top: var(--border) solid var(--ink);
+}
+
+.gal-title {
+  margin-block: 0;
+  font: 400 clamp(24px, 3vw, 32px) / 1.1 var(--display);
+}
+
+.gal-cases {
+  display: grid;
+  gap: 4px;
+  padding-left: 1.6em;
+  font-size: 14px;
+}
+
+.gal-cases b {
+  font-weight: 800;
 }
