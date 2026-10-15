@@ -386,7 +386,7 @@ const luminance = (rgb: number[]) =>
 async function energySlider() {
   return browser.evaluate<{ x: number; y: number; width: number; height: number }>(`(() => {
     const input = document.querySelector('[data-group="sliders"] input[type="range"]')
-    input.scrollIntoView({ block: 'center' })
+    input.scrollIntoView({ block: 'center', behavior: 'instant' })
     input.focus()
     const box = input.getBoundingClientRect()
     return { x: box.left + scrollX, y: box.top + scrollY, width: box.width, height: box.height }
@@ -403,20 +403,28 @@ test(
     // Where the thumb is at each stop: the middle of its yellow top half, 10px above the track's
     // middle, read off the screen.
     await browser.press('Home')
+    // And how high: its top half is yellow and its bottom half white, so its middle is where the
+    // yellow ends, down the column through its middle.
     const centers: number[] = []
+    const heights: number[] = []
     for (let stop = 0; stop < 5; stop++) {
       const { width, rgb } = await screenPixels(box)
       const at = (x: number, y: number) => rgb.slice((y * width + x) * 3, (y * width + x) * 3 + 3)
-      const yellow = [...Array(width).keys()].filter((x) => {
-        const [r, g, b] = at(x, middle - 10)
-        return r > 230 && g > 190 && g < 230 && b < 60
-      })
+      const isYellow = ([r, g, b]: number[]) => r > 230 && g > 190 && g < 230 && b < 60
+      const yellow = [...Array(width).keys()].filter((x) => isYellow(at(x, middle - 10)))
       centers.push(yellow.length ? (yellow[0] + yellow.at(-1)!) / 2 : NaN)
+      const column = Math.round(centers.at(-1)!)
+      const rows = [...Array(Math.round(box.height)).keys()].filter((y) => isYellow(at(column, y)))
+      heights.push(rows.length ? rows.at(-1)! + 1 : NaN)
       await browser.press('ArrowRight')
     }
     assert.ok(
       centers.every((x) => !Number.isNaN(x)),
       `no yellow thumb at some stops: ${centers}`,
+    )
+    assert.ok(
+      heights.every((y) => Math.abs(y - middle) <= 1),
+      `the thumb's middle sits at ${heights.join(', ')}px down, not on the track's middle, ${middle}px`,
     )
     // With the thumb at one end, then the other, each stop it left shows an ink dot under its
     // middle, and the track between two stops is white.
