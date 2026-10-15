@@ -2506,6 +2506,60 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('with motion allowed, a second request to close a title card as it turns around, with Esc or its button, closes it at once', async () => {
+    // As with the way back and the fade: asked to close again while it turns its opening around,
+    // the card closes at once, not turning around again. The opening runs to about 1.2 s, the first
+    // request turns it around, and the turned-around opening is held, so only the second can
+    // close the card. Not Esc twice: the browser closes the dialog on a second Esc whatever the
+    // page does.
+    const request = {
+      Esc: () => browser.press('Escape'),
+      'the button': () => clickMiddle(`document.querySelector('dialog.ab-card .ab-close')`),
+    }
+    const seen: Record<string, object> = {}
+    for (const [first, second] of [
+      ['Esc', 'the button'],
+      ['the button', 'Esc'],
+    ] as const) {
+      try {
+        await browser.evaluate(`(() => {
+          window.__opener = document.querySelector('.ab-grid .ab-link')
+          window.__opener.focus()
+          return true
+        })()`)
+        await browser.press('Enter')
+        assert.ok(
+          await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5_000),
+          'the title card did not open',
+        )
+        await browser.evaluate(`new Promise((resolve) => {
+          const wipe = document.querySelector('dialog.ab-card .ab-wipe').getAnimations()[0]
+          requestAnimationFrame(function wait() {
+            if (wipe.startTime !== null && document.timeline.currentTime - wipe.startTime >= 1200) resolve(true)
+            else requestAnimationFrame(wait)
+          })
+        })`)
+        await request[first]()
+        const turned = await browser.evaluate<boolean>(`(() => {
+          const back = document.querySelector('dialog.ab-card')?.getAnimations({ subtree: true }).filter((a) => a instanceof CSSAnimation && a.playbackRate < 0) ?? []
+          back.forEach((a) => a.pause())
+          return back.length > 0
+        })()`)
+        await browser.evaluate(watchSecondRequest)
+        await request[second]()
+        seen[`${first}, then ${second}`] = {
+          turned,
+          closed: await browser.evaluate<string>('window.__secondRequest'),
+          focus: await browser.evaluate<string>(focusPlace),
+        }
+      } finally {
+        await closeCardLeft()
+      }
+    }
+    const atOnce = { turned: true, closed: 'before the next frame', focus: 'back on its panel' }
+    assert.deepEqual(seen, { 'Esc, then the button': atOnce, 'the button, then Esc': atOnce })
+  })
+
   test('with motion allowed, a title card whose opening is cut short by reduced motion still counts as opened, and its focused close button turns red', async () => {
     // Reduced motion asked for mid-opening closes the motion gate, which cancels the opening's
     // animations: they end without finishing. The card must count as opened all the same, so the
