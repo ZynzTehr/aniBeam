@@ -290,6 +290,61 @@ test(
   },
 )
 
+test(
+  'a mood slider is a native range of 5 stops, reads its word by keyboard, and is 44px tall',
+  { skip },
+  async () => {
+    await browser.load({ url: GALLERY })
+    // What the focused element is, if it is a slider.
+    const focused = () =>
+      browser.evaluate<string>(`(() => {
+      const input = document.activeElement
+      if (input?.type !== 'range') return 'not a slider: ' + (input?.tagName ?? 'nothing')
+      const slider = input.closest('.ab-slider')
+      return [
+        [...input.labels].map((label) => label.textContent).join(),
+        input.min + ' to ' + input.max + ' by ' + input.step,
+        input.getAttribute('aria-valuetext'),
+        slider.querySelector('.ab-slider-value').textContent,
+        slider.querySelector('output') ? 'an output' : 'plain text',
+        input.getBoundingClientRect().height >= 44 ? '44px or taller' : input.getBoundingClientRect().height + 'px tall',
+      ].join(' | ')
+    })()`)
+    const read: string[] = []
+    // From the part's heading, Tab reaches the first slider, Energy, at no preference.
+    await browser.evaluate(`document.getElementById('gal-slider')?.focus(); true`)
+    await browser.press('Tab')
+    read.push(await focused())
+    for (const key of ['ArrowRight', 'ArrowRight', 'Home', 'End', 'ArrowLeft'] as const) {
+      await browser.press(key)
+      read.push(await focused())
+    }
+    const as = (word: string) =>
+      `Energy | -2 to 2 by 1 | ${word} | ${word} | plain text | 44px or taller`
+    assert.deepEqual(
+      read,
+      [
+        'No preference',
+        'High-octane',
+        'Very high-octane',
+        'Very cozy',
+        'Very high-octane',
+        'High-octane',
+      ].map(as),
+      'the energy slider, after Tab, two Right arrows, Home, End and a Left arrow',
+    )
+    // Every axis, on paper and on the machine, is named by its own label.
+    const names = await browser.evaluate<string[]>(
+      `[...document.querySelectorAll('[data-group="sliders"] input[type="range"]')].map((input) => [...input.labels].map((label) => label.textContent).join())`,
+    )
+    assert.deepEqual(
+      names,
+      ['Energy', 'Tone', 'Complexity', 'Energy', 'Tone', 'Complexity'],
+      "the sliders' names",
+    )
+  },
+)
+
 // Last, so it covers every check above.
 test(
   'across the checks above, the console stayed clean and AniList got no request',

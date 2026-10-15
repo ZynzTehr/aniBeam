@@ -9,6 +9,8 @@ import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
 import type { Media } from '../features/anime/queries.ts'
 import { SAMPLES } from '../features/anime/samples.ts'
+import { AXES, type Axis, type Stop } from '../features/mood/moods.ts'
+import { MoodSlider } from '../features/mood/MoodSlider.tsx'
 import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { accentVars, deriveAccent, DOTTED_PAPER, INK } from '../features/theming/deriveAccent.ts'
 import { contrast } from '../lib/color.ts'
@@ -51,6 +53,7 @@ export default function Gallery() {
           { href: '#gal-states', label: 'Sections' },
           { href: '#gal-lines', label: 'Status lines' },
           { href: '#gal-controls', label: 'Controls' },
+          { href: '#gal-slider', label: 'Sliders' },
           { href: '#gal-later', label: 'Later', soon: true },
         ]}
         search={search}
@@ -69,6 +72,7 @@ export default function Gallery() {
         <SectionStates onOpen={open} />
         <StatusLines />
         <Controls />
+        <Sliders />
       </main>
       <footer className="ab-foot">
         <MotionSwitch id="reduce-motion" />
@@ -100,7 +104,8 @@ function Part({
 }) {
   return (
     <section className="gal-part" aria-labelledby={id}>
-      <h2 id={id} className="gal-title">
+      {/* tabIndex -1: the header's links move focus here, but Tab skips it. */}
+      <h2 id={id} className="gal-title" tabIndex={-1}>
         {heading}
       </h2>
       <p className="gal-note">{note}</p>
@@ -430,5 +435,44 @@ function Controls() {
         </Case>
       </div>
     </Part>
+  )
+}
+
+/** The mood sliders, on paper and on the machine's body, where Phase 5 puts them. */
+function Sliders() {
+  return (
+    <Part
+      id="gal-slider"
+      heading="Mood sliders"
+      note="The three mood axes, each a native range input from -2 to 2: on paper, then on the pull machine's body, where Phase 5 puts them. Tab to one, then try the arrows, Home and End, or drag it."
+    >
+      <div className="gal-group" data-group="sliders">
+        <Case label="On paper">
+          <Axes />
+        </Case>
+        <Case label="On the machine">
+          <div className="ab-body gal-machine">
+            <Axes />
+          </div>
+        </Case>
+      </div>
+    </Part>
+  )
+}
+
+/** A slider for each axis, starting at no preference. */
+function Axes() {
+  const [stops, setStops] = useState<Record<Axis, Stop>>({ energy: 0, tone: 0, complexity: 0 })
+  return (
+    <div className="gal-sliders">
+      {(Object.keys(AXES) as Axis[]).map((axis) => (
+        <MoodSlider
+          key={axis}
+          axis={axis}
+          value={stops[axis]}
+          onChange={(stop) => setStops({ ...stops, [axis]: stop })}
+        />
+      ))}
+    </div>
   )
 }

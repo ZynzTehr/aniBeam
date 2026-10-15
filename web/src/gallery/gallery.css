@@ -28,7 +28,9 @@
 .gal-pick,
 .gal-lines,
 .gal-row,
-.gal-swatches {
+.gal-swatches,
+.gal-sliders,
+.gal-machine {
   margin-inline: var(--page-x);
 }
 
@@ -181,4 +183,22 @@
   border-top: 3px solid var(--ink);
   background: #fff;
   font-size: 12px;
+}
+
+.gal-sliders {
+  display: grid;
+  max-width: 520px;
+  gap: 20px;
+}
+
+/* The machine's body, its width the gallery's to set: its own 100% would add to its margins. */
+.gal-machine {
+  width: auto;
+  max-width: 520px;
+}
+
+/* The body centers what it holds; the sliders take its full width, as Phase 5 will have them. */
+.gal-machine .gal-sliders {
+  justify-self: stretch;
+  margin-inline: 0;
 }
