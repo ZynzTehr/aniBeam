@@ -6,6 +6,8 @@ import { MotionSwitch } from '../components/MotionSwitch.tsx'
 import { RetryButton } from '../components/RetryButton.tsx'
 import { SiteHeader } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
+import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
+import type { Media } from '../features/anime/queries.ts'
 import { SAMPLES } from '../features/anime/samples.ts'
 import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { accentVars, deriveAccent, DOTTED_PAPER, INK } from '../features/theming/deriveAccent.ts'
@@ -35,6 +37,9 @@ const noop = () => {}
 export default function Gallery() {
   // The header's search box shows what is typed, and searches nothing.
   const [search, setSearch] = useState('')
+  // The title card open, if any, and where it opened from, as in the app.
+  const [opened, setOpened] = useState<{ media: Media; from: DOMRect } | null>(null)
+  const open: OpenTitle = (media, from) => setOpened({ media, from: from.getBoundingClientRect() })
   return (
     <div className="ab-app">
       <a className="ab-skip" href="#main">
@@ -60,8 +65,8 @@ export default function Gallery() {
             anything; the covers come from its image server.
           </p>
         </header>
-        <TitleCases />
-        <SectionStates />
+        <TitleCases onOpen={open} />
+        <SectionStates onOpen={open} />
         <StatusLines />
         <Controls />
       </main>
@@ -69,6 +74,14 @@ export default function Gallery() {
         <MotionSwitch id="reduce-motion" />
         <p>Data from AniList. AniBeam is not affiliated with AniList.</p>
       </footer>
+      {opened && (
+        <TitleCard
+          key={opened.media.id}
+          media={opened.media}
+          from={opened.from}
+          onClose={() => setOpened(null)}
+        />
+      )}
     </div>
   )
 }
@@ -97,12 +110,12 @@ function Part({
 }
 
 /** The title cases, each like a real AniList title, on a manga page and a strip. */
-function TitleCases() {
+function TitleCases({ onOpen }: { onOpen: OpenTitle }) {
   return (
     <Part
       id="gal-titles"
       heading="Title cases"
-      note="Each case is a sample title with one gap forced, a gap a real AniList title has. Case n is panel n on the page and Ch.n on the strip."
+      note="Each case is a sample title with one gap forced, a gap a real AniList title has. Case n is panel n on the page and Ch.n on the strip; open any of them for its title card."
     >
       <ol className="gal-cases">
         {TITLE_CASES.map((edge) => (
@@ -116,8 +129,9 @@ function TitleCases() {
         heading="On the trending page"
         sfx="ドン!"
         titles={CASES.slice(0, PANELS)}
+        onOpen={onOpen}
       />
-      <Strip id="gal-strip" heading="On a strip" sfx="バーン" titles={CASES} />
+      <Strip id="gal-strip" heading="On a strip" sfx="バーン" titles={CASES} onOpen={onOpen} />
     </Part>
   )
 }
@@ -193,7 +207,7 @@ function OneAtATime<S extends string>({
 }
 
 /** Every state of each section, and of the intro and the pull machine. */
-function SectionStates() {
+function SectionStates({ onOpen }: { onOpen: OpenTitle }) {
   const failed = statusText(STATUS_CASES.failed.status, false)
   const page: Record<State<'page'>, ReactNode> = {
     Loading: (
@@ -223,6 +237,7 @@ function SectionStates() {
         sfx="ドン!"
         titles={FAVORITES}
         ranked={false}
+        onOpen={onOpen}
         note={sampleNote(
           'These are fan favorites, not this week’s trending.',
           STATUS_CASES.retrying.status,
@@ -231,13 +246,34 @@ function SectionStates() {
       />
     ),
     'Only 4 titles': (
-      <MangaPage id="gal-page-four" heading="Trending now" sfx="ドン!" titles={FOUR} />
+      <MangaPage
+        id="gal-page-four"
+        heading="Trending now"
+        sfx="ドン!"
+        titles={FOUR}
+        onOpen={onOpen}
+      />
     ),
   }
   const strip: Record<State<'strip'>, ReactNode> = {
-    'A row': <Strip id="gal-strip-row" heading="Browse by decade" sfx="バーン" titles={ROW} />,
+    'A row': (
+      <Strip
+        id="gal-strip-row"
+        heading="Browse by decade"
+        sfx="バーン"
+        titles={ROW}
+        onOpen={onOpen}
+      />
+    ),
     'A grid, as search results are': (
-      <Strip id="gal-strip-grid" heading="Results for “ghibli”" sfx="サーチ!" titles={ROW} grid />
+      <Strip
+        id="gal-strip-grid"
+        heading="Results for “ghibli”"
+        sfx="サーチ!"
+        titles={ROW}
+        grid
+        onOpen={onOpen}
+      />
     ),
     Loading: (
       <Strip
@@ -271,10 +307,10 @@ function SectionStates() {
     'No covers': <IntroHero titles={[]} actions={actions} />,
   }
   const pull: Record<State<'pull'>, ReactNode> = {
-    'Nothing to pull yet': <PullMachine pool={[]} onOpen={noop} />,
-    'Nothing it may hand out (all Ecchi)': <PullMachine pool={ECCHI_POOL} onOpen={noop} />,
-    'The samples': <PullMachine pool={SAMPLES} onOpen={noop} />,
-    'The title cases': <PullMachine pool={CASES} onOpen={noop} />,
+    'Nothing to pull yet': <PullMachine pool={[]} onOpen={onOpen} />,
+    'Nothing it may hand out (all Ecchi)': <PullMachine pool={ECCHI_POOL} onOpen={onOpen} />,
+    'The samples': <PullMachine pool={SAMPLES} onOpen={onOpen} />,
+    'The title cases': <PullMachine pool={CASES} onOpen={onOpen} />,
   }
   return (
     <Part

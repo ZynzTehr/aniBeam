@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { noteFor, searchStatus, statusText } from '../src/app/status.ts'
-import { titleOf } from '../src/features/anime/format.ts'
+import { formatOf, seasonOf, studioOf, titleOf } from '../src/features/anime/format.ts'
 import { mediaOf, STATES, STATUS_CASES, TITLE_CASES } from '../src/gallery/cases.ts'
 import { BASE_URL, Browser } from './browser.ts'
 
@@ -14,6 +14,15 @@ const dev = await fetch(new URL('@vite/client', BASE_URL))
   .then((answer) => answer.ok && /javascript/.test(answer.headers.get('content-type') ?? ''))
   .catch(() => false)
 const skip = !dev && `the gallery is development-only, and ${BASE_URL} is not the dev server`
+
+// In the page: waits, up to 2 seconds, until each cover in the element it is given has loaded or
+// been marked broken. A cover that fails is complete a moment before its error event, whose
+// onError marks it.
+const SETTLE = `async (within) => {
+  const covers = [...within.querySelectorAll('img')]
+  const settled = () => covers.every((img) => img.complete && (img.naturalWidth > 0 || img.hasAttribute('data-broken')))
+  for (let i = 0; i < 40 && !settled(); i++) await new Promise((done) => setTimeout(done, 50))
+}`
 
 let browser: Browser
 // Requests the page sent AniList, whatever came of them.
@@ -186,11 +195,7 @@ test(
         const shown = [...document.querySelectorAll('[data-group="${group}"] > [data-case]')]
         if (shown.length !== 1) return shown.length + ' states shown'
         const [state] = shown
-        // Each cover's onError marks it broken as its load fails.
-        await Promise.all([...state.querySelectorAll('img')].map((img) => img.complete || new Promise((done) => {
-          img.addEventListener('load', done, { once: true })
-          img.addEventListener('error', done, { once: true })
-        })))
+        await (${SETTLE})(state)
         return [state.dataset.case, ${
           group === 'intro'
             ? `state.querySelectorAll('.ab-intro-cover').length + ' covers', state.querySelectorAll('.ab-intro-cover img[data-broken]').length + ' broken', state.querySelector('.ab-intro-art.is-loading') ? 'loading' : 'not loading'`
@@ -216,6 +221,71 @@ test(
         'pull: The title cases': 'The title cases, lever on, 9 capsules, Pick a vibe, then pull',
       },
       "the intro's and the pull machine's states",
+    )
+  },
+)
+
+test(
+  "each title case's card opens from the strip, shows its gap, and Esc closes it with focus back",
+  { skip },
+  async () => {
+    // Reduced motion, so each card fades in and out in 150 ms.
+    await browser.load({ url: GALLERY, reduceMotion: true })
+    const cards: Record<string, string> = {}
+    for (const [i, edge] of TITLE_CASES.entries()) {
+      const panel = `document.querySelectorAll('[aria-labelledby="gal-strip"] .ab-strip-panel')[${i}]`
+      await browser.evaluate(`${panel}.focus()`)
+      await browser.press('Enter')
+      const opened = await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 5000)
+      cards[edge.label] = opened
+        ? await browser.evaluate<string>(`(async () => {
+          const card = document.querySelector('dialog.ab-card')
+          const img = card.querySelector('.ab-sheet-art img')
+          await (${SETTLE})(card)
+          const fact = (name) => [...card.querySelectorAll('.ab-facts > div')].find((fact) => fact.querySelector('dt').textContent === name)?.querySelector('dd').textContent ?? 'none'
+          return [
+            card.querySelector('#ab-card-title').textContent.trim(),
+            card.querySelector('.ab-kicker').textContent,
+            'native ' + (card.querySelector('.ab-native')?.textContent ?? 'none'),
+            'genres ' + (card.querySelector('.ab-genres') ? card.querySelectorAll('.ab-genres li').length : 'none'),
+            'score ' + fact('Score'),
+            'episodes ' + fact('Episodes'),
+            'next ' + fact('Next'),
+            img.hasAttribute('data-broken') ? 'cover broken' : 'cover shown',
+          ].join(' | ')
+        })()`)
+        : 'did not open'
+      await browser.press('Escape')
+      const closed = await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000)
+      const back = await browser.evaluate<boolean>(`document.activeElement === ${panel}`)
+      if (!closed || !back) cards[edge.label] += closed ? ' | focus not back' : ' | still open'
+    }
+    const expected = (edge: (typeof TITLE_CASES)[number], gap: Partial<Record<string, string>>) => {
+      const media = mediaOf(edge)
+      return [
+        titleOf(media),
+        [seasonOf(media), formatOf(media), studioOf(media)].filter(Boolean).join(' · '),
+        `native ${gap.native ?? media.title.native}`,
+        `genres ${gap.genres ?? Math.min(4, media.genres.length)}`,
+        `score ${gap.score ?? `${media.averageScore}%`}`,
+        `episodes ${gap.episodes ?? media.episodes}`,
+        `next ${gap.next ?? 'none'}`,
+        gap.cover ?? 'cover shown',
+      ].join(' | ')
+    }
+    const gaps: Record<string, Partial<Record<string, string>>> = {
+      'No score': { score: 'Not rated yet' },
+      'A cover that fails to load': { cover: 'cover broken' },
+      'No genres, studio or episode count': { genres: 'none', episodes: 'TBA' },
+      'No native title': { native: 'none' },
+      'An episode countdown': { next: 'Ep 9 in 2d 4h' },
+    }
+    assert.deepEqual(
+      cards,
+      Object.fromEntries(
+        TITLE_CASES.map((edge) => [edge.label, expected(edge, gaps[edge.label] ?? {})]),
+      ),
+      "the title cases' cards",
     )
   },
 )
