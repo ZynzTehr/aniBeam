@@ -3399,12 +3399,12 @@ const watchSecondRequest = `(() => {
  * to the left of it, one above and one below.
  */
 const closeButton = `(() => {
-  // The ring: shown, as brand-red speed lines, fully opaque; hidden, see-through or with nothing
-  // to draw; or something else, as another color would be.
+  // The ring: shown, as brand-red speed lines, fully opaque and at full size; hidden, see-through
+  // or with nothing to draw; or something else, as another color, or a ring left shrunk, would be.
   const speedLines = (ring) => {
     if (ring.content === 'none' || ring.opacity === '0') return 'hidden'
-    if (ring.opacity === '1' && ring.backgroundImage.startsWith('repeating-conic-gradient(rgb(255, 45, 85)')) return 'shown'
-    return 'something else: ' + ring.backgroundImage.slice(0, 40) + ', opacity ' + ring.opacity
+    if (ring.opacity === '1' && ring.transform === 'none' && ring.backgroundImage.startsWith('repeating-conic-gradient(rgb(255, 45, 85)')) return 'shown'
+    return 'something else: ' + ring.backgroundImage.slice(0, 40) + ', opacity ' + ring.opacity + ', ' + ring.transform
   }
   const button = document.querySelector('dialog.ab-card .ab-close')
   const icon = button.querySelector('.ab-x')
@@ -3425,7 +3425,8 @@ const closeButton = `(() => {
     fill: style.backgroundColor,
     edge: style.borderTopColor,
     icon: shape,
-    drawnIn: icon ? getComputedStyle(icon).color : getComputedStyle(button.querySelector('svg')).stroke,
+    // The color the bars are painted in (their backgrounds), the same for all three, or each.
+    drawnIn: icon ? [...new Set([...icon.children].map((bar) => getComputedStyle(bar).backgroundColor))].join(' and ') : getComputedStyle(button.querySelector('svg')).stroke,
     speedLines: speedLines(getComputedStyle(button, '::before')),
   }
 })()`
