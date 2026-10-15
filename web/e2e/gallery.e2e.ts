@@ -345,6 +345,150 @@ test(
   },
 )
 
+/**
+ * The pixels of part of the page as the screen shows it, as red, green and blue for each pixel,
+ * row by row. The clip is in CSS pixels from the top left of the page, as for Browser.screenshot.
+ */
+async function screenPixels(clip: { x: number; y: number; width: number; height: number }) {
+  const png = await browser.screenshot(clip)
+  // Decoded in the page.
+  return browser.evaluate<{ width: number; rgb: number[] }>(`(async () => {
+    const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+    const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+    const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+    context.drawImage(image, 0, 0)
+    const { data } = context.getImageData(0, 0, image.width, image.height)
+    return { width: image.width, rgb: [...data].filter((_, i) => i % 4 !== 3) }
+  })()`)
+}
+
+/** WCAG's relative luminance of a color given as red, green and blue from 0 to 255. */
+const luminance = (rgb: number[]) =>
+  rgb
+    .map((v) => (v / 255 <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4))
+    .reduce((sum, v, k) => sum + v * [0.2126, 0.7152, 0.0722][k], 0)
+
+/** The paper energy slider, scrolled into view, its box on the page, with focus on it. */
+async function energySlider() {
+  return browser.evaluate<{ x: number; y: number; width: number; height: number }>(`(() => {
+    const input = document.querySelector('[data-group="sliders"] input[type="range"]')
+    input.scrollIntoView({ block: 'center' })
+    input.focus()
+    const box = input.getBoundingClientRect()
+    return { x: box.left + scrollX, y: box.top + scrollY, width: box.width, height: box.height }
+  })()`)
+}
+
+test(
+  "the slider's thumb rests on a stop dot at each stop, and the dots show where it isn't",
+  { skip },
+  async () => {
+    await browser.load({ url: GALLERY })
+    const box = await energySlider()
+    const middle = Math.round(box.height / 2)
+    // Where the thumb is at each stop: the middle of its yellow top half, 10px above the track's
+    // middle, read off the screen.
+    await browser.press('Home')
+    const centers: number[] = []
+    for (let stop = 0; stop < 5; stop++) {
+      const { width, rgb } = await screenPixels(box)
+      const at = (x: number, y: number) => rgb.slice((y * width + x) * 3, (y * width + x) * 3 + 3)
+      const yellow = [...Array(width).keys()].filter((x) => {
+        const [r, g, b] = at(x, middle - 10)
+        return r > 230 && g > 190 && g < 230 && b < 60
+      })
+      centers.push(yellow.length ? (yellow[0] + yellow.at(-1)!) / 2 : NaN)
+      await browser.press('ArrowRight')
+    }
+    assert.ok(
+      centers.every((x) => !Number.isNaN(x)),
+      `no yellow thumb at some stops: ${centers}`,
+    )
+    // With the thumb at one end, then the other, each stop it left shows an ink dot under its
+    // middle, and the track between two stops is white.
+    const seen: string[] = []
+    for (const key of ['Home', 'End'] as const) {
+      await browser.press(key)
+      const { width, rgb } = await screenPixels(box)
+      const at = (x: number) =>
+        rgb.slice((middle * width + Math.round(x)) * 3, (middle * width + Math.round(x)) * 3 + 3)
+      const left = key === 'Home' ? centers.slice(1) : centers.slice(0, 4)
+      for (const x of left) if (luminance(at(x)) > 0.05) seen.push(`${key}: no dot at ${x}px`)
+      for (let k = 0; k < left.length - 1; k++) {
+        const between = (left[k] + left[k + 1]) / 2
+        if (luminance(at(between)) < 0.8) seen.push(`${key}: the track isn't white at ${between}px`)
+      }
+    }
+    assert.deepEqual(seen, [], `the thumb's stops: ${centers.join(', ')}`)
+    // The thumb is 40px wide and moves inside the track's 3px border: its middle goes from 23px in
+    // at one end to 23px in at the other, a quarter of the way at each stop.
+    const expected = [0, 1, 2, 3, 4].map((k) => 23 + ((box.width - 46) * k) / 4)
+    assert.ok(
+      centers.every((x, k) => Math.abs(x - expected[k]) <= 1.5),
+      `the thumb's stops: ${centers.join(', ')}, not ${expected.join(', ')}`,
+    )
+  },
+)
+
+test("in contrast themes, the slider's thumb stands out from its track", { skip }, async () => {
+  const seen: string[] = []
+  for (const scheme of ['light', 'dark']) {
+    await browser.send('Emulation.setEmulatedMedia', {
+      features: [
+        { name: 'forced-colors', value: 'active' },
+        { name: 'prefers-color-scheme', value: scheme },
+      ],
+    })
+    await browser.load({ url: GALLERY })
+    await browser.send('Emulation.setEmulatedMedia', {
+      features: [
+        { name: 'forced-colors', value: 'active' },
+        { name: 'prefers-color-scheme', value: scheme },
+      ],
+    })
+    const box = await energySlider()
+    const { width, rgb } = await screenPixels(box)
+    const middle = Math.round(box.height / 2)
+    const at = (x: number, y: number) =>
+      rgb.slice((y * width + Math.round(x)) * 3, (y * width + Math.round(x)) * 3 + 3)
+    // The thumb sits in the middle, at no preference; the track is read between the first two
+    // stops, clear of the dots.
+    const thumb = luminance(at(box.width / 2, middle - 8))
+    const track = luminance(at(23 + (box.width - 46) / 8, middle))
+    const ratio = (Math.max(thumb, track) + 0.05) / (Math.min(thumb, track) + 0.05)
+    if (ratio < 3) seen.push(`${scheme}: ${ratio.toFixed(2)}:1`)
+  }
+  await browser.send('Emulation.setEmulatedMedia', {
+    features: [{ name: 'forced-colors', value: 'none' }],
+  })
+  assert.deepEqual(seen, [], 'the thumb against the track, under 3:1')
+})
+
+test(
+  "a focused slider's ring is brand red on paper and white on the machine's red body",
+  { skip },
+  async () => {
+    await browser.load({ url: GALLERY })
+    await browser.evaluate(`document.getElementById('gal-slider')?.focus(); true`)
+    const rings: string[] = []
+    // Tab through the three on paper, then the three on the machine.
+    for (let i = 0; i < 6; i++) {
+      await browser.press('Tab')
+      rings.push(
+        await browser.evaluate<string>(`(() => {
+        const input = document.activeElement, style = getComputedStyle(input)
+        return input.type === 'range' && input.matches(':focus-visible')
+          ? style.outlineStyle + ' ' + style.outlineWidth + ' ' + style.outlineColor
+          : 'not a slider with a keyboard focus ring'
+      })()`),
+      )
+    }
+    const red = 'solid 4px rgb(255, 45, 85)'
+    const white = 'solid 4px rgb(255, 255, 255)'
+    assert.deepEqual(rings, [red, red, red, white, white, white], "the sliders' focus rings")
+  },
+)
+
 // Last, so it covers every check above.
 test(
   'across the checks above, the console stayed clean and AniList got no request',

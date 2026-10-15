@@ -46,4 +46,168 @@
     font-size: 13px;
     font-weight: 800;
   }
+
+  /*
+   * Look A, chosen on 2026-10-15: a capsule for a thumb, yellow over white like the pull's
+   * capsules, on a white track with an ink dot at each stop. Chrome and Safari style the track
+   * and thumb through ::-webkit- parts, Firefox through ::-moz- ones; a browser drops a whole
+   * rule that names a part it doesn't know, so each look has a rule per engine.
+   */
+  .ab-slider input {
+    --thumb: 40px;
+    --track: 18px;
+    --edge: 3px;
+    appearance: none;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .ab-slider input:focus-visible {
+    border-radius: 999px;
+    outline: 4px solid var(--hot);
+    outline-offset: 3px;
+  }
+
+  /* On the machine's red body, the ring is white, as the machine's own controls' are. */
+  .ab-body .ab-slider input:focus-visible {
+    outline-color: #fff;
+  }
+
+  /* An ink dot under each stop, where the thumb's middle rests. The dots are 10px images in the
+     track's background, which starts inside its border; a position in percent counts the width
+     left once the dot is taken off. Each engine has its own rule, as each moves the thumb its own
+     way. */
+  .ab-slider input::-webkit-slider-runnable-track {
+    /* Chrome and Safari move the thumb inside the track's border: its middle goes from thumb / 2
+       in from the background's left to thumb / 2 in from its right. */
+    --first: calc(var(--thumb) / 2 - 5px);
+    --apart: calc((100% + 10px - var(--thumb)) / 4);
+    box-sizing: border-box;
+    height: var(--track);
+    border: var(--edge) solid var(--ink);
+    border-radius: 999px;
+    background-color: #fff;
+    background-image:
+      radial-gradient(circle, var(--ink) 0 3px, transparent 3.5px),
+      radial-gradient(circle, var(--ink) 0 3px, transparent 3.5px),
+      radial-gradient(circle, var(--ink) 0 3px, transparent 3.5px),
+      radial-gradient(circle, var(--ink) 0 3px, transparent 3.5px),
+      radial-gradient(circle, var(--ink) 0 3px, transparent 3.5px);
+    background-repeat: no-repeat;
+    background-size: 10px 10px;
+    background-position:
+      var(--first) 50%,
+      calc(var(--first) + var(--apart)) 50%,
+      calc(var(--first) + 2 * var(--apart)) 50%,
+      calc(var(--first) + 3 * var(--apart)) 50%,
+      calc(var(--first) + 4 * var(--apart)) 50%;
+  }
+
+  .ab-slider input::-moz-range-track {
+    /* Firefox moves the thumb across the whole input, border and all: its middle goes from
+       thumb / 2 in from the input's left to thumb / 2 in from its right (unchecked here, as the
+       browser checks run in Chrome alone). */
+    --first: calc(var(--thumb) / 2 - var(--edge) - 5px);
+    --apart: calc((100% + 10px - var(--thumb) + 2 * var(--edge)) / 4);
+    box-sizing: border-box;
+    height: var(--track);
+    border: var(--edge) solid var(--ink);
+    border-radius: 999px;
+    background-color: #fff;
+    background-image:
+      radial-gradient(circle, var(--ink) 0 3px, transparent 3.5px),
+      radial-gradient(circle, var(--ink) 0 3px, transparent 3.5px),
+      radial-gradient(circle, var(--ink) 0 3px, transparent 3.5px),
+      radial-gradient(circle, var(--ink) 0 3px, transparent 3.5px),
+      radial-gradient(circle, var(--ink) 0 3px, transparent 3.5px);
+    background-repeat: no-repeat;
+    background-size: 10px 10px;
+    background-position:
+      var(--first) 50%,
+      calc(var(--first) + var(--apart)) 50%,
+      calc(var(--first) + 2 * var(--apart)) 50%,
+      calc(var(--first) + 3 * var(--apart)) 50%,
+      calc(var(--first) + 4 * var(--apart)) 50%;
+  }
+
+  .ab-slider input::-webkit-slider-thumb {
+    box-sizing: border-box;
+    width: var(--thumb);
+    height: var(--thumb);
+    /* Chrome and Safari put the thumb at the top of the track's content box: this centers it. */
+    margin-top: calc((var(--track) - 2 * var(--edge) - var(--thumb)) / 2);
+    border: 4px solid var(--ink);
+    border-radius: 50%;
+    background: linear-gradient(var(--sun) 0 50%, #fff 50% 100%);
+    box-shadow: 3px 3px 0 var(--ink);
+    appearance: none;
+  }
+
+  .ab-slider input::-moz-range-thumb {
+    box-sizing: border-box;
+    width: var(--thumb);
+    height: var(--thumb);
+    border: 4px solid var(--ink);
+    border-radius: 50%;
+    background: linear-gradient(var(--sun) 0 50%, #fff 50% 100%);
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+
+  /* On the machine, the name and the end labels are ink tags on the red, as its vibe label is. */
+  .ab-body .ab-slider-name {
+    /* Chrome adds the letter spacing after the last letter too; less padding there evens it out. */
+    padding: 3px calc(10px - 0.14em) 3px 10px;
+    border-radius: 999px;
+    background: var(--ink);
+    color: #fff;
+    font: 800 13px var(--body);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .ab-body .ab-slider-ends span {
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--ink);
+    color: #fff;
+  }
+
+  /* A contrast theme drops the gradient and the shadow and paints the thumb in the page's color,
+     so it would vanish into the track, leaving a ring. It takes the theme's text color, solid. */
+  @media (forced-colors: active) {
+    .ab-slider input::-webkit-slider-thumb {
+      border-color: Canvas;
+      outline: 2px solid CanvasText;
+      background: CanvasText;
+      forced-color-adjust: none;
+    }
+
+    .ab-slider input::-moz-range-thumb {
+      border-color: Canvas;
+      outline: 2px solid CanvasText;
+      background: CanvasText;
+      forced-color-adjust: none;
+    }
+  }
+
+  /* Pressed, the thumb swells a little, with a spring. */
+  @media (prefers-reduced-motion: no-preference) {
+    :where(:root:not([data-motion='reduce'])) {
+      .ab-slider input::-webkit-slider-thumb {
+        transition: transform 0.2s var(--spring);
+      }
+
+      .ab-slider input:active::-webkit-slider-thumb {
+        transform: scale(1.12);
+      }
+
+      .ab-slider input::-moz-range-thumb {
+        transition: transform 0.2s var(--spring);
+      }
+
+      .ab-slider input:active::-moz-range-thumb {
+        transform: scale(1.12);
+      }
+    }
+  }
 }
