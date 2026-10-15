@@ -359,6 +359,39 @@ test(
   },
 )
 
+test(
+  'every mood slider is in the accessibility tree, a slider named by its axis',
+  { skip },
+  async () => {
+    await browser.load({ url: GALLERY })
+    // What a screen reader is handed, from Chrome's accessibility tree, not the page's attributes:
+    // something hidden from it, such as by an aria-hidden around it, is ignored there.
+    const { root } = await browser.send('DOM.getDocument', { depth: 0 })
+    const { nodeIds } = await browser.send('DOM.querySelectorAll', {
+      nodeId: root.nodeId,
+      selector: '[data-group="sliders"] input[type="range"]',
+    })
+    const seen: string[] = []
+    for (const nodeId of nodeIds as number[]) {
+      const { nodes } = await browser.send('Accessibility.getPartialAXTree', {
+        nodeId,
+        fetchRelatives: false,
+      })
+      const [node] = nodes
+      seen.push(`${node.ignored ? 'ignored' : 'exposed'} ${node.role?.value} "${node.name?.value}"`)
+    }
+    // The machine's labels are set in capitals, which Chrome passes on: the user chose to keep it
+    // so, as the machine's "PICK A VIBE" is.
+    assert.deepEqual(
+      seen,
+      ['Energy', 'Tone', 'Complexity', 'ENERGY', 'TONE', 'COMPLEXITY'].map(
+        (name) => `exposed slider "${name}"`,
+      ),
+      "the sliders, as Chrome's accessibility tree has them",
+    )
+  },
+)
+
 /**
  * The pixels of part of the page as the screen shows it, as red, green and blue for each pixel,
  * row by row. The clip is in CSS pixels from the top left of the page, as for Browser.screenshot.
