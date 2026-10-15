@@ -154,6 +154,14 @@ The calm look is every rule's default, and a gate adds the motion. Motion that n
 
 `npm test` holds the app to this. `web/src/components/motion.test.ts` reads every stylesheet in `web/src` but the development-only prototypes'. Outside the gates, it fails on a transition that names a property that moves or resizes a box, or `all`, or that names none, which means all, as `transition: 0.2s` does; on a hover or press rule that sets such a property; on an animation other than a fade of 150 ms or less that plays once; on smooth scrolling; and on a rule that pauses an animation (a paused animation outside the gates would hold its frame for good). The properties that move or resize a box are `transform`, `translate`, `rotate` and `scale`, any width or height, `top`, `right`, `bottom`, `left` and `inset`, and margins and padding, with their longhands and prefixed names. A `var()` in a transition outside the gates reads as each value a rule there sets its custom property to, and as its fallback; one with neither fails, as the check can't read it. It also fails on a rule in a gate but outside its `:where()` rule, on a rule in the `:where()` rule that names `html` or `:root`, and on a rule that asks the device about motion outside a gate. `web/src/lib/motion.test.ts` reads the app's scripts and stylesheets, all but the tests and the prototypes, and `web/index.html`. It fails on any line of code in a script other than `lib/motion.ts` that names `prefers-reduced-motion`; on Tailwind's motion variants; on its motion utilities in a class name, in the markup or after `@apply` (`animate-…`, `transition`, `duration-…`, `scroll-smooth`, `translate-…`, `rotate-…`, `scale-…` and `skew-…`, under a variant or not); and on a `style` prop that sets a transition, an animation or `scroll-behavior`. The browser checks run the reduced-motion group twice, once with the device asking and once with the site's setting on, and load the page with the choice saved. Others check the switch itself: Space, the skip link, the locked state, a reload, the contrast themes, and phones, where it must show in full, with its locked line wrapping under it. And after a pull, turning motion back on, by the switch or on the device, must leave nothing on the page playing again in the first frame drawn after, the capsule included, while the knob slides off, the splash cover's drift follows the scroll, and the next pull plays in full. With motion allowed, a fresh load must still play the intro's entrance in full.
 
+### Keyboard
+
+Everything on the page works from the keyboard. Tab reaches its 43 stops in reading order, from the two skip links to the Reduce motion switch, and Shift+Tab goes back the same way. The header's section links hand focus to their section's heading, so Tab goes on inside that section. Each stop shows its focus whole: the browser brings what takes focus into view 10px in from the screen's edge, room for its ring, and from 900px, where the header stays on screen, 10px below the header. `web/e2e/keyboard.e2e.ts` walks every stop both ways, on a desktop with motion and on a phone with reduced motion, and checks that each one's focus shows by WCAG's measure for a focus indicator. It also uses the page by keyboard alone: Esc in the search box, the arrows on the vibe and decade chips, and Space on the lever and on the title card's Close button.
+
+### Layout shift
+
+While titles load, each section shows empty panels the size of the titles to come, with "Loading…" on the first, so nothing on the page moves as the titles arrive. A pulled title takes its place the moment the lever is pressed, unseen until its capsule opens. `web/e2e/layout.e2e.ts` measures layout shift as web-vitals counts it for CLS, on a first visit and a slow one, on a phone and a wide screen, and on a pull on a phone, and holds each under 0.1, Google's mark for good.
+
 ### Fonts
 
 The display font is Dela Gothic One, by the Dela Gothic Project Authors. The body font is M PLUS Rounded 1c, by the Rounded M+ Project Authors. Both are self-hosted from `web/public/fonts`, so visitors' browsers never contact Google. `npm test` builds the production bundle in memory and fails if any file in it references Google Fonts.
@@ -162,7 +170,7 @@ The files are subsets with Latin letters, kana and the star symbol, about 100 KB
 
 ### Browser checks
 
-`web/e2e` holds checks that run the real page in headless Chrome: layout on desktop and phone, keyboard use, reduced motion, Windows contrast themes, the title card, search, the pull, trending refreshed while it is on screen, what a visitor sees when AniList is down, and the component gallery. Two more check AniList's API itself. They need no extra package. Node drives Chrome over its DevTools protocol.
+`web/e2e` holds checks that run the real page in headless Chrome: layout and layout shift on desktop and phone, keyboard use, reduced motion, Windows contrast themes, the title card, search, the pull, trending refreshed while it is on screen, what a visitor sees when AniList is down, and the component gallery. Two more check AniList's API itself. They need no extra package. Node drives Chrome over its DevTools protocol.
 
 To run them, start the app with `npm run dev`, then point `CHROME_BIN` at a Chrome or chrome-headless-shell binary:
 
@@ -170,7 +178,7 @@ To run them, start the app with `npm run dev`, then point `CHROME_BIN` at a Chro
 CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm run test:browser
 ```
 
-A run takes about five minutes. The outage checks take about two of them, because the app waits a minute before retrying a failed connection.
+A run takes about eight minutes. The outage checks take about two of them, because the app waits a minute before retrying a failed connection.
 
 #### Recorded answers
 
