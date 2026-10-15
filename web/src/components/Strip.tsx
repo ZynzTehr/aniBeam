@@ -51,6 +51,9 @@ export function Strip({
   children?: ReactNode
 }) {
   const row = grid ? 'ab-strip-row ab-strip-grid' : 'ab-strip-row'
+  // Waiting for its first titles, the strip shows empty cards, and its status line shows as a tag on
+  // the first instead of in a line of its own, so nothing moves as it clears (see .is-tagged).
+  const waiting = !titles.length && loading
   // A different list opens at Ch.1: React keeps this row for the next list, which would otherwise
   // open wherever the last one was scrolled. Keyed on which list it is, not on its titles, so a
   // refresh that reorders the list on screen doesn't send the visitor back to Ch.1, taking a
@@ -66,15 +69,17 @@ export function Strip({
         {heading}
       </SfxHeading>
       {children}
-      <p role={live ? 'status' : undefined} className="ab-note">
+      <p role={live ? 'status' : undefined} className={waiting ? 'ab-note is-tagged' : 'ab-note'}>
         {note}
       </p>
       {onRetry && <RetryButton headingId={id} onRetry={onRetry} />}
-      {!titles.length && loading && (
+      {waiting && (
         <ol className={row} aria-hidden="true">
           {Array.from({ length: 8 }, (_, i) => (
             <li key={i} className="ab-strip-item">
-              <span className="ab-strip-panel ab-skeleton-fill" />
+              <span className="ab-strip-panel ab-skeleton-fill">
+                {i === 0 && <span className="ab-note-tag">{note}</span>}
+              </span>
             </li>
           ))}
         </ol>

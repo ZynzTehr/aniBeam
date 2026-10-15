@@ -57,3 +57,54 @@ test('a first visit loads with a layout shift under 0.1, on a phone and on a wid
     }
   assert.deepEqual(seen, [], 'a first visit jumps')
 })
+
+test('while a section waits for its titles, "Loading…" shows on its first empty panel, and nothing moves as they land', async () => {
+  // Each section's status: as a tag on its first empty panel, its own line taking no room (screen
+  // readers still read the line), or in its line; and its panels' place under its heading.
+  const where = `(() => {
+    // Measured, then rounded once: the heading itself can move, as what is above it changes.
+    const gap = (from, to) => Math.round(to.getBoundingClientRect().top - from.getBoundingClientRect().top)
+    return [['trending', '.ab-page', '.ab-grid'], ['decades', '.ab-strip', '.ab-strip-row']].map(([name, section, row]) => {
+      const part = document.querySelector(section)
+      const line = part.querySelector('.ab-note')
+      const panel = part.querySelector(row + '[aria-hidden] > li')
+      const tag = panel?.querySelector('.ab-note-tag')
+      const box = tag?.getBoundingClientRect(), room = panel?.getBoundingClientRect()
+      const onPanel = box && box.width > 0 && box.top >= room.top && box.bottom <= room.bottom && box.left >= room.left && box.right <= room.right
+      const status = !line.textContent
+        ? 'no line'
+        : onPanel && tag.textContent === line.textContent && line.getBoundingClientRect().height === 0
+          ? '"' + line.textContent + '" as a tag on the first empty panel'
+          : '"' + line.textContent + '" in a line of its own'
+      return name + ': ' + status + ', panels ' + gap(part.querySelector('h2'), part.querySelector(row)) + 'px under the heading'
+    })
+  })()`
+  const seen: Record<string, string[]> = {}
+  for (const screen of [PHONE, DESKTOP]) {
+    await browser.forget()
+    await browser.holdAniList(2500)
+    await browser.load({ ...screen, reduceMotion: true })
+    const loading = await browser.evaluate<string[]>(where)
+    assert.ok(await browser.titlesShown())
+    await browser.holdAniList(0)
+    const loaded = await browser.evaluate<string[]>(where)
+    seen[`${screen.width}px`] = [...loading, ...loaded]
+  }
+  const under = (panels: Record<string, number>) => (name: string, text: string) =>
+    `${name}: ${text}, panels ${panels[name]}px under the heading`
+  // The panels sit as far under their heading while they wait as once the titles land.
+  for (const [screen, [trending, decades, trendingAfter, decadesAfter]] of Object.entries(seen)) {
+    const gap = (line: string) => Number(/panels (-?\d+)px/.exec(line)?.[1])
+    const panels = { trending: gap(trendingAfter), decades: gap(decadesAfter) }
+    assert.deepEqual(
+      [trending, decades, trendingAfter, decadesAfter],
+      [
+        under(panels)('trending', '"Loading…" as a tag on the first empty panel'),
+        under(panels)('decades', '"Loading…" as a tag on the first empty panel'),
+        under(panels)('trending', 'no line'),
+        under(panels)('decades', 'no line'),
+      ],
+      `at ${screen}, while the titles load, then once they land`,
+    )
+  }
+})
