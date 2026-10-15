@@ -100,13 +100,22 @@ const DEVELOPMENT_ONLY = {
   addresses: /gallery|(["'`])variant\1/gi,
 }
 
-// The class names a stylesheet's rules name, its comments left out.
-const classesIn = (css: string) =>
-  new Set(
-    [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map(
-      ([, name]) => name,
+// The class names in a stylesheet's selectors, unescaped, as Tailwind writes md:flex as .md\:flex.
+// Comments, strings and url()s go first, as they can hold a dot (an SVG's www.w3.org, say), and
+// only the text before each block's brace is read.
+const classesIn = (css: string) => {
+  const code = css
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/url\([^)]*\)|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '')
+  const selectors = [...code.matchAll(/([^{};]*)\{/g)].map(([, selector]) => selector)
+  return new Set(
+    selectors.flatMap((selector) =>
+      [...selector.matchAll(/\.(-?(?:[_a-zA-Z]|\\.)(?:[\w-]|\\.)*)/g)].map(([, name]) =>
+        name.replace(/\\(.)/g, '$1'),
+      ),
     ),
   )
+}
 
 test('the production build holds no development-only code', () => {
   // So that a reading that misses can't pass, the pattern must find checks of the address however
