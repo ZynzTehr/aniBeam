@@ -989,6 +989,13 @@ body:has(.ab-card[open]) {
   mask-image: radial-gradient(circle, transparent 18%, #000 42%, transparent 74%);
 }
 
+/* The pulled title is laid out at the press, so that the capsule opening on it moves nothing on the
+   page; until it opens, the title is invisible (and inert, see PullMachine). */
+.ab-result:not(.is-open) > .ab-result-panel,
+.ab-result:not(.is-open) > .ab-result-copy {
+  visibility: hidden;
+}
+
 .ab-result-panel {
   position: relative;
   z-index: 1;
@@ -1622,15 +1629,16 @@ body:has(.ab-card[open]) {
       animation: ab-burst 0.9s ease-out both;
     }
 
-    .ab-result-panel {
+    /* As the capsule opens, not at the press, when the title is laid out unseen. */
+    .ab-result.is-open .ab-result-panel {
       animation: ab-art 0.8s var(--spring) both 0.1s;
     }
 
-    .ab-sfx-tier {
+    .ab-result.is-open .ab-sfx-tier {
       animation: ab-tier-boom 0.7s var(--spring) both 0.35s;
     }
 
-    .ab-result-copy {
+    .ab-result.is-open .ab-result-copy {
       animation: ab-rise 0.6s var(--spring) both 0.3s;
     }
 

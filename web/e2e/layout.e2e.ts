@@ -192,3 +192,69 @@ test('a slow first load, seen at the decades, jumps under 0.1, on a phone and on
     }
   assert.deepEqual(seen, [], 'the page jumps under the visitor as the titles land')
 })
+
+test('a pull on a phone jumps under 0.1, and the next one too, its title laid out at the press', async () => {
+  // With motion allowed, the capsule drops for 900 ms before it opens on the title, more than the
+  // half second after a press that doesn't count. So the title's box is laid out at the press,
+  // invisible and out of reach (inert) until the capsule opens, and the opening moves nothing.
+  await browser.forget()
+  await browser.load(PHONE)
+  assert.ok(await browser.titlesShown())
+  await browser.animationsDone()
+  const result = `(() => {
+    const result = document.querySelector('.ab-result:not([data-old])')
+    if (!result) return 'no result'
+    const parts = [result.querySelector('.ab-result-panel'), result.querySelector('.ab-result-copy')]
+    if (parts.some((part) => !part)) return 'no title laid out'
+    const hidden = parts.every((part) => getComputedStyle(part).visibility === 'hidden' && part.inert)
+    const shown = parts.every((part) => getComputedStyle(part).visibility === 'visible' && !part.inert)
+    return (hidden ? 'hidden and inert' : shown ? 'shown' : 'half shown') + ', ' + Math.round(result.getBoundingClientRect().height) + 'px'
+  })()`
+  const seen: string[] = []
+  for (const pull of ['first', 'second']) {
+    const lever = await browser.evaluate<{ x: number; y: number }>(`(() => {
+      document.querySelector('.ab-result')?.setAttribute('data-old', '')
+      const lever = document.querySelector('.ab-lever')
+      lever.scrollIntoView({ block: 'center', behavior: 'instant' })
+      const box = lever.getBoundingClientRect()
+      return { x: box.left + box.width / 2, y: box.top + box.height / 2 }
+    })()`)
+    for (const type of ['mousePressed', 'mouseReleased'])
+      await browser.send('Input.dispatchMouseEvent', {
+        type,
+        ...lever,
+        button: 'left',
+        clickCount: 1,
+      })
+    const pressed = await browser.evaluate<string>(result)
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-result.is-open:not([data-old])')`, 5000),
+      `the ${pull} pull never opened`,
+    )
+    // The title's entrance plays as the capsule opens, not at the press, unseen.
+    const entering =
+      await browser.evaluate<boolean>(`['.ab-result-panel', '.ab-result-copy', '.ab-sfx-tier'].every((part) =>
+      document.querySelector('.ab-result.is-open:not([data-old]) ' + part).getAnimations().some((animation) => animation.playState === 'running'))`)
+    // What the opening animates: only what moves nothing else, transform and opacity.
+    const animating =
+      await browser.evaluate<string>(`[...new Set(document.querySelector('.ab-result.is-open:not([data-old])')
+      .getAnimations({ subtree: true }).flatMap((animation) => animation.effect.getKeyframes())
+      .flatMap((keyframe) => Object.keys(keyframe).filter((key) => !['offset', 'computedOffset', 'easing', 'composite'].includes(key))))].sort().join(' and ')`)
+    await browser.animationsDone()
+    await sleep(1000)
+    const opened = await browser.evaluate<string>(result)
+    const { value } = await browser.layoutShift()
+    seen.push(
+      `${pull}: ${pressed} at the press, ${opened} once open, ${entering ? 'entering as it opens' : 'no entrance as it opens'}, animating ${animating}, ${value < 0.1 ? 'under 0.1' : await shifted()}`,
+    )
+  }
+  const height = (line: string) => /(\d+)px once open/.exec(line)?.[1]
+  assert.deepEqual(
+    seen,
+    seen.map(
+      (line, i) =>
+        `${['first', 'second'][i]}: hidden and inert, ${height(line)}px at the press, shown, ${height(line)}px once open, entering as it opens, animating opacity and transform, under 0.1`,
+    ),
+    'each pull',
+  )
+})

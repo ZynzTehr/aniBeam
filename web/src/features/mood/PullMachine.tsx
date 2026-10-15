@@ -118,47 +118,47 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
                 <span className="ab-half ab-top-half" />
                 <span className="ab-half ab-bottom-half" />
               </span>
-              {revealed && (
-                <>
-                  <span className="ab-burst" aria-hidden="true" />
-                  <a
-                    className="ab-result-panel"
-                    href={`#title-${pulled.id}`}
-                    onClick={opener(pulled, onOpen)}
+              {revealed && <span className="ab-burst" aria-hidden="true" />}
+              {/* The title is laid out at the press, so that opening the capsule 900 ms later
+                  moves nothing on the page; until then it is invisible (see .ab-result) and out
+                  of reach, inert. */}
+              <a
+                className="ab-result-panel"
+                href={`#title-${pulled.id}`}
+                onClick={opener(pulled, onOpen)}
+                inert={!revealed}
+              >
+                <img
+                  src={pulled.coverImage.extraLarge}
+                  alt=""
+                  onLoad={markLoaded}
+                  onError={markBroken}
+                />
+                <span className="ab-sfx-tier" aria-hidden="true">
+                  {rarity.sfx}
+                </span>
+                <span className="sr-only">Open the title card for {titleOf(pulled)}</span>
+              </a>
+              <div className="ab-result-copy" inert={!revealed}>
+                <p className="ab-tier">
+                  {rarity.label} <span aria-hidden="true">{rarity.stars}</span>
+                </p>
+                <h3>{titleOf(pulled)}</h3>
+                <p className="ab-result-meta">
+                  {[seasonOf(pulled), formatOf(pulled), studioOf(pulled)]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+                <div className="ab-row-actions">
+                  <button
+                    type="button"
+                    className="ab-btn ab-btn-ink"
+                    onClick={(event) => onOpen(pulled, event.currentTarget)}
                   >
-                    <img
-                      src={pulled.coverImage.extraLarge}
-                      alt=""
-                      onLoad={markLoaded}
-                      onError={markBroken}
-                    />
-                    <span className="ab-sfx-tier" aria-hidden="true">
-                      {rarity.sfx}
-                    </span>
-                    <span className="sr-only">Open the title card for {titleOf(pulled)}</span>
-                  </a>
-                  <div className="ab-result-copy">
-                    <p className="ab-tier">
-                      {rarity.label} <span aria-hidden="true">{rarity.stars}</span>
-                    </p>
-                    <h3>{titleOf(pulled)}</h3>
-                    <p className="ab-result-meta">
-                      {[seasonOf(pulled), formatOf(pulled), studioOf(pulled)]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </p>
-                    <div className="ab-row-actions">
-                      <button
-                        type="button"
-                        className="ab-btn ab-btn-ink"
-                        onClick={(event) => onOpen(pulled, event.currentTarget)}
-                      >
-                        Open title card
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
+                    Open title card
+                  </button>
+                </div>
+              </div>
             </div>
           ) : (
             // The hint that applies, then the others, unseen, in the same place: the box takes the
