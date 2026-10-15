@@ -126,7 +126,7 @@ The site's setting lives in one place, `data-motion="reduce"` on `<html>`. Style
 In the app's scripts, `web/src/lib/motion.ts` is the one place that asks the device:
 
 - `reducedMotion()` is true when `<html>` has `data-motion="reduce"` or the device asks for reduced motion. A script that moves anything asks it each time it is about to move, as the pull's reveal does.
-- `deviceReducesMotion()` and `watchDeviceMotion()` read the device's setting alone and follow its changes, for the switch's locked state.
+- `deviceReducesMotion()` and `watchDeviceMotion()` read the device's setting alone and follow its changes, for the switch's locked state, and so that a title card playing its way back closes at once if the device starts asking for reduced motion.
 - `savedMotionChoice()` and `saveMotionChoice()` read and write the saved choice, in try/catch.
 - `finishEntrances()` finishes the animations that motion coming back on starts over, on the page's own clock only: the splash cover's drift follows the scroll, and transitions such as the switch's knob run on.
 - `watchMotionBackOn()` calls back each time motion comes back on, by the switch or on the device, before the browser draws a frame of it, and the switch has it finish the entrances then. It watches the size of `.ab-motion-sentinel`, a box in the footer that no one sees, which the motion gates widen from 1px to 2px: a ResizeObserver calls back after layout, before the frame is drawn, while the media query's change event comes a frame late in Chrome.

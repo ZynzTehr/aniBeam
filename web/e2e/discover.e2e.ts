@@ -2182,9 +2182,10 @@ describe('desktop (1440x900)', () => {
   test('with motion allowed, hovering the close button floods it brand red as its X folds into a white back arrow, with speed lines, and it stays so as the card leaves', async () => {
     // The user's choice from a mockup ("Burst"): the button floods brand red, its X folds into a
     // white arrow pointing back, and a ring of manga speed lines flashes out. As the card plays its
-    // way back after a click or Esc, the button keeps that look. At rest it is today's white
-    // button with an ink X. The card is opened with the mouse, so the button doesn't have the
-    // keyboard's focus, which brings the same look (see the next check).
+    // way back after a click or Esc, the button keeps that look. At rest it is a white button with
+    // an ink X, a little larger than the old one, as in the mockup. The card is opened with the
+    // mouse, so the button doesn't have the keyboard's focus, which brings the same look (see the
+    // next check).
     const seen: Record<string, object> = {}
     try {
       await browser.evaluate(`(async () => {
