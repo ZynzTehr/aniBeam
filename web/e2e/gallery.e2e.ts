@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { noteFor, searchStatus, statusText } from '../src/app/status.ts'
 import { formatOf, seasonOf, studioOf, titleOf } from '../src/features/anime/format.ts'
+import { AXES } from '../src/features/mood/moods.ts'
 import { mediaOf, STATES, STATUS_CASES, TITLE_CASES } from '../src/gallery/cases.ts'
 import { BASE_URL, Browser } from './browser.ts'
 
@@ -389,6 +390,21 @@ test(
       ),
       "the sliders, as Chrome's accessibility tree has them",
     )
+  },
+)
+
+test(
+  "each slider's end labels sit at its track's ends, as its stops run, low end on the left",
+  { skip },
+  async () => {
+    await browser.load({ url: GALLERY })
+    // The labels in the order the screen shows them, left to right, whatever the markup's order.
+    const ends = await browser.evaluate<string[][]>(
+      `[...document.querySelectorAll('[data-group="sliders"] .ab-slider-ends')].map((ends) =>
+      [...ends.children].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left).map((end) => end.textContent))`,
+    )
+    const axes = Object.values(AXES).map(({ ends }) => [...ends])
+    assert.deepEqual(ends, [...axes, ...axes], "the sliders' end labels, left to right")
   },
 )
 
