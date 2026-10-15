@@ -4,6 +4,7 @@ import { join, relative, resolve } from 'node:path'
 import { before, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { brotliCompressSync, constants } from 'node:zlib'
+import ts from 'typescript'
 import { build, type Rolldown } from 'vite'
 
 const web = fileURLToPath(new URL('../../', import.meta.url))
@@ -155,11 +156,11 @@ test('the production build holds no development-only code', () => {
 })
 
 // Tailwind makes a utility of any word that names one in the files it reads, even in a comment, so
-// styles/index.css has it read only the files that ship. These are canaries: utilities named only
-// in files that don't ship, in the tests (such as this comment's italic and underline), the
-// prototypes, the gallery and the scripts. A rule for any of them in
-// the production stylesheet means Tailwind read where it shouldn't. Its rule for sr-only, which the
-// app uses, shows it still reads the app.
+// styles/index.css has it read only the app's own code. These are canaries: utilities named only
+// in files it mustn't read, in the tests (such as this comment's italic and underline), the
+// prototypes, the gallery and the scripts. A rule for any of them in the production stylesheet
+// means Tailwind read where it shouldn't. Its rule for sr-only, which the app uses, shows it still
+// reads the app.
 const CANARIES = {
   italic: 'src/app/privacy.test.ts',
   underline: 'src/app/privacy.test.ts',
@@ -168,11 +169,15 @@ const CANARIES = {
   'line-through': 'scripts/refresh-samples.ts',
 }
 
-test('the production stylesheet is made from the files that ship, and no others', () => {
-  const css = output
+// The production stylesheet, as text.
+const productionCss = () =>
+  output
     .filter((file) => file.type === 'asset' && file.fileName.endsWith('.css'))
     .map((file) => (file.type === 'asset' ? Buffer.from(file.source).toString('utf8') : ''))
     .join('\n')
+
+test("the production stylesheet is made from the app's own code, not its tests or development pages", () => {
+  const css = productionCss()
   const ruled = (utility: string) => new RegExp(`\\.${utility}\\{`).test(css)
   assert.ok(
     ruled('sr-only'),
@@ -186,7 +191,49 @@ test('the production stylesheet is made from the files that ship, and no others'
       .filter(([utility]) => ruled(utility))
       .map(([utility, file]) => `.${utility}, named in ${file}`),
     [],
-    'the production stylesheet has rules for words that only files which do not ship hold',
+    "the production stylesheet has rules for words found only in files Tailwind mustn't read",
+  )
+})
+
+// The other way round: Tailwind told to read too little would leave out the rule of a class the
+// app uses, without a word. So every class in a className of the app's own code, but for its own
+// ab- and is- classes, must have its rule in the production stylesheet. TypeScript's parser reads
+// the markup, so a word in a comment or the page's text doesn't count.
+test('every Tailwind class the app uses has its rule in the production stylesheet', () => {
+  const used = new Map<string, string>()
+  const scripts = readdirSync(join(web, 'src'), { encoding: 'utf8', recursive: true })
+    .map((path) => join('src', path))
+    .filter((path) => /\.tsx?$/.test(path) && !/\.test\.tsx?$/.test(path))
+    .filter((path) => !DEVELOPMENT_ONLY.folders.test(path))
+  for (const file of scripts) {
+    const source = ts.createSourceFile(
+      file,
+      readFileSync(join(web, file), 'utf8'),
+      ts.ScriptTarget.Latest,
+      true,
+      file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+    )
+    // Every string in a className's value, such as both of loading ? 'ab-a is-b' : 'ab-a'.
+    const read = (node: ts.Node): void => {
+      if (ts.isStringLiteralLike(node) || ts.isTemplateLiteralToken(node))
+        for (const name of node.text.split(/\s+/)) if (name) used.set(name, file)
+      node.forEachChild(read)
+    }
+    source.forEachChild(function visit(node) {
+      if (ts.isJsxAttribute(node) && node.name.getText(source) === 'className' && node.initializer)
+        read(node.initializer)
+      node.forEachChild(visit)
+    })
+  }
+  // So that a reading that misses can't pass, it must find the app's own classes and sr-only.
+  assert.ok(used.has('ab-panel') && used.has('sr-only'), "this reading misses the app's classes")
+  const ruled = classesIn(productionCss())
+  assert.deepEqual(
+    [...used]
+      .filter(([name]) => !/^(ab|is)-/.test(name) && !ruled.has(name))
+      .map(([name, file]) => `${name}, in ${file}`),
+    [],
+    'the production stylesheet has no rule for these Tailwind classes: Tailwind skips their files',
   )
 })
 
