@@ -171,6 +171,22 @@ test('the production build holds no development-only code', () => {
   )
 })
 
+// web/public is copied into the production site as it is, outside the build read above, so a file
+// a development page left there would ship unseen. None may be named like one.
+test('nothing in web/public is named like a development-only page', () => {
+  const files = readdirSync(join(web, 'public'), { encoding: 'utf8', recursive: true })
+  // So that a reading that misses can't pass, it must find the fonts.
+  assert.ok(
+    files.some((path) => path.endsWith('.woff2')),
+    "this reading misses web/public's fonts",
+  )
+  assert.deepEqual(
+    files.filter((path) => DEVELOPMENT_ONLY.names.test(path)).map((path) => join('public', path)),
+    [],
+    'these files in web/public are named like development-only pages, and would ship',
+  )
+})
+
 // Tailwind makes a utility of any word that names one in the files it reads, even in a comment, so
 // styles/index.css has it read only the app's own code. These are canaries: utilities named only
 // in files it mustn't read, in the tests (such as this comment's italic and underline), the
