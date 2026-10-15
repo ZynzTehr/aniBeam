@@ -35,7 +35,10 @@ export function TitleCard({
   // .ab-card.is-leaving): the dialog stays open while it plays, and closes as the wipe, last to
   // go, ends. Asked to close again meanwhile, it closes at once.
   const [leaving, setLeaving] = useState(false)
-  const playsBack = () => !closing && !leaving && !reducedMotion()
+  // Asked to close before it has finished opening, the card turns its opening around where it is
+  // instead (see leave()): turning holds it open meanwhile.
+  const turning = useRef(false)
+  const playsBack = () => !closing && !leaving && !turning.current && !reducedMotion()
 
   // Landed: the card has finished opening, its wipe and slam played (its fade, under reduced
   // motion). The close button's look for the keyboard's focus waits for it (see .ab-card.is-landed),
@@ -57,7 +60,7 @@ export function TitleCard({
           animation.effect?.getComputedTiming().endTime !== Infinity,
       )
     void Promise.allSettled(opening.map((animation) => animation.finished)).then(() => {
-      if (current) setLanded(true)
+      if (current && !turning.current) setLanded(true)
     })
     return () => {
       current = false
@@ -90,9 +93,35 @@ export function TitleCard({
     })
   }, [leaving])
 
+  // With motion allowed, closing plays the way back. Before the card has landed, its opening is
+  // turned around where it is, at twice its speed, rather than snapping open to play the whole
+  // way back, and the dialog closes as it gets back to its start (or at once, with nothing to
+  // turn around). Animations cut short then, as reduced motion asked for mid-way would, count as
+  // back too.
+  function leave() {
+    const card = ref.current
+    if (!card) return
+    if (landed) return setLeaving(true)
+    const opening = card
+      .getAnimations({ subtree: true })
+      .filter(
+        (animation) =>
+          animation instanceof CSSAnimation &&
+          animation.timeline === document.timeline &&
+          animation.effect?.getComputedTiming().endTime !== Infinity,
+      )
+    if (opening.length === 0) return card.close()
+    turning.current = true
+    for (const animation of opening) {
+      animation.updatePlaybackRate(-2)
+      animation.play()
+    }
+    void Promise.allSettled(opening.map((animation) => animation.finished)).then(() => card.close())
+  }
+
   function close() {
     if (fadesOut()) setClosing(true)
-    else if (playsBack()) setLeaving(true)
+    else if (playsBack()) leave()
     else ref.current?.close()
   }
 
@@ -116,7 +145,7 @@ export function TitleCard({
       onCancel={(event) => {
         if (!event.cancelable) return
         if (fadesOut()) setClosing(true)
-        else if (playsBack()) setLeaving(true)
+        else if (playsBack()) leave()
         else return
         event.preventDefault()
       }}

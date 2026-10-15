@@ -2348,6 +2348,79 @@ describe('desktop (1440x900)', () => {
     })
   })
 
+  test('with motion allowed, closing a title card while it is still opening turns it around where it is', async () => {
+    // Asked to close before it has finished opening, the card reverses its opening from the point
+    // it reached, at twice its speed, as the user chose: the wipe shrinks back from where it got
+    // to, and what hadn't arrived yet never shows. It used to snap fully open for a frame, then
+    // play the whole way back. The opening is held at 300 ms, wipe part grown and sheet not yet
+    // in, so it turns around from the same point however fast the machine; it then has 150 ms to
+    // get back to its start and close.
+    const before = browser.problems.length
+    try {
+      await browser.evaluate(`(() => {
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.focus()
+        return true
+      })()`)
+      await browser.press('Enter')
+      await browser.evaluate(`(() => {
+        for (const a of document.querySelector('dialog.ab-card').getAnimations({ subtree: true }))
+          if (a instanceof CSSAnimation) { a.pause(); a.currentTime = 300 }
+        return true
+      })()`)
+      // Frame by frame from Esc until the card closes: how much of the screen the wipe leaves
+      // uncovered (the sum of its clip's insets) and the most opacity the sheet or a word shows.
+      await browser.evaluate(`(() => {
+        const card = document.querySelector('dialog.ab-card')
+        const frame = () => ({
+          uncovered: (getComputedStyle(card.querySelector('.ab-wipe')).clipPath.match(/[\\d.]+/g) ?? ['0']).map(Number).reduce((a, b) => a + b, 0),
+          shown: Math.max(...[card.querySelector('.ab-sheet'), ...card.querySelectorAll('.ab-title span')].map((el) => Number(getComputedStyle(el).opacity))),
+        })
+        window.__frames = [frame()]
+        addEventListener('keydown', () => {
+          window.__escAt = performance.now()
+          requestAnimationFrame(function look() {
+            if (!card.open) return
+            window.__frames.push(frame())
+            requestAnimationFrame(look)
+          })
+        }, { capture: true, once: true })
+        card.addEventListener('close', () => { window.__closedAt = performance.now() }, { once: true })
+        return true
+      })()`)
+      await browser.press('Escape')
+      assert.ok(
+        await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000),
+        'the title card did not close',
+      )
+      const { frames, took, focus } = await browser.evaluate<{
+        frames: { uncovered: number; shown: number }[]
+        took: number
+        focus: string
+      }>(
+        `({ frames: window.__frames, took: window.__closedAt - window.__escAt, focus: ${focusPlace} })`,
+      )
+      const off: string[] = []
+      frames.forEach(({ uncovered, shown }, k) => {
+        if (k > 0 && uncovered < frames[k - 1].uncovered - 1)
+          off.push(
+            `frame ${k}: the wipe grew (${Math.round(frames[k - 1].uncovered)} to ${Math.round(uncovered)}px uncovered)`,
+          )
+        if (shown > 0) off.push(`frame ${k}: the sheet or the title showed (opacity ${shown})`)
+      })
+      if (frames[0].uncovered < 1) off.push('the opening was not held part way')
+      // 300 ms of opening, undone at twice the speed: about 150 ms, give or take a few frames.
+      if (took < 100 || took > 250)
+        off.push(`closed ${Math.round(took)} ms after Esc, not about 150 ms`)
+      assert.deepEqual(
+        { off, focus, problems: browser.problems.slice(before) },
+        { off: [], focus: 'back on its panel', problems: [] },
+      )
+    } finally {
+      await closeCardLeft()
+    }
+  })
+
   test('every trending panel shows a brand-hot focus ring when tabbed to', async () => {
     // A panel's ring is its link's outline: 4px of brand hot, 3px out. Panels 4 and 5 share the
     // diagonal cut, whose clip-paths cut that ring away, so tabbing to them showed nothing; their
