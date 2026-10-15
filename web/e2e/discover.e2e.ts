@@ -3034,22 +3034,35 @@ describe('desktop (1440x900)', () => {
     )
   })
 
-  test('with motion allowed, a short title’s card plays its way back on time too, with a native title and without one', async () => {
-    // The closing's timing counts from when the opening ended, T. For a long title that is when its
-    // last word lands; for a short one, when its native title does (1.55 s), or with none, its
-    // facts and buttons (1.5 s). The checks above open a nine-word title, so these are checked
-    // here, on the third trending panel, a one-word title: as recorded, then from a fresh load
-    // whose answers carry no native titles. The page is then loaded again as recorded.
-    const noNative = (value: any): any => {
-      if (Array.isArray(value)) return value.map(noNative)
-      if (value === null || typeof value !== 'object') return value
-      const copy = Object.fromEntries(Object.entries(value).map(([key, v]) => [key, noNative(v)]))
-      if (copy.title && typeof copy.title === 'object') copy.title = { ...copy.title, native: null }
+  test('with motion allowed, short and long titles’ cards play their way back on time, with a native title and without one', async () => {
+    // The closing's timing counts from when the opening ended, T: for a long title, when its last
+    // word lands; for a short one, when its native title does (1.55 s), or with none, its facts
+    // and buttons (1.5 s). The checks above open a nine-word title with a native title. Here the
+    // answers are rewritten, so the check doesn't hang on this week's titles: the third trending
+    // title becomes one word, first with its native title, then, on a fresh load, with every native
+    // title gone, when the long first title is opened too. The page is then loaded as recorded.
+    const rewrite = (native: boolean) => (value: any) => {
+      const copy = structuredClone(value)
+      const third = copy?.data?.trending?.media?.[2]
+      if (third) third.title = { ...third.title, english: 'Psyren', romaji: 'Psyren' }
+      const drop = (node: any) => {
+        if (Array.isArray(node)) return node.forEach(drop)
+        if (node === null || typeof node !== 'object') return
+        if (node.title && typeof node.title === 'object') node.title.native = null
+        Object.values(node).forEach(drop)
+      }
+      if (!native) drop(copy)
       return copy
     }
-    const openThird = async () => {
+    const loadWith = async (native: boolean) => {
+      await browser.rewriteAniList(({ status, body }) => ({ status, body: rewrite(native)(body) }))
+      await browser.evaluate('localStorage.clear(); true')
+      await browser.load()
+      assert.ok(await browser.titlesShown())
+    }
+    const openPanel = async (n: number) => {
       await browser.evaluate(`(() => {
-        window.__opener = document.querySelectorAll('.ab-grid .ab-link')[2]
+        window.__opener = document.querySelectorAll('.ab-grid .ab-link')[${n}]
         window.__opener.focus()
         return true
       })()`)
@@ -3059,21 +3072,24 @@ describe('desktop (1440x900)', () => {
         'the title card did not open',
       )
       await cardInFull()
-      return browser.evaluate<{ words: number; native: boolean }>(`({
+      const card = await browser.evaluate<{ words: number; native: boolean }>(`({
         words: document.querySelector('dialog.ab-card .ab-title').textContent.trim().split(/\\s+/).length,
         native: Boolean(document.querySelector('dialog.ab-card .ab-native')),
       })`)
+      return {
+        short: card.words === 1,
+        long: card.words >= 5,
+        native: card.native,
+        off: (await wayBackOff()).off,
+      }
     }
     const seen: Record<string, object> = {}
     try {
-      const recorded = await openThird()
-      seen.withNative = { ...recorded, off: (await wayBackOff()).off }
-      await browser.rewriteAniList(({ status, body }) => ({ status, body: noNative(body) }))
-      await browser.evaluate('localStorage.clear(); true')
-      await browser.load()
-      assert.ok(await browser.titlesShown())
-      const rewritten = await openThird()
-      seen.withoutNative = { ...rewritten, off: (await wayBackOff()).off }
+      await loadWith(true)
+      seen.shortWithNative = await openPanel(2)
+      await loadWith(false)
+      seen.shortWithout = await openPanel(2)
+      seen.longWithout = await openPanel(0)
     } finally {
       await closeCardLeft()
       await browser.rewriteAniList(null)
@@ -3082,8 +3098,9 @@ describe('desktop (1440x900)', () => {
       assert.ok(await browser.titlesShown())
     }
     assert.deepEqual(seen, {
-      withNative: { words: 1, native: true, off: [] },
-      withoutNative: { words: 1, native: false, off: [] },
+      shortWithNative: { short: true, long: false, native: true, off: [] },
+      shortWithout: { short: true, long: false, native: false, off: [] },
+      longWithout: { short: false, long: true, native: false, off: [] },
     })
   })
 
