@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { before, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
@@ -89,7 +89,9 @@ test('the production build holds nothing from e2e/, which must stay out of the a
 // would join the app's own, under its name), a file named like one, the prototypes' switcher
 // label, the gallery's heading, ScrollTrigger's name, or a check of the address for one. The
 // checks are matched as the calls the minifier writes, .has(`variant`), because React DOM's code
-// holds the word font-variant.
+// holds the word font-variant. A stylesheet of theirs brought in by a CSS @import leaves no trace
+// among the files the build was made from, so the production stylesheet is also read for a class
+// that only their stylesheets name.
 const DEVELOPMENT_ONLY = {
   folders: /^src\/(gallery|prototype)\//i,
   names: /gallery|prototype|variant/i,
@@ -97,12 +99,34 @@ const DEVELOPMENT_ONLY = {
   calls: /\.has\(\s*(["'`])(variant|gallery)\1\s*\)/g,
 }
 
+// The class names a stylesheet's rules name, its comments left out.
+const classesIn = (css: string) =>
+  new Set(
+    [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/\.(-?[_a-zA-Z][\w-]*)/g)].map(
+      ([, name]) => name,
+    ),
+  )
+
 test('the production build holds no development-only code', () => {
   // So that a reading that misses can't pass, the call pattern must find a check as the minifier
   // writes it, and must pass over React DOM's word.
   const shipped = 'new URLSearchParams(location.search).has(`variant`)'
   assert.equal(shipped.match(DEVELOPMENT_ONLY.calls)?.length, 1, 'the pattern misses a check')
   assert.equal('font-variant-numeric'.match(DEVELOPMENT_ONLY.calls), null)
+  // The classes only the development-only stylesheets name: theirs, less any a shipped one names.
+  const stylesheets = readdirSync(join(web, 'src'), { encoding: 'utf8', recursive: true })
+    .map((path) => join('src', path))
+    .filter((path) => path.endsWith('.css'))
+  const named = (development: boolean) =>
+    stylesheets
+      .filter((path) => DEVELOPMENT_ONLY.folders.test(path) === development)
+      .flatMap((path) => [...classesIn(readFileSync(join(web, path), 'utf8'))])
+  const shippedClasses = new Set(named(false))
+  const developmentClasses = new Set(named(true).filter((name) => !shippedClasses.has(name)))
+  assert.ok(
+    developmentClasses.has('gal-part') && developmentClasses.has('proto-switcher'),
+    "this reading misses the gallery's or the prototypes' classes",
+  )
   const traces = output.flatMap((file) => {
     const text = file.type === 'chunk' ? file.code : Buffer.from(file.source).toString('utf8')
     return [
@@ -115,6 +139,9 @@ test('the production build holds no development-only code', () => {
         .filter((marker) => text.includes(marker))
         .map((marker) => `${file.fileName}: "${marker}"`),
       ...[...text.matchAll(DEVELOPMENT_ONLY.calls)].map(([call]) => `${file.fileName}: ${call}`),
+      ...(file.fileName.endsWith('.css') ? [...classesIn(text)] : [])
+        .filter((name) => developmentClasses.has(name))
+        .map((name) => `${file.fileName}: .${name}, a development-only class`),
     ]
   })
   assert.deepEqual(traces, [], 'the production build holds these traces of development-only code')
