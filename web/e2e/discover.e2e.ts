@@ -2339,7 +2339,8 @@ describe('desktop (1440x900)', () => {
             requestAnimationFrame(look)
           })
         }, { capture: true, once: true })
-        // The moment it closes: as it loses [open], not at the close event, which comes a task later.
+        // The moment it closes: as it loses [open], not at the close event, which comes a task
+        // later.
         const closing = new MutationObserver(() => {
           if (card.open) return
           closing.disconnect()
@@ -2390,9 +2391,9 @@ describe('desktop (1440x900)', () => {
     // 1.2 s before Esc, when the wipe and the sheet have landed and the native title has not. Frame
     // by frame until the card closes (the moment it loses [open]), the wipe must stay full until
     // the way back reaches the moment it finished arriving (half of 1.2 s less its 0.55 s), and
-    // never grow, and the sheet must never come back; the card closes about half the opening's
-    // time after Esc, with the sheet and every word gone in its last frame. And Esc pressed with Enter, before the opening has drawn a frame, closes it at once,
-    // never drawing it open.
+    // never grow, and the sheet must never come back; the card closes about half the opening's time
+    // after Esc, with the sheet and every word gone in its last frame. And Esc pressed with Enter,
+    // before the opening has drawn a frame, closes it at once, never drawing it open.
     const before = browser.problems.length
     const sampler = `(() => {
       // Each frame while a card is open: how much of the screen the wipe leaves uncovered (its
@@ -3393,10 +3394,10 @@ const watchSecondRequest = `(() => {
 
 /**
  * The open title card's close button as it looks: its fill, ring of speed lines (shown, hidden or
- * something else), and its icon, by the color it is drawn in and its shape. The icon is drawn with bars; the shape reads
- * their boxes against the icon's middle: an X is two crossed bars, square-ish, on the middle; an
- * arrow pointing left is a long flat bar (its shaft) on the middle and two short ones (its head)
- * to the left of it, one above and one below.
+ * something else), and its icon, by the color it is drawn in and its shape. The icon is drawn with
+ * bars; the shape reads their boxes against the icon's middle: an X is two crossed bars,
+ * square-ish, on the middle; an arrow pointing left is a long flat bar (its shaft) on the middle
+ * and two short ones (its head) to the left of it, one above and one below.
  */
 const closeButton = `(() => {
   // The ring: shown, as brand-red speed lines, fully opaque and at full size; hidden, see-through
@@ -3434,9 +3435,10 @@ const closeButton = `(() => {
 /**
  * Closes the open title card with Esc and says how its closing replayed the opening: for each part
  * of the card (a title word by its place), whether its way back plays its opening's keyframes (the
- * same offsets, values and easing) in reverse, in half the time, ending at (T - its start) / 2, where T is when the opening ended;
- * whether the backdrop lifts by T / 2; and whether the card closes at T / 2. The card must have
- * finished opening, and have been opened with the keyboard, so the page may hold it on Esc.
+ * same offsets, values and easing) in reverse, in half the time, ending at (T - its start) / 2,
+ * where T is when the opening ended; whether the backdrop lifts by T / 2; and whether the card
+ * closes at T / 2. The card must have finished opening, and have been opened with the keyboard, so
+ * the page may hold it on Esc.
  */
 async function wayBackOff() {
   // Each animation in the card by the part it plays on (a title word by its place), its
@@ -4978,9 +4980,9 @@ describe('Windows contrast themes (forced colors)', () => {
   test('the title card’s close button shows its X in both palettes, at rest and hovered, at 3:1 or better', async () => {
     // A theme paints every background in its page color, and the close button's X is drawn with
     // bars, which are backgrounds: it vanished into the button, an empty circle. In each palette,
-    // the bars must stand out from the button at 3:1 or better, as an icon needs, at rest and
-    // with the mouse on it (the red fill and the speed lines drop out, as the theme wants), drawn in
-    // the theme's text color for buttons.
+    // the bars must stand out from the button at 3:1 or better, as an icon needs, at rest and with
+    // the mouse on it (the red fill and the speed lines drop out, as the theme wants), drawn in the
+    // theme's text color for buttons.
     const seen: string[] = []
     const theme = (scheme: string) =>
       browser.send('Emulation.setEmulatedMedia', {

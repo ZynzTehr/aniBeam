@@ -41,8 +41,8 @@ export function TitleCard({
   const playsBack = () => !closing && !leaving && !turning.current && !reducedMotion()
 
   // Landed: the card has finished opening, its wipe and slam played (its fade, under reduced
-  // motion). The close button's look for the keyboard's focus waits for it (see .ab-card.is-landed),
-  // so that it plays on a card already on screen.
+  // motion). The close button's look for the keyboard's focus waits for it (see
+  // .ab-card.is-landed), so that it plays on a card already on screen.
   const [landed, setLanded] = useState(false)
 
   // No cleanup for the dialog: removing the element closes it. The landing is heard only while
