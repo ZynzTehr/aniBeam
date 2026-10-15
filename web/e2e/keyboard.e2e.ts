@@ -219,6 +219,215 @@ test("each of the header's section links hands focus to its section's heading, a
   assert.deepEqual(seen, [], "header links that don't hand focus to their section's heading")
 })
 
+// Each Tab stop of the page, in order: a run of stops alike is one entry, with its count. Title
+// panels go by their section, as their titles come from AniList.
+const STOPS = [
+  'Skip to content',
+  'Skip to Reduce motion',
+  'AniBeam',
+  'Trending',
+  'Pull',
+  'Decades',
+  'Search titles',
+  'See what’s trending',
+  'Pull a random title',
+  'Browse by decade',
+  'a title in Trending now ×9',
+  'Pick a vibe: Any vibe',
+  'Pull!',
+  'Decade: 1990s',
+  'a title in Browse by decade ×20',
+  'Reduce motion',
+]
+
+// The stop that has focus, and what is wrong with how it shows, read as Tab reaches it: it must be
+// whole, its ring too, on the screen, clear of the sticky header and of anything that clips it,
+// and not see-through. A chip's or the switch's input is see-through, so for those it is the pill
+// that shows. A ring reaches its outline's width and offset beyond what it rings, or 7px (the
+// rings drawn as a frame, such as a heading's).
+const STOP = `(() => {
+  const focused = document.activeElement
+  if (!focused || focused === document.body) return null
+  const text = (el) => {
+    const copy = el.cloneNode(true)
+    copy.querySelectorAll('[aria-hidden="true"], rt').forEach((unread) => unread.remove())
+    return copy.textContent.replace(/\\s+/g, ' ').trim()
+  }
+  const name = focused.matches('.ab-grid .ab-link, .ab-strip-panel')
+    ? 'a title in ' + text(focused.closest('section').querySelector('h1, h2'))
+    : focused.matches('fieldset input')
+      ? text(focused.closest('fieldset').querySelector('legend')) + ': ' + text(focused.parentElement)
+      : focused.getAttribute('aria-label') || (focused.matches('label > input') ? text(focused.parentElement) : text(focused) || focused.placeholder || focused.tagName.toLowerCase())
+  const shown = focused.matches('label > input') ? focused.nextElementSibling : focused
+  const style = getComputedStyle(shown)
+  const reach = style.outlineStyle === 'none' ? 7 : parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset)
+  const box = shown.getBoundingClientRect()
+  const ring = { top: box.top - reach, right: box.right + reach, bottom: box.bottom + reach, left: box.left - reach }
+  const problems = []
+  let opacity = 1
+  for (let el = shown; el; el = el.parentElement) opacity *= parseFloat(getComputedStyle(el).opacity)
+  if (opacity < 0.99) problems.push('see-through (opacity ' + opacity.toFixed(2) + ')')
+  if (style.visibility !== 'visible') problems.push('hidden')
+  const cut = (by, edges) => {
+    const sides = ['top', 'left'].filter((side) => ring[side] < edges[side] - 0.5)
+      .concat(['bottom', 'right'].filter((side) => ring[side] > edges[side] + 0.5))
+    if (sides.length) problems.push('ring cut off at the ' + sides.join(' and ') + ' by ' + by)
+  }
+  cut('the screen', { top: 0, left: 0, bottom: innerHeight, right: innerWidth })
+  // The sticky header covers what reaches under it, unless that is drawn over it, as the skip links
+  // are: what is at the stop's own top edge tells.
+  const header = document.querySelector('.ab-top')
+  const under = header.getBoundingClientRect().bottom
+  const top = Math.max(box.top, 0) + 1
+  const hit = top < under && document.elementFromPoint((box.left + box.right) / 2, top)
+  const over = hit && (focused.contains(hit) || shown.contains(hit))
+  if (getComputedStyle(header).position === 'sticky' && !header.contains(focused) && ring.top < under - 0.5 && !over)
+    problems.push('ring under the header by ' + Math.round(under - Math.max(ring.top, 0)) + 'px')
+  for (let el = shown.parentElement; el && el !== document.body; el = el.parentElement) {
+    const clips = getComputedStyle(el)
+    if (clips.overflowX === 'visible' && clips.overflowY === 'visible') continue
+    const edges = el.getBoundingClientRect()
+    cut('.' + el.classList[0], {
+      top: clips.overflowY === 'visible' ? -Infinity : edges.top + el.clientTop,
+      left: clips.overflowX === 'visible' ? -Infinity : edges.left + el.clientLeft,
+      bottom: clips.overflowY === 'visible' ? Infinity : edges.top + el.clientTop + el.clientHeight,
+      right: clips.overflowX === 'visible' ? Infinity : edges.left + el.clientLeft + el.clientWidth,
+    })
+  }
+  return { name, problems }
+})()`
+
+// Waits for the page's time-based animations and transitions running now to finish, then two
+// frames more: those due to end within 3 s, so that one stuck or far behind shows as a problem
+// instead of being waited out.
+const SETTLED = `(async () => {
+  const due = document.getAnimations().filter((a) => a.timeline === document.timeline && a.playState === 'running' && a.effect.getComputedTiming().endTime - a.currentTime <= 3000)
+  await Promise.all(due.map((a) => a.finished.catch(() => {})))
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  return true
+})()`
+
+const NEXT_FRAME =
+  'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))'
+
+test('Tab walks every stop of the page in order and Shift+Tab walks them back, each whole on the screen with its focus showing', async () => {
+  // On a desktop with motion, after the first screen's entrances, and on a phone with reduced
+  // motion. Forward, each stop's focus must also show by WCAG's measure for a focus indicator
+  // (2.4.13): the stop, focused against unfocused, changes at 3:1 or better over at least the area
+  // of a 2px line around it. Unfocused means blurred, all else as it was, then focused again.
+  const seen: Record<string, unknown> = {}
+  for (const screen of [
+    { width: 1440, height: 900, reduceMotion: false },
+    { width: 390, height: 844, phone: true, reduceMotion: true },
+  ]) {
+    await browser.load(screen)
+    assert.ok(await browser.titlesShown())
+    await browser.evaluate(SETTLED)
+    const problems: string[] = []
+    const walk = async (back: boolean) => {
+      const names: string[] = []
+      for (let stop = 0; stop < 80; stop++) {
+        await browser.press('Tab', back)
+        await browser.evaluate(NEXT_FRAME)
+        const found = await browser.evaluate<{ name: string; problems: string[] } | null>(STOP)
+        if (!found) return names
+        names.push(found.name)
+        const to = `${back ? 'Shift+Tab' : 'Tab'} to stop ${back ? 'from the end ' : ''}${stop + 1}, "${found.name}"`
+        for (const problem of found.problems) problems.push(`${to}: ${problem}`)
+        if (!back) {
+          const shows = await focusShows()
+          if (shows < 1)
+            problems.push(
+              `${to}: its focus changes ${Math.round(shows * 100)}% of the area it must`,
+            )
+        }
+      }
+      return names
+    }
+    const forward = await walk(false)
+    const back = await walk(true)
+    seen[`${screen.width}px`] = {
+      stops: runs(forward),
+      back: back.join() === forward.toReversed().join() ? 'the same, reversed' : runs(back),
+      problems,
+    }
+  }
+  const expected = { stops: STOPS, back: 'the same, reversed', problems: [] }
+  assert.deepEqual(seen, { '1440px': expected, '390px': expected })
+})
+
+/**
+ * How much the focused stop changes as focus comes off it, as a share of what WCAG's measure for a
+ * focus indicator asks (2.4.13): the area of a 2px line around it, changed at 3:1 or better. It
+ * compares the stop and 10px around it, as the screen shows it, focused and then blurred, and
+ * focuses it again. Transitions are off meanwhile, so that it needn't wait for them: each state is
+ * where they would end.
+ */
+async function focusShows() {
+  await browser.evaluate(`(() => {
+    const still = document.head.appendChild(document.createElement('style'))
+    still.id = 'ab-walk-still'
+    still.textContent = '*, ::before, ::after { transition: none !important }'
+    return true
+  })()`)
+  await browser.evaluate(SETTLED)
+  const area = await browser.evaluate<{
+    clip: { x: number; y: number; width: number; height: number }
+    need: number
+    scale: number
+  }>(`(() => {
+    const focused = document.activeElement
+    window.__walked = focused
+    const shown = focused.matches('label > input') ? focused.nextElementSibling : focused
+    const box = shown.getBoundingClientRect()
+    const left = Math.max(0, box.left - 10), top = Math.max(0, box.top - 10)
+    const right = Math.min(innerWidth, box.right + 10), bottom = Math.min(innerHeight, box.bottom + 10)
+    return {
+      clip: { x: left + scrollX, y: top + scrollY, width: right - left, height: bottom - top },
+      need: 4 * (box.width + box.height) - 16,
+      scale: devicePixelRatio,
+    }
+  })()`)
+  const focused = await browser.screenshot(area.clip)
+  await browser.evaluate(`document.activeElement.blur(); true`)
+  await browser.evaluate(SETTLED)
+  const unfocused = await browser.screenshot(area.clip)
+  await browser.evaluate(
+    `window.__walked.focus({ preventScroll: true }); document.getElementById('ab-walk-still').remove(); true`,
+  )
+  // Compared in the page, as the pixels are many: WCAG's contrast, as contrast() works it out.
+  const changed = await browser.evaluate<number>(`(async () => {
+    const pixels = async (png) => {
+      const bytes = Uint8Array.from(atob(png), (c) => c.charCodeAt(0))
+      const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+      const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+      context.drawImage(image, 0, 0)
+      return context.getImageData(0, 0, image.width, image.height).data
+    }
+    const linear = (v) => (v / 255 <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4)
+    const luminance = (data, i) => 0.2126 * linear(data[i]) + 0.7152 * linear(data[i + 1]) + 0.0722 * linear(data[i + 2])
+    const [a, b] = await Promise.all([pixels(${JSON.stringify(focused)}), pixels(${JSON.stringify(unfocused)})])
+    let changed = 0
+    for (let i = 0; i < a.length; i += 4) {
+      const [x, y] = [luminance(a, i), luminance(b, i)].sort((p, q) => q - p)
+      if ((x + 0.05) / (y + 0.05) >= 3) changed++
+    }
+    return changed
+  })()`)
+  return changed / area.scale ** 2 / area.need
+}
+
+/** Names in order, with a run of the same name as one entry and its count ("a title ×9"). */
+function runs(names: string[]) {
+  const entries: [string, number][] = []
+  for (const name of names) {
+    const last = entries.at(-1)
+    if (last?.[0] === name) last[1]++
+    else entries.push([name, 1])
+  }
+  return entries.map(([name, count]) => (count > 1 ? `${name} ×${count}` : name))
+}
+
 /** The pixels of part of the page as the screen shows it, as red, green and blue for each pixel. */
 async function screenPixels(clip: { x: number; y: number; width: number; height: number }) {
   const png = await browser.screenshot(clip)

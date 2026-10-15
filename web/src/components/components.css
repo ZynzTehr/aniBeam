@@ -1832,6 +1832,13 @@ body:has(.ab-card[open]) {
   scroll-margin-top: 96px;
 }
 
+/* What the keyboard focuses in the page: the browser brings it just into view, at the screen's
+   edge, where its focus ring (7px beyond it, and 2px more above and to the left of a chosen chip,
+   whose pill sits raised) fell off the screen. So it stops 10px in. */
+.ab-app main :is(a, button, input) {
+  scroll-margin-block: 10px;
+}
+
 @media (min-width: 900px) {
   .ab-app section[id],
   .ab-app section[aria-labelledby],
@@ -1840,14 +1847,13 @@ body:has(.ab-card[open]) {
     scroll-margin-top: calc(var(--top-h, 78px) + 18px);
   }
 
-  /* And what the keyboard focuses in the page, and the skip link's target: the browser brings
-     each into view at the top of the screen, under the header, so Shift+Tab back up the page
-     left the lever or a panel 78px under it. Each stops below the header instead, with room for
-     its focus ring (7px). Not as scroll padding for the whole page: Chrome then scrolled to the
-     top as the header's own search box took focus, its place counting as under the header. */
+  /* And from 900px, where the header stays on screen, at the top it stops below the header, as
+     does the skip link's target: Shift+Tab back up the page left the lever or a panel 78px under
+     it. Not as scroll padding for the whole page: Chrome then scrolled to the top as the
+     header's own search box took focus, its place counting as under the header. */
   #main,
   .ab-app main :is(a, button, input) {
-    scroll-margin-top: calc(var(--top-h, 78px) + 8px);
+    scroll-margin-top: calc(var(--top-h, 78px) + 10px);
   }
 }
 
