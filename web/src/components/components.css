@@ -1809,6 +1809,16 @@ body:has(.ab-card[open]) {
   .ab-app h2[id] {
     scroll-margin-top: calc(var(--top-h, 78px) + 18px);
   }
+
+  /* And what the keyboard focuses in the page, and the skip link's target: the browser brings
+     each into view at the top of the screen, under the header, so Shift+Tab back up the page
+     left the lever or a panel 78px under it. Each stops below the header instead, with room for
+     its focus ring (7px). Not as scroll padding for the whole page: Chrome then scrolled to the
+     top as the header's own search box took focus, its place counting as under the header. */
+  #main,
+  .ab-app main :is(a, button, input) {
+    scroll-margin-top: calc(var(--top-h, 78px) + 8px);
+  }
 }
 
 /* ---------- Intro: the first screen says what AniBeam is ---------- */
