@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { markBroken, markLoaded } from '../../components/cover.ts'
 import { cssVars } from '../../components/cssVars.ts'
 import { opener } from '../../components/opener.ts'
+import { SfxHeading } from '../../components/SfxHeading.tsx'
 import type { OpenTitle } from '../../components/TitleCard.tsx'
 import { reducedMotion } from '../../lib/motion.ts'
 import { formatOf, seasonOf, studioOf, titleOf } from '../anime/format.ts'
@@ -64,11 +65,11 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
   const rarity = pulled ? rarityOf(pulled.averageScore) : null
   const hint: Hint = !pool.length ? 'empty' : !titles.length ? 'unpullable' : 'ready'
   return (
-    <section id="pull" className="ab-pull" aria-labelledby="ab-pull-title">
-      <h2 id="ab-pull-title" className="ab-sfx ab-sfx-small">
+    // The links to #pull land on the heading, which takes their focus, as the other sections' do.
+    <section className="ab-pull" aria-labelledby="pull">
+      <SfxHeading id="pull" sfx="ガチャ!" small>
         Pull a title
-        <span aria-hidden="true">ガチャ!</span>
-      </h2>
+      </SfxHeading>
       <div className="ab-pull-row">
         <div className="ab-machine">
           <div className="ab-dome" aria-hidden="true">

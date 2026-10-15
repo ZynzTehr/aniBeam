@@ -1628,11 +1628,11 @@ describe('desktop (1440x900)', () => {
     }
     const links = [
       ['#ab-trending', 'the Trending heading'],
-      ['#pull', 'the Pull section'],
+      ['#pull', 'the Pull heading'],
     ] as const
     // Presses Enter on a header link from the top of the page, as a keyboard user would. Once
     // the page has jumped: the top of the link's target, and how much of it is under the header,
-    // with its focus ring (4px, 3px out) when it took focus, as the Trending heading does.
+    // with its focus ring (4px, 3px out) when it took focus, as the headings do.
     const jump = async (href: string) => {
       await browser.evaluate(`(() => {
         history.replaceState(null, '', location.pathname)
@@ -2796,8 +2796,8 @@ describe('desktop (1440x900)', () => {
     // A live region speaks every change to its text. The whole reveal used to be one: it spoke
     // its hint when titles arrived, and each pull read the title twice, every star ("black
     // star") and the button's label. Now one status line, there from the start, says each pull.
-    const line = `document.querySelector('#pull > [role="status"]')`
-    const live = `[...document.querySelectorAll('#pull [aria-live], #pull [role="status"], #pull [role="alert"]')].map((el) => el.className)`
+    const line = `document.querySelector('.ab-pull > [role="status"]')`
+    const live = `[...document.querySelectorAll('.ab-pull [aria-live], .ab-pull [role="status"], .ab-pull [role="alert"]')].map((el) => el.className)`
     assert.deepEqual(
       await browser.evaluate(`({ line: ${line}?.textContent ?? null, live: ${live} })`),
       { line: '', live: ['sr-only'] },
@@ -2814,7 +2814,7 @@ describe('desktop (1440x900)', () => {
     })()`
     // Text with a star in it that a screen reader would read out.
     const starsRead = `(() => {
-      const found = [], walker = document.createTreeWalker(document.querySelector('#pull'), NodeFilter.SHOW_TEXT)
+      const found = [], walker = document.createTreeWalker(document.querySelector('.ab-pull'), NodeFilter.SHOW_TEXT)
       for (let node; (node = walker.nextNode()); )
         if (node.textContent.includes('★') && !node.parentElement.closest('[aria-hidden="true"]')) found.push(node.parentElement.className)
       return found

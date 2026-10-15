@@ -186,6 +186,39 @@ test('a chip Tab reaches at the foot of the screen shows its whole pill and focu
   assert.deepEqual(seen, [], 'chips whose pill or ring Tab leaves off the screen')
 })
 
+test("each of the header's section links hands focus to its section's heading, and Tab goes on into it", async () => {
+  // Following a link moves the page, and focus moves only to something that can take it: the
+  // sections' headings can, so that a keyboard user goes on from there.
+  const seen: string[] = []
+  for (const screen of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844, phone: true },
+  ]) {
+    await browser.load({ ...screen, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    for (const label of ['Trending', 'Pull', 'Decades']) {
+      await browser.evaluate(`(() => {
+        scrollTo({ top: 0, behavior: 'instant' })
+        ;[...document.querySelectorAll('.ab-nav a')].find((link) => link.textContent === '${label}').focus()
+        return true
+      })()`)
+      await browser.press('Enter')
+      const where = `(() => {
+        const focused = document.activeElement
+        const section = focused.closest('section')
+        return (focused.matches('h1, h2') ? 'the heading "' + focused.firstChild.textContent.trim() + '"' : focused.tagName.toLowerCase() + ' "' + focused.textContent.trim().slice(0, 20) + '"') + (section ? ' in #' + (section.querySelector('h1[id], h2[id]')?.id ?? '?') : '')
+      })()`
+      const landed = await browser.evaluate<string>(where)
+      await browser.press('Tab')
+      const next = await browser.evaluate<string>(where)
+      const section = /in #([\w-]+)/.exec(landed)?.[1]
+      if (!landed.startsWith('the heading') || !section || !next.endsWith(`in #${section}`))
+        seen.push(`${screen.width}px, ${label}: focus on ${landed}, then Tab to ${next}`)
+    }
+  }
+  assert.deepEqual(seen, [], "header links that don't hand focus to their section's heading")
+})
+
 /** The pixels of part of the page as the screen shows it, as red, green and blue for each pixel. */
 async function screenPixels(clip: { x: number; y: number; width: number; height: number }) {
   const png = await browser.screenshot(clip)
