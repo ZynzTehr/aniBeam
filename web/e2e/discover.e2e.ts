@@ -3203,9 +3203,23 @@ async function wayBackOff() {
   )
   await browser.evaluate(`(() => {
     const card = document.querySelector('dialog.ab-card')
-    window.__escAt = undefined
-    addEventListener('keydown', () => { window.__escAt ??= performance.now() }, { capture: true, once: true })
-    card.addEventListener('close', () => { window.__closedAt = performance.now() }, { once: true })
+    // How long after the wipe's way back ended the card closed, by the page's clock: when it
+    // should have ended, read as it ends (closing the dialog cancels it at once, and a cancelled
+    // animation forgets its start), against the moment the dialog loses [open].
+    window.__wipeEnd = null
+    window.__late = null
+    card.querySelector('.ab-wipe').addEventListener('animationend', (event) => {
+      const wipe = event.target.getAnimations().find((a) => a.animationName === 'ab-wipe-back')
+      if (!wipe || wipe.startTime === null) return
+      const { delay, duration } = wipe.effect.getTiming()
+      window.__wipeEnd = wipe.startTime + delay + duration
+    })
+    const closing = new MutationObserver(() => {
+      if (card.open) return
+      closing.disconnect()
+      if (window.__wipeEnd !== null) window.__late = performance.now() - window.__wipeEnd
+    })
+    closing.observe(card, { attributes: true, attributeFilter: ['open'] })
     return true
   })()`)
   await browser.press('Escape')
@@ -3214,8 +3228,10 @@ async function wayBackOff() {
     await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000),
     'the title card did not close',
   )
-  const { took, focus } = await browser.evaluate<{ took: number; focus: string }>(
-    `({ took: window.__closedAt - window.__escAt, focus: ${focusPlace} })`,
+  // Timed from the key press instead, the close also counted the time Chrome takes to hand the
+  // page a key (about 40 ms), which left little room on a slow machine.
+  const { late, focus } = await browser.evaluate<{ late: number | null; focus: string }>(
+    `({ late: window.__late, focus: ${focusPlace} })`,
   )
   const T = Math.max(...opening.map((a) => a.delay + a.duration))
   const near = (a: number, b: number) => Math.abs(a - b) <= 1
@@ -3239,9 +3255,10 @@ async function wayBackOff() {
   const undim = closing.find((a) => a.name === 'ab-undim')
   if (!undim || !near(undim.delay + undim.duration, T / 2))
     off.push(`::backdrop: ${undim ? `${undim.delay} + ${undim.duration} ms` : 'not lifted'}`)
-  // The card closes as the wipe ends, give or take a frame or two.
-  if (took < T / 2 - 20 || took > T / 2 + 100)
-    off.push(`closed ${Math.round(took)} ms after Esc, not at ${T / 2} ms`)
+  // The card closes as the wipe's way back ends (at T / 2, checked above), within a few frames.
+  if (late === null) off.push('the card closed before the wipe’s way back ended')
+  else if (late < -20 || late > 50)
+    off.push(`closed ${Math.round(late)} ms after the wipe's way back ended, not as it ended`)
   return { opening, off, focus }
 }
 
