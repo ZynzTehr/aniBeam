@@ -2410,6 +2410,44 @@ describe('desktop (1440x900)', () => {
     }
   })
 
+  test('with motion allowed, the page behind a closing title card stays dimmed as the way back starts, and is bright by its end', async () => {
+    // The page brightens again as the wipe shrinks back, over the way back's last 275 ms: dimmed
+    // as it starts, clear as it ends. The closing check above times the lift's end only, so a lift
+    // played the wrong way, bright at once and dimming again, went unseen. The way back is held
+    // as it starts, then the lift is moved to its last moment.
+    let seen: object = {}
+    try {
+      await browser.evaluate(`(() => {
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.focus()
+        return true
+      })()`)
+      await browser.press('Enter')
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5_000),
+        'the title card did not open',
+      )
+      await cardInFull()
+      await browser.press('Escape')
+      seen = await browser.evaluate<{ atStart: string; atEnd: string }>(`(() => {
+        const card = document.querySelector('dialog.ab-card')
+        const back = document.getAnimations().filter((a) => a instanceof CSSAnimation && /-back$|^ab-undim$/.test(a.animationName))
+        back.forEach((a) => a.pause())
+        const backdrop = () => getComputedStyle(card, '::backdrop').backgroundColor
+        const atStart = backdrop()
+        const undim = back.find((a) => a.animationName === 'ab-undim')
+        if (!undim) return { atStart, atEnd: 'no lift' }
+        const { delay, duration } = undim.effect.getTiming()
+        undim.currentTime = delay + duration - 1
+        const alpha = Number(/rgba\\(.*,\\s*([\\d.]+)\\)/.exec(backdrop())?.[1] ?? '1')
+        return { atStart, atEnd: alpha < 0.01 ? 'clear' : backdrop() }
+      })()`)
+    } finally {
+      await closeCardLeft()
+    }
+    assert.deepEqual(seen, { atStart: 'rgba(20, 20, 20, 0.35)', atEnd: 'clear' })
+  })
+
   test('every trending panel shows a brand-hot focus ring when tabbed to', async () => {
     // A panel's ring is its link's outline: 4px of brand hot, 3px out. Panels 4 and 5 share the
     // diagonal cut, whose clip-paths cut that ring away, so tabbing to them showed nothing; their
