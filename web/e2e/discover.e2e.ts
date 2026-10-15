@@ -2322,11 +2322,12 @@ describe('desktop (1440x900)', () => {
         return true
       })()`)
       // Frame by frame from Esc until the card closes: how much of the screen the wipe leaves
-      // uncovered (the sum of its clip's insets) and the most opacity the sheet or a word shows.
+      // uncovered (the sum of its clip's insets; Chrome writes tiny ones as 1.2e-05px) and the
+      // most opacity the sheet or a word shows.
       await browser.evaluate(`(() => {
         const card = document.querySelector('dialog.ab-card')
         const frame = () => ({
-          uncovered: (getComputedStyle(card.querySelector('.ab-wipe')).clipPath.match(/[\\d.]+/g) ?? ['0']).map(Number).reduce((a, b) => a + b, 0),
+          uncovered: (getComputedStyle(card.querySelector('.ab-wipe')).clipPath.match(/-?[\\d.]+(?:e-?\\d+)?/gi) ?? ['0']).map((n) => Math.abs(Number(n))).reduce((a, b) => a + b, 0),
           shown: Math.max(...[card.querySelector('.ab-sheet'), ...card.querySelectorAll('.ab-title span')].map((el) => Number(getComputedStyle(el).opacity))),
         })
         window.__frames = [frame()]
@@ -2338,7 +2339,13 @@ describe('desktop (1440x900)', () => {
             requestAnimationFrame(look)
           })
         }, { capture: true, once: true })
-        card.addEventListener('close', () => { window.__closedAt = performance.now() }, { once: true })
+        // The moment it closes: as it loses [open], not at the close event, which comes a task later.
+        const closing = new MutationObserver(() => {
+          if (card.open) return
+          closing.disconnect()
+          window.__closedAt = performance.now()
+        })
+        closing.observe(card, { attributes: true, attributeFilter: ['open'] })
         return true
       })()`)
       await browser.press('Escape')
@@ -2362,8 +2369,9 @@ describe('desktop (1440x900)', () => {
         if (shown > 0) off.push(`frame ${k}: the sheet or the title showed (opacity ${shown})`)
       })
       if (frames[0].uncovered < 1) off.push('the opening was not held part way')
-      // 300 ms of opening, undone at twice the speed: about 150 ms, give or take a few frames.
-      if (took < 100 || took > 250)
+      // 300 ms of opening, undone at twice the speed: about 150 ms, give or take a few frames
+      // (measured from 139 to 171 ms).
+      if (took < 115 || took > 220)
         off.push(`closed ${Math.round(took)} ms after Esc, not about 150 ms`)
       assert.deepEqual(
         { off, focus, problems: browser.problems.slice(before) },
