@@ -30,6 +30,12 @@ const aniList: string[] = []
 before(async () => {
   if (!dev) return
   browser = await Browser.open()
+  // The page words times as this machine's Node does, so the status lines can be checked against
+  // what statusText says here: Chrome's locale otherwise needn't be Node's ("9:30:00 AM" against
+  // "09:30:00").
+  await browser.send('Emulation.setLocaleOverride', {
+    locale: Intl.DateTimeFormat().resolvedOptions().locale,
+  })
   await browser.blockAniList()
   await browser.send('Network.enable')
   browser.onEvent('Network.requestWillBeSent', ({ request }) => {
