@@ -321,3 +321,19 @@ test('sample note: says what the samples are, then what AniList is doing', () =>
     'These are fan favorites, not this week’s trending. Trying AniList again…',
   )
 })
+
+test("the time a list was fetched reads in the visitor's own locale, never one set in code", () => {
+  // The tests run in one locale, where a locale set in code (toLocaleTimeString('en-US'), say)
+  // could read the same as the visitor's. So for this test the time is worded by a stand-in that
+  // says which locale it was asked for.
+  const original = Date.prototype.toLocaleTimeString
+  Date.prototype.toLocaleTimeString = function (locales?: Intl.LocalesArgument) {
+    return locales === undefined ? "the visitor's time" : `a time in ${String(locales)}`
+  }
+  try {
+    const line = statusText({ ...idle, data: twoTitles, dataUpdatedAt: threeHoursAgo }, false)
+    assert.equal(line, "2 titles, fetched at the visitor's time")
+  } finally {
+    Date.prototype.toLocaleTimeString = original
+  }
+})
