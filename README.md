@@ -61,6 +61,7 @@ AniBeam/
 │       │   └── sync/        #   Cross-device sync (stretch goal)
 │       ├── components/      # Shared UI from the chosen design: header, panels, title card
 │       ├── prototype/       # Design prototypes, development only (?variant=A|B|C|D)
+│       ├── gallery/         # Component gallery, development only (?gallery)
 │       ├── lib/             # Low-level clients and helpers (AniList client, query cache, Firebase)
 │       ├── styles/          # Tailwind entry point, design tokens, custom CSS
 │       └── main.tsx         # Entry point
@@ -109,6 +110,12 @@ Opening a title floods the screen with its color from the panel picked, with spe
 
 The design prototypes in `web/src/prototype` are for development only. Add `?variant=A`, `B`, `C` or `D` to the dev server's URL to open one. Production builds leave them out.
 
+The component gallery, at `?gallery` on the dev server, shows every component on the sample titles, so the design can be judged without AniList. Its title cases, in `web/src/gallery/cases.ts`, each change a sample's fields to a gap a real AniList title has: no banner, a 52-character title, one long word, no color, no score, the small 230px cover, a cover that fails to load, a wide cover, no genres, studio or episode count, no native title, and an episode countdown. It also shows every state of each section (loading, failed with Try again, the samples, empty, and the intro's and the pull machine's states, one at a time), every status line, the buttons, chips and Soon tags, and each cover color's accents with their contrast. Any title on it opens its card. It asks AniList's API for nothing (the covers load from its image server, as in the app), and like the prototypes it is for development only.
+
+The mood sliders, `MoodSlider` in `web/src/features/mood`, show in the gallery until Phase 5 puts them on the pull machine. Each is a native range input from -2 to 2, so the browser gives it the keyboard, touch and a screen reader's controls; its stops' words are in `moods.ts`. Its look, a capsule thumb on a white track with an ink dot at each stop, is in its own stylesheet, `MoodSlider.css`, which ships only once the app shows a slider.
+
+`npm test` builds the production bundle in memory and fails on any trace of development-only code: a file made from the prototypes' or the gallery's folder, or named like them, their markers, a class only their stylesheets name (as a CSS `@import` would bring in), or a check of the address for them (the word gallery, or variant as a word of its own). A file in `web/public` named like them fails too, as that folder ships as it is. It also holds the bundle to a byte budget, each part brotli-compressed: the JS every visit loads, the CSS, the JS loaded only when needed (the samples), and every other file the build makes (`index.html`, and any image a module imports). A change that needs more bytes raises its budget in `web/src/app/privacy.test.ts` and says why.
+
 ### Reduced motion
 
 Visitors who ask for reduced motion get no sliding, zooming or swinging. They can ask on their device, which the browser reports as `prefers-reduced-motion`, or on the site, with the Reduce motion switch in the footer, above AniList's credit.
@@ -155,7 +162,7 @@ The files are subsets with Latin letters, kana and the star symbol, about 100 KB
 
 ### Browser checks
 
-`web/e2e` holds checks that run the real page in headless Chrome: layout on desktop and phone, keyboard use, reduced motion, Windows contrast themes, the title card, search, the pull, trending refreshed while it is on screen, and what a visitor sees when AniList is down. Two more check AniList's API itself. They need no extra package. Node drives Chrome over its DevTools protocol.
+`web/e2e` holds checks that run the real page in headless Chrome: layout on desktop and phone, keyboard use, reduced motion, Windows contrast themes, the title card, search, the pull, trending refreshed while it is on screen, what a visitor sees when AniList is down, and the component gallery. Two more check AniList's API itself. They need no extra package. Node drives Chrome over its DevTools protocol.
 
 To run them, start the app with `npm run dev`, then point `CHROME_BIN` at a Chrome or chrome-headless-shell binary:
 
@@ -227,6 +234,8 @@ AniList always has trending and 1990s titles, but while busy it can send a list 
 ### Tailwind CSS v4 and custom CSS
 
 Tailwind v4 is configured in CSS, not JavaScript. `web/src/styles/index.css` imports Tailwind and holds the design tokens. There is no `tailwind.config.js` or `postcss.config.js`; the `@tailwindcss/vite` plugin handles everything.
+
+Tailwind makes a utility of any word that names one in the files it reads, even in a comment, and by default it reads every file. So `index.css` imports it with `source(none)` and names what it reads: `web/src` and `web/index.html`, but not the tests, the prototypes or the gallery (the browser checks and the scripts sit outside `web/src`). Reading everything, it had shipped about 600 bytes of rules no page used. `npm test` checks this with canaries, utility names written only in files Tailwind mustn't read, such as `italic` in `privacy.test.ts`: none may have a rule in the production stylesheet. The other way round, every Tailwind class the app's markup uses must have its rule there, and every one of the app's own `ab-` and `is-` classes a rule in its stylesheets, so a misspelt class fails.
 
 Tailwind v4 uses native CSS cascade layers, ordered `theme → base → components → utilities`. A later layer wins regardless of selector specificity, so no `!important` is needed. One rule to remember: **put custom component styles inside `@layer components`**. CSS written outside any layer beats every utility class, so a utility like `p-4` would stop working on that element.
 

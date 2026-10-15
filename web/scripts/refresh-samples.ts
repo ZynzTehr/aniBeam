@@ -1,7 +1,9 @@
 // Rewrites src/features/anime/samples.ts, the titles a section shows when it can't reach AniList,
 // with one AniList request. Run it from web/ with `npm run samples` to change the titles, or when
 // the type check fails after a change to Media. It writes nothing unless every title passes the
-// checks below, and samples.test.ts checks the file again.
+// checks below, and samples.test.ts checks the file again. Tailwind doesn't read this folder (see
+// src/styles/index.css): the word line-through here is a canary, which src/app/privacy.test.ts
+// looks for in the production stylesheet.
 import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { format, resolveConfig } from 'prettier'

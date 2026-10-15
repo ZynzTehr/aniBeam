@@ -371,7 +371,8 @@ const motionVariantsIn = (file: string) =>
 // its own makes every change a transition, as transition-property is all until a rule says
 // otherwise; smooth scrolling; and translate-…, rotate-…, scale-… and skew-…, which place, turn,
 // size or slant the element, so that under a variant such as hover: they move it. Each is written
-// in pieces, so that Tailwind, which reads this file for class names too, builds no rule for it.
+// in pieces, so that Tailwind builds no rule for it should it read this file again
+// (styles/index.css keeps the tests out of what it reads).
 const MOTION_UTILITY = new RegExp(
   `(^|:)!?-?(${[
     'anim' + 'ate-',
@@ -479,9 +480,8 @@ test('the scan finds a script asking the device, and a motion variant, however e
     asksDevice([...asking, ...notAsking].join('\n'), 'planted.ts'),
     asking.map((line, i) => `planted.ts:${i + 1}: ${line}`),
   )
-  // A variant on a class, then in a stylesheet with @apply and @variant. Tailwind reads this file
-  // for class names as well, so the classes are made up: a real one would put its rule in the
-  // site's CSS.
+  // A variant on a class, then in a stylesheet with @apply and @variant. The classes are made up:
+  // should Tailwind read this file again, a real one would put its rule in the site's CSS.
   const variants = [
     '<span className="ab-capsule motion-safe:ab-pop" />',
     '<p className="motion-reduce:ab-still">',
@@ -535,8 +535,8 @@ const matching = (found: Found[], pattern: RegExp) => [
 ]
 
 test('the markup scan finds a motion utility in a class name, and motion in a style prop, wherever each is set', () => {
-  // Tailwind reads this file for class names too, so each utility here is written in pieces, as in
-  // MOTION_UTILITY: a whole one would put its rule in the site's CSS.
+  // Each utility here is written in pieces, as in MOTION_UTILITY: should Tailwind read this file
+  // again, a whole one would put its rule in the site's CSS.
   const [bounce, spin, slide, lift, grow, tilt, glide, wait, inked] = [
     ['anim', 'ate-bounce'],
     ['!anim', 'ate-spin'],

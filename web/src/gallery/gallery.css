@@ -1,0 +1,215 @@
+/*
+ * The development-only gallery (see Gallery.tsx): only its own layout, around the components,
+ * which bring their styles from components.css. Plain CSS rather than Tailwind utilities, and
+ * index.css keeps this folder out of what Tailwind reads, so nothing here reaches the production
+ * stylesheet. Every class starts with gal-.
+ */
+/* The page, each part, each group of states and each state are one column as wide as the screen:
+   a grid column grows to fit what it holds unless told otherwise, and a strip's row of covers,
+   which scrolls sideways on its own, would stretch the whole page. */
+.gal,
+.gal-part,
+.gal-group,
+.gal-case {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.gal {
+  display: grid;
+  gap: 48px;
+  padding-bottom: 64px;
+}
+
+.gal-head,
+.gal-title,
+.gal-note,
+.gal-cases,
+.gal-case > figcaption,
+.gal-case > .ab-eras,
+.gal-pick,
+.gal-lines,
+.gal-row,
+.gal-swatches,
+.gal-sliders,
+.gal-machine {
+  margin-inline: var(--page-x);
+}
+
+.gal-head {
+  display: grid;
+  gap: 12px;
+  max-width: 72ch;
+  padding-top: 40px;
+}
+
+.gal-head h1 {
+  margin: 0;
+  font: 400 clamp(32px, 5vw, 56px) / 1 var(--display);
+}
+
+.gal-head p,
+.gal-note {
+  max-width: 72ch;
+  margin-block: 0;
+  font-weight: 700;
+  text-wrap: pretty;
+}
+
+/* A part of the gallery opens with a rule across the page, so it can't pass for a section of the
+   app's own. */
+.gal-part {
+  display: grid;
+  gap: 16px;
+  padding-top: 24px;
+  border-top: var(--border) solid var(--ink);
+}
+
+.gal-title {
+  margin-block: 0;
+  font: 400 clamp(24px, 3vw, 32px) / 1.1 var(--display);
+}
+
+.gal-cases {
+  display: grid;
+  gap: 4px;
+  padding-left: 1.6em;
+  font-size: 14px;
+}
+
+.gal-cases b {
+  font-weight: 800;
+}
+
+.gal-group {
+  display: grid;
+  gap: 24px;
+}
+
+/* A case or state: its label as an ink tag, then the component, which brings its own padding. */
+.gal-case {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.gal-case > figcaption {
+  justify-self: start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.gal-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+}
+
+/* The chips' own focus ring is the machine's, white on its red body, which on the paper would
+   vanish (about 1.1:1): here it is brand red, as the decade chips' is. Not in a contrast theme,
+   where the chips take the theme's own (see components.css): this rule, outside the layers, would
+   beat it. */
+@media not (forced-colors: active) {
+  .gal-pick .ab-chip input:focus-visible + span {
+    outline-color: var(--hot);
+  }
+}
+
+.gal-pick legend {
+  margin-bottom: 6px;
+  font-weight: 800;
+}
+
+.gal-lines {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 12px;
+}
+
+.gal-lines > div {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 12px;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 14px;
+}
+
+.gal-lines dt {
+  font-weight: 800;
+}
+
+.gal-lines dd {
+  margin: 0;
+}
+
+.gal-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.gal-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.gal-swatches li {
+  display: grid;
+  overflow: hidden;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.gal-swatches span,
+.gal-swatches code {
+  padding: 8px 10px;
+}
+
+/* A title's accent fill under ink text, then its text color on the page. */
+.gal-fill {
+  background: var(--anime-accent);
+  color: var(--ink);
+}
+
+/* On the page itself, dots and all: the ratio is measured against its darkest pixel. */
+.gal-ink {
+  color: var(--anime-accent-text);
+}
+
+.gal-swatches code {
+  border-top: 3px solid var(--ink);
+  background: #fff;
+  font-size: 12px;
+}
+
+.gal-sliders {
+  display: grid;
+  max-width: 520px;
+  gap: 20px;
+}
+
+/* The machine's body, its width the gallery's to set: its own 100% would add to its margins. */
+.gal-machine {
+  width: auto;
+  max-width: 520px;
+}
+
+/* The body centers what it holds; the sliders take its full width, as Phase 5 will have them. */
+.gal-machine .gal-sliders {
+  justify-self: stretch;
+  margin-inline: 0;
+}

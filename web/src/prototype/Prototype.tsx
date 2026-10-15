@@ -1,6 +1,8 @@
 // PROTOTYPE ONLY. Question: which organizing idea should AniBeam's screens be built on?
 // Anime-pop variants of the home screen, switchable with ?variant=A|B|C|D, using
-// real AniList data. Development only (see main.tsx); never in a production build.
+// real AniList data. Development only (see main.tsx); never in a production build. Tailwind
+// doesn't read this folder either (see styles/index.css): the word overline here is a canary,
+// which privacy.test.ts looks for in the production stylesheet.
 import { useQuery } from '@tanstack/react-query'
 import { lazy, Suspense, useState, type KeyboardEvent } from 'react'
 import { ninetiesShows, trendingShows } from './data.ts'
