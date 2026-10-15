@@ -4978,7 +4978,8 @@ describe('Windows contrast themes (forced colors)', () => {
     // A theme paints every background in its page color, and the close button's X is drawn with
     // bars, which are backgrounds: it vanished into the button, an empty circle. In each palette,
     // the bars must stand out from the button at 3:1 or better, as an icon needs, at rest and
-    // with the mouse on it (the red fill and the speed lines drop out, as the theme wants).
+    // with the mouse on it (the red fill and the speed lines drop out, as the theme wants), drawn in
+    // the theme's text color for buttons.
     const seen: string[] = []
     const theme = (scheme: string) =>
       browser.send('Emulation.setEmulatedMedia', {
@@ -4994,7 +4995,12 @@ describe('Windows contrast themes (forced colors)', () => {
       const lum = ([r, g, b]) => [r, g, b].map((v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }).reduce((sum, v, k) => sum + v * [0.2126, 0.7152, 0.0722][k], 0)
       const bars = getComputedStyle(button.querySelector('.ab-x i')).backgroundColor, fill = getComputedStyle(button).backgroundColor
       const [a, b] = [lum(rgb(bars)), lum(rgb(fill))].sort((x, y) => y - x)
-      return { bars, fill, ratio: Math.round(((a + 0.05) / (b + 0.05)) * 100) / 100 }
+      // The theme's own text color for buttons, as this palette paints it.
+      const probe = document.body.appendChild(document.createElement('i'))
+      probe.style.background = 'ButtonText'
+      const buttonText = getComputedStyle(probe).backgroundColor
+      probe.remove()
+      return { bars, fill, buttonText, ratio: Math.round(((a + 0.05) / (b + 0.05)) * 100) / 100 }
     })()`
     try {
       for (const scheme of ['light', 'dark']) {
@@ -5013,15 +5019,18 @@ describe('Windows contrast themes (forced colors)', () => {
         await cardInFull()
         for (const on of [false, true]) {
           await hoverClose(on)
-          const { bars, fill, ratio } = await browser.evaluate<{
+          const { bars, fill, buttonText, ratio } = await browser.evaluate<{
             bars: string
             fill: string
+            buttonText: string
             ratio: number
           }>(contrast)
-          if (ratio < 3)
-            seen.push(
-              `${scheme}, ${on ? 'hovered' : 'at rest'}: X in ${bars} on ${fill}, ${ratio}:1`,
-            )
+          const where = `${scheme}, ${on ? 'hovered' : 'at rest'}`
+          if (ratio < 3) seen.push(`${where}: X in ${bars} on ${fill}, ${ratio}:1`)
+          // Not just any color that stands out: the theme's text color for buttons, which says it
+          // works. Its disabled color stands out too, and says it doesn't.
+          if (bars !== buttonText)
+            seen.push(`${where}: X in ${bars}, not the theme's ${buttonText}`)
         }
         await hoverClose(false)
         await closeCardLeft()
@@ -5035,7 +5044,11 @@ describe('Windows contrast themes (forced colors)', () => {
         ],
       })
     }
-    assert.deepEqual(seen, [], 'close buttons whose X doesn’t stand out at 3:1')
+    assert.deepEqual(
+      seen,
+      [],
+      'close buttons whose X doesn’t stand out at 3:1, or isn’t in the theme’s text color for buttons',
+    )
   })
 
   test('the chosen decade and vibe stand out, with a readable label and the theme’s focus ring', async () => {
