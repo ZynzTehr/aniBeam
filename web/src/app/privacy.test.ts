@@ -81,18 +81,19 @@ test('the production build holds nothing from e2e/, which must stay out of the a
   )
 })
 
-// Development-only code: the Phase 2 design prototypes in src/prototype, the component gallery to
-// come in src/gallery, and GSAP's ScrollTrigger, which only the draft scroll prototype used.
-// main.tsx opens the prototypes by address, inside import.meta.env.DEV, which a production build
-// reads as false, so the pages, their files and the address check are all left out. This reads the
-// build for any trace of them: a file made from their folder (a stylesheet of theirs would join the
-// app's own, under its name), a file named like one, the prototypes' switcher label,
-// ScrollTrigger's name, or a check of the address for one. The checks are matched as the calls the
-// minifier writes, .has(`variant`), because React DOM's code holds the word font-variant.
+// Development-only code: the Phase 2 design prototypes in src/prototype, the component gallery in
+// src/gallery, and GSAP's ScrollTrigger, which only the draft scroll prototype used. main.tsx
+// opens the prototypes and the gallery by address, inside import.meta.env.DEV, which a production
+// build reads as false, so the pages, their files and the address checks are all left out. This
+// reads the build for any trace of them: a file made from their folders (a stylesheet of theirs
+// would join the app's own, under its name), a file named like one, the prototypes' switcher
+// label, the gallery's heading, ScrollTrigger's name, or a check of the address for one. The
+// checks are matched as the calls the minifier writes, .has(`variant`), because React DOM's code
+// holds the word font-variant.
 const DEVELOPMENT_ONLY = {
   folders: /^src\/(gallery|prototype)\//i,
   names: /gallery|prototype|variant/i,
-  markers: ['Design prototype switcher', 'ScrollTrigger'],
+  markers: ['Design prototype switcher', 'AniBeam component gallery', 'ScrollTrigger'],
   calls: /\.has\(\s*(["'`])(variant|gallery)\1\s*\)/g,
 }
 
@@ -122,13 +123,14 @@ test('the production build holds no development-only code', () => {
 // Tailwind makes a utility of any word that names one in the files it reads, even in a comment, so
 // styles/index.css has it read only the files that ship. These are canaries: utilities named only
 // in files that don't ship, in the tests (such as this comment's italic and underline), the
-// prototypes and the scripts. A rule for any of them in
+// prototypes, the gallery and the scripts. A rule for any of them in
 // the production stylesheet means Tailwind read where it shouldn't. Its rule for sr-only, which the
 // app uses, shows it still reads the app.
 const CANARIES = {
   italic: 'src/app/privacy.test.ts',
   underline: 'src/app/privacy.test.ts',
   overline: 'src/prototype/Prototype.tsx',
+  capitalize: 'src/gallery/Gallery.tsx',
   'line-through': 'scripts/refresh-samples.ts',
 }
 

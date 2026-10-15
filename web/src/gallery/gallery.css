@@ -1,0 +1,29 @@
+/*
+ * The development-only gallery (see Gallery.tsx): only its own layout, around the components,
+ * which bring their styles from components.css. Plain CSS rather than Tailwind utilities, and
+ * index.css keeps this folder out of what Tailwind reads, so nothing here reaches the production
+ * stylesheet. Every class starts with gal-.
+ */
+.gal {
+  display: grid;
+  gap: 48px;
+  padding-bottom: 64px;
+}
+
+.gal-head {
+  display: grid;
+  gap: 12px;
+  max-width: 72ch;
+  padding: 40px var(--page-x) 0;
+}
+
+.gal-head h1 {
+  margin: 0;
+  font: 400 clamp(32px, 5vw, 56px) / 1 var(--display);
+}
+
+.gal-head p {
+  margin: 0;
+  font-weight: 700;
+  text-wrap: pretty;
+}
