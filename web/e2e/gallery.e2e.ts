@@ -489,6 +489,24 @@ test(
   },
 )
 
+test("the gallery's state pickers show a brand red focus ring on the paper", { skip }, async () => {
+  await browser.load({ url: GALLERY })
+  // A key pressed first, so that focus given from here shows its ring, as the keyboard's does.
+  await browser.press('Tab')
+  const rings = await browser.evaluate<
+    string[]
+  >(`[...document.querySelectorAll('.gal-pick input')].map((input) => {
+    input.focus()
+    const ring = getComputedStyle(input.nextElementSibling)
+    return input.matches(':focus-visible') ? ring.outlineStyle + ' ' + ring.outlineColor : 'no focus ring'
+  })`)
+  assert.deepEqual(
+    rings,
+    rings.map(() => 'solid rgb(255, 45, 85)'),
+    "the pickers' focus rings (white, the machine's ring, vanishes into the paper)",
+  )
+})
+
 // Last, so it covers every check above.
 test(
   'across the checks above, the console stayed clean and AniList got no request',

@@ -109,6 +109,12 @@
   border: 0;
 }
 
+/* The chips' own focus ring is the machine's, white on its red body, which on the paper would
+   vanish (about 1.1:1): here it is brand red, as the decade chips' is. */
+.gal-pick .ab-chip input:focus-visible + span {
+  outline-color: var(--hot);
+}
+
 .gal-pick legend {
   margin-bottom: 6px;
   font-weight: 800;
