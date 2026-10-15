@@ -529,11 +529,14 @@ test("the gallery's state pickers show a brand red focus ring on the paper", { s
   )
 })
 
-// Last, so it covers every check above.
+// Last, so it covers every check above. It loads the gallery once more itself, so that run on its
+// own it still looks at something.
 test(
   'across the checks above, the console stayed clean and AniList got no request',
   { skip },
-  () => {
+  async () => {
+    await browser.load({ url: GALLERY })
+    await browser.animationsDone()
     assert.deepEqual(browser.problems, [], 'the console has errors or warnings')
     assert.deepEqual(aniList, [], 'the gallery sent AniList requests')
   },

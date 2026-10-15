@@ -25,6 +25,7 @@
 .gal-note,
 .gal-cases,
 .gal-case > figcaption,
+.gal-case > .ab-eras,
 .gal-pick,
 .gal-lines,
 .gal-row,
@@ -180,8 +181,8 @@
   color: var(--ink);
 }
 
+/* On the page itself, dots and all: the ratio is measured against its darkest pixel. */
 .gal-ink {
-  background: var(--paper);
   color: var(--anime-accent-text);
 }
 

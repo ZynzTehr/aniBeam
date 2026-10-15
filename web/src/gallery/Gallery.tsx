@@ -64,8 +64,8 @@ export default function Gallery() {
           <h1>AniBeam component gallery</h1>
           <p>
             Development only. Every component on real sample titles, with the gaps real AniList
-            titles have, and every state a section can be in. Nothing here asks AniList for
-            anything; the covers come from its image server.
+            titles have, and every state a section can be in. Nothing here asks AniList&rsquo;s API
+            for anything; the covers come from its image server, as in the app.
           </p>
         </header>
         <TitleCases onOpen={open} />
@@ -444,7 +444,7 @@ function Sliders() {
     <Part
       id="gal-slider"
       heading="Mood sliders"
-      note="The three mood axes, each a native range input from -2 to 2: on paper, then on the pull machine's body, where Phase 5 puts them. Tab to one, then try the arrows, Home and End, or drag it."
+      note="The three mood axes, each a native range input from -2 to 2: on paper, then on the pull machine’s body, where Phase 5 puts them. Tab to one, then try the arrows, Home and End, or drag it."
     >
       <div className="gal-group" data-group="sliders">
         <Case label="On paper">
