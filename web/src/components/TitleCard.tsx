@@ -111,9 +111,12 @@ export function TitleCard({
       <div className="ab-wipe" aria-hidden="true" />
       <article className="ab-sheet">
         <button type="button" className="ab-close" onClick={close} aria-label="Close title card">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 6l12 12M18 6 6 18" />
-          </svg>
+          {/* An X of three bars, so it can fold into a back arrow (see .ab-x). */}
+          <span className="ab-x" aria-hidden="true">
+            <i />
+            <i />
+            <i />
+          </span>
         </button>
         <div className="ab-sheet-art">
           {media.title.native && (

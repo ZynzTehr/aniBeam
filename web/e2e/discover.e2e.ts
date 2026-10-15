@@ -2047,7 +2047,7 @@ describe('desktop (1440x900)', () => {
       const plays = (names: string) =>
         browser.evaluate<
           Play[]
-        >(`document.getAnimations().filter((a) => a.effect.target.closest('dialog.ab-card') && (${names})(a.animationName)).map((a) => {
+        >(`document.getAnimations().filter((a) => a instanceof CSSAnimation && a.effect.target.closest('dialog.ab-card') && (${names})(a.animationName)).map((a) => {
           const { target, pseudoElement } = a.effect
           const word = target.style.getPropertyValue('--w')
           const { delay, duration, direction } = a.effect.getTiming()
@@ -2229,6 +2229,61 @@ describe('desktop (1440x900)', () => {
       await browser.evaluate(`document.getElementById('visitors-own')?.remove(); true`)
       await closeCardLeft()
     }
+  })
+
+  test('with motion allowed, hovering the close button floods it brand red as its X folds into a white back arrow, with speed lines, and it stays so as the card leaves', async () => {
+    // The user's choice from a mockup ("Burst"): the button floods brand red, its X folds into a
+    // white arrow pointing back, and a ring of manga speed lines flashes out. As the card plays its
+    // way back after a click or Esc, the button keeps that look. At rest it is today's white
+    // button with an ink X. The card is opened with the mouse, so the button doesn't have the
+    // keyboard's focus, which brings the same look (see the next check).
+    const seen: Record<string, object> = {}
+    try {
+      await browser.evaluate(`(async () => {
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.scrollIntoView({ block: 'center' })
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        return true
+      })()`)
+      await clickMiddle('window.__opener')
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+        'the title card did not open',
+      )
+      await cardInFull()
+      await hoverClose(false)
+      seen.atRest = await browser.evaluate(closeButton)
+      await hoverClose(true)
+      seen.hovered = await browser.evaluate(closeButton)
+      await hoverClose(false)
+      // Leaving: the way back is held where it is, so the card stays open while the button changes.
+      await browser.press('Escape')
+      await browser.evaluate(
+        `document.getAnimations().filter((a) => a instanceof CSSAnimation && /-back$|undim/.test(a.animationName)).forEach((a) => a.pause()); true`,
+      )
+      await sleep(700)
+      seen.leaving = await browser.evaluate(closeButton)
+    } finally {
+      await closeCardLeft()
+    }
+    const burst = {
+      fill: 'rgb(255, 45, 85)',
+      edge: 'rgb(255, 45, 85)',
+      icon: 'arrow pointing left',
+      drawnIn: 'rgb(255, 255, 255)',
+      speedLines: 'shown',
+    }
+    assert.deepEqual(seen, {
+      atRest: {
+        fill: 'rgb(255, 255, 255)',
+        edge: 'rgb(20, 20, 20)',
+        icon: 'X',
+        drawnIn: 'rgb(20, 20, 20)',
+        speedLines: 'hidden',
+      },
+      hovered: burst,
+      leaving: burst,
+    })
   })
 
   test('every trending panel shows a brand-hot focus ring when tabbed to', async () => {
@@ -2909,6 +2964,51 @@ const watchSecondRequest = `(() => {
   return true
 })()`
 
+/**
+ * The open title card's close button as it looks: its fill, ring of speed lines (shown or not), and
+ * its icon, by the color it is drawn in and its shape. The icon is drawn with bars; the shape reads
+ * their boxes against the icon's middle: an X is two crossed bars, square-ish, on the middle; an
+ * arrow pointing left is a long flat bar (its shaft) on the middle and two short ones (its head)
+ * to the left of it, one above and one below.
+ */
+const closeButton = `(() => {
+  const button = document.querySelector('dialog.ab-card .ab-close')
+  const icon = button.querySelector('.ab-x')
+  const style = getComputedStyle(button)
+  let shape = 'no icon of bars'
+  if (icon) {
+    const box = icon.getBoundingClientRect(), mx = box.left + box.width / 2, my = box.top + box.height / 2
+    const bars = [...icon.children].map((bar) => bar.getBoundingClientRect()).map((r) => ({ w: r.width, h: r.height, dx: r.left + r.width / 2 - mx, dy: r.top + r.height / 2 - my }))
+    const shown = bars.filter((b) => b.w > 1 && b.h > 1)
+    const middle = (b) => Math.abs(b.dx) < 2 && Math.abs(b.dy) < 2
+    const shaft = shown.find((b) => b.w > 15 && b.h < 6 && middle(b))
+    const head = shown.filter((b) => b !== shaft && b.w < 11 && b.h < 11 && b.dx < -3)
+    if (shown.length === 2 && shown.every((b) => middle(b) && Math.abs(b.w - b.h) < 2 && b.w > 12)) shape = 'X'
+    else if (shaft && head.length === 2 && head.some((b) => b.dy < -2) && head.some((b) => b.dy > 2)) shape = 'arrow pointing left'
+    else shape = 'something else'
+  }
+  return {
+    fill: style.backgroundColor,
+    edge: style.borderTopColor,
+    icon: shape,
+    drawnIn: icon ? getComputedStyle(icon).color : getComputedStyle(button.querySelector('svg')).stroke,
+    speedLines: getComputedStyle(button, '::before').opacity === '1' ? 'shown' : 'hidden',
+  }
+})()`
+
+/** Moves the mouse onto the open title card's close button, or away to the corner. */
+async function hoverClose(on: boolean) {
+  const at = on
+    ? await browser.evaluate<{ x: number; y: number }>(`(() => {
+        const r = document.querySelector('dialog.ab-card .ab-close').getBoundingClientRect()
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+      })()`)
+    : { x: 2, y: 2 }
+  await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
+  // Long enough for the button's longest change, its spring, to settle.
+  await sleep(700)
+}
+
 /** Waits until the open title card shows in full: its fade done, and the images on screen drawn. */
 async function cardInFull() {
   await browser.animationsDone()
@@ -3060,6 +3160,39 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     if (askedOn === 'site')
       await browser.evaluate(`document.documentElement.dataset.motion = 'reduce'; true`)
     assert.ok(await browser.titlesShown())
+  })
+
+  test('hovering the close button turns it brand red, its X white, and moves nothing: no fold, no speed lines', async () => {
+    // Reduced motion keeps the color, which moves nothing, and drops the fold and the ring.
+    const seen: Record<string, object> = {}
+    try {
+      await browser.evaluate(`(async () => {
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.scrollIntoView({ block: 'center' })
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        return true
+      })()`)
+      await clickMiddle('window.__opener')
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+        'the title card did not open',
+      )
+      await cardInFull()
+      await hoverClose(true)
+      seen.hovered = await browser.evaluate(closeButton)
+      await hoverClose(false)
+    } finally {
+      await closeCardLeft()
+    }
+    assert.deepEqual(seen, {
+      hovered: {
+        fill: 'rgb(255, 45, 85)',
+        edge: 'rgb(255, 45, 85)',
+        icon: 'X',
+        drawnIn: 'rgb(255, 255, 255)',
+        speedLines: 'hidden',
+      },
+    })
   })
 
   test('opening a title card runs one fade of 150 ms or less, and no frame of it changes a quarter of the screen', async () => {
@@ -3264,6 +3397,9 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
         'the title card did not open',
       )
       await cardInFull()
+      // The mouse goes to the button first, as a visitor's does: hovered, it turns red, a change
+      // of color with a 250 ms transition of its own, which closing doesn't start.
+      await hoverClose(true)
       await browser.evaluate(watchClosing(false))
       await clickMiddle(`document.querySelector('dialog.ab-card .ab-close')`)
       const started = await browser.evaluate<string[] | null>('window.__closingStarted')
@@ -3317,6 +3453,8 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
           'the title card did not open',
         )
         await cardInFull()
+        // Hovered, the button turns red, with a transition of its own that closing doesn't start.
+        if (first === 'the button') await hoverClose(true)
         await browser.evaluate(watchClosing(true))
         await request[first]()
         const started = await browser.evaluate<string[] | null>('window.__closingStarted')

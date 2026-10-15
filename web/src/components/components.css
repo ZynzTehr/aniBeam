@@ -1167,15 +1167,80 @@ body:has(.ab-card[open]) {
   border-radius: 50%;
   background: #fff;
   cursor: pointer;
+  /* Its own stacking context, so its ring of speed lines (::before) draws just behind it. */
+  isolation: isolate;
+  transition:
+    background-color 0.25s,
+    border-color 0.25s;
 }
 
-.ab-close svg {
+/* The close button's X, drawn with three bars so it can fold into a back arrow (in the motion
+   block): two crossed, and a third, the arrow's shaft, folded away. */
+.ab-x {
+  position: relative;
   width: 22px;
   height: 22px;
-  fill: none;
-  stroke: var(--ink);
-  stroke-linecap: round;
-  stroke-width: 3;
+  color: var(--ink);
+  transition: color 0.25s;
+}
+
+.ab-x i {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 22px;
+  height: 3px;
+  margin: -1.5px 0 0 -11px;
+  border-radius: 2px;
+  background: currentColor;
+}
+
+.ab-x i:nth-child(1) {
+  transform: rotate(45deg);
+}
+
+.ab-x i:nth-child(2) {
+  transform: rotate(-45deg);
+}
+
+.ab-x i:nth-child(3) {
+  transform: scaleX(0);
+}
+
+/* Hovered (where a pointer can hover), or on the card's way back, the button floods brand red and
+   its X turns white: colors, which move nothing, so this holds under reduced motion too. The fold
+   into an arrow and the ring of speed lines move, so they wait in the motion block. */
+.ab-card.is-leaving .ab-close {
+  border-color: var(--hot);
+  background-color: var(--hot);
+}
+
+.ab-card.is-leaving .ab-close .ab-x {
+  color: #fff;
+}
+
+@media (hover: hover) {
+  .ab-close:hover {
+    border-color: var(--hot);
+    background-color: var(--hot);
+  }
+
+  .ab-close:hover .ab-x {
+    color: #fff;
+  }
+}
+
+/* The ring of speed lines around the button, like a manga impact, hidden until it flashes out. */
+.ab-close::before {
+  position: absolute;
+  z-index: -1;
+  background: repeating-conic-gradient(var(--hot) 0deg 5deg, transparent 5deg 20deg);
+  border-radius: 50%;
+  content: '';
+  inset: -16px;
+  mask: radial-gradient(circle, transparent 52%, #000 54% 70%, transparent 72%);
+  opacity: 0;
+  pointer-events: none;
 }
 
 .ab-sheet-art {
@@ -1443,6 +1508,56 @@ body:has(.ab-card[open]) {
     .ab-card.is-leaving::backdrop {
       animation: ab-undim 0.275s linear both;
       animation-delay: calc((var(--T, 1.55s) - 0.55s) / 2);
+    }
+
+    /* The close button's X folds into a back arrow, its shaft growing out and its two strokes
+       shortening into the head at its left end, as a ring of speed lines flashes out: on hover,
+       and on the card's way back. */
+    .ab-x i {
+      transition: transform 0.45s var(--spring);
+    }
+
+    .ab-close::before {
+      transform: scale(0.6) rotate(-20deg);
+      transition:
+        opacity 0.2s,
+        transform 0.45s var(--spring);
+    }
+
+    .ab-card.is-leaving .ab-close .ab-x i:nth-child(1) {
+      transform: translate(-6px, -3.9px) rotate(-45deg) scaleX(0.5);
+    }
+
+    .ab-card.is-leaving .ab-close .ab-x i:nth-child(2) {
+      transform: translate(-6px, 3.9px) rotate(45deg) scaleX(0.5);
+    }
+
+    .ab-card.is-leaving .ab-close .ab-x i:nth-child(3) {
+      transform: scaleX(0.9);
+    }
+
+    .ab-card.is-leaving .ab-close::before {
+      opacity: 1;
+      transform: none;
+    }
+
+    @media (hover: hover) {
+      .ab-close:hover .ab-x i:nth-child(1) {
+        transform: translate(-6px, -3.9px) rotate(-45deg) scaleX(0.5);
+      }
+
+      .ab-close:hover .ab-x i:nth-child(2) {
+        transform: translate(-6px, 3.9px) rotate(45deg) scaleX(0.5);
+      }
+
+      .ab-close:hover .ab-x i:nth-child(3) {
+        transform: scaleX(0.9);
+      }
+
+      .ab-close:hover::before {
+        opacity: 1;
+        transform: none;
+      }
     }
 
     /* The capsule shows only here, where it moves (see .ab-drop above). */
