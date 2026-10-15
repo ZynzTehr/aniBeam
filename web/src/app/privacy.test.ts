@@ -87,16 +87,16 @@ test('the production build holds nothing from e2e/, which must stay out of the a
 // build reads as false, so the pages, their files and the address checks are all left out. This
 // reads the build for any trace of them: a file made from their folders (a stylesheet of theirs
 // would join the app's own, under its name), a file named like one, the prototypes' switcher
-// label, the gallery's heading, ScrollTrigger's name, or a check of the address for one. The
-// checks are matched as the calls the minifier writes, .has(`variant`), because React DOM's code
-// holds the word font-variant. A stylesheet of theirs brought in by a CSS @import leaves no trace
-// among the files the build was made from, so the production stylesheet is also read for a class
-// that only their stylesheets name.
+// label, the gallery's heading, ScrollTrigger's name, or a check of the address for one: the word
+// gallery anywhere (nothing that ships holds it), or variant as a quoted word, as a check names
+// it (React DOM's own font-variant and fontVariant aren't quoted so). A stylesheet of theirs
+// brought in by a CSS @import leaves no trace among the files the build was made from, so the
+// production stylesheet is also read for a class that only their stylesheets name.
 const DEVELOPMENT_ONLY = {
   folders: /^src\/(gallery|prototype)\//i,
   names: /gallery|prototype|variant/i,
   markers: ['Design prototype switcher', 'AniBeam component gallery', 'ScrollTrigger'],
-  calls: /\.has\(\s*(["'`])(variant|gallery)\1\s*\)/g,
+  addresses: /gallery|(["'`])variant\1/gi,
 }
 
 // The class names a stylesheet's rules name, its comments left out.
@@ -108,11 +108,16 @@ const classesIn = (css: string) =>
   )
 
 test('the production build holds no development-only code', () => {
-  // So that a reading that misses can't pass, the call pattern must find a check as the minifier
-  // writes it, and must pass over React DOM's word.
-  const shipped = 'new URLSearchParams(location.search).has(`variant`)'
-  assert.equal(shipped.match(DEVELOPMENT_ONLY.calls)?.length, 1, 'the pattern misses a check')
-  assert.equal('font-variant-numeric'.match(DEVELOPMENT_ONLY.calls), null)
+  // So that a reading that misses can't pass, the pattern must find checks of the address however
+  // they are written, and pass over React DOM's words.
+  for (const check of [
+    'new URLSearchParams(location.search).has(`variant`)',
+    "location.search.includes('gallery')",
+    'new URLSearchParams(location.search).get("variant")',
+  ])
+    assert.equal(check.match(DEVELOPMENT_ONLY.addresses)?.length, 1, `the pattern misses ${check}`)
+  for (const word of ['font-variant-numeric', 'fontVariant', 'fontVariantCaps'])
+    assert.equal(word.match(DEVELOPMENT_ONLY.addresses), null, `the pattern takes ${word}`)
   // The classes only the development-only stylesheets name: theirs, less any a shipped one names.
   const stylesheets = readdirSync(join(web, 'src'), { encoding: 'utf8', recursive: true })
     .map((path) => join('src', path))
@@ -138,7 +143,9 @@ test('the production build holds no development-only code', () => {
       ...DEVELOPMENT_ONLY.markers
         .filter((marker) => text.includes(marker))
         .map((marker) => `${file.fileName}: "${marker}"`),
-      ...[...text.matchAll(DEVELOPMENT_ONLY.calls)].map(([call]) => `${file.fileName}: ${call}`),
+      ...[...text.matchAll(DEVELOPMENT_ONLY.addresses)].map(
+        ([found]) => `${file.fileName}: ${found}`,
+      ),
       ...(file.fileName.endsWith('.css') ? [...classesIn(text)] : [])
         .filter((name) => developmentClasses.has(name))
         .map((name) => `${file.fileName}: .${name}, a development-only class`),
