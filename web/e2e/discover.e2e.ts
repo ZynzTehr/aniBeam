@@ -2497,9 +2497,14 @@ describe('desktop (1440x900)', () => {
         frames: { uncovered: number; sheet: number; words: number }[]
         closedIn: number
       }>(`({ frames: window.__frames, closedIn: window.__closedIn })`)
+      // Closed at once: within a few frames of Esc, which a busy run can stretch (it read just
+      // over 100 ms in 2 of about 20 full runs), and well short of any way back (800 ms).
       seen.atOnce = {
         drawnOpen: atOnce.frames.some((f) => f.uncovered < 1 || f.sheet > 0 || f.words > 0),
-        quick: atOnce.closedIn !== null && atOnce.closedIn < 100,
+        closed:
+          atOnce.closedIn !== null && atOnce.closedIn < 250
+            ? 'at once'
+            : `${Math.round(atOnce.closedIn ?? -1)} ms after Esc`,
         focus: await browser.evaluate<string>(focusPlace),
       }
     } finally {
@@ -2509,7 +2514,7 @@ describe('desktop (1440x900)', () => {
       { ...seen, problems: browser.problems.slice(before) },
       {
         late: { off: [], focus: 'back on its panel' },
-        atOnce: { drawnOpen: false, quick: true, focus: 'back on its panel' },
+        atOnce: { drawnOpen: false, closed: 'at once', focus: 'back on its panel' },
         problems: [],
       },
     )
