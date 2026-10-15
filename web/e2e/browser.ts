@@ -164,6 +164,53 @@ const KEYS = {
   PageDown: { keyCode: 34 },
 } satisfies Record<string, Key>
 
+/** A layout shift as the page reports it: when, in ms from its start; how much; whether it came
+ * within 500 ms of the visitor's input; and what moved, for messages. */
+export type LayoutShift = { time: number; value: number; input: boolean; moved?: string[] }
+
+/**
+ * A page's layout shift as web-vitals counts CLS: shifts within 500 ms of the visitor's input are
+ * left out, the others fall into session windows, each a run of shifts less than 1 s apart and at
+ * most 5 s long, and the page's score is its largest window's. Returns that window: its score and
+ * its shifts.
+ */
+export function sessionWindow<Shift extends Omit<LayoutShift, 'moved'>>(shifts: Shift[]) {
+  let largest = { value: 0, shifts: [] as Shift[] }
+  let current = largest
+  for (const shift of shifts.filter(({ input }) => !input)) {
+    const [first, last] = [current.shifts[0], current.shifts.at(-1)]
+    current =
+      first && last && shift.time - last.time < 1000 && shift.time - first.time < 5000
+        ? { value: current.value + shift.value, shifts: [...current.shifts, shift] }
+        : { value: shift.value, shifts: [shift] }
+    if (current.value > largest.value) largest = current
+  }
+  return largest
+}
+
+// Records the page's layout shifts from its very first moment, in window.__layoutShifts, with
+// what each moved: an element's class or tag, and how far down the page it moved.
+const LAYOUT_SHIFTS = `(() => {
+  const shifts = (window.__layoutShifts = [])
+  const record = (entries) => {
+    for (const entry of entries)
+      shifts.push({
+        time: entry.startTime,
+        value: entry.value,
+        input: entry.hadRecentInput,
+        moved: entry.sources.map((source) => {
+          const node = source.node?.nodeType === 3 ? source.node.parentElement : source.node
+          const name = (typeof node?.className === 'string' && node.className) || node?.nodeName?.toLowerCase() || 'gone'
+          return name + ': ' + Math.round(source.previousRect.top) + ' → ' + Math.round(source.currentRect.top) + 'px'
+        }),
+      })
+  }
+  const observer = new PerformanceObserver((list) => record(list.getEntries()))
+  observer.observe({ type: 'layout-shift', buffered: true })
+  // Shifts the observer hasn't handed over yet, taken at once (see Browser.layoutShift).
+  window.__takeLayoutShifts = () => record(observer.takeRecords())
+})()`
+
 export class Browser {
   #chrome: ChildProcess
   #socket: WebSocket
@@ -410,6 +457,28 @@ export class Browser {
       `document.querySelectorAll('.ab-grid .ab-link').length >= 9 && document.querySelectorAll('.ab-strip-row .ab-strip-panel[href]').length > 3`,
       ms,
     )
+  }
+
+  /**
+   * Records each page's layout shifts from its very first moment, for layoutShift(), on every page
+   * this browser loads from now on. Call it before load().
+   */
+  async watchLayoutShifts() {
+    await this.send('Page.addScriptToEvaluateOnNewDocument', { source: LAYOUT_SHIFTS })
+  }
+
+  /**
+   * The page's layout shift so far, as web-vitals counts CLS (see sessionWindow): the score of its
+   * largest session window, and that window's shifts. Shifts the page's observer hasn't handed
+   * over yet are taken first, so the last one counts too.
+   */
+  async layoutShift() {
+    const shifts = await this.evaluate<LayoutShift[] | null>(
+      `window.__takeLayoutShifts ? (window.__takeLayoutShifts(), window.__layoutShifts) : null`,
+    )
+    if (!shifts)
+      throw new Error('No layout shifts were recorded: call watchLayoutShifts() before load().')
+    return sessionWindow(shifts)
   }
 
   /**
