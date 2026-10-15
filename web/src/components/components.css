@@ -335,6 +335,13 @@ img[data-broken] {
   scroll-padding-inline: 8px;
 }
 
+/* The titles' row is always there, for Strip to scroll back to Ch.1, but with no titles in it (while
+   the empty cards' row stands in for it, say) its room for focus rings would add 14px under them,
+   which went as the titles landed, and the page under the strip jumped up. */
+.ab-strip-row:empty {
+  display: none;
+}
+
 .ab-strip-item {
   scroll-snap-align: start;
 }

@@ -108,3 +108,27 @@ test('while a section waits for its titles, "Loading…" shows on its first empt
     )
   }
 })
+
+test('while a decade loads, the strip draws one row of cards, its empty ones, as tall as its titles', async () => {
+  // The strip's rows and its height from heading to foot: the same while it waits as once its
+  // titles land, or the page under it jumps, and a visitor at the foot of the page is pulled up.
+  const strip = `(() => {
+    const strip = document.querySelector('.ab-strip')
+    const rows = [...strip.querySelectorAll('.ab-strip-row')].filter((row) => row.getBoundingClientRect().height > 0)
+    const height = Math.round(strip.getBoundingClientRect().bottom - strip.querySelector('h2').getBoundingClientRect().top)
+    return rows.length + (rows.length === 1 ? ' row' : ' rows') + ', ' + height + 'px'
+  })()`
+  const seen: string[] = []
+  for (const screen of [PHONE, DESKTOP]) {
+    await browser.forget()
+    await browser.holdAniList(2500)
+    await browser.load({ ...screen, reduceMotion: true })
+    const loading = await browser.evaluate<string>(strip)
+    assert.ok(await browser.titlesShown())
+    await browser.holdAniList(0)
+    const loaded = await browser.evaluate<string>(strip)
+    if (loading !== loaded)
+      seen.push(`${screen.width}px: ${loading} while it waits, ${loaded} once its titles land`)
+  }
+  assert.deepEqual(seen, [], 'the strip changes size as its titles land')
+})
