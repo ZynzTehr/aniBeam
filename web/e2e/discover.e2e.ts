@@ -2040,59 +2040,7 @@ describe('desktop (1440x900)', () => {
         }
       })()`)
       await cardInFull()
-      // Each animation in the card by the part it plays on (a title word by its place), its
-      // keyframes' name, and its timing in ms. Only the card's: the intro behind it has entrances
-      // of the same names.
-      type Play = { part: string; name: string; delay: number; duration: number; direction: string }
-      const plays = (names: string) =>
-        browser.evaluate<
-          Play[]
-        >(`document.getAnimations().filter((a) => a instanceof CSSAnimation && a.effect.target.closest('dialog.ab-card') && (${names})(a.animationName)).map((a) => {
-          const { target, pseudoElement } = a.effect
-          const word = target.style.getPropertyValue('--w')
-          const { delay, duration, direction } = a.effect.getTiming()
-          return { part: [target.localName, ...target.classList].join('.') + (pseudoElement ?? '') + (word ? ' word ' + word : ''), name: a.animationName, delay, duration, direction }
-        })`)
-      const opening = await plays(
-        `(name) => ['ab-wipe', 'ab-sheet', 'ab-art', 'ab-fall', 'ab-slam', 'ab-rise'].includes(name)`,
-      )
-      await browser.evaluate(`(() => {
-        const card = document.querySelector('dialog.ab-card')
-        addEventListener('keydown', () => { window.__escAt ??= performance.now() }, { capture: true, once: true })
-        card.addEventListener('close', () => { window.__closedAt = performance.now() }, { once: true })
-        return true
-      })()`)
-      await browser.press('Escape')
-      const closing = await plays(`(name) => name.endsWith('-back') || name === 'ab-undim'`)
-      assert.ok(
-        await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000),
-        'the title card did not close',
-      )
-      const { took, focus } = await browser.evaluate<{ took: number; focus: string }>(
-        `({ took: window.__closedAt - window.__escAt, focus: ${focusPlace} })`,
-      )
-      const T = Math.max(...opening.map((a) => a.delay + a.duration))
-      const near = (a: number, b: number) => Math.abs(a - b) <= 1
-      const off: string[] = []
-      for (const open of opening) {
-        const back = closing.find((a) => a.part === open.part)
-        if (!back) off.push(`${open.part}: no closing animation`)
-        else if (
-          back.name !== `${open.name}-back` ||
-          back.direction !== 'reverse' ||
-          !near(back.duration, open.duration / 2) ||
-          !near(back.delay + back.duration, (T - open.delay) / 2)
-        )
-          off.push(
-            `${open.part}: ${back.name} ${back.direction}, ${back.delay} + ${back.duration} ms, for ${open.name} at ${open.delay} + ${open.duration} ms`,
-          )
-      }
-      const undim = closing.find((a) => a.name === 'ab-undim')
-      if (!undim || !near(undim.delay + undim.duration, T / 2))
-        off.push(`::backdrop: ${undim ? `${undim.delay} + ${undim.duration} ms` : 'not lifted'}`)
-      // The card closes as the wipe ends, give or take a frame or two.
-      if (took < T / 2 - 20 || took > T / 2 + 100)
-        off.push(`closed ${Math.round(took)} ms after Esc, not at ${T / 2} ms`)
+      const { opening, off, focus } = await wayBackOff()
       assert.ok(opening.length >= 8, `only ${opening.length} parts animated as the card opened`)
       assert.deepEqual(
         { ...look, off, focus },
@@ -2849,6 +2797,59 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('with motion allowed, a short title’s card plays its way back on time too, with a native title and without one', async () => {
+    // The closing's timing counts from when the opening ended, T. For a long title that is when its
+    // last word lands; for a short one, when its native title does (1.55 s), or with none, its
+    // facts and buttons (1.5 s). The checks above open a nine-word title, so these are checked
+    // here, on the third trending panel, a one-word title: as recorded, then from a fresh load
+    // whose answers carry no native titles. The page is then loaded again as recorded.
+    const noNative = (value: any): any => {
+      if (Array.isArray(value)) return value.map(noNative)
+      if (value === null || typeof value !== 'object') return value
+      const copy = Object.fromEntries(Object.entries(value).map(([key, v]) => [key, noNative(v)]))
+      if (copy.title && typeof copy.title === 'object') copy.title = { ...copy.title, native: null }
+      return copy
+    }
+    const openThird = async () => {
+      await browser.evaluate(`(() => {
+        window.__opener = document.querySelectorAll('.ab-grid .ab-link')[2]
+        window.__opener.focus()
+        return true
+      })()`)
+      await browser.press('Enter')
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5_000),
+        'the title card did not open',
+      )
+      await cardInFull()
+      return browser.evaluate<{ words: number; native: boolean }>(`({
+        words: document.querySelector('dialog.ab-card .ab-title').textContent.trim().split(/\\s+/).length,
+        native: Boolean(document.querySelector('dialog.ab-card .ab-native')),
+      })`)
+    }
+    const seen: Record<string, object> = {}
+    try {
+      const recorded = await openThird()
+      seen.withNative = { ...recorded, off: (await wayBackOff()).off }
+      await browser.rewriteAniList(({ status, body }) => ({ status, body: noNative(body) }))
+      await browser.evaluate('localStorage.clear(); true')
+      await browser.load()
+      assert.ok(await browser.titlesShown())
+      const rewritten = await openThird()
+      seen.withoutNative = { ...rewritten, off: (await wayBackOff()).off }
+    } finally {
+      await closeCardLeft()
+      await browser.rewriteAniList(null)
+      await browser.evaluate('localStorage.clear(); true')
+      await browser.load()
+      assert.ok(await browser.titlesShown())
+    }
+    assert.deepEqual(seen, {
+      withNative: { words: 1, native: true, off: [] },
+      withoutNative: { words: 1, native: false, off: [] },
+    })
+  })
+
   test('the intro is drawn where it stays from its first frame, whatever the header’s height', async () => {
     // As on a phone (see the phone check "the intro is drawn where it stays, from its first
     // frame"). The header is one 78px row from 900px up, two rows (134px) from about 700 to
@@ -3167,6 +3168,71 @@ const closeButton = `(() => {
     speedLines: getComputedStyle(button, '::before').opacity === '1' ? 'shown' : 'hidden',
   }
 })()`
+
+/**
+ * Closes the open title card with Esc and says how its closing replayed the opening: for each part
+ * of the card (a title word by its place), whether its way back plays its opening's keyframes in
+ * reverse, in half the time, ending at (T - its start) / 2, where T is when the opening ended;
+ * whether the backdrop lifts by T / 2; and whether the card closes at T / 2. The card must have
+ * finished opening, and have been opened with the keyboard, so the page may hold it on Esc.
+ */
+async function wayBackOff() {
+  // Each animation in the card by the part it plays on (a title word by its place), its
+  // keyframes' name, and its timing in ms. Only the card's: the intro behind it has entrances
+  // of the same names.
+  type Play = { part: string; name: string; delay: number; duration: number; direction: string }
+  const plays = (names: string) =>
+    browser.evaluate<
+      Play[]
+    >(`document.getAnimations().filter((a) => a instanceof CSSAnimation && a.effect.target.closest('dialog.ab-card') && (${names})(a.animationName)).map((a) => {
+      const { target, pseudoElement } = a.effect
+      const word = target.style.getPropertyValue('--w')
+      const { delay, duration, direction } = a.effect.getTiming()
+      return { part: [target.localName, ...target.classList].join('.') + (pseudoElement ?? '') + (word ? ' word ' + word : ''), name: a.animationName, delay, duration, direction }
+    })`)
+  const opening = await plays(
+    `(name) => ['ab-wipe', 'ab-sheet', 'ab-art', 'ab-fall', 'ab-slam', 'ab-rise'].includes(name)`,
+  )
+  await browser.evaluate(`(() => {
+    const card = document.querySelector('dialog.ab-card')
+    window.__escAt = undefined
+    addEventListener('keydown', () => { window.__escAt ??= performance.now() }, { capture: true, once: true })
+    card.addEventListener('close', () => { window.__closedAt = performance.now() }, { once: true })
+    return true
+  })()`)
+  await browser.press('Escape')
+  const closing = await plays(`(name) => name.endsWith('-back') || name === 'ab-undim'`)
+  assert.ok(
+    await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000),
+    'the title card did not close',
+  )
+  const { took, focus } = await browser.evaluate<{ took: number; focus: string }>(
+    `({ took: window.__closedAt - window.__escAt, focus: ${focusPlace} })`,
+  )
+  const T = Math.max(...opening.map((a) => a.delay + a.duration))
+  const near = (a: number, b: number) => Math.abs(a - b) <= 1
+  const off: string[] = []
+  for (const open of opening) {
+    const back = closing.find((a) => a.part === open.part)
+    if (!back) off.push(`${open.part}: no closing animation`)
+    else if (
+      back.name !== `${open.name}-back` ||
+      back.direction !== 'reverse' ||
+      !near(back.duration, open.duration / 2) ||
+      !near(back.delay + back.duration, (T - open.delay) / 2)
+    )
+      off.push(
+        `${open.part}: ${back.name} ${back.direction}, ${back.delay} + ${back.duration} ms, for ${open.name} at ${open.delay} + ${open.duration} ms`,
+      )
+  }
+  const undim = closing.find((a) => a.name === 'ab-undim')
+  if (!undim || !near(undim.delay + undim.duration, T / 2))
+    off.push(`::backdrop: ${undim ? `${undim.delay} + ${undim.duration} ms` : 'not lifted'}`)
+  // The card closes as the wipe ends, give or take a frame or two.
+  if (took < T / 2 - 20 || took > T / 2 + 100)
+    off.push(`closed ${Math.round(took)} ms after Esc, not at ${T / 2} ms`)
+  return { opening, off, focus }
+}
 
 /** Moves the mouse onto the open title card's close button, or away to the corner. */
 async function hoverClose(on: boolean) {

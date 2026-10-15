@@ -1476,12 +1476,17 @@ body:has(.ab-card[open]) {
 
     /* Closing plays all that backwards, twice as fast: each part's keyframes in reverse, in half
        the time, so the part that arrived last leaves first, and the wipe shrinks back into the
-       panel last of all, as TitleCard closes the dialog. --T is when the opening ended (later for a
-       long title, whose --n words land one after another); a part that started arriving at s
-       leaves by (T - s) / 2. The keyframes are copies under their own names: changing an ended
-       animation's direction would only jump it to its other end. */
+       panel last of all, as TitleCard closes the dialog. --T is when the opening ended: as the
+       native title lands, or later for a long title, whose --n words land one after another. A
+       part that started arriving at s leaves by (T - s) / 2. The keyframes are copies under their
+       own names: changing an ended animation's direction would only jump it to its other end. */
     .ab-card[open].is-leaving {
       --T: max(1.55s, calc(1.3s + (var(--n) - 1) * 70ms));
+    }
+
+    /* With no native title, the opening ends as the facts and buttons land, at 1.5s. */
+    .ab-card[open].is-leaving:not(:has(.ab-native)) {
+      --T: max(1.5s, calc(1.3s + (var(--n) - 1) * 70ms));
     }
 
     .ab-card[open].is-leaving .ab-native {
