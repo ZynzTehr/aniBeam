@@ -15,6 +15,9 @@ const dev = await fetch(new URL('@vite/client', BASE_URL))
   .then((answer) => answer.ok && /javascript/.test(answer.headers.get('content-type') ?? ''))
   .catch(() => false)
 const skip = !dev && `the gallery is development-only, and ${BASE_URL} is not the dev server`
+// Most checks below load the gallery with reduced motion, where motion plays no part in what they
+// look at: it spares a busy machine the page's 150 entrance animations, during which Chrome has
+// been seen to answer nothing for a minute. The first and the last load it with motion allowed.
 
 // In the page: waits, up to 2 seconds, until each cover in the element it is given has loaded or
 // been marked broken. A cover that fails is complete a moment before its error event, whose
@@ -59,8 +62,8 @@ test(
   'every title case shows on the trending page and on the strip, its gap and all',
   { skip },
   async () => {
-    await browser.load({ url: GALLERY })
-    await browser.animationsDone()
+    await browser.load({ url: GALLERY, reduceMotion: true })
+    await browser.evaluate(`(${SETTLE})(document.querySelector('[aria-labelledby="gal-titles"]'))`)
     const shown = await browser.evaluate<{
       listed: string[]
       panels: string[]
@@ -113,8 +116,7 @@ test('nothing on the gallery scrolls sideways, on a phone or a wide screen', { s
     { width: 390, height: 844, phone: true },
     { width: 1440, height: 900 },
   ]) {
-    await browser.load({ url: GALLERY, ...screen })
-    await browser.animationsDone()
+    await browser.load({ url: GALLERY, ...screen, reduceMotion: true })
     const page = await browser.evaluate<{ scroll: number; view: number }>(
       `({ scroll: document.documentElement.scrollWidth, view: document.documentElement.clientWidth })`,
     )
@@ -124,7 +126,7 @@ test('nothing on the gallery scrolls sideways, on a phone or a wide screen', { s
 })
 
 test('every state of each section shows, each as it should', { skip }, async () => {
-  await browser.load({ url: GALLERY })
+  await browser.load({ url: GALLERY, reduceMotion: true })
   // Each group's states, as their labels, and what each shows.
   const shown = await browser.evaluate<Record<string, { label: string; look: string }[]>>(`(() => {
     const looks = {
@@ -192,7 +194,7 @@ test(
   'the intro and the pull machine show each of their states, one at a time',
   { skip },
   async () => {
-    await browser.load({ url: GALLERY })
+    await browser.load({ url: GALLERY, reduceMotion: true })
     const looks: Record<string, string> = {}
     for (const group of ['intro', 'pull'] as const)
       for (const state of STATES[group]) {
@@ -305,7 +307,7 @@ test(
   'a mood slider is a native range of 5 stops, reads its word by keyboard, and is 44px tall',
   { skip },
   async () => {
-    await browser.load({ url: GALLERY })
+    await browser.load({ url: GALLERY, reduceMotion: true })
     // What the focused element is, if it is a slider.
     const focused = () =>
       browser.evaluate<string>(`(() => {
@@ -364,7 +366,7 @@ test(
   'every mood slider is in the accessibility tree, a slider named by its axis',
   { skip },
   async () => {
-    await browser.load({ url: GALLERY })
+    await browser.load({ url: GALLERY, reduceMotion: true })
     // What a screen reader is handed, from Chrome's accessibility tree, not the page's attributes:
     // something hidden from it, such as by an aria-hidden around it, is ignored there.
     const { root } = await browser.send('DOM.getDocument', { depth: 0 })
@@ -397,7 +399,7 @@ test(
   "each slider's end labels sit at its track's ends, as its stops run, low end on the left",
   { skip },
   async () => {
-    await browser.load({ url: GALLERY })
+    await browser.load({ url: GALLERY, reduceMotion: true })
     // The labels in the order the screen shows them, left to right, whatever the markup's order.
     const ends = await browser.evaluate<string[][]>(
       `[...document.querySelectorAll('[data-group="sliders"] .ab-slider-ends')].map((ends) =>
@@ -446,7 +448,7 @@ test(
   "the slider's thumb rests on a stop dot at each stop, and the dots show where it isn't",
   { skip },
   async () => {
-    await browser.load({ url: GALLERY })
+    await browser.load({ url: GALLERY, reduceMotion: true })
     const box = await energySlider()
     const middle = Math.round(box.height / 2)
     // Where the thumb is at each stop: the middle of its yellow top half, 10px above the track's
@@ -539,7 +541,7 @@ test(
   "a focused slider's ring is brand red on paper and white on the machine's red body",
   { skip },
   async () => {
-    await browser.load({ url: GALLERY })
+    await browser.load({ url: GALLERY, reduceMotion: true })
     await browser.evaluate(`document.getElementById('gal-slider')?.focus(); true`)
     const rings: string[] = []
     // Tab through the three on paper, then the three on the machine.
@@ -564,7 +566,7 @@ test(
   "the gallery's state pickers show a brand red focus ring on the paper, whole",
   { skip },
   async () => {
-    await browser.load({ url: GALLERY })
+    await browser.load({ url: GALLERY, reduceMotion: true })
     // A key pressed first, so that focus given from here shows its ring, as the keyboard's does.
     await browser.press('Tab')
     // Each chip's ring, and whether anything around it cuts the ring off: a box that hides what
