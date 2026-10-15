@@ -78,3 +78,41 @@ test('the production build holds nothing from e2e/, which must stay out of the a
     'these files in the production build were made from e2e/, which must stay out of the app',
   )
 })
+
+// Development-only code: the Phase 2 design prototypes in src/prototype, the component gallery to
+// come in src/gallery, and GSAP's ScrollTrigger, which only the draft scroll prototype used.
+// main.tsx opens the prototypes by address, inside import.meta.env.DEV, which a production build
+// reads as false, so the pages, their files and the address check are all left out. This reads the build for any trace of them: a file made from
+// their folder (a stylesheet of theirs would join the app's own, under its name), a file named like
+// one, the prototypes' switcher label, ScrollTrigger's name, or a check of the address for one.
+// The checks are matched as the calls the minifier writes, .has(`variant`), because React DOM's
+// code holds the word font-variant.
+const DEVELOPMENT_ONLY = {
+  folders: /^src\/(gallery|prototype)\//i,
+  names: /gallery|prototype|variant/i,
+  markers: ['Design prototype switcher', 'ScrollTrigger'],
+  calls: /\.has\(\s*(["'`])(variant|gallery)\1\s*\)/g,
+}
+
+test('the production build holds no development-only code', () => {
+  // So that a reading that misses can't pass, the call pattern must find a check as the minifier
+  // writes it, and must pass over React DOM's word.
+  const shipped = 'new URLSearchParams(location.search).has(`variant`)'
+  assert.equal(shipped.match(DEVELOPMENT_ONLY.calls)?.length, 1, 'the pattern misses a check')
+  assert.equal('font-variant-numeric'.match(DEVELOPMENT_ONLY.calls), null)
+  const traces = output.flatMap((file) => {
+    const text = file.type === 'chunk' ? file.code : Buffer.from(file.source).toString('utf8')
+    return [
+      ...(file.type === 'chunk' ? file.moduleIds : file.originalFileNames)
+        .map(fromWeb)
+        .filter((source) => DEVELOPMENT_ONLY.folders.test(source))
+        .map((source) => `${file.fileName}, made from ${source}`),
+      ...(DEVELOPMENT_ONLY.names.test(file.fileName) ? [`${file.fileName}, by its name`] : []),
+      ...DEVELOPMENT_ONLY.markers
+        .filter((marker) => text.includes(marker))
+        .map((marker) => `${file.fileName}: "${marker}"`),
+      ...[...text.matchAll(DEVELOPMENT_ONLY.calls)].map(([call]) => `${file.fileName}: ${call}`),
+    ]
+  })
+  assert.deepEqual(traces, [], 'the production build holds these traces of development-only code')
+})

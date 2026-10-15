@@ -7,9 +7,12 @@ import { savedMotionChoice } from './lib/motion.ts'
 import { persistOptions, queryClient } from './lib/queryClient.ts'
 
 // Phase 2 design prototypes, opened with ?variant=A|B|C. Development only: in a production
-// build import.meta.env.DEV is false, so this branch and its files are left out entirely.
-const Prototype = import.meta.env.DEV ? lazy(() => import('./prototype/Prototype.tsx')) : null
-const showPrototype = new URLSearchParams(location.search).has('variant')
+// build import.meta.env.DEV is false, so this branch, its files and the check of the address are
+// left out entirely (privacy.test.ts makes sure).
+const Prototype =
+  import.meta.env.DEV && new URLSearchParams(location.search).has('variant')
+    ? lazy(() => import('./prototype/Prototype.tsx'))
+    : null
 
 // A visitor who turned motion off on the site keeps it off on later visits: the saved choice (see
 // lib/motion.ts) puts data-motion="reduce" back on <html> before React draws anything. The page's
@@ -19,7 +22,7 @@ if (savedMotionChoice()) document.documentElement.dataset.motion = 'reduce'
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
-      {Prototype && showPrototype ? (
+      {Prototype ? (
         <Suspense fallback={null}>
           <Prototype />
         </Suspense>
