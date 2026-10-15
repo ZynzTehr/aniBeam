@@ -105,6 +105,8 @@ The components live in `web/src/components`, with their styles in `components.cs
 
 Each title tints its panel, card or capsule with its AniList cover color. `deriveAccent` in `web/src/features/theming` turns that color into two colors. The fill reaches 4.5:1 contrast against ink, and the text color reaches 4.5:1 on the dotted paper. Only lightness and chroma change, so the hue stays the title's own. The tests check 5,832 colors spread across the RGB cube.
 
+Opening a title floods the screen with its color from the panel picked, with speed lines, then the card lands and the title slams in word by word. Closing plays all of that backwards at twice the speed, about 0.8 s for a short title: the part that arrived last leaves first, and the color shrinks back into the panel. The close button floods brand red as its X folds into a back arrow, with a ring of speed lines: on hover, on the way back, and with the keyboard's focus once the card has finished opening. Under reduced motion the card fades in and out over 150 ms, and the button only changes color.
+
 The design prototypes in `web/src/prototype` are for development only. Add `?variant=A`, `B`, `C` or `D` to the dev server's URL to open one. Production builds leave them out.
 
 ### Reduced motion
