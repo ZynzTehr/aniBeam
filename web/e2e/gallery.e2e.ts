@@ -4,8 +4,9 @@
 // backstop, and every request to it is counted.
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
+import { noteFor, searchStatus, statusText } from '../src/app/status.ts'
 import { titleOf } from '../src/features/anime/format.ts'
-import { mediaOf, TITLE_CASES } from '../src/gallery/cases.ts'
+import { mediaOf, STATES, STATUS_CASES, TITLE_CASES } from '../src/gallery/cases.ts'
 import { BASE_URL, Browser } from './browser.ts'
 
 const GALLERY = new URL('?gallery', BASE_URL).href
@@ -101,6 +102,123 @@ test('nothing on the gallery scrolls sideways, on a phone or a wide screen', { s
   }
   assert.deepEqual(wider, [], 'the gallery scrolls sideways')
 })
+
+test('every state of each section shows, each as it should', { skip }, async () => {
+  await browser.load({ url: GALLERY })
+  // Each group's states, as their labels, and what each shows.
+  const shown = await browser.evaluate<Record<string, { label: string; look: string }[]>>(`(() => {
+    const looks = {
+      page: (state) => {
+        const panels = state.querySelectorAll('.ab-grid:not([aria-hidden]) > li')
+        return [
+          panels.length + ' panels',
+          state.querySelectorAll('.ab-skeleton').length + ' empty',
+          state.querySelectorAll('.ab-rank').length + ' ranked',
+          state.querySelector('.ab-retry') ? 'Try again' : 'no Try again',
+          state.querySelector('h2')?.textContent ?? '',
+        ].join(', ')
+      },
+      strip: (state) => [
+        state.querySelectorAll('.ab-strip-row:not([aria-hidden]) > li').length + ' covers',
+        state.querySelectorAll('.ab-strip-row[aria-hidden] > li').length + ' empty',
+        state.querySelector('.ab-strip-grid') ? 'a grid' : 'a row',
+        state.querySelector('.ab-note')?.textContent ?? '',
+      ].join(', '),
+      lines: (state) => [...state.querySelectorAll('dd')].map((dd) => dd.textContent).join(' | '),
+      controls: () => '',
+    }
+    return Object.fromEntries(Object.entries(looks).map(([group, look]) => [
+      group,
+      [...document.querySelectorAll('[data-group="' + group + '"] > [data-case]')].map((state) => ({ label: state.dataset.case, look: look(state) })),
+    ]))
+  })()`)
+  const lines = Object.values(STATUS_CASES).map(({ label, status, rateLimited = false }) => ({
+    label,
+    look: [
+      statusText(status, rateLimited),
+      `Section note: ${noteFor(status, rateLimited) ?? 'none'}`,
+      `Search: ${searchStatus(status, 'frieren', rateLimited)}`,
+    ].join(' | '),
+  }))
+  assert.deepEqual(
+    shown.page,
+    [
+      '0 panels, 9 empty, 0 ranked, no Try again, Trending nowドン!',
+      '0 panels, 0 empty, 0 ranked, Try again, Trending nowドン!',
+      '9 panels, 0 empty, 0 ranked, no Try again, Fan favoritesドン!',
+      '4 panels, 0 empty, 4 ranked, no Try again, Trending nowドン!',
+    ].map((look, i) => ({ label: STATES.page[i], look })),
+    "the trending page's states",
+  )
+  assert.deepEqual(
+    shown.strip,
+    [
+      '17 covers, 0 empty, a row, ',
+      '17 covers, 0 empty, a grid, ',
+      '0 covers, 8 empty, a row, Loading…',
+      '0 covers, 0 empty, a grid, No titles found.',
+    ].map((look, i) => ({ label: STATES.strip[i], look })),
+    "the strip's states",
+  )
+  assert.deepEqual(shown.lines, lines, 'the status lines')
+  assert.deepEqual(
+    shown.controls.map(({ label }) => label),
+    ['Buttons', 'Chips', 'Soon tags', 'Accent swatches'],
+    'the controls',
+  )
+})
+
+test(
+  'the intro and the pull machine show each of their states, one at a time',
+  { skip },
+  async () => {
+    await browser.load({ url: GALLERY })
+    const looks: Record<string, string> = {}
+    for (const group of ['intro', 'pull'] as const)
+      for (const state of STATES[group]) {
+        // Picked as a visitor picks it: a click on its chip.
+        await browser.evaluate(`(() => {
+        const chips = [...document.querySelectorAll('[data-group="${group}"] .gal-pick label')]
+        chips.find((chip) => chip.textContent === ${JSON.stringify(state)})?.querySelector('input').click()
+        return true
+      })()`)
+        looks[`${group}: ${state}`] = await browser.evaluate<string>(`(async () => {
+        const shown = [...document.querySelectorAll('[data-group="${group}"] > [data-case]')]
+        if (shown.length !== 1) return shown.length + ' states shown'
+        const [state] = shown
+        // Each cover's onError marks it broken as its load fails.
+        await Promise.all([...state.querySelectorAll('img')].map((img) => img.complete || new Promise((done) => {
+          img.addEventListener('load', done, { once: true })
+          img.addEventListener('error', done, { once: true })
+        })))
+        return [state.dataset.case, ${
+          group === 'intro'
+            ? `state.querySelectorAll('.ab-intro-cover').length + ' covers', state.querySelectorAll('.ab-intro-cover img[data-broken]').length + ' broken', state.querySelector('.ab-intro-art.is-loading') ? 'loading' : 'not loading'`
+            : `state.querySelector('.ab-lever').disabled ? 'lever off' : 'lever on', state.querySelectorAll('.ab-capsule').length + ' capsules', state.querySelector('.ab-hint')?.textContent.split('.')[0] ?? ''`
+        }].join(', ')
+      })()`)
+        // A pull here must not carry over to the next state, which starts afresh.
+        if (state === 'The samples')
+          await browser.evaluate(`document.querySelector('[data-group="pull"] .ab-lever').click()`)
+      }
+    assert.deepEqual(
+      looks,
+      {
+        'intro: 3 covers': '3 covers, 3 covers, 0 broken, not loading',
+        'intro: Covers with gaps': 'Covers with gaps, 3 covers, 1 broken, not loading',
+        'intro: Loading': 'Loading, 0 covers, 0 broken, loading',
+        'intro: No covers': 'No covers, 0 covers, 0 broken, not loading',
+        'pull: Nothing to pull yet':
+          'Nothing to pull yet, lever off, 0 capsules, The machine fills up with titles once AniList answers',
+        'pull: Nothing it may hand out (all Ecchi)':
+          'Nothing it may hand out (all Ecchi), lever off, 0 capsules, None of the titles on this page can come out of the machine',
+        'pull: The samples': 'The samples, lever on, 9 capsules, Pick a vibe, then pull',
+        'pull: The title cases': 'The title cases, lever on, 9 capsules, Pick a vibe, then pull',
+      },
+      "the intro's and the pull machine's states",
+    )
+  },
+)
 
 // Last, so it covers every check above.
 test(

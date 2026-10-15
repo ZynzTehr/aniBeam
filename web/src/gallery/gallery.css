@@ -4,11 +4,13 @@
  * index.css keeps this folder out of what Tailwind reads, so nothing here reaches the production
  * stylesheet. Every class starts with gal-.
  */
-/* The page and each part are one column as wide as the screen: a grid column grows to fit what it
-   holds unless told otherwise, and a strip's row of covers, which scrolls sideways on its own, would
-   stretch the whole page. */
+/* The page, each part, each group of states and each state are one column as wide as the screen:
+   a grid column grows to fit what it holds unless told otherwise, and a strip's row of covers,
+   which scrolls sideways on its own, would stretch the whole page. */
 .gal,
-.gal-part {
+.gal-part,
+.gal-group,
+.gal-case {
   grid-template-columns: minmax(0, 1fr);
 }
 
@@ -21,7 +23,12 @@
 .gal-head,
 .gal-title,
 .gal-note,
-.gal-cases {
+.gal-cases,
+.gal-case > figcaption,
+.gal-pick,
+.gal-lines,
+.gal-row,
+.gal-swatches {
   margin-inline: var(--page-x);
 }
 
@@ -68,4 +75,110 @@
 
 .gal-cases b {
   font-weight: 800;
+}
+
+.gal-group {
+  display: grid;
+  gap: 24px;
+}
+
+/* A case or state: its label as an ink tag, then the component, which brings its own padding. */
+.gal-case {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.gal-case > figcaption {
+  justify-self: start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.gal-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+}
+
+.gal-pick legend {
+  margin-bottom: 6px;
+  font-weight: 800;
+}
+
+.gal-lines {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 12px;
+}
+
+.gal-lines > div {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  padding: 12px;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  background: #fff;
+  font-size: 14px;
+}
+
+.gal-lines dt {
+  font-weight: 800;
+}
+
+.gal-lines dd {
+  margin: 0;
+}
+
+.gal-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.gal-swatches {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.gal-swatches li {
+  display: grid;
+  overflow: hidden;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.gal-swatches span,
+.gal-swatches code {
+  padding: 8px 10px;
+}
+
+/* A title's accent fill under ink text, then its text color on paper. */
+.gal-fill {
+  background: var(--anime-accent);
+  color: var(--ink);
+}
+
+.gal-ink {
+  background: var(--paper);
+  color: var(--anime-accent-text);
+}
+
+.gal-swatches code {
+  border-top: 3px solid var(--ink);
+  background: #fff;
+  font-size: 12px;
 }

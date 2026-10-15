@@ -2,8 +2,10 @@
 // (samples.ts), so it needs no request, and changes only the fields it names, to a gap a real
 // AniList title has. AniList leaves many fields empty, and the samples, all well-loved titles,
 // have almost none of those gaps.
-import { SAMPLES } from '../features/anime/samples.ts'
+import type { QueryStatus } from '../app/status.ts'
 import type { Media } from '../features/anime/queries.ts'
+import { SAMPLES } from '../features/anime/samples.ts'
+import { AniListError } from '../lib/anilist.ts'
 
 export type TitleCase = {
   /** What the case shows, as the gallery labels it. */
@@ -121,3 +123,86 @@ export const ECCHI_POOL: Media[] = SAMPLES.slice(0, 9).map((media) => ({
   ...media,
   genres: [...media.genres, 'Ecchi'],
 }))
+
+/**
+ * Every state a section can be in, as the gallery labels them. The intro and the pull machine can
+ * be on a page only once, so the gallery shows their states one at a time.
+ */
+export const STATES = {
+  page: ['Loading', 'Failed, with Try again', 'Fan favorites, the samples', 'Only 4 titles'],
+  strip: ['A row', 'A grid, as search results are', 'Loading', 'No titles found'],
+  intro: ['3 covers', 'Covers with gaps', 'Loading', 'No covers'],
+  pull: [
+    'Nothing to pull yet',
+    'Nothing it may hand out (all Ecchi)',
+    'The samples',
+    'The title cases',
+  ],
+} as const
+
+export type State<Section extends keyof typeof STATES> = (typeof STATES)[Section][number]
+
+export type StatusCase = { label: string; status: QueryStatus; rateLimited?: boolean }
+
+// A list's status with nothing happening, which each case below changes.
+const IDLE: QueryStatus = {
+  data: undefined,
+  error: null,
+  failureReason: null,
+  isFetching: false,
+  isPaused: false,
+  isPlaceholderData: false,
+  dataUpdatedAt: 0,
+}
+const TITLES = SAMPLES.slice(0, 20)
+const FETCHED = new Date(2026, 9, 15, 9, 30).getTime()
+const UNREACHABLE = new TypeError('Failed to fetch')
+
+// Each case typed as a StatusCase, under its own name.
+const statusCases = <Name extends string>(cases: Record<Name, StatusCase>) => cases
+
+/** A list's status in every situation statusText words differently (see app/status.ts). */
+export const STATUS_CASES = statusCases({
+  offline: { label: 'Offline', status: { ...IDLE, isPaused: true } },
+  busy: {
+    label: 'AniList busy (429), trying again',
+    status: {
+      ...IDLE,
+      isFetching: true,
+      failureReason: new AniListError('Too many requests', 429),
+    },
+  },
+  unreachable: {
+    label: 'No answer, trying again',
+    status: { ...IDLE, isFetching: true, failureReason: UNREACHABLE },
+  },
+  held: {
+    label: 'Holding back for the rate limit',
+    status: { ...IDLE, isFetching: true },
+    rateLimited: true,
+  },
+  problem: {
+    label: 'A server error, trying again',
+    status: { ...IDLE, isFetching: true, failureReason: new AniListError('Server error', 500) },
+  },
+  retrying: {
+    label: 'Try again, after a failure',
+    status: { ...IDLE, isFetching: true, error: UNREACHABLE },
+  },
+  loading: { label: 'First load', status: IDLE },
+  placeholder: {
+    label: 'The last list, while the next loads',
+    status: { ...IDLE, data: TITLES, isPlaceholderData: true },
+  },
+  failed: { label: 'Failed, no titles', status: { ...IDLE, error: UNREACHABLE } },
+  stale: {
+    label: 'A refresh failed, titles kept',
+    status: { ...IDLE, data: TITLES, error: UNREACHABLE, dataUpdatedAt: FETCHED },
+  },
+  empty: { label: 'No titles', status: { ...IDLE, data: [], dataUpdatedAt: FETCHED } },
+  titles: { label: '20 titles', status: { ...IDLE, data: TITLES, dataUpdatedAt: FETCHED } },
+  refreshing: {
+    label: '20 titles, refreshing',
+    status: { ...IDLE, data: TITLES, isFetching: true, dataUpdatedAt: FETCHED },
+  },
+})
