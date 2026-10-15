@@ -3439,6 +3439,52 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     assert.ok(await browser.titlesShown())
   })
 
+  test('the mouse just outside the close button neither turns it red nor reaches it: its hidden speed lines catch nothing', async () => {
+    // The ring of speed lines reaches 16px around the button, hidden until it flashes out. Hidden,
+    // it must let the pointer through: catching it, 8px outside the button turned it red, and a
+    // click there closed the card. Under reduced motion the ring sits at its full size, where
+    // with motion allowed it rests shrunk.
+    let seen: object = {}
+    try {
+      await browser.evaluate(`(async () => {
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.scrollIntoView({ block: 'center' })
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        return true
+      })()`)
+      await clickMiddle('window.__opener')
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+        'the title card did not open',
+      )
+      await cardInFull()
+      const at = await browser.evaluate<{ x: number; y: number }>(`(() => {
+        const r = document.querySelector('dialog.ab-card .ab-close').getBoundingClientRect()
+        return { x: r.left - 8, y: r.top + r.height / 2 }
+      })()`)
+      await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
+      await sleep(700)
+      const { fill, drawnIn } = await browser.evaluate<{ fill: string; drawnIn: string }>(
+        closeButton,
+      )
+      seen = {
+        fill,
+        drawnIn,
+        under: await browser.evaluate<string>(
+          `document.elementFromPoint(${at.x}, ${at.y})?.closest('.ab-close') ? 'the close button' : 'something else'`,
+        ),
+      }
+    } finally {
+      await hoverClose(false)
+      await closeCardLeft()
+    }
+    assert.deepEqual(seen, {
+      fill: 'rgb(255, 255, 255)',
+      drawnIn: 'rgb(20, 20, 20)',
+      under: 'something else',
+    })
+  })
+
   test('a title card opened from the keyboard turns its focused close button red once it has faded in, its X white and still', async () => {
     // As with motion allowed, the focus look waits for the card to finish opening, here its fade,
     // and is only a change of color.
