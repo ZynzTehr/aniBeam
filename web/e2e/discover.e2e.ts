@@ -3142,13 +3142,20 @@ const watchSecondRequest = `(() => {
 })()`
 
 /**
- * The open title card's close button as it looks: its fill, ring of speed lines (shown or not), and
- * its icon, by the color it is drawn in and its shape. The icon is drawn with bars; the shape reads
+ * The open title card's close button as it looks: its fill, ring of speed lines (shown, hidden or
+ * something else), and its icon, by the color it is drawn in and its shape. The icon is drawn with bars; the shape reads
  * their boxes against the icon's middle: an X is two crossed bars, square-ish, on the middle; an
  * arrow pointing left is a long flat bar (its shaft) on the middle and two short ones (its head)
  * to the left of it, one above and one below.
  */
 const closeButton = `(() => {
+  // The ring: shown, as brand-red speed lines, fully opaque; hidden, see-through or with nothing
+  // to draw; or something else, as another color would be.
+  const speedLines = (ring) => {
+    if (ring.content === 'none' || ring.opacity === '0') return 'hidden'
+    if (ring.opacity === '1' && ring.backgroundImage.startsWith('repeating-conic-gradient(rgb(255, 45, 85)')) return 'shown'
+    return 'something else: ' + ring.backgroundImage.slice(0, 40) + ', opacity ' + ring.opacity
+  }
   const button = document.querySelector('dialog.ab-card .ab-close')
   const icon = button.querySelector('.ab-x')
   const style = getComputedStyle(button)
@@ -3169,7 +3176,7 @@ const closeButton = `(() => {
     edge: style.borderTopColor,
     icon: shape,
     drawnIn: icon ? getComputedStyle(icon).color : getComputedStyle(button.querySelector('svg')).stroke,
-    speedLines: getComputedStyle(button, '::before').opacity === '1' ? 'shown' : 'hidden',
+    speedLines: speedLines(getComputedStyle(button, '::before')),
   }
 })()`
 
