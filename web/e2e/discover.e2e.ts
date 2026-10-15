@@ -2421,6 +2421,43 @@ describe('desktop (1440x900)', () => {
     }
   })
 
+  test('with motion allowed, a title card whose opening is cut short by reduced motion still counts as opened, and its focused close button turns red', async () => {
+    // Reduced motion asked for mid-opening closes the motion gate, which cancels the opening's
+    // animations: they end without finishing. The card must count as opened all the same, so the
+    // keyboard's focus look (a change of color, under reduced motion) arrives, and nothing may
+    // reach the console. The opening is held as it starts, so it is cut short however fast the
+    // machine.
+    const before = browser.problems.length
+    try {
+      await browser.evaluate(`(() => {
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.focus()
+        return true
+      })()`)
+      await browser.press('Enter')
+      await browser.evaluate(
+        `document.querySelector('dialog.ab-card').getAnimations({ subtree: true }).filter((a) => a instanceof CSSAnimation).forEach((a) => a.pause()); true`,
+      )
+      await sleep(100)
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+      })
+      await sleep(700)
+      const { fill, drawnIn } = await browser.evaluate<{ fill: string; drawnIn: string }>(
+        closeButton,
+      )
+      assert.deepEqual(
+        { fill, drawnIn, problems: browser.problems.slice(before) },
+        { fill: 'rgb(255, 45, 85)', drawnIn: 'rgb(255, 255, 255)', problems: [] },
+      )
+    } finally {
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }],
+      })
+      await closeCardLeft()
+    }
+  })
+
   test('every trending panel shows a brand-hot focus ring when tabbed to', async () => {
     // A panel's ring is its link's outline: 4px of brand hot, 3px out. Panels 4 and 5 share the
     // diagonal cut, whose clip-paths cut that ring away, so tabbing to them showed nothing; their
