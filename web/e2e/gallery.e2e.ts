@@ -68,6 +68,7 @@ test(
       small: string
       wide: string
       banner: boolean
+      splash: boolean
     }>(`(() => {
     const panels = [...document.querySelectorAll('[aria-labelledby="gal-panels"] .ab-grid > li')]
     const strip = [...document.querySelectorAll('[aria-labelledby="gal-strip"] .ab-strip-item')]
@@ -81,6 +82,7 @@ test(
       small: panels[at('The small 230px cover')]?.querySelector('img')?.getAttribute('src') ?? '',
       wide: strip[at('A wide cover')]?.querySelector('img')?.getAttribute('src') ?? '',
       banner: Boolean(panels[at('No banner')]?.querySelector('source')),
+      splash: panels.findIndex((panel) => panel.classList.contains('ab-splash')) === at('No banner'),
     }
   })()`)
     const titles = TITLE_CASES.map((edge) => titleOf(mediaOf(edge)))
@@ -98,6 +100,8 @@ test(
     )
     assert.match(shown.small, /\/cover\/medium\//, 'the small cover case shows a big cover')
     assert.match(shown.wide, /\/10743\.jpg$/, 'the wide cover case shows another cover')
+    // Only the splash panel shows a banner, so the case is seen only there.
+    assert.equal(shown.splash, true, 'the no-banner case is not on the splash panel')
     assert.equal(shown.banner, false, 'the splash panel offers a banner it has not got')
   },
 )
