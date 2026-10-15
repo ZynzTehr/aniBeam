@@ -1151,11 +1151,28 @@ body:has(.ab-card[open]) {
   background: none;
 }
 
-.ab-card:focus-visible,
 .ab-close:focus-visible,
 .ab-btn:focus-visible {
   outline: 4px solid var(--hot);
   outline-offset: 3px;
+}
+
+/* Taller than the screen, the card scrolls, and Chrome makes it a Tab stop of its own. Its edge is
+   the screen's, so an outline would fall off it, and drawn inside, the wipe and the sheet would
+   cover it. So its ring is a frame laid over all of it, fixed to the screen's edge while the card
+   scrolls: in ink, which the title's color always meets at 4.5:1 or better (see deriveAccent), as
+   brand hot might not. */
+.ab-card:focus-visible {
+  outline: none;
+}
+
+.ab-card:focus-visible::after {
+  position: fixed;
+  z-index: 2;
+  border: 4px solid var(--ink);
+  content: '';
+  inset: 0;
+  pointer-events: none;
 }
 
 /* The title's color floods the screen with speed lines, like an anime impact frame. */

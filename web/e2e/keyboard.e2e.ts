@@ -87,3 +87,87 @@ test('from 900px, focus never lands under the sticky header, going back with Shi
   }
   assert.deepEqual(seen, [], 'focus under the sticky header')
 })
+
+test('a title card taller than the screen shows its focus ring, inside its edge, as Tab reaches it', async () => {
+  // Taller than the screen, the card scrolls, and Chrome makes it a Tab stop of its own. Its ring
+  // must show on the screen: inside its edge, which is the screen's, on the title's color.
+  const seen: string[] = []
+  for (const screen of [
+    { width: 390, height: 844, phone: true },
+    { width: 1280, height: 600 },
+  ]) {
+    await browser.load({ ...screen, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').focus(); true`)
+    await browser.press('Enter')
+    assert.ok(await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 5000))
+    await browser.animationsDone()
+    let card = false
+    for (let stop = 0; stop < 10 && !card; stop++) {
+      await browser.press('Tab')
+      card = await browser.evaluate<boolean>(`document.activeElement?.matches('dialog.ab-card')`)
+    }
+    if (!card) {
+      seen.push(`${screen.width}px: Tab never reached the card itself`)
+      await browser.press('Escape')
+      continue
+    }
+    // The card's left edge as the screen shows it, with its ring, then with focus taken off it and
+    // all else as it was (focus moved on to Close would scroll the card, and the speed lines):
+    // the ring must change the edge from top to bottom, at 3:1 or better against what is there
+    // without it (the title's color, and the speed lines' white). The clip is in the page's
+    // pixels, so it adds the page's scroll.
+    const edge = async () => {
+      const scrolled = await browser.evaluate<{ x: number; y: number }>(
+        `({ x: scrollX, y: scrollY })`,
+      )
+      return screenPixels({ x: scrolled.x, y: scrolled.y, width: 8, height: screen.height })
+    }
+    // Scrolled by the keyboard, as it is a Tab stop for that: the ring stays on the screen's edge.
+    await browser.press('End')
+    await browser.evaluate(
+      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+    )
+    const focused = await edge()
+    const ring = await browser.evaluate<string>(
+      `(() => { const style = getComputedStyle(document.activeElement); return style.outlineStyle + ' ' + style.outlineWidth + ' ' + style.outlineColor + ', offset ' + style.outlineOffset })()`,
+    )
+    await browser.evaluate(`document.activeElement.blur(); true`)
+    const unfocused = await edge()
+    const at = ({ width, rgb }: { width: number; rgb: number[] }, x: number, y: number) =>
+      rgb.slice((y * width + x) * 3, (y * width + x) * 3 + 3)
+    const rows = Array.from({ length: screen.height }, (_, y) =>
+      contrast(at(focused, 1, y), at(unfocused, 1, y)),
+    )
+    const shown = rows.filter((ratio) => ratio >= 3).length / rows.length
+    if (shown < 0.95)
+      seen.push(
+        `${screen.width}px: ring ${ring}, at 3:1 on ${Math.round(shown * 100)}% of the card's edge`,
+      )
+    await browser.press('Escape')
+  }
+  assert.deepEqual(seen, [], 'the focused card shows no ring on the screen')
+})
+
+/** The pixels of part of the page as the screen shows it, as red, green and blue for each pixel. */
+async function screenPixels(clip: { x: number; y: number; width: number; height: number }) {
+  const png = await browser.screenshot(clip)
+  return browser.evaluate<{ width: number; rgb: number[] }>(`(async () => {
+    const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+    const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+    const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+    context.drawImage(image, 0, 0)
+    const { data } = context.getImageData(0, 0, image.width, image.height)
+    return { width: image.width, rgb: [...data].filter((_, i) => i % 4 !== 3) }
+  })()`)
+}
+
+/** WCAG's contrast between two colors given as red, green and blue from 0 to 255. */
+function contrast(a: number[], b: number[]) {
+  const luminance = (rgb: number[]) =>
+    rgb
+      .map((v) => (v / 255 <= 0.04045 ? v / 255 / 12.92 : ((v / 255 + 0.055) / 1.055) ** 2.4))
+      .reduce((sum, v, k) => sum + v * [0.2126, 0.7152, 0.0722][k], 0)
+  const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p)
+  return (x + 0.05) / (y + 0.05)
+}
