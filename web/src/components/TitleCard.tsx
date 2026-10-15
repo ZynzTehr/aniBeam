@@ -94,10 +94,13 @@ export function TitleCard({
   }, [leaving])
 
   // With motion allowed, closing plays the way back. Before the card has landed, its opening is
-  // turned around where it is, at twice its speed, rather than snapping open to play the whole
-  // way back, and the dialog closes as it gets back to its start (or at once, with nothing to
-  // turn around). Animations cut short then, as reduced motion asked for mid-way would, count as
-  // back too.
+  // turned around where it is instead, at twice its speed, rather than snapping open to play the
+  // whole way back, and the dialog closes as it gets back to its start. Every part started
+  // together, so they all go back from one moment, how far the longest still running had got: a
+  // part that had already finished rests at its own end, and waits there until the way back
+  // reaches it. With nothing played yet, it closes at once; with everything played (landed, as
+  // React hasn't drawn yet), the way back plays. Animations cut short meanwhile, as reduced motion
+  // asked for mid-way would, count as back too.
   function leave() {
     const card = ref.current
     if (!card) return
@@ -110,11 +113,14 @@ export function TitleCard({
           animation.timeline === document.timeline &&
           animation.effect?.getComputedTiming().endTime !== Infinity,
       )
-    if (opening.length === 0) return card.close()
+    const reached = Math.max(0, ...opening.map((animation) => Number(animation.currentTime ?? 0)))
+    if (reached === 0) return card.close()
+    if (opening.every((animation) => animation.playState === 'finished')) return setLeaving(true)
     turning.current = true
+    const now = Number(document.timeline.currentTime)
     for (const animation of opening) {
-      animation.updatePlaybackRate(-2)
-      animation.play()
+      animation.playbackRate = -2
+      animation.startTime = now + reached / 2
     }
     void Promise.allSettled(opening.map((animation) => animation.finished)).then(() => card.close())
   }

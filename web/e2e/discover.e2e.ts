@@ -2374,6 +2374,138 @@ describe('desktop (1440x900)', () => {
     }
   })
 
+  test('with motion allowed, a title card closed late in its opening turns around in the opening’s own order, with no pause, and one closed at once never opens', async () => {
+    // Every part of the opening started together, so turning it around must take each part back
+    // from the same moment: one that had finished waits at its end until the way back reaches it.
+    // Started back from its own end instead, the wipe shrank from under a sheet still showing in
+    // full, and the card then sat still for up to 0.6 s. Here the opening runs on its own to about
+    // 1.2 s before Esc, when the wipe and the sheet have landed and the native title has not. Frame
+    // by frame until the card closes (the moment it loses [open]), the wipe must stay full until
+    // the way back reaches the moment it finished arriving (half of 1.2 s less its 0.55 s), and
+    // never grow, and the sheet must never come back; the card closes about half the opening's
+    // time after Esc, with the sheet and every word gone in its last frame. And Esc pressed with Enter, before the opening has drawn a frame, closes it at once,
+    // never drawing it open.
+    const before = browser.problems.length
+    const sampler = `(() => {
+      // Each frame while a card is open: how much of the screen the wipe leaves uncovered (its
+      // clip's insets added up; Chrome writes tiny ones as 1.2e-05px), the sheet's opacity, and
+      // the most any word of the title shows.
+      window.__frames = []
+      window.__closedIn = null
+      const number = /-?[\\d.]+(?:e-?\\d+)?/gi
+      let card = null, escAt = null
+      addEventListener('keydown', (event) => { if (event.key === 'Escape') escAt ??= performance.now() }, { capture: true })
+      requestAnimationFrame(function look() {
+        card ??= document.querySelector('dialog.ab-card')
+        if (card?.open) window.__frames.push({
+          uncovered: (getComputedStyle(card.querySelector('.ab-wipe')).clipPath.match(number) ?? ['0']).map(Number).reduce((a, b) => a + Math.abs(b), 0),
+          sheet: Number(getComputedStyle(card.querySelector('.ab-sheet')).opacity),
+          words: Math.max(...[...card.querySelectorAll('.ab-title span')].map((el) => Number(getComputedStyle(el).opacity))),
+          at: escAt === null ? null : performance.now() - escAt,
+        })
+        if (card && !card.open) { if (escAt !== null) window.__closedIn ??= performance.now() - escAt; return }
+        requestAnimationFrame(look)
+      })
+      return true
+    })()`
+    const open = async () => {
+      await browser.evaluate(`(() => {
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.focus()
+        return true
+      })()`)
+      await browser.evaluate(sampler)
+      await browser.press('Enter')
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5_000),
+        'the title card did not open',
+      )
+    }
+    const seen: Record<string, object> = {}
+    try {
+      // Late in the opening.
+      await open()
+      const { reached, wipeEnd } = await browser.evaluate<{
+        reached: number
+        wipeEnd: number
+      }>(`new Promise((resolve) => {
+        const wipe = document.querySelector('dialog.ab-card .ab-wipe').getAnimations()[0]
+        const { delay, duration } = wipe.effect.getTiming()
+        // Its start is unset until its first frame: until then, the clock less nothing would read
+        // as the page's whole age.
+        requestAnimationFrame(function wait() {
+          const t = wipe.startTime === null ? 0 : document.timeline.currentTime - wipe.startTime
+          if (t >= 1200) resolve({ reached: t, wipeEnd: delay + duration })
+          else requestAnimationFrame(wait)
+        })
+      })`)
+      await browser.press('Escape')
+      assert.ok(
+        await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000),
+        'the title card did not close',
+      )
+      const late = await browser.evaluate<{
+        frames: { uncovered: number; sheet: number; words: number; at: number }[]
+        closedIn: number
+      }>(`({ frames: window.__frames.filter((f) => f.at !== null), closedIn: window.__closedIn })`)
+      // When the way back reaches the moment the wipe finished arriving; a frame early, to spare.
+      const wipeBack = (reached - wipeEnd) / 2 - 20
+      const off: string[] = []
+      late.frames.forEach((f, k) => {
+        const prior = late.frames[k - 1]
+        if (f.at < wipeBack && f.uncovered >= 1)
+          off.push(
+            `frame ${k}, ${Math.round(f.at)} ms after Esc: the wipe shrank before the way back reached it`,
+          )
+        if (prior && f.uncovered < prior.uncovered - 1) off.push(`frame ${k}: the wipe grew`)
+        if (prior && f.sheet > prior.sheet + 0.01) off.push(`frame ${k}: the sheet came back`)
+      })
+      const last = late.frames.at(-1)
+      if (!last || last.sheet > 0.01 || last.words > 0.01)
+        off.push(`last frame: sheet ${last?.sheet}, words ${last?.words}`)
+      // About half the 1.2 s reached, give or take a few frames; up to 0.6 s longer, it sat still.
+      if (late.closedIn < reached / 2 - 50 || late.closedIn > reached / 2 + 120)
+        off.push(
+          `closed ${Math.round(late.closedIn)} ms after Esc, not about ${Math.round(reached / 2)} ms`,
+        )
+      seen.late = { off, focus: await browser.evaluate<string>(focusPlace) }
+      await closeCardLeft()
+
+      // At once: Esc pressed with Enter.
+      await browser.evaluate(`(() => {
+        window.__opener = document.querySelector('.ab-grid .ab-link')
+        window.__opener.focus()
+        return true
+      })()`)
+      await browser.evaluate(sampler)
+      await browser.press('Enter')
+      await browser.press('Escape')
+      assert.ok(
+        await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000),
+        'the title card did not close',
+      )
+      const atOnce = await browser.evaluate<{
+        frames: { uncovered: number; sheet: number; words: number }[]
+        closedIn: number
+      }>(`({ frames: window.__frames, closedIn: window.__closedIn })`)
+      seen.atOnce = {
+        drawnOpen: atOnce.frames.some((f) => f.uncovered < 1 || f.sheet > 0 || f.words > 0),
+        quick: atOnce.closedIn !== null && atOnce.closedIn < 100,
+        focus: await browser.evaluate<string>(focusPlace),
+      }
+    } finally {
+      await closeCardLeft()
+    }
+    assert.deepEqual(
+      { ...seen, problems: browser.problems.slice(before) },
+      {
+        late: { off: [], focus: 'back on its panel' },
+        atOnce: { drawnOpen: false, quick: true, focus: 'back on its panel' },
+        problems: [],
+      },
+    )
+  })
+
   test('with motion allowed, a title card whose opening is cut short by reduced motion still counts as opened, and its focused close button turns red', async () => {
     // Reduced motion asked for mid-opening closes the motion gate, which cancels the opening's
     // animations: they end without finishing. The card must count as opened all the same, so the
