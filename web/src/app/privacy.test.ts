@@ -326,7 +326,7 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 
 // The bundle's weight, as each PR reports it: every file brotli-compressed at quality 11. Each part
 // must stay within its budget, its size rounded up to the next 500 bytes (on 2026-10-15: the JS
-// every visit loads, 78,154 B; the CSS, 8,291 B, once Tailwind read only the files that ship; the
+// every visit loads, 78,154 B; the CSS, 8,291 B, once Tailwind read only the app's own code; the
 // JS loaded only when needed, the samples for when AniList can't be reached, 3,337 B; and every
 // other file the build makes, index.html and any a module imports, such as an image, 342 B). A
 // change that needs more raises its number here and says why. The fonts in web/public are copied

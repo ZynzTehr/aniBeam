@@ -1,7 +1,8 @@
 // The development-only component gallery, at ?gallery (see src/gallery/Gallery.tsx). Only the
 // dev server has it, so these checks skip unless BASE_URL is the dev server: it alone serves
-// Vite's client script. The gallery asks AniList for nothing, so AniList is blocked here as a
-// backstop, and every request to it is counted.
+// Vite's client script. The gallery asks AniList's API for nothing (its covers come from AniList's
+// image server, as the app's do), so the API is blocked here as a backstop, and every request to
+// it is counted.
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { noteFor, searchStatus, statusText } from '../src/app/status.ts'
@@ -451,11 +452,10 @@ test(
     await browser.load({ url: GALLERY, reduceMotion: true })
     const box = await energySlider()
     const middle = Math.round(box.height / 2)
-    // Where the thumb is at each stop: the middle of its yellow top half, 10px above the track's
-    // middle, read off the screen.
     await browser.press('Home')
-    // And how high: its top half is yellow and its bottom half white, so its middle is where the
-    // yellow ends, down the column through its middle.
+    // Where the thumb is at each stop: the middle of its yellow top half, 10px above the track's
+    // middle, read off the screen. And how high: its top half is yellow and its bottom half white,
+    // so its middle is where the yellow ends, down the column through its middle.
     const centers: number[] = []
     const heights: number[] = []
     for (let stop = 0; stop < 5; stop++) {

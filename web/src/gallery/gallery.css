@@ -179,7 +179,7 @@
   padding: 8px 10px;
 }
 
-/* A title's accent fill under ink text, then its text color on paper. */
+/* A title's accent fill under ink text, then its text color on the page. */
 .gal-fill {
   background: var(--anime-accent);
   color: var(--ink);
