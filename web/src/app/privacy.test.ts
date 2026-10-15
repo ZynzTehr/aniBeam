@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { readdirSync, readFileSync } from 'node:fs'
-import { join, relative, resolve } from 'node:path'
+import { dirname, join, matchesGlob, relative, resolve } from 'node:path'
 import { before, test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { brotliCompressSync, constants } from 'node:zlib'
@@ -105,9 +105,9 @@ const DEVELOPMENT_ONLY = {
 // Comments, strings and url()s go first, as they can hold a dot (an SVG's www.w3.org, say), and
 // only the text before each block's brace is read.
 const classesIn = (css: string) => {
-  const code = css
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/url\([^)]*\)|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '')
+  // In one pass, so that a comment's mark inside a string, or a string's inside a comment, is read
+  // as part of what holds it.
+  const code = css.replace(/\/\*[\s\S]*?\*\/|url\([^)]*\)|"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '')
   const selectors = [...code.matchAll(/([^{};]*)\{/g)].map(([, selector]) => selector)
   return new Set(
     selectors.flatMap((selector) =>
@@ -224,6 +224,25 @@ test("the production stylesheet is made from the app's own code, not its tests o
       .map(([utility, file]) => `.${utility}, named in ${file}`),
     [],
     "the production stylesheet has rules for words found only in files Tailwind mustn't read",
+  )
+})
+
+// No test is a .tsx file yet, so none can hold a canary for that half of index.css's skipped tests.
+// So its @source not lines are read as Tailwind reads them, outside comments, from the stylesheet's
+// own folder, and must skip a test of either kind anywhere in src.
+test('Tailwind skips every test in src, .ts and .tsx alike', () => {
+  const stylesheet = join(web, 'src/styles/index.css')
+  const skipped = [
+    ...readFileSync(stylesheet, 'utf8')
+      // Comments go, strings stay, in one pass: '../**/*.test.ts' holds a /**/ of its own.
+      .replace(/\/\*[\s\S]*?\*\/|("[^"]*"|'[^']*')/g, (_, string?: string) => string ?? '')
+      .matchAll(/@source\s+not\s+(["'])(.+?)\1/g),
+  ].map(([, , glob]) => fromWeb(resolve(dirname(stylesheet), glob)))
+  const tests = ['src/app/a.test.ts', 'src/features/mood/a.test.tsx', 'src/b.test.tsx']
+  assert.deepEqual(
+    tests.filter((test) => !skipped.some((glob) => matchesGlob(test, glob))),
+    [],
+    `Tailwind reads these tests: index.css skips only ${skipped.join(', ')}`,
   )
 })
 
