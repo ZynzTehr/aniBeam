@@ -111,9 +111,13 @@
 }
 
 /* The chips' own focus ring is the machine's, white on its red body, which on the paper would
-   vanish (about 1.1:1): here it is brand red, as the decade chips' is. */
-.gal-pick .ab-chip input:focus-visible + span {
-  outline-color: var(--hot);
+   vanish (about 1.1:1): here it is brand red, as the decade chips' is. Not in a contrast theme,
+   where the chips take the theme's own (see components.css): this rule, outside the layers, would
+   beat it. */
+@media not (forced-colors: active) {
+  .gal-pick .ab-chip input:focus-visible + span {
+    outline-color: var(--hot);
+  }
 }
 
 .gal-pick legend {

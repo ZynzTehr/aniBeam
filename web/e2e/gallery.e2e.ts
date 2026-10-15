@@ -560,23 +560,68 @@ test(
   },
 )
 
-test("the gallery's state pickers show a brand red focus ring on the paper", { skip }, async () => {
-  await browser.load({ url: GALLERY })
-  // A key pressed first, so that focus given from here shows its ring, as the keyboard's does.
-  await browser.press('Tab')
-  const rings = await browser.evaluate<
-    string[]
-  >(`[...document.querySelectorAll('.gal-pick input')].map((input) => {
+test(
+  "the gallery's state pickers show a brand red focus ring on the paper, whole",
+  { skip },
+  async () => {
+    await browser.load({ url: GALLERY })
+    // A key pressed first, so that focus given from here shows its ring, as the keyboard's does.
+    await browser.press('Tab')
+    // Each chip's ring, and whether anything around it cuts the ring off: a box that hides what
+    // overflows it must hold the whole ring, its width and its offset out from the chip.
+    const ring = (chip: string) => `(() => {
+    const input = ${chip}
     input.focus()
-    const ring = getComputedStyle(input.nextElementSibling)
-    return input.matches(':focus-visible') ? ring.outlineStyle + ' ' + ring.outlineColor : 'no focus ring'
-  })`)
-  assert.deepEqual(
-    rings,
-    rings.map(() => 'solid rgb(255, 45, 85)'),
-    "the pickers' focus rings (white, the machine's ring, vanishes into the paper)",
-  )
-})
+    const label = input.nextElementSibling, style = getComputedStyle(label)
+    if (!input.matches(':focus-visible')) return 'no focus ring'
+    const reach = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset)
+    const box = label.getBoundingClientRect()
+    let cut = ''
+    for (let around = label.parentElement; around && around !== document.body; around = around.parentElement) {
+      const { overflowX, overflowY } = getComputedStyle(around)
+      if (overflowX === 'visible' && overflowY === 'visible') continue
+      const room = around.getBoundingClientRect()
+      if (box.left - reach < room.left || box.right + reach > room.right || box.top - reach < room.top || box.bottom + reach > room.bottom)
+        cut = ', cut off by ' + around.tagName.toLowerCase() + '.' + around.className
+    }
+    return style.outlineStyle + ' ' + style.outlineWidth + ' ' + style.outlineColor + cut
+  })()`
+    const rings: string[] = []
+    const chips = await browser.evaluate<number>(
+      `document.querySelectorAll('.gal-pick input').length`,
+    )
+    for (let i = 0; i < chips; i++)
+      rings.push(
+        await browser.evaluate<string>(ring(`document.querySelectorAll('.gal-pick input')[${i}]`)),
+      )
+    assert.deepEqual(
+      rings,
+      Array(8).fill('solid 4px rgb(255, 45, 85)'),
+      "the 8 pickers' focus rings (white, the machine's ring, vanishes into the paper)",
+    )
+    // In a contrast theme, the theme's own ring, as the app's decade chips take it.
+    await browser.send('Emulation.setEmulatedMedia', {
+      features: [
+        { name: 'forced-colors', value: 'active' },
+        { name: 'prefers-color-scheme', value: 'dark' },
+      ],
+    })
+    const themed = await browser.evaluate<string>(
+      ring(`document.querySelector('.gal-pick input:checked')`),
+    )
+    const decade = await browser.evaluate<string>(
+      ring(`document.querySelector('.ab-eras input:checked')`),
+    )
+    await browser.send('Emulation.setEmulatedMedia', {
+      features: [{ name: 'forced-colors', value: 'none' }],
+    })
+    assert.equal(
+      themed,
+      decade,
+      "in a contrast theme, a chosen picker's ring against a decade chip's",
+    )
+  },
+)
 
 // Last, so it covers every check above. It loads the gallery once more itself, so that run on its
 // own it still looks at something.
