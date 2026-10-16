@@ -2115,8 +2115,8 @@ body:has(.ab-card[open]) {
   overflow: hidden;
 }
 
-/* A pill for one line; for a longer note (an outage, the rate limit), at most 40 characters wide,
-   with corners that stay clear of its lines. */
+/* A pill for one line; for a longer note (an outage, the rate limit), about 36 characters a line
+   (40ch, its padding and border included), with corners that stay clear of its lines. */
 .ab-note-tag {
   position: absolute;
   z-index: 3;
