@@ -211,6 +211,28 @@ test('48 Tabs straight after load never meet a part waiting or mid-slam, on a de
   assert.deepEqual(met, [], 'parts Tab met waiting, see-through or mid-slam')
 })
 
+test('printed, every part shows, whether it has landed or not', async () => {
+  // Waiting is for the screen: a printed page has no scrolling to land a part by.
+  await browser.load()
+  assert.ok(await browser.titlesShown())
+  const motion = [{ name: 'prefers-reduced-motion', value: 'no-preference' }]
+  let printed: PartState[] = []
+  try {
+    await browser.send('Emulation.setEmulatedMedia', { media: 'print', features: motion })
+    await frames()
+    printed = await partStates()
+  } finally {
+    await browser.send('Emulation.setEmulatedMedia', { media: '', features: motion })
+  }
+  const waiting = printed.filter((p) => p.land === 'wait')
+  assert.ok(waiting.length >= 6, `only ${waiting.length} parts waiting to print`)
+  assert.deepEqual(
+    printed.filter((p) => p.opacity !== 1).map((p) => `${p.name}: ${p.land}, opacity ${p.opacity}`),
+    [],
+    'parts missing from the printed page',
+  )
+})
+
 test('every part is marked as it arrives, on load and with new titles, and plays no load-time entrance', async () => {
   const unclaimed = () =>
     browser.evaluate<{ unmarked: string[]; entering: string[] }>(`(() => {

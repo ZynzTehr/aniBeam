@@ -564,12 +564,14 @@ img[data-broken] {
     }
 
     /* Not seen yet: see-through only, so nothing in the layout moves and it stays in the Tab order
-       (visibility or display would take it out). */
-    .ab-panel[data-land='wait'],
-    .ab-strip-item[data-land='wait'] > .ab-strip-panel,
-    .ab-machine[data-land='wait'],
-    .ab-sfx[data-land='wait'] > span {
-      opacity: 0;
+       (visibility or display would take it out). On a screen only: printed, every part shows. */
+    @media screen {
+      .ab-panel[data-land='wait'],
+      .ab-strip-item[data-land='wait'] > .ab-strip-panel,
+      .ab-machine[data-land='wait'],
+      .ab-sfx[data-land='wait'] > span {
+        opacity: 0;
+      }
     }
 
     .ab-panel[data-land='go'] {
