@@ -12,8 +12,14 @@
  */
 export type Land = 'wait' | 'go' | 'done'
 
-/** How much of a part must show before it lands. */
+/** How much of a part must show before it lands at once. */
 export const LANDING_RATIO = 0.15
+
+/**
+ * How long a part must stay in view, short of LANDING_RATIO, before it lands all the same: so a
+ * decade's card peeking in at the row's edge shows, but one scrolled past doesn't land unseen.
+ */
+export const LINGER_MS = 200
 
 /**
  * The parts that land: the trending panels, the decade and search cards (their list items, which
@@ -55,6 +61,34 @@ export function landingNow(
     .sort((a, b) => (a.compareDocumentPosition(b) & FOLLOWING ? -1 : 1))
 }
 
+/**
+ * The waiting parts an IntersectionObserver's report says are in view, but short of landing at
+ * once: slivers, which land only if they stay in view for LINGER_MS.
+ */
+export function slivers(
+  entries: Pick<IntersectionObserverEntry, 'target' | 'intersectionRatio' | 'isIntersecting'>[],
+): HTMLElement[] {
+  return entries
+    .filter(
+      ({ target, intersectionRatio, isIntersecting }) =>
+        isIntersecting &&
+        intersectionRatio > 0 &&
+        intersectionRatio < LANDING_RATIO - 0.001 &&
+        landOf(target as HTMLElement) === 'wait',
+    )
+    .map(({ target }) => target as HTMLElement)
+    .sort((a, b) => (a.compareDocumentPosition(b) & FOLLOWING ? -1 : 1))
+}
+
+/** The parts a report says have left the screen: a sliver's wait to land ends. */
+export function outOfSight(
+  entries: Pick<IntersectionObserverEntry, 'target' | 'isIntersecting'>[],
+): HTMLElement[] {
+  return entries
+    .filter(({ isIntersecting }) => !isIntersecting)
+    .map(({ target }) => target as HTMLElement)
+}
+
 // Node.DOCUMENT_POSITION_FOLLOWING, without needing a DOM to name it.
 const FOLLOWING = 4
 
@@ -74,24 +108,43 @@ export function startLanding(selector: string) {
     }
     return land
   }
+  // Lands a part, --k steps of the stagger after the first of those landing with it.
+  const land = (part: HTMLElement, k: number) => {
+    clearTimeout(lingering.get(part))
+    lingering.delete(part)
+    observer.unobserve(part)
+    part.style.setProperty('--k', String(k))
+    set(part, 'seen')
+    // Done once its animations on the page's own clock have finished: at once under reduced
+    // motion, which has none. Asking for them brings the part's styles up to date first.
+    const playing = part
+      .getAnimations({ subtree: true })
+      .filter(
+        (animation) =>
+          animation.timeline === document.timeline &&
+          animation.effect?.getComputedTiming().endTime !== Infinity,
+      )
+      .map((animation) => animation.finished)
+    void Promise.allSettled(playing).then(() => set(part, 'played'))
+  }
+  // Each sliver's timer, until it lands or leaves the screen.
+  const lingering = new Map<HTMLElement, ReturnType<typeof setTimeout>>()
   const observer = new IntersectionObserver(
-    (entries) =>
-      landingNow(entries).forEach((part, k) => {
-        observer.unobserve(part)
-        part.style.setProperty('--k', String(k))
-        set(part, 'seen')
-        // Done once its animations on the page's own clock have finished: at once under reduced
-        // motion, which has none. Asking for them brings the part's styles up to date first.
-        const playing = part
-          .getAnimations({ subtree: true })
-          .filter(
-            (animation) =>
-              animation.timeline === document.timeline &&
-              animation.effect?.getComputedTiming().endTime !== Infinity,
+    (entries) => {
+      for (const part of outOfSight(entries)) {
+        clearTimeout(lingering.get(part))
+        lingering.delete(part)
+      }
+      landingNow(entries).forEach(land)
+      for (const part of slivers(entries))
+        if (!lingering.has(part))
+          lingering.set(
+            part,
+            setTimeout(() => {
+              if (landOf(part) === 'wait') land(part, 0)
+            }, LINGER_MS),
           )
-          .map((animation) => animation.finished)
-        void Promise.allSettled(playing).then(() => set(part, 'played'))
-      }),
+    },
     { threshold: [0, LANDING_RATIO] },
   )
   // Waiting parts too, not only new ones: started again (as React's StrictMode does in development),

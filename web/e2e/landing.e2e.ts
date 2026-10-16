@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { after, afterEach, before, beforeEach, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { LANDING_PARTS } from '../src/lib/landing.ts'
+import { LANDING_PARTS, LINGER_MS } from '../src/lib/landing.ts'
 import { Browser } from './browser.ts'
 
 let browser: Browser
@@ -206,6 +206,46 @@ test('content arriving above the visitor while a part slams in leaves the visito
     })()
   })`)
   assert.equal(moved, 'scrolled 300px for 300px arriving above, the machine go')
+})
+
+test('a part peeking in by less than 15% lands once it has stayed in view a moment, and one passed over doesn’t', async () => {
+  // A part that shows by a sliver, then leaves the screen at once, still waits: from the top of the
+  // page, a waiting part below the screen shows by 8% for two frames. But at rest with the decades
+  // at the top of a 1440x900 screen, the row's last card in view peeks in by about a tenth: it
+  // shows the row goes on sideways, so it lands once it has stayed 0.2s (LINGER_MS).
+  await browser.load()
+  assert.ok(await browser.titlesShown())
+  const passed = await browser.evaluate<string>(`new Promise((resolve) => {
+    const frame = () => new Promise((next) => requestAnimationFrame(next))
+    const part = ${PARTS}.find((el) => el.dataset.land === 'wait' && el.getBoundingClientRect().top > innerHeight)
+    if (!part) return resolve('no waiting part below the screen')
+    ;(async () => {
+      const at = scrollY
+      scrollTo({ top: part.getBoundingClientRect().top + scrollY - innerHeight + part.offsetHeight * 0.08, behavior: 'instant' })
+      await frame()
+      await frame()
+      scrollTo({ top: at, behavior: 'instant' })
+      await new Promise((next) => setTimeout(next, 500))
+      resolve(part.dataset.land)
+    })()
+  })`)
+  await browser.evaluate(
+    `document.getElementById('decades').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
+  )
+  await frames()
+  const peeking = (await partStates()).filter((p) => p.shown > 0 && p.shown < 0.15)
+  await sleep(LINGER_MS + 100)
+  assert.ok(await landed(), 'parts still landing 5s later')
+  const after = await partStates()
+  const stayed = peeking.map((p) => {
+    const now = after.find((q) => q.name === p.name)
+    return `${p.name}: ${now?.land}, opacity ${now?.opacity}`
+  })
+  assert.ok(peeking.length > 0, 'no part peeking in at the screen’s edge to check')
+  assert.deepEqual(
+    { passed, stayed },
+    { passed: 'wait', stayed: peeking.map((p) => `${p.name}: done, opacity 1`) },
+  )
 })
 
 test('48 Tabs straight after load never meet a part waiting or mid-slam, on a desktop or a phone', async () => {
