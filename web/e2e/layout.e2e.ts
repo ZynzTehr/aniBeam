@@ -424,8 +424,22 @@ test('a pull on a phone jumps under 0.1, and the next one too, its title laid ou
     await sleep(1000)
     const opened = await browser.evaluate<string>(result)
     const { value } = await browser.layoutShift()
+    // And what a finger or the mouse finds at the middle of the poster, the title and its button,
+    // each brought to the middle of the screen: that part, not the burst or anything else on top.
+    const presses = await browser.evaluate<string>(`(() => {
+      const result = document.querySelector('.ab-result.is-open:not([data-old])')
+      const parts = { 'the poster': '.ab-result-panel', 'the title': 'h3', 'Open title card': '.ab-btn' }
+      const missed = Object.entries(parts).flatMap(([name, selector]) => {
+        const part = result.querySelector(selector)
+        part.scrollIntoView({ block: 'center', behavior: 'instant' })
+        const box = part.getBoundingClientRect()
+        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+        return part.contains(hit) ? [] : [name + ' finds .' + (hit?.classList[0] ?? hit?.tagName)]
+      })
+      return missed.length ? 'a press on ' + missed.join(', on ') : 'each part takes its press'
+    })()`)
     seen.push(
-      `${pull}: ${pressed} at the press, ${opened} once open, ${entering ? 'entering as it opens' : 'no entrance as it opens'}, animating ${animating}, ${value < 0.1 ? 'under 0.1' : await shifted()}`,
+      `${pull}: ${pressed} at the press, ${opened} once open, ${entering ? 'entering as it opens' : 'no entrance as it opens'}, animating ${animating}, ${value < 0.1 ? 'under 0.1' : await shifted()}, ${presses}`,
     )
   }
   const height = (line: string) => /(\d+)px once open/.exec(line)?.[1]
@@ -433,7 +447,7 @@ test('a pull on a phone jumps under 0.1, and the next one too, its title laid ou
     seen,
     seen.map(
       (line, i) =>
-        `${['first', 'second'][i]}: hidden and inert, ${height(line)}px at the press, shown with its burst, ${height(line)}px once open, entering as it opens, animating opacity and transform, under 0.1`,
+        `${['first', 'second'][i]}: hidden and inert, ${height(line)}px at the press, shown with its burst, ${height(line)}px once open, entering as it opens, animating opacity and transform, under 0.1, each part takes its press`,
     ),
     'each pull',
   )
