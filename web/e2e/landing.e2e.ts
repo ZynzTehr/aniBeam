@@ -458,6 +458,24 @@ test('the splash panel is done once its slam has played, while its cover still d
   assert.equal(splash, 'done, on screen')
 })
 
+test('a landed panel shows its cover, with no ink block left over it', async () => {
+  // The ink block covers a panel only while it lands, then wipes off: left on, every landed panel
+  // turned solid ink. So once the page has been scrolled through, each landed panel's ink block
+  // (its ::after) must be gone.
+  await browser.load()
+  assert.ok(await browser.titlesShown())
+  await scrollDown()
+  assert.ok(await landed(), 'parts still landing 5s later')
+  const inked = await browser.evaluate<string[]>(
+    `[...document.querySelectorAll('.ab-grid:not([aria-hidden]) > .ab-panel[data-land="done"]')].flatMap((panel, i) => getComputedStyle(panel, '::after').content === 'none' ? [] : ['panel ' + (i + 1) + ': ink block ' + getComputedStyle(panel, '::after').backgroundColor])`,
+  )
+  const panels = await browser.evaluate<number>(
+    `document.querySelectorAll('.ab-grid:not([aria-hidden]) > .ab-panel[data-land="done"]').length`,
+  )
+  assert.equal(panels, 9, 'not every trending panel landed')
+  assert.deepEqual(inked, [], 'landed panels with their ink block still over them')
+})
+
 test('every part is marked before the browser first draws it, and plays no load-time entrance', async () => {
   // Frame by frame from the page's first moment, through a slow first visit (the empty panels
   // giving way to the titles), a reload halfway down the page, a decade picked and a search:
