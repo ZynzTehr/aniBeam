@@ -314,7 +314,9 @@ test('a pull on a phone jumps under 0.1, and the next one too, its title laid ou
     if (parts.some((part) => !part)) return 'no title laid out'
     const hidden = parts.every((part) => getComputedStyle(part).visibility === 'hidden' && part.inert)
     const shown = parts.every((part) => getComputedStyle(part).visibility === 'visible' && !part.inert)
-    return (hidden ? 'hidden and inert' : shown ? 'shown' : 'half shown') + ', ' + Math.round(result.getBoundingClientRect().height) + 'px'
+    // The burst of speed lines in the title's color comes with the opening, not before.
+    const burst = result.querySelector('.ab-burst') ? ' with its burst' : ''
+    return (hidden ? 'hidden and inert' : shown ? 'shown' : 'half shown') + burst + ', ' + Math.round(result.getBoundingClientRect().height) + 'px'
   })()`
   const seen: string[] = []
   for (const pull of ['first', 'second']) {
@@ -337,10 +339,10 @@ test('a pull on a phone jumps under 0.1, and the next one too, its title laid ou
       await browser.waitFor(`document.querySelector('.ab-result.is-open:not([data-old])')`, 5000),
       `the ${pull} pull never opened`,
     )
-    // The title's entrance plays as the capsule opens, not at the press, unseen.
+    // The title's entrance and its burst play as the capsule opens, not at the press, unseen.
     const entering =
-      await browser.evaluate<boolean>(`['.ab-result-panel', '.ab-result-copy', '.ab-sfx-tier'].every((part) =>
-      document.querySelector('.ab-result.is-open:not([data-old]) ' + part).getAnimations().some((animation) => animation.playState === 'running'))`)
+      await browser.evaluate<boolean>(`['.ab-result-panel', '.ab-result-copy', '.ab-sfx-tier', '.ab-burst'].every((part) =>
+      document.querySelector('.ab-result.is-open:not([data-old]) ' + part)?.getAnimations().some((animation) => animation.playState === 'running'))`)
     // What the opening animates: only what moves nothing else, transform and opacity.
     const animating =
       await browser.evaluate<string>(`[...new Set(document.querySelector('.ab-result.is-open:not([data-old])')
@@ -359,7 +361,7 @@ test('a pull on a phone jumps under 0.1, and the next one too, its title laid ou
     seen,
     seen.map(
       (line, i) =>
-        `${['first', 'second'][i]}: hidden and inert, ${height(line)}px at the press, shown, ${height(line)}px once open, entering as it opens, animating opacity and transform, under 0.1`,
+        `${['first', 'second'][i]}: hidden and inert, ${height(line)}px at the press, shown with its burst, ${height(line)}px once open, entering as it opens, animating opacity and transform, under 0.1`,
     ),
     'each pull',
   )
