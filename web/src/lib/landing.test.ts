@@ -32,6 +32,8 @@ test('the waiting parts with 15% or more on screen land, and no others', () => {
     seen(part(5, 'done'), 1),
     seen(part(6), 1),
     seen(part(7, 'wait'), 0),
+    // The give is a hair, not a margin: 0.148 is short of it.
+    seen(part(8, 'wait'), 0.148),
   ]
   assert.deepEqual(places(landingNow(entries)), [1, 3])
 })

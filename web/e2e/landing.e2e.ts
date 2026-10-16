@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { after, afterEach, before, beforeEach, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { LANDING_PARTS, LINGER_MS } from '../src/lib/landing.ts'
+import { LANDING_PARTS, LANDING_RATIO, LINGER_MS } from '../src/lib/landing.ts'
 import { Browser } from './browser.ts'
 
 let browser: Browser
@@ -51,11 +51,19 @@ const STATES = `(() => {
     name: name(el),
     land: el.dataset.land,
     shown: Math.round(seen(el) * 100) / 100,
+    ratio: seen(el),
     opacity: Number(getComputedStyle(face(el)).opacity),
     moving: el.getAnimations({ subtree: true }).filter((a) => a.playState === 'running' && ${JSON.stringify(SLAMS)}.includes(a.animationName)).length,
   }))
 })()`
-type PartState = { name: string; land: string; shown: number; opacity: number; moving: number }
+type PartState = {
+  name: string
+  land: string
+  shown: number
+  ratio: number
+  opacity: number
+  moving: number
+}
 const partStates = () => browser.evaluate<PartState[]>(STATES)
 
 const frames = () =>
@@ -71,7 +79,7 @@ const waitingAfter = (ms: number) =>
   browser.evaluate<PartState[]>(`new Promise((resolve) => {
     const since = performance.now()
     const look = () => {
-      const waiting = ${STATES}.filter((p) => p.land === 'wait' && p.shown >= 0.15)
+      const waiting = ${STATES}.filter((p) => p.land === 'wait' && p.ratio >= ${LANDING_RATIO - 0.001})
       if (!waiting.length || performance.now() - since > ${ms}) resolve(waiting)
       else requestAnimationFrame(look)
     }
@@ -89,7 +97,8 @@ async function scrollDown({
 }: { up?: boolean; settle?: number; each?: (y: number) => Promise<unknown> } = {}) {
   const end = await browser.evaluate<number>('document.documentElement.scrollHeight - innerHeight')
   const steps: number[] = []
-  for (let y = 0; y <= end; y += 150) steps.push(y)
+  for (let y = 0; y < end; y += 150) steps.push(y)
+  steps.push(end)
   for (const y of up ? steps.reverse() : steps) {
     await browser.evaluate(`scrollTo(0, ${y}); true`)
     if (settle) await waitingAfter(settle)
@@ -127,13 +136,13 @@ test('a part below the first screen waits, see-through, and lands as 15% of it s
     },
   })
   assert.ok(await landed(), 'parts still landing 5s later')
-  // Every part that landed shows in full, still; the rest are cards past a row's edge, still
-  // waiting to be scrolled to.
+  // Every part that landed shows in full, still; the rest are cards past a row's edge, out of
+  // view, still waiting to be scrolled to.
   const states = await partStates()
   const unlanded = states.filter(
     (p) =>
       (p.land === 'done' && (p.opacity !== 1 || p.moving)) ||
-      (p.land !== 'done' && !(p.land === 'wait' && p.name.startsWith('card'))),
+      (p.land !== 'done' && !(p.land === 'wait' && p.name.startsWith('card') && p.shown === 0)),
   )
   const slams = await browser.evaluate<number[]>(
     `${PARTS}.map((part) => window.__slams.get(part) ?? 0)`,
@@ -585,6 +594,7 @@ test('scrolling down, up and down again replays nothing, and neither does a move
     window.__replays = []
     const slams = ${JSON.stringify(SLAMS)}
     const landed = new Set(document.querySelectorAll('[data-land="done"]'))
+    window.__watched = landed.size
     document.addEventListener('animationstart', (event) => {
       if (slams.includes(event.animationName) && landed.has(event.target.closest('[data-land]'))) window.__replays.push(event.animationName + ' on ' + event.target.className)
     }, true)
@@ -604,6 +614,10 @@ test('scrolling down, up and down again replays nothing, and neither does a move
   })()`)
   await frames()
   await sleep(300)
+  assert.ok(
+    (await browser.evaluate<number>('window.__watched')) >= 20,
+    'few parts had landed to watch',
+  )
   assert.deepEqual(await browser.evaluate('window.__replays'), [], 'slams that played again')
 })
 
@@ -624,6 +638,10 @@ test('reduced motion, from the device or the site’s switch, hides nothing and 
   try {
     await browser.evaluate(`document.getElementById('ab-trending').scrollIntoView(); true`)
     await sleep(150)
+    assert.ok(
+      await browser.evaluate<boolean>(`Boolean(document.querySelector('[data-land="go"]'))`),
+      'nothing was landing as the switch was turned on',
+    )
     await browser.evaluate(`document.getElementById('reduce-motion').click(); true`)
     await frames()
     site = await browser.evaluate<string[]>(still)
@@ -644,6 +662,7 @@ test('no part’s box moves while it lands, and scrolling the whole page shifts 
     source: `window.__shifts = []
       new PerformanceObserver((list) => window.__shifts.push(...list.getEntries())).observe({ type: 'layout-shift', buffered: true })
       window.__moved = []
+      window.__seen = new Set()
       const boxes = new WeakMap()
       const box = (el) => [el.offsetLeft, el.offsetTop, el.offsetWidth, el.offsetHeight].join(' ')
       requestAnimationFrame(function look() {
@@ -651,6 +670,7 @@ test('no part’s box moves while it lands, and scrolling the whole page shifts 
           const now = box(part), then = boxes.get(part)
           if (then && then !== now) window.__moved.push(part.className + ': ' + then + ' to ' + now)
           boxes.set(part, now)
+          window.__seen.add(part)
         }
         requestAnimationFrame(look)
       })`,
@@ -661,10 +681,15 @@ test('no part’s box moves while it lands, and scrolling the whole page shifts 
     await scrollDown()
     await landed()
     // Every shift added up, from the start of the load: stricter than CLS's busiest window.
-    const { shifted, moved } = await browser.evaluate<{ shifted: number; moved: string[] }>(
-      '({ shifted: window.__shifts.reduce((sum, shift) => sum + shift.value, 0), moved: [...new Set(window.__moved)].slice(0, 6) })',
+    const { shifted, moved, seen } = await browser.evaluate<{
+      shifted: number
+      moved: string[]
+      seen: number
+    }>(
+      '({ shifted: window.__shifts.reduce((sum, shift) => sum + shift.value, 0), moved: [...new Set(window.__moved)].slice(0, 6), seen: window.__seen.size })',
     )
     t.diagnostic(`layout shift while scrolling: ${shifted.toFixed(4)}`)
+    assert.ok(seen >= 20, `only ${seen} parts watched as they landed`)
     assert.deepEqual(moved, [], 'parts whose box moved while they landed')
     assert.ok(shifted < 0.1, `the page shifted ${shifted.toFixed(4)}`)
   } finally {
