@@ -57,3 +57,11 @@ test('the scroll slam’s knobs are tokens, read with no fallback, so changing o
     [],
   )
 })
+
+test('every slam knob the stylesheet reads is one index.css defines', () => {
+  // A knob misspelt where it is read reads as nothing, and the slam quietly loses it there.
+  const defined = new Set(tokens.map(({ name }) => name))
+  const read = [...components.matchAll(/var\(\s*(--slam-[\w-]+)/g)].map(([, name]) => name)
+  assert.ok(read.length >= 6, `only ${read.length} reads of a slam knob found`)
+  assert.deepEqual([...new Set(read.filter((name) => !defined.has(name)))], [])
+})
