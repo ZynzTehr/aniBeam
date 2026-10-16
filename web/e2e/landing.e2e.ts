@@ -181,6 +181,33 @@ test('a decade card past its row’s edge waits until scrolled to, then lands, a
   assert.deepEqual({ notWaiting, waiting, unlanded }, { notWaiting: [], waiting: [], unlanded: [] })
 })
 
+test('content arriving above the visitor while a part slams in leaves the visitor’s place', async () => {
+  // Chrome keeps what the visitor looks at in place as content arrives above it, by scrolling the
+  // page as much (scroll anchoring), as when a search's late answer takes the intro's place. A part
+  // mid-slam must not stop that: the pull machine's drop did, and the page jumped by what arrived.
+  // So the screen is scrolled to start 50px into the machine, where Chrome takes what to keep in
+  // place, and while it lands, 300px arrive at the top of the page: the page must scroll by just
+  // that.
+  await browser.load()
+  assert.ok(await browser.titlesShown())
+  const moved = await browser.evaluate<string>(`new Promise((resolve) => {
+    const machine = document.querySelector('.ab-machine')
+    scrollTo({ top: machine.getBoundingClientRect().top + scrollY + 50, behavior: 'instant' })
+    const frame = () => new Promise((next) => requestAnimationFrame(next))
+    ;(async () => {
+      for (let i = 0; i < 10 && machine.dataset.land !== 'go'; i++) await frame()
+      if (machine.dataset.land !== 'go') return resolve('the machine never landed: ' + machine.dataset.land)
+      await frame()
+      const before = scrollY
+      document.querySelector('main').prepend(Object.assign(document.createElement('div'), { style: 'height: 300px' }))
+      await frame()
+      await frame()
+      resolve('scrolled ' + Math.round(scrollY - before) + 'px for 300px arriving above, the machine ' + machine.dataset.land)
+    })()
+  })`)
+  assert.equal(moved, 'scrolled 300px for 300px arriving above, the machine go')
+})
+
 test('48 Tabs straight after load never meet a part waiting or mid-slam, on a desktop or a phone', async () => {
   // Keyboard focus lands a part at once: whole, still and in place, however soon the visitor
   // Tabs, and whether the part was waiting or already landing (see landing.ts). PR 7's Tab walk

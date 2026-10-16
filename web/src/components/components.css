@@ -574,6 +574,13 @@ img[data-broken] {
       }
     }
 
+    /* While a part slams, Chrome keeps the visitor's place by something else: a part whose
+       transform changes stops scroll anchoring, so content arriving above it, such as a search's
+       late answer, pushed the page down by its whole height. */
+    [data-land='go'] {
+      overflow-anchor: none;
+    }
+
     .ab-panel[data-land='go'] {
       animation: ab-panel-slam 0.5s cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
       animation-delay: calc(var(--k, 0) * var(--slam-stagger));
