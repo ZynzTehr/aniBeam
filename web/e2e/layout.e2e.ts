@@ -73,10 +73,12 @@ const WHERE = `(() => {
   return [['trending', '.ab-page', '.ab-grid'], ['decades', '.ab-strip', '.ab-strip-row']].map(([name, section, row]) => {
     const part = document.querySelector(section)
     const line = part.querySelector('.ab-note')
-    const panels = part.querySelector(row + '[aria-hidden]'), first = panels?.querySelector('li')
+    // The empty panels' row, which screen readers skip (the line says it all for them).
+    const panels = part.querySelector('.ab-skeleton-fill')?.closest(row), first = panels?.querySelector('li')
+    const skipped = !panels || panels.getAttribute('aria-hidden') === 'true' ? '' : ', its empty panels read by screen readers'
     const tag = part.querySelector('.ab-note-tag')
     const box = tag?.getBoundingClientRect(), room = panels?.getBoundingClientRect(), start = first?.getBoundingClientRect()
-    const over = box && box.width > 0 && box.top >= room.top && box.bottom <= room.bottom && box.left >= room.left && box.right <= room.right
+    const over = Boolean(box && room && start) && box.width > 0 && box.top >= room.top && box.bottom <= room.bottom && box.left >= room.left && box.right <= room.right
       && box.left >= start.left && box.left < start.right && box.top >= start.top && box.top < start.bottom
     // The line takes no room, and shows none of its text: it would spill out between the panels.
     const hidden = line.getBoundingClientRect().height === 0 && getComputedStyle(line).overflowY !== 'visible'
@@ -87,7 +89,7 @@ const WHERE = `(() => {
         : over && tag.textContent === line.textContent
           ? '"' + line.textContent + '" as a tag, its line spilling out'
           : '"' + line.textContent + '" in a line of its own'
-    return name + ': ' + status + ', panels ' + gap(part.querySelector('h2'), part.querySelector(row)) + 'px under the heading'
+    return name + ': ' + status + skipped + ', panels ' + gap(part.querySelector('h2'), part.querySelector(row)) + 'px under the heading'
   })
 })()`
 
@@ -250,7 +252,7 @@ test('while AniList fails, a section waiting for its titles shows its whole long
       if (box.left < r.left - 0.5 || box.right > r.right + 0.5 || box.top < r.top - 0.5 || box.bottom > r.bottom + 0.5)
         problems.push('cut off by .' + el.classList[0])
     }
-    const panels = tag.closest('section').querySelector('[aria-hidden="true"]:is(.ab-grid, .ab-strip-row)').getBoundingClientRect()
+    const panels = tag.closest('section').querySelector('.ab-skeleton-fill').closest('.ab-grid, .ab-strip-row').getBoundingClientRect()
     if (box.left < panels.left || box.right > panels.right || box.top < panels.top || box.bottom > panels.bottom) problems.push('beyond its empty panels')
     // As far from the right end of what holds it as from its left.
     const holder = tag.offsetParent.getBoundingClientRect()
@@ -284,7 +286,10 @@ test('while AniList fails, a section waiting for its titles shows its whole long
       await browser.load({ ...screen, reduceMotion: true })
       assert.ok(
         await browser.waitFor(
-          `[...document.querySelectorAll('.ab-note-tag')].filter((tag) => tag.textContent.includes('Trying again')).length === 2`,
+          `(() => {
+            const tags = [...document.querySelectorAll('.ab-note-tag')]
+            return tags.every((tag) => tag.textContent.includes('Trying again')) && new Set(tags.map((tag) => tag.closest('section'))).size === 2
+          })()`,
           10_000,
         ),
         `${screen.width}px: the sections never said they were trying again`,
