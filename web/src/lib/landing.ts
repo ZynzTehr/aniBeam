@@ -15,6 +15,9 @@ export type Land = 'wait' | 'go' | 'done'
 /** How much of a part must show before it lands. */
 export const LANDING_RATIO = 0.15
 
+/** The parts that land: the trending panels (not the empty ones that hold their place). */
+export const LANDING_PARTS = '.ab-grid:not([aria-hidden]) > .ab-panel'
+
 /** What happens to a part: found on the page, seen on the screen, focused, its slam played. */
 type Happening = 'found' | 'seen' | 'focused' | 'played'
 
@@ -86,9 +89,11 @@ export function startLanding(selector: string) {
       }),
     { threshold: [0, LANDING_RATIO] },
   )
+  // Waiting parts too, not only new ones: started again (as React's StrictMode does in development),
+  // the parts the first start marked would otherwise never be watched.
   const find = () => {
     for (const part of document.querySelectorAll<HTMLElement>(selector))
-      if (!landOf(part) && set(part, 'found') === 'wait') observer.observe(part)
+      if (set(part, 'found') === 'wait') observer.observe(part)
   }
   // A MutationObserver's report comes before the browser draws, so a part never shows unmarked.
   const arrivals = new MutationObserver(find)
