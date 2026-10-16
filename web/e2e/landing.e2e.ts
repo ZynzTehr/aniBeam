@@ -181,6 +181,36 @@ test('a decade card past its row’s edge waits until scrolled to, then lands, a
   assert.deepEqual({ notWaiting, waiting, unlanded }, { notWaiting: [], waiting: [], unlanded: [] })
 })
 
+test('48 Tabs straight after load never meet a part waiting or mid-slam, on a desktop or a phone', async () => {
+  // Keyboard focus lands a part at once: whole, still and in place, however soon the visitor
+  // Tabs, and whether the part was waiting or already landing (see landing.ts). PR 7's Tab walk
+  // looks at each stop once the page has settled; this one starts at once.
+  const met: string[] = []
+  for (const screen of [
+    { width: 1440, height: 900 },
+    { width: 390, height: 844, phone: true },
+  ]) {
+    await browser.load(screen)
+    assert.ok(await browser.titlesShown())
+    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+    let reached = 0
+    for (let i = 1; i <= 48; i++) {
+      await browser.press('Tab')
+      const part = await browser.evaluate<PartState | null>(
+        `(() => { const part = document.activeElement.closest('[data-land]'); return part && ${STATES}[${PARTS}.indexOf(part)] })()`,
+      )
+      if (!part) continue
+      reached++
+      if (part.land !== 'done' || part.opacity !== 1 || part.moving)
+        met.push(
+          `${screen.width}px, Tab ${i}: ${part.name}, ${part.land}, opacity ${part.opacity}${part.moving ? ', moving' : ''}`,
+        )
+    }
+    assert.ok(reached >= 20, `${screen.width}px: Tab reached only ${reached} parts`)
+  }
+  assert.deepEqual(met, [], 'parts Tab met waiting, see-through or mid-slam')
+})
+
 test('every part is marked as it arrives, on load and with new titles, and plays no load-time entrance', async () => {
   const unclaimed = () =>
     browser.evaluate<{ unmarked: string[]; entering: string[] }>(`(() => {
