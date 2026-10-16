@@ -80,12 +80,15 @@ export function slivers(
     .sort((a, b) => (a.compareDocumentPosition(b) & FOLLOWING ? -1 : 1))
 }
 
-/** The parts a report says have left the screen: a sliver's wait to land ends. */
+/**
+ * The parts a report says have left the screen: a sliver's wait to land ends. One that only touches
+ * its edge counts as gone: the observer calls that intersecting, with nothing of it in view.
+ */
 export function outOfSight(
-  entries: Pick<IntersectionObserverEntry, 'target' | 'isIntersecting'>[],
+  entries: Pick<IntersectionObserverEntry, 'target' | 'isIntersecting' | 'intersectionRatio'>[],
 ): HTMLElement[] {
   return entries
-    .filter(({ isIntersecting }) => !isIntersecting)
+    .filter(({ isIntersecting, intersectionRatio }) => !isIntersecting || intersectionRatio === 0)
     .map(({ target }) => target as HTMLElement)
 }
 
@@ -129,24 +132,47 @@ export function startLanding(selector: string) {
   }
   // Each sliver's timer, until it lands or leaves the screen.
   const lingering = new Map<HTMLElement, ReturnType<typeof setTimeout>>()
-  const observer = new IntersectionObserver(
-    (entries) => {
-      for (const part of outOfSight(entries)) {
-        clearTimeout(lingering.get(part))
-        lingering.delete(part)
-      }
-      landingNow(entries).forEach(land)
-      for (const part of slivers(entries))
-        if (!lingering.has(part))
-          lingering.set(
-            part,
-            setTimeout(() => {
-              if (landOf(part) === 'wait') land(part, 0)
-            }, LINGER_MS),
-          )
-    },
-    { threshold: [0, LANDING_RATIO] },
-  )
+  const report = (entries: IntersectionObserverEntry[]) => {
+    for (const part of outOfSight(entries)) {
+      clearTimeout(lingering.get(part))
+      lingering.delete(part)
+    }
+    landingNow(entries).forEach(land)
+    for (const part of slivers(entries))
+      if (!lingering.has(part))
+        lingering.set(
+          part,
+          setTimeout(() => {
+            if (landOf(part) === 'wait') land(part, 0)
+          }, LINGER_MS),
+        )
+  }
+  // What is under the sticky header isn't seen, so from 900px wide, where it stays on screen, the
+  // screen the observer watches starts below it. Its height can change (a second row with wider
+  // text), so the observer is made again for the new height, watching the parts still waiting.
+  const header = document.querySelector<HTMLElement>('.ab-top')
+  // Rounded up: the header's height can run to a fraction of a pixel, and the sliver under it
+  // would count as in view.
+  const covered = () =>
+    header && getComputedStyle(header).position === 'sticky'
+      ? Math.ceil(header.getBoundingClientRect().height)
+      : 0
+  let top = covered()
+  const watch = () =>
+    new IntersectionObserver(report, {
+      rootMargin: `-${top}px 0px 0px 0px`,
+      threshold: [0, LANDING_RATIO],
+    })
+  let observer = watch()
+  const headerSize = new ResizeObserver(() => {
+    if (covered() === top) return
+    top = covered()
+    observer.disconnect()
+    observer = watch()
+    for (const part of document.querySelectorAll<HTMLElement>(selector))
+      if (landOf(part) === 'wait') observer.observe(part)
+  })
+  if (header) headerSize.observe(header)
   // Waiting parts too, not only new ones: started again (as React's StrictMode does in development),
   // the parts the first start marked would otherwise never be watched.
   const find = () => {
@@ -172,6 +198,7 @@ export function startLanding(selector: string) {
   document.addEventListener('focusin', focused, true)
   return () => {
     observer.disconnect()
+    headerSize.disconnect()
     arrivals.disconnect()
     document.removeEventListener('focusin', focused, true)
   }

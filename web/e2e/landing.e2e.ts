@@ -284,6 +284,73 @@ test('a heading reached by a header link or an intro button booms as it takes fo
   })
 })
 
+test('a part coming down from above lands as it shows below the header from 900px, and at the screen’s top on a phone', async () => {
+  // The header stays on screen from 900px wide: what is under it isn't seen. So scrolled up from
+  // the foot of the page, 10px a frame, each part must land once 15% of it shows below the header,
+  // not while it is still under it, where a heading's boom would play unseen. At rest at the foot,
+  // a part peeking in by less lands after a moment, but it too must show below the header. On a
+  // phone the header scrolls away with the page: there a part lands as it shows at the top of the
+  // screen, so a part that lands with much more than 15% of it showing landed late.
+  // And at 960px with WCAG's widened text spacing (1.4.12), put on once the page has loaded: the
+  // header takes a second row, 135px, and what lands must follow its new height.
+  const SPACING = `(async () => {
+    const style = document.head.appendChild(document.createElement('style'))
+    style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+    const header = document.querySelector('.ab-top')
+    for (let agreed = 0; agreed < 5; ) {
+      await new Promise(requestAnimationFrame)
+      const published = getComputedStyle(document.documentElement).getPropertyValue('--top-h')
+      agreed = published === header.offsetHeight + 'px' ? agreed + 1 : 0
+    }
+    return header.offsetHeight
+  })()`
+  const early: string[] = []
+  for (const { spacing, ...screen } of [
+    { width: 1440, height: 900, spacing: false },
+    { width: 960, height: 900, spacing: true },
+    { width: 390, height: 844, phone: true, spacing: false },
+  ]) {
+    await browser.load(screen)
+    assert.ok(await browser.titlesShown())
+    if (spacing)
+      assert.ok((await browser.evaluate<number>(SPACING)) > 100, 'the header took no second row')
+    early.push(
+      ...(await browser.evaluate<string[]>(`new Promise((resolve) => {
+    const frame = () => new Promise((next) => requestAnimationFrame(next))
+    const header = document.querySelector('.ab-top')
+    const early = []
+    let scrolling = false
+    new MutationObserver((records) => {
+      for (const { target } of records) {
+        if (target.dataset.land !== 'go') continue
+        // Where its layout puts it: its slam's opening transform moves its box as it lands.
+        let top = -scrollY
+        for (let el = target; el; el = el.offsetParent) top += el.offsetTop
+        const height = target.offsetHeight, under = header.getBoundingClientRect().bottom
+        // What shows of it below the header, or the screen's top once the header has scrolled away.
+        const below = Math.max(0, Math.min(top + height, innerHeight) - Math.max(top, under, 0)) / height
+        // Late: more than 15% showing, give or take the 40px four frames scroll while the observer's
+        // report is on its way.
+        if (scrolling && below * height > 0.15 * height + 40) early.push(target.className.split(' ')[0] + (target.id ? '#' + target.id : '') + ' landed late, ' + Math.round(below * 100) + '% of it showing')
+        if (scrolling ? below < 0.14 : below <= 0) early.push(target.className.split(' ')[0] + (target.id ? '#' + target.id : '') + ' landed ' + Math.round(below * 100) + '% below the header' + (scrolling ? '' : ', at rest'))
+      }
+    }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-land'] })
+    ;(async () => {
+      scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' })
+      for (let i = 0; i < 20; i++) await frame()
+      scrolling = true
+      while (scrollY > 0) {
+        scrollTo({ top: scrollY - 10, behavior: 'instant' })
+        await frame()
+      }
+      resolve(early.map((line) => innerWidth + 'px: ' + line))
+    })()
+  })`)),
+    )
+  }
+  assert.deepEqual(early, [], 'parts that landed under the header')
+})
+
 test('48 Tabs straight after load never meet a part waiting or mid-slam, on a desktop or a phone', async () => {
   // Keyboard focus lands a part at once: whole, still and in place, however soon the visitor
   // Tabs, and whether the part was waiting or already landing (see landing.ts). PR 7's Tab walk

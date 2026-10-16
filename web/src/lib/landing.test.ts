@@ -75,5 +75,10 @@ test('a waiting part in view, but under 15% of it, is a sliver: it lands only if
 
 test('a part out of view is one whose wait to land as a sliver ends', () => {
   const entries = [seen(part(1, 'wait'), 0), seen(part(2, 'wait'), 0.05), seen(part(3, 'go'), 0)]
-  assert.deepEqual(places(outOfSight(entries)), [1, 3])
+  // Touching the screen's edge, the observer calls a part intersecting, with nothing of it in view.
+  const touching = {
+    ...seen(part(4, 'wait'), 0),
+    isIntersecting: true,
+  } as IntersectionObserverEntry
+  assert.deepEqual(places(outOfSight([...entries, touching])), [1, 3, 4])
 })
