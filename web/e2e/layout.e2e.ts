@@ -65,6 +65,100 @@ async function shifted() {
   return `${value.toFixed(4)}${shifts.length ? `: ${shifts.flatMap(({ moved = [] }) => moved).join(', ')}` : ''}`
 }
 
+// Each section's status while it waits, as a tag over its empty panels, from the first, with its
+// own line taking no room, or in its line; and its panels' place under its heading.
+const WHERE = `(() => {
+  // Measured, then rounded once: the heading itself can move, as what is above it changes.
+  const gap = (from, to) => Math.round(to.getBoundingClientRect().top - from.getBoundingClientRect().top)
+  return [['trending', '.ab-page', '.ab-grid'], ['decades', '.ab-strip', '.ab-strip-row']].map(([name, section, row]) => {
+    const part = document.querySelector(section)
+    const line = part.querySelector('.ab-note')
+    const panels = part.querySelector(row + '[aria-hidden]'), first = panels?.querySelector('li')
+    const tag = part.querySelector('.ab-note-tag')
+    const box = tag?.getBoundingClientRect(), room = panels?.getBoundingClientRect(), start = first?.getBoundingClientRect()
+    const over = box && box.width > 0 && box.top >= room.top && box.bottom <= room.bottom && box.left >= room.left && box.right <= room.right
+      && box.left >= start.left && box.left < start.right && box.top >= start.top && box.top < start.bottom
+    const status = !line.textContent
+      ? 'no line'
+      : over && tag.textContent === line.textContent && line.getBoundingClientRect().height === 0
+        ? '"' + line.textContent + '" as a tag over the empty panels'
+        : '"' + line.textContent + '" in a line of its own'
+    return name + ': ' + status + ', panels ' + gap(part.querySelector('h2'), part.querySelector(row)) + 'px under the heading'
+  })
+})()`
+
+// The strip's rows and its height from heading to foot.
+const STRIP = `(() => {
+  const strip = document.querySelector('.ab-strip')
+  const rows = [...strip.querySelectorAll('.ab-strip-row')].filter((row) => row.getBoundingClientRect().height > 0)
+  const height = Math.round(strip.getBoundingClientRect().bottom - strip.querySelector('h2').getBoundingClientRect().top)
+  return rows.length + (rows.length === 1 ? ' row' : ' rows') + ', ' + height + 'px'
+})()`
+
+// The pull machine's reveal box: its height and the hint it shows, the one hint shown and read, the
+// others there only to hold the room, hidden from eyes and from screen readers.
+const HINT = `(() => {
+  const box = document.querySelector('.ab-reveal')
+  const hints = [...box.querySelectorAll('.ab-hint')]
+  const shown = hints.filter((hint) => getComputedStyle(hint).visibility === 'visible')
+  const read = hints.filter((hint) => !hint.closest('[aria-hidden="true"]'))
+  if (shown.length !== 1 || read.length !== 1 || shown[0] !== read[0])
+    return shown.length + ' hints shown, ' + read.length + ' read by screen readers'
+  // The hints share one place, as tall as the tallest (the box can be taller, from 821px wide,
+  // holding the room of a pulled title).
+  const tallest = Math.max(...hints.map((hint) => hint.getBoundingClientRect().height))
+  const place = box.querySelector('.ab-hints').getBoundingClientRect().height
+  if (Math.abs(place - tallest) > 1)
+    return 'the hints take ' + Math.round(place) + 'px for a tallest of ' + Math.round(tallest) + 'px'
+  return Math.round(box.getBoundingClientRect().height) + 'px: ' + shown[0].textContent.split('.')[0]
+})()`
+
+type Look = { where: string[]; heard: string[]; strip: string; hint: string }
+
+// A slow first visit: AniList's answer held 2.5 s, the visitor down at the decades as it lands. How
+// the page looks while it waits and once its titles land, and how far it jumped, taken once for
+// each screen and motion setting, for every check that reads it: the loads were most of the time
+// this file took.
+const slowLoads = new Map<
+  string,
+  Promise<{ waiting: Look; landed: Look; value: number; shifted: string }>
+>()
+function slowLoad(screen: { width: number; height: number }, reduceMotion: boolean) {
+  const key = `${screen.width}px${reduceMotion ? ', reduced motion' : ''}`
+  let load = slowLoads.get(key)
+  if (!load) {
+    load = (async () => {
+      const look = async (waiting: boolean): Promise<Look> => ({
+        where: await browser.evaluate<string[]>(WHERE),
+        heard: waiting
+          ? [await heard('trending', '.ab-page'), await heard('decades', '.ab-strip')]
+          : [],
+        strip: await browser.evaluate<string>(STRIP),
+        hint: await browser.evaluate<string>(HINT),
+      })
+      await browser.forget()
+      await browser.holdAniList(2500)
+      try {
+        await browser.load({ ...screen, reduceMotion })
+        const waiting = await look(true)
+        await browser.evaluate(
+          `document.getElementById('decades').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
+        )
+        assert.ok(await browser.titlesShown())
+        await browser.holdAniList(0)
+        const landed = await look(false)
+        await sleep(1500)
+        const { value } = await browser.layoutShift()
+        return { waiting, landed, value, shifted: await shifted() }
+      } finally {
+        await browser.holdAniList(0)
+      }
+    })()
+    slowLoads.set(key, load)
+  }
+  return load
+}
+
 test('the measure counts a block that pushes the page down after it has loaded', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())
@@ -98,43 +192,14 @@ test('a first visit loads with a layout shift under 0.1, on a phone and on a wid
 })
 
 test('while a section waits for its titles, "Loading…" shows over its empty panels, and nothing moves as they land', async () => {
-  // Each section's status: as a tag over its empty panels, from the first, its own line taking no
-  // room, or in its line; and its panels' place under its heading. And screen readers must still
-  // read the line, once: the tag is for the eyes alone (see heard).
-  const where = `(() => {
-    // Measured, then rounded once: the heading itself can move, as what is above it changes.
-    const gap = (from, to) => Math.round(to.getBoundingClientRect().top - from.getBoundingClientRect().top)
-    return [['trending', '.ab-page', '.ab-grid'], ['decades', '.ab-strip', '.ab-strip-row']].map(([name, section, row]) => {
-      const part = document.querySelector(section)
-      const line = part.querySelector('.ab-note')
-      const panels = part.querySelector(row + '[aria-hidden]'), first = panels?.querySelector('li')
-      const tag = part.querySelector('.ab-note-tag')
-      const box = tag?.getBoundingClientRect(), room = panels?.getBoundingClientRect(), start = first?.getBoundingClientRect()
-      const over = box && box.width > 0 && box.top >= room.top && box.bottom <= room.bottom && box.left >= room.left && box.right <= room.right
-        && box.left >= start.left && box.left < start.right && box.top >= start.top && box.top < start.bottom
-      const status = !line.textContent
-        ? 'no line'
-        : over && tag.textContent === line.textContent && line.getBoundingClientRect().height === 0
-          ? '"' + line.textContent + '" as a tag over the empty panels'
-          : '"' + line.textContent + '" in a line of its own'
-      return name + ': ' + status + ', panels ' + gap(part.querySelector('h2'), part.querySelector(row)) + 'px under the heading'
-    })
-  })()`
+  // See WHERE. And screen readers must still read the line, once: the tag is for the eyes alone
+  // (see heard).
   const seen: Record<string, string[]> = {}
   const read: Record<string, string[]> = {}
   for (const screen of [PHONE, DESKTOP]) {
-    await browser.forget()
-    await browser.holdAniList(2500)
-    await browser.load({ ...screen, reduceMotion: true })
-    const loading = await browser.evaluate<string[]>(where)
-    read[`${screen.width}px`] = [
-      await heard('trending', '.ab-page'),
-      await heard('decades', '.ab-strip'),
-    ]
-    assert.ok(await browser.titlesShown())
-    await browser.holdAniList(0)
-    const loaded = await browser.evaluate<string[]>(where)
-    seen[`${screen.width}px`] = [...loading, ...loaded]
+    const { waiting, landed } = await slowLoad(screen, true)
+    seen[`${screen.width}px`] = [...waiting.where, ...landed.where]
+    read[`${screen.width}px`] = waiting.heard
   }
   const under = (panels: Record<string, number>) => (name: string, text: string) =>
     `${name}: ${text}, panels ${panels[name]}px under the heading`
@@ -228,23 +293,13 @@ test('while AniList fails, a section waiting for its titles shows its whole long
 test('while a decade loads, the strip draws one row of cards, its empty ones, as tall as its titles', async () => {
   // The strip's rows and its height from heading to foot: the same while it waits as once its
   // titles land, or the page under it jumps, and a visitor at the foot of the page is pulled up.
-  const strip = `(() => {
-    const strip = document.querySelector('.ab-strip')
-    const rows = [...strip.querySelectorAll('.ab-strip-row')].filter((row) => row.getBoundingClientRect().height > 0)
-    const height = Math.round(strip.getBoundingClientRect().bottom - strip.querySelector('h2').getBoundingClientRect().top)
-    return rows.length + (rows.length === 1 ? ' row' : ' rows') + ', ' + height + 'px'
-  })()`
   const seen: string[] = []
   for (const screen of [PHONE, DESKTOP]) {
-    await browser.forget()
-    await browser.holdAniList(2500)
-    await browser.load({ ...screen, reduceMotion: true })
-    const loading = await browser.evaluate<string>(strip)
-    assert.ok(await browser.titlesShown())
-    await browser.holdAniList(0)
-    const loaded = await browser.evaluate<string>(strip)
-    if (loading !== loaded)
-      seen.push(`${screen.width}px: ${loading} while it waits, ${loaded} once its titles land`)
+    const { waiting, landed } = await slowLoad(screen, true)
+    if (waiting.strip !== landed.strip)
+      seen.push(
+        `${screen.width}px: ${waiting.strip} while it waits, ${landed.strip} once its titles land`,
+      )
   }
   assert.deepEqual(seen, [], 'the strip changes size as its titles land')
 })
@@ -253,12 +308,6 @@ test('while a newly picked decade loads, the strip keeps one row, the last decad
   // Picked once the 1990s have landed, the 1980s take 2.5 s to come: meanwhile the strip shows the
   // 1990s, its rows and height as they were (a row of empty cards on top of them pushed the page
   // under it down, and up again as the 1980s landed), and the same once the 1980s land.
-  const strip = `(() => {
-    const strip = document.querySelector('.ab-strip')
-    const rows = [...strip.querySelectorAll('.ab-strip-row')].filter((row) => row.getBoundingClientRect().height > 0)
-    const height = Math.round(strip.getBoundingClientRect().bottom - strip.querySelector('h2').getBoundingClientRect().top)
-    return rows.length + (rows.length === 1 ? ' row' : ' rows') + ', ' + height + 'px'
-  })()`
   const first = `document.querySelector('.ab-strip-row .ab-strip-panel[href] .ab-strip-title')?.textContent`
   const seen: string[] = []
   for (const screen of [PHONE, DESKTOP]) {
@@ -266,7 +315,7 @@ test('while a newly picked decade loads, the strip keeps one row, the last decad
     await browser.load({ ...screen, reduceMotion: true })
     assert.ok(await browser.titlesShown())
     const nineties = await browser.evaluate<string>(first)
-    const before = await browser.evaluate<string>(strip)
+    const before = await browser.evaluate<string>(STRIP)
     await browser.holdAniList(2500)
     try {
       await browser.evaluate(
@@ -275,13 +324,13 @@ test('while a newly picked decade loads, the strip keeps one row, the last decad
       // Past the chips' pause (300 ms), with the 1980s on their way.
       await sleep(800)
       const loading =
-        (await browser.evaluate<string>(strip)) +
+        (await browser.evaluate<string>(STRIP)) +
         ((await browser.evaluate<string>(first)) === nineties ? '' : ', the 1990s gone')
       assert.ok(
         await browser.waitFor(`${first} !== ${JSON.stringify(nineties)}`, 10_000),
         `${screen.width}px: the 1980s never landed`,
       )
-      const loaded = await browser.evaluate<string>(strip)
+      const loaded = await browser.evaluate<string>(STRIP)
       if (new Set([before, loading, loaded]).size > 1)
         seen.push(
           `${screen.width}px: ${before}, then ${loading} while the 1980s load, then ${loaded}`,
@@ -298,30 +347,8 @@ test("the pull machine's hint keeps its size as the titles land and change what 
   // phone the machine sits above the decades, so a hint that grew pushed them down.
   const seen: string[] = []
   for (const screen of [PHONE, DESKTOP]) {
-    await browser.forget()
-    await browser.holdAniList(2500)
-    await browser.load({ ...screen, reduceMotion: true })
-    // The box's height and the hint it shows: one, the others there only to hold the room, hidden
-    // from eyes and from screen readers.
-    const hint = `(() => {
-      const box = document.querySelector('.ab-reveal')
-      const hints = [...box.querySelectorAll('.ab-hint')]
-      const shown = hints.filter((hint) => getComputedStyle(hint).visibility === 'visible')
-      const read = hints.filter((hint) => !hint.closest('[aria-hidden="true"]'))
-      if (shown.length !== 1 || read.length !== 1 || shown[0] !== read[0])
-        return shown.length + ' hints shown, ' + read.length + ' read by screen readers'
-      // The hints share one place, as tall as the tallest (the box can be taller, from 821px wide,
-      // holding the room of a pulled title).
-      const tallest = Math.max(...hints.map((hint) => hint.getBoundingClientRect().height))
-      const place = box.querySelector('.ab-hints').getBoundingClientRect().height
-      if (Math.abs(place - tallest) > 1)
-        return 'the hints take ' + Math.round(place) + 'px for a tallest of ' + Math.round(tallest) + 'px'
-      return Math.round(box.getBoundingClientRect().height) + 'px: ' + shown[0].textContent.split('.')[0]
-    })()`
-    const before = await browser.evaluate<string>(hint)
-    assert.ok(await browser.titlesShown())
-    await browser.holdAniList(0)
-    const after = await browser.evaluate<string>(hint)
+    const { waiting, landed } = await slowLoad(screen, true)
+    const [before, after] = [waiting.hint, landed.hint]
     if (
       !/^\d+px: /.test(before) ||
       !/^\d+px: /.test(after) ||
@@ -333,22 +360,13 @@ test("the pull machine's hint keeps its size as the titles land and change what 
 })
 
 test('a slow first load, seen at the decades, jumps under 0.1, on a phone and on a wide screen', async () => {
-  // The answer held 2.5 s, the visitor already down at the decades as it lands.
+  // See slowLoad.
   const seen: string[] = []
   for (const screen of [PHONE, DESKTOP])
     for (const reduceMotion of [false, true]) {
-      await browser.forget()
-      await browser.holdAniList(2500)
-      await browser.load({ ...screen, reduceMotion })
-      await browser.evaluate(
-        `document.getElementById('decades').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
-      )
-      assert.ok(await browser.titlesShown())
-      await browser.holdAniList(0)
-      await sleep(1500)
-      const { value } = await browser.layoutShift()
+      const { value, shifted } = await slowLoad(screen, reduceMotion)
       if (value >= 0.1)
-        seen.push(`${screen.width}px${reduceMotion ? ', reduced motion' : ''}: ${await shifted()}`)
+        seen.push(`${screen.width}px${reduceMotion ? ', reduced motion' : ''}: ${shifted}`)
     }
   assert.deepEqual(seen, [], 'the page jumps under the visitor as the titles land')
 })
