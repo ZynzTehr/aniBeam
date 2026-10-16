@@ -888,6 +888,29 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('each section is a landmark named by its heading, for screen readers to list and jump to', async () => {
+    // A section is a region only with a name, which aria-labelledby gives it from its heading: an
+    // id there that matches no heading leaves the section out of a screen reader's list of
+    // landmarks, with nothing on screen to show it. From Chrome's accessibility tree, at home.
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-intro')`, 5_000),
+      'the intro is not back',
+    )
+    const { nodes } = await browser.send('Accessibility.getFullAXTree', {})
+    assert.deepEqual(
+      nodes
+        .filter((node: any) => !node.ignored && node.role?.value === 'region')
+        .map((node: any) => node.name?.value),
+      [
+        'What’s hot. What’s new. Talk about it.',
+        'Trending now',
+        'Pull a title',
+        'Browse by decade',
+      ],
+      "the page's regions, as screen readers list them",
+    )
+  })
+
   test('a search with no matches says so, and clearing it brings the intro back', async () => {
     await browser.search('zzqqxxnotananime')
     assert.ok(
