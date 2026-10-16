@@ -463,6 +463,44 @@ test('every part is marked before the browser first draws it, and plays no load-
   assert.deepEqual({ unmarked: [...new Set(unmarked)], entering }, { unmarked: [], entering: [] })
 })
 
+test('the empty panels and cards that hold the titles’ place never wait or land', async () => {
+  // A slow first visit: while the titles are on their way, the empty panels and cards are
+  // scrolled to, top to bottom. None may be a part (they are hidden from screen readers, in an
+  // aria-hidden row), and each shows as it is: caught up in the landing, they waited, then slammed
+  // in, and the titles slammed in over them a second time.
+  await browser.forget()
+  await browser.holdAniList(4000)
+  let wrong: string[] = []
+  try {
+    await browser.load()
+    const end = await browser.evaluate<number>(
+      'document.documentElement.scrollHeight - innerHeight',
+    )
+    for (let y = 0; y <= end + 150; y += 300) {
+      await browser.evaluate(`scrollTo(0, ${Math.min(y, end)}); true`)
+      await frames()
+      wrong.push(
+        ...(await browser.evaluate<
+          string[]
+        >(`[...document.querySelectorAll('[aria-hidden="true"] .ab-skeleton-fill')].flatMap((fill) => {
+          const card = fill.closest('li'), shown = fill.closest('.ab-strip-panel') ?? card
+          const marked = card.dataset.land ?? card.querySelector('[data-land]')?.dataset.land
+          const see = Number(getComputedStyle(shown).opacity)
+          return marked || see !== 1 ? [(card.closest('.ab-strip') ? 'an empty card' : 'an empty panel') + (marked ? ', ' + marked : '') + ', opacity ' + see] : []
+        })`)),
+      )
+    }
+    const skeletons = await browser.evaluate<number>(
+      `document.querySelectorAll('[aria-hidden="true"] .ab-skeleton-fill').length`,
+    )
+    assert.ok(skeletons >= 9, `only ${skeletons} empty panels and cards while the titles were held`)
+  } finally {
+    await browser.holdAniList(0)
+  }
+  wrong = [...new Set(wrong)]
+  assert.deepEqual(wrong, [], 'empty panels or cards caught up in the landing')
+})
+
 test('scrolling down, up and down again replays nothing, and neither does a moved panel', async () => {
   await browser.load()
   assert.ok(await browser.titlesShown())
