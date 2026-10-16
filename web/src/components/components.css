@@ -553,7 +553,8 @@ img[data-broken] {
     .ab-panel[data-land]::after,
     .ab-panel[data-land] .ab-img img,
     .ab-panel[data-land] .ab-caption,
-    .ab-strip-item[data-land] > .ab-strip-panel {
+    .ab-strip-item[data-land] > .ab-strip-panel,
+    .ab-sfx[data-land] > span {
       animation: none;
     }
 
@@ -565,7 +566,9 @@ img[data-broken] {
     /* Not seen yet: see-through only, so nothing in the layout moves and it stays in the Tab order
        (visibility or display would take it out). */
     .ab-panel[data-land='wait'],
-    .ab-strip-item[data-land='wait'] > .ab-strip-panel {
+    .ab-strip-item[data-land='wait'] > .ab-strip-panel,
+    .ab-machine[data-land='wait'],
+    .ab-sfx[data-land='wait'] > span {
       opacity: 0;
     }
 
@@ -596,6 +599,15 @@ img[data-broken] {
       animation: ab-pop 0.6s var(--spring) backwards;
       animation-delay: calc(var(--k, 0) * var(--slam-stagger, 90ms) * 2 / 3);
     }
+
+    /* A heading's sound effect booms; the pull machine drops in on the spring. */
+    .ab-sfx[data-land='go'] > span {
+      animation: ab-boom 0.7s var(--spring) backwards;
+    }
+
+    .ab-machine[data-land='go'] {
+      animation: ab-machine-drop 0.6s var(--spring) backwards;
+    }
   }
 }
 
@@ -615,6 +627,13 @@ img[data-broken] {
 
   100% {
     transform: none;
+  }
+}
+
+@keyframes ab-machine-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-48px) scale(1.06);
   }
 }
 

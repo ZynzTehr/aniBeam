@@ -25,8 +25,8 @@ afterEach(() => {
 const PARTS = `[...document.querySelectorAll(${JSON.stringify(LANDING_PARTS)})]`
 // The keyframes of a slam, and of the page's load-time entrances, which a part must not play at
 // load as well.
-const ENTRANCES = ['ab-ink', 'ab-settle', 'ab-pop']
-const SLAMS = [...ENTRANCES, 'ab-panel-slam']
+const ENTRANCES = ['ab-ink', 'ab-settle', 'ab-pop', 'ab-boom']
+const SLAMS = [...ENTRANCES, 'ab-panel-slam', 'ab-machine-drop']
 
 /** Each part as its place, how it stands, how much of it shows (0 to 1) and how see-through. */
 const STATES = `(() => {
@@ -40,10 +40,15 @@ const STATES = `(() => {
     const shown = Math.max(0, bottom - top) * Math.max(0, right - left)
     return r.width && r.height ? shown / (r.width * r.height) : 0
   }
-  // What a part shows itself with: a panel itself, the card in a list item.
-  const face = (el) => (el.matches('.ab-strip-item') ? el.firstElementChild : el)
-  return ${PARTS}.map((el, i) => ({
-    name: (el.matches('.ab-strip-item') ? 'card ' : 'panel ') + ([...el.parentElement.children].indexOf(el) + 1),
+  // What a part shows itself with: a panel or the machine itself, the card in a list item, a
+  // heading's sound effect.
+  const face = (el) => (el.matches('.ab-strip-item') ? el.firstElementChild : el.matches('.ab-sfx') ? el.lastElementChild : el)
+  const name = (el) =>
+    el.matches('.ab-sfx') ? 'heading "' + el.firstChild.textContent.trim() + '"'
+    : el.matches('.ab-machine') ? 'the machine'
+    : (el.matches('.ab-strip-item') ? 'card ' : 'panel ') + ([...el.parentElement.children].indexOf(el) + 1)
+  return ${PARTS}.map((el) => ({
+    name: name(el),
     land: el.dataset.land,
     shown: Math.round(seen(el) * 100) / 100,
     opacity: Number(getComputedStyle(face(el)).opacity),
@@ -96,12 +101,15 @@ async function scrollDown({
 const landed = () => browser.waitFor(`!document.querySelector('[data-land="go"]')`, 5_000)
 
 test('a part below the first screen waits, see-through, and lands as 15% of it shows, with its slam played once', async () => {
-  // The slam itself: each part's own slam (a panel's, or a card's pop) starts once, as the part
-  // lands, not at load.
+  // The slam itself: each part's own slam (a panel's, a card's pop, the machine's drop, a heading's
+  // boom) starts once, as the part lands, not at load.
   const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
     source: `window.__slams = new Map()
       addEventListener('animationstart', (event) => {
-        const own = event.animationName === 'ab-panel-slam' ? event.target : event.animationName === 'ab-pop' && event.target.matches('.ab-strip-item > .ab-strip-panel') ? event.target.parentElement : null
+        const { animationName: slam, target } = event
+        const own = slam === 'ab-panel-slam' || slam === 'ab-machine-drop' ? target
+          : (slam === 'ab-pop' && target.matches('.ab-strip-item > .ab-strip-panel')) || (slam === 'ab-boom' && target.matches('.ab-sfx > span')) ? target.parentElement
+          : null
         if (own) window.__slams.set(own, (window.__slams.get(own) ?? 0) + 1)
       }, true)`,
   })

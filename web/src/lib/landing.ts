@@ -16,11 +16,12 @@ export type Land = 'wait' | 'go' | 'done'
 export const LANDING_RATIO = 0.15
 
 /**
- * The parts that land: the trending panels, and the decade and search cards (their list items,
- * which the row snaps to; the card inside moves), not the empty ones that hold their place.
+ * The parts that land: the trending panels, the decade and search cards (their list items, which
+ * the row snaps to; the card inside moves), not the empty ones that hold their place; the pull
+ * machine; and the section headings, whose sound effect booms (not the intro's).
  */
 export const LANDING_PARTS =
-  '.ab-grid:not([aria-hidden]) > .ab-panel, .ab-strip-row:not([aria-hidden]) > .ab-strip-item'
+  '.ab-grid:not([aria-hidden]) > .ab-panel, .ab-strip-row:not([aria-hidden]) > .ab-strip-item, .ab-machine, .ab-sfx'
 
 /** What happens to a part: found on the page, seen on the screen, focused, its slam played. */
 type Happening = 'found' | 'seen' | 'focused' | 'played'
