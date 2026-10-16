@@ -164,6 +164,12 @@ Everything on the page works from the keyboard. Tab reaches its 43 stops in read
 
 While titles load, each section shows empty panels the size of the titles to come, with its status line as a tag over them ("Loading…", or why the titles are late), so nothing on the page moves as the titles arrive. A pulled title takes its place the moment the lever is pressed, unseen until its capsule opens. `web/e2e/layout.e2e.ts` measures layout shift as web-vitals counts it for CLS, on a first visit and a slow one, on a phone and a wide screen, and on a pull on a phone, and holds each under 0.1, Google's mark for good.
 
+### Landing (the scroll slam)
+
+Parts of the page land once, as they scroll into view: the trending panels, the decade and search cards, the pull machine and the section headings. The intro, the splash cover's drift, the title card and the pull's reveal play as before. A part waits, see-through in its place, until 15% of it shows, then slams in: a trending panel as solid ink from 1.14 times its size and turned 2.5 degrees, then its ink wipes off, its cover settles and its caption pops; a card pops in; the machine drops in; a heading's sound effect booms. Parts that come into view together land one after another, in reading order, 90 ms apart (cards 60 ms), and a card scrolled into view sideways lands then. After that nothing moves again: scrolling back replays nothing, and neither does a refresh that moves a panel. Keyboard focus lands a part at once, and a printed page shows every part. Under reduced motion, from the device or the switch, nothing waits and nothing moves.
+
+`web/src/lib/landing.ts` decides when: one IntersectionObserver, a MutationObserver that finds parts as titles load and lists change (before the browser draws them), and a focus listener. Each part carries `data-land`: `wait`, `go` while its slam plays, then `done`, with no animation left. The Landing section of `web/src/components/components.css` does the moving, inside the motion gate. The knobs, `--slam-scale`, `--slam-tilt` and `--slam-stagger`, are tokens in `web/src/styles/index.css`. `web/e2e/landing.e2e.ts` checks it: nothing on screen waits, each part slams once, nothing replays, reduced motion hides nothing, no part's box moves, a phone never widens, focus and print see every part.
+
 ### Fonts
 
 The display font is Dela Gothic One, by the Dela Gothic Project Authors. The body font is M PLUS Rounded 1c, by the Rounded M+ Project Authors. Both are self-hosted from `web/public/fonts`, so visitors' browsers never contact Google. `npm test` builds the production bundle in memory and fails if any file in it references Google Fonts.
@@ -172,7 +178,7 @@ The files are subsets with Latin letters, kana and the star symbol, about 100 KB
 
 ### Browser checks
 
-`web/e2e` holds checks that run the real page in headless Chrome: layout and layout shift on desktop and phone, keyboard use, reduced motion, Windows contrast themes, the title card, search, the pull, trending refreshed while it is on screen, what a visitor sees when AniList is down, and the component gallery. Two more check AniList's API itself. They need no extra package. Node drives Chrome over its DevTools protocol.
+`web/e2e` holds checks that run the real page in headless Chrome: layout and layout shift on desktop and phone, keyboard use, the scroll slam, reduced motion, Windows contrast themes, the title card, search, the pull, trending refreshed while it is on screen, what a visitor sees when AniList is down, and the component gallery. Two more check AniList's API itself. They need no extra package. Node drives Chrome over its DevTools protocol.
 
 To run them, start the app with `npm run dev`, then point `CHROME_BIN` at a Chrome or chrome-headless-shell binary:
 
