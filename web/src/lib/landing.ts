@@ -15,8 +15,12 @@ export type Land = 'wait' | 'go' | 'done'
 /** How much of a part must show before it lands. */
 export const LANDING_RATIO = 0.15
 
-/** The parts that land: the trending panels (not the empty ones that hold their place). */
-export const LANDING_PARTS = '.ab-grid:not([aria-hidden]) > .ab-panel'
+/**
+ * The parts that land: the trending panels, and the decade and search cards (their list items,
+ * which the row snaps to; the card inside moves), not the empty ones that hold their place.
+ */
+export const LANDING_PARTS =
+  '.ab-grid:not([aria-hidden]) > .ab-panel, .ab-strip-row:not([aria-hidden]) > .ab-strip-item'
 
 /** What happens to a part: found on the page, seen on the screen, focused, its slam played. */
 type Happening = 'found' | 'seen' | 'focused' | 'played'
@@ -62,7 +66,7 @@ const landOf = (part: HTMLElement) => part.dataset.land as Land | undefined
 export function startLanding(selector: string) {
   const set = (part: HTMLElement, happening: Happening) => {
     const land = landAfter(landOf(part), happening)
-    if (land) part.dataset.land = land
+    if (land && land !== landOf(part)) part.dataset.land = land
     if (land === 'done') {
       observer.unobserve(part)
       part.style.removeProperty('--k')

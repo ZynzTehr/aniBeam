@@ -30,17 +30,23 @@ const SLAMS = [...ENTRANCES, 'ab-panel-slam']
 
 /** Each part as its place, how it stands, how much of it shows (0 to 1) and how see-through. */
 const STATES = `(() => {
-  // As an IntersectionObserver sees it: the part of it inside the screen.
+  // As an IntersectionObserver sees it: the part of it inside the screen, and a card inside its row,
+  // which scrolls sideways and clips what lies past its edges.
   const seen = (el) => {
     const r = el.getBoundingClientRect()
-    const shown = Math.max(0, Math.min(r.bottom, innerHeight) - Math.max(r.top, 0)) * Math.max(0, Math.min(r.right, innerWidth) - Math.max(r.left, 0))
+    const row = el.closest('.ab-strip-row')?.getBoundingClientRect()
+    const [top, bottom] = [Math.max(r.top, 0, row?.top ?? 0), Math.min(r.bottom, innerHeight, row?.bottom ?? Infinity)]
+    const [left, right] = [Math.max(r.left, 0, row?.left ?? 0), Math.min(r.right, innerWidth, row?.right ?? Infinity)]
+    const shown = Math.max(0, bottom - top) * Math.max(0, right - left)
     return r.width && r.height ? shown / (r.width * r.height) : 0
   }
+  // What a part shows itself with: a panel itself, the card in a list item.
+  const face = (el) => (el.matches('.ab-strip-item') ? el.firstElementChild : el)
   return ${PARTS}.map((el, i) => ({
-    name: 'part ' + (i + 1),
+    name: (el.matches('.ab-strip-item') ? 'card ' : 'panel ') + ([...el.parentElement.children].indexOf(el) + 1),
     land: el.dataset.land,
     shown: Math.round(seen(el) * 100) / 100,
-    opacity: Number(getComputedStyle(el).opacity),
+    opacity: Number(getComputedStyle(face(el)).opacity),
     moving: el.getAnimations({ subtree: true }).filter((a) => a.playState === 'running' && ${JSON.stringify(SLAMS)}.includes(a.animationName)).length,
   }))
 })()`
@@ -90,12 +96,13 @@ async function scrollDown({
 const landed = () => browser.waitFor(`!document.querySelector('[data-land="go"]')`, 5_000)
 
 test('a part below the first screen waits, see-through, and lands as 15% of it shows, with its slam played once', async () => {
-  // The slam itself: each panel's slam starts once, as the panel lands, not at load.
+  // The slam itself: each part's own slam (a panel's, or a card's pop) starts once, as the part
+  // lands, not at load.
   const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
     source: `window.__slams = new Map()
       addEventListener('animationstart', (event) => {
-        if (event.animationName !== 'ab-panel-slam') return
-        window.__slams.set(event.target, (window.__slams.get(event.target) ?? 0) + 1)
+        const own = event.animationName === 'ab-panel-slam' ? event.target : event.animationName === 'ab-pop' && event.target.matches('.ab-strip-item > .ab-strip-panel') ? event.target.parentElement : null
+        if (own) window.__slams.set(own, (window.__slams.get(own) ?? 0) + 1)
       }, true)`,
   })
   await browser.load()
@@ -112,8 +119,14 @@ test('a part below the first screen waits, see-through, and lands as 15% of it s
     },
   })
   assert.ok(await landed(), 'parts still landing 5s later')
+  // Every part that landed shows in full, still; the rest are cards past a row's edge, still
+  // waiting to be scrolled to.
   const states = await partStates()
-  const unlanded = states.filter((p) => p.land !== 'done' || p.opacity !== 1 || p.moving)
+  const unlanded = states.filter(
+    (p) =>
+      (p.land === 'done' && (p.opacity !== 1 || p.moving)) ||
+      (p.land !== 'done' && !(p.land === 'wait' && p.name.startsWith('card'))),
+  )
   const slams = await browser.evaluate<number[]>(
     `${PARTS}.map((part) => window.__slams.get(part) ?? 0)`,
   )
@@ -121,8 +134,43 @@ test('a part below the first screen waits, see-through, and lands as 15% of it s
   assert.ok(atLoad.length >= 6, `only ${atLoad.length} parts below the first screen to check`)
   assert.deepEqual(
     { notWaiting, waiting, unlanded, slams },
-    { notWaiting: [], waiting: [], unlanded: [], slams: states.map(() => 1) },
+    {
+      notWaiting: [],
+      waiting: [],
+      unlanded: [],
+      slams: states.map((p) => (p.land === 'done' ? 1 : 0)),
+    },
   )
+})
+
+test('a decade card past its row’s edge waits until scrolled to, then lands, and none on screen waits', async () => {
+  // The cards that came into view with the strip land with it; the rest wait past the row's edge,
+  // and land as the row is scrolled sideways to them, in 150px steps.
+  await browser.load()
+  assert.ok(await browser.titlesShown())
+  await browser.evaluate(
+    `document.getElementById('decades').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
+  )
+  await waitingAfter(200)
+  // Once what landed has played: a load-time entrance can hold a card see-through for a while too.
+  await browser.animationsDone()
+  const cards = async () => (await partStates()).filter((p) => p.name.startsWith('card'))
+  const pastEdge = (await cards()).filter((p) => p.shown === 0)
+  const notWaiting = pastEdge.filter((p) => p.land !== 'wait' || p.opacity !== 0)
+  const waiting: string[] = []
+  const end = await browser.evaluate<number>(
+    `(() => { const row = document.querySelector('.ab-strip-row:not([aria-hidden])'); return row.scrollWidth - row.clientWidth })()`,
+  )
+  for (let x = 0; x <= end + 150; x += 150) {
+    await browser.evaluate(
+      `document.querySelector('.ab-strip-row:not([aria-hidden])').scrollTo({ left: ${x}, behavior: 'instant' }); true`,
+    )
+    for (const p of await waitingAfter(200)) waiting.push(`${x}px along: ${p.name} (${p.shown})`)
+  }
+  assert.ok(await landed(), 'cards still landing 5s later')
+  const unlanded = (await cards()).filter((p) => p.land !== 'done' || p.opacity !== 1)
+  assert.ok(pastEdge.length >= 5, `only ${pastEdge.length} cards past the row's edge to check`)
+  assert.deepEqual({ notWaiting, waiting, unlanded }, { notWaiting: [], waiting: [], unlanded: [] })
 })
 
 test('every part is marked as it arrives, on load and with new titles, and plays no load-time entrance', async () => {
@@ -154,17 +202,19 @@ test('scrolling down, up and down again replays nothing, and neither does a move
   assert.ok(await browser.titlesShown())
   await scrollDown()
   assert.ok(await landed(), 'parts still landing 5s later')
-  // From here on, note any slam that starts again, or a part that leaves done.
+  // From here on, note any slam that starts again on a part that has landed, or a part that leaves
+  // done (cards past a row's edge still wait, unseen).
   await browser.evaluate(`(() => {
     window.__replays = []
     const slams = ${JSON.stringify(SLAMS)}
+    const landed = new Set(document.querySelectorAll('[data-land="done"]'))
     document.addEventListener('animationstart', (event) => {
-      if (slams.includes(event.animationName) && event.target.closest('[data-land]')) window.__replays.push(event.animationName + ' on ' + event.target.className)
+      if (slams.includes(event.animationName) && landed.has(event.target.closest('[data-land]'))) window.__replays.push(event.animationName + ' on ' + event.target.className)
     }, true)
     new MutationObserver((records) => {
-      for (const { target } of records)
-        if (target.dataset.land !== 'done') window.__replays.push('back to ' + target.dataset.land)
-    }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ['data-land'] })
+      for (const { target, oldValue } of records)
+        if (oldValue === 'done' && target.dataset.land !== 'done') window.__replays.push('back to ' + target.dataset.land)
+    }).observe(document.body, { subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['data-land'] })
     return true
   })()`)
   await scrollDown({ up: true })

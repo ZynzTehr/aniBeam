@@ -552,7 +552,8 @@ img[data-broken] {
     /* Their load-time entrances give way to the slam, which plays them as they land. */
     .ab-panel[data-land]::after,
     .ab-panel[data-land] .ab-img img,
-    .ab-panel[data-land] .ab-caption {
+    .ab-panel[data-land] .ab-caption,
+    .ab-strip-item[data-land] > .ab-strip-panel {
       animation: none;
     }
 
@@ -563,7 +564,8 @@ img[data-broken] {
 
     /* Not seen yet: see-through only, so nothing in the layout moves and it stays in the Tab order
        (visibility or display would take it out). */
-    .ab-panel[data-land='wait'] {
+    .ab-panel[data-land='wait'],
+    .ab-strip-item[data-land='wait'] > .ab-strip-panel {
       opacity: 0;
     }
 
@@ -585,6 +587,14 @@ img[data-broken] {
     .ab-panel[data-land='go'] .ab-caption {
       animation: ab-pop 0.6s var(--spring) backwards;
       animation-delay: calc(var(--k, 0) * var(--slam-stagger, 90ms) + 520ms);
+    }
+
+    /* A decade or search card snaps in, closer behind the one before. Its list item is the part,
+       as the row snaps to it and search results measure it; the card inside moves, as an item that
+       grew pulled the row sideways and back (see the strip's load-time pop). */
+    .ab-strip-item[data-land='go'] > .ab-strip-panel {
+      animation: ab-pop 0.6s var(--spring) backwards;
+      animation-delay: calc(var(--k, 0) * var(--slam-stagger, 90ms) * 2 / 3);
     }
   }
 }
