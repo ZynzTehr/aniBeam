@@ -32,7 +32,7 @@ The `.env.example` files list every variable with a comment explaining it. Real 
 | `npm run test:browser` | Runs the browser checks in `web/e2e` (see below)                |
 | `npm run format`       | Formats the repo with Prettier                                  |
 
-`npm test` and `npm run test:browser` stop a test after its time limit, and end each test file's process the moment its last test ends, so that a test left waiting can't stall them. Each file's results reach the runner through a pipe, which macOS writes in the background, so a process ended that way could lose the last of them, and a run passed on fewer tests (270 of 303 once). So every test process writes its output at once (`web/scripts/blocking-test-output.ts`), and a reporter fails the run, naming the file, if any test a file queued never reported (`web/scripts/every-test-reported.ts`).
+`npm test` and `npm run test:browser` stop a test after its time limit, and end each test file's process the moment its last test ends, so that a test left waiting can't stall them. Each file's results reach the runner through a pipe, which macOS writes in the background, so a process ended that way could lose the last of them, and a run passed on fewer tests (270 of 303 once). So every test process writes its output at once (`web/scripts/blocking-test-output.ts`), and a reporter fails the run, naming the file, if any test a file queued never reported (`web/scripts/every-test-reported.ts`). A file queues every test as it loads only if it awaits nothing at its top level after its first test, and a test holds every test file to that: a test registered after such an await would never be queued, and could go missing unseen.
 
 ## Deploying
 
