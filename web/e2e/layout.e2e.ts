@@ -58,23 +58,25 @@ test('a first visit loads with a layout shift under 0.1, on a phone and on a wid
   assert.deepEqual(seen, [], 'a first visit jumps')
 })
 
-test('while a section waits for its titles, "Loading…" shows on its first empty panel, and nothing moves as they land', async () => {
-  // Each section's status: as a tag on its first empty panel, its own line taking no room (screen
-  // readers still read the line), or in its line; and its panels' place under its heading.
+test('while a section waits for its titles, "Loading…" shows over its empty panels, and nothing moves as they land', async () => {
+  // Each section's status: as a tag over its empty panels, from the first, its own line taking no
+  // room (screen readers still read the line), or in its line; and its panels' place under its
+  // heading.
   const where = `(() => {
     // Measured, then rounded once: the heading itself can move, as what is above it changes.
     const gap = (from, to) => Math.round(to.getBoundingClientRect().top - from.getBoundingClientRect().top)
     return [['trending', '.ab-page', '.ab-grid'], ['decades', '.ab-strip', '.ab-strip-row']].map(([name, section, row]) => {
       const part = document.querySelector(section)
       const line = part.querySelector('.ab-note')
-      const panel = part.querySelector(row + '[aria-hidden] > li')
-      const tag = panel?.querySelector('.ab-note-tag')
-      const box = tag?.getBoundingClientRect(), room = panel?.getBoundingClientRect()
-      const onPanel = box && box.width > 0 && box.top >= room.top && box.bottom <= room.bottom && box.left >= room.left && box.right <= room.right
+      const panels = part.querySelector(row + '[aria-hidden]'), first = panels?.querySelector('li')
+      const tag = part.querySelector('.ab-note-tag')
+      const box = tag?.getBoundingClientRect(), room = panels?.getBoundingClientRect(), start = first?.getBoundingClientRect()
+      const over = box && box.width > 0 && box.top >= room.top && box.bottom <= room.bottom && box.left >= room.left && box.right <= room.right
+        && box.left >= start.left && box.left < start.right && box.top >= start.top && box.top < start.bottom
       const status = !line.textContent
         ? 'no line'
-        : onPanel && tag.textContent === line.textContent && line.getBoundingClientRect().height === 0
-          ? '"' + line.textContent + '" as a tag on the first empty panel'
+        : over && tag.textContent === line.textContent && line.getBoundingClientRect().height === 0
+          ? '"' + line.textContent + '" as a tag over the empty panels'
           : '"' + line.textContent + '" in a line of its own'
       return name + ': ' + status + ', panels ' + gap(part.querySelector('h2'), part.querySelector(row)) + 'px under the heading'
     })
@@ -99,14 +101,75 @@ test('while a section waits for its titles, "Loading…" shows on its first empt
     assert.deepEqual(
       [trending, decades, trendingAfter, decadesAfter],
       [
-        under(panels)('trending', '"Loading…" as a tag on the first empty panel'),
-        under(panels)('decades', '"Loading…" as a tag on the first empty panel'),
+        under(panels)('trending', '"Loading…" as a tag over the empty panels'),
+        under(panels)('decades', '"Loading…" as a tag over the empty panels'),
         under(panels)('trending', 'no line'),
         under(panels)('decades', 'no line'),
       ],
       `at ${screen}, while the titles load, then once they land`,
     )
   }
+})
+
+test('while AniList fails, a section waiting for its titles shows its whole long status note in its tag, clear of the corners', async () => {
+  // While the sections try again, their status says so at length ("AniList had a problem. It's not
+  // something you did. Trying again in a few seconds."), where a phone's or a tablet's strip card
+  // is 150px wide. Each tag must show all of it: none of it cut off by what holds the tag, over its
+  // empty panels, its text not spilling out of it, and each of its lines inside its rounded shape.
+  const TAGS = `[...document.querySelectorAll('.ab-note-tag')].map((tag) => {
+    const name = tag.closest('.ab-page') ? 'trending' : 'decades'
+    const box = tag.getBoundingClientRect(), style = getComputedStyle(tag)
+    const problems = []
+    for (let el = tag.parentElement; el && el !== document.body; el = el.parentElement) {
+      const clips = getComputedStyle(el)
+      if (clips.overflowX === 'visible' && clips.overflowY === 'visible') continue
+      const r = el.getBoundingClientRect()
+      if (box.left < r.left - 0.5 || box.right > r.right + 0.5 || box.top < r.top - 0.5 || box.bottom > r.bottom + 0.5)
+        problems.push('cut off by .' + el.classList[0])
+    }
+    const panels = tag.closest('section').querySelector('[aria-hidden="true"]:is(.ab-grid, .ab-strip-row)').getBoundingClientRect()
+    if (box.left < panels.left || box.right > panels.right || box.top < panels.top || box.bottom > panels.bottom) problems.push('beyond its empty panels')
+    if (tag.scrollHeight > tag.clientHeight + 1 || tag.scrollWidth > tag.clientWidth + 1) problems.push('its text spills out')
+    // Inside the white of its rounded shape: the box within its border, with the corners' radius
+    // as drawn (no more than half the box), less the border.
+    const border = parseFloat(style.borderTopWidth)
+    const [left, top, right, bottom] = [box.left + border, box.top + border, box.right - border, box.bottom - border]
+    const radius = Math.max(0, Math.min(parseFloat(style.borderTopLeftRadius), box.width / 2, box.height / 2) - border)
+    const inside = (x, y) => {
+      if (x < left - 0.5 || x > right + 0.5 || y < top - 0.5 || y > bottom + 0.5) return false
+      const cx = Math.min(Math.max(x, left + radius), right - radius), cy = Math.min(Math.max(y, top + radius), bottom - radius)
+      return Math.hypot(x - cx, y - cy) <= radius + 0.5
+    }
+    const range = document.createRange()
+    range.selectNodeContents(tag)
+    const lines = [...range.getClientRects()].filter((line) => line.width > 0)
+    const out = lines.filter((line) => ![[line.left, line.top], [line.right, line.top], [line.left, line.bottom], [line.right, line.bottom]].every(([x, y]) => inside(x, y)))
+    if (out.length) problems.push(out.length + ' of its ' + lines.length + ' lines run outside its rounded shape')
+    return name + ': ' + (tag.textContent.includes('Trying again in a few seconds.') ? 'the whole note' : '"' + tag.textContent + '"') + (problems.length ? ', ' + problems.join(', ') : ', shown whole')
+  })`
+  const seen: Record<string, string[]> = {}
+  for (const screen of [PHONE, { width: 834, height: 1112 }, DESKTOP]) {
+    await browser.forget()
+    await browser.rewriteAniList(() => ({
+      status: 500,
+      body: JSON.stringify({ errors: [{ message: 'Internal Server Error', status: 500 }] }),
+    }))
+    try {
+      await browser.load({ ...screen, reduceMotion: true })
+      assert.ok(
+        await browser.waitFor(
+          `[...document.querySelectorAll('.ab-note-tag')].filter((tag) => tag.textContent.includes('Trying again')).length === 2`,
+          10_000,
+        ),
+        `${screen.width}px: the sections never said they were trying again`,
+      )
+      seen[`${screen.width}px`] = await browser.evaluate<string[]>(TAGS)
+    } finally {
+      await browser.rewriteAniList(null)
+    }
+  }
+  const whole = ['trending: the whole note, shown whole', 'decades: the whole note, shown whole']
+  assert.deepEqual(seen, { '390px': whole, '834px': whole, '1440px': whole })
 })
 
 test('while a decade loads, the strip draws one row of cards, its empty ones, as tall as its titles', async () => {

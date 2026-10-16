@@ -2098,8 +2098,8 @@ body:has(.ab-card[open]) {
   margin: 0;
 }
 
-/* While a section waits for its first titles, its status line ("Loading…") shows as a tag on its
-   first empty panel (.ab-note-tag) instead of in a line of its own, so nothing moves as it clears
+/* While a section waits for its first titles, its status line ("Loading…") shows as a tag over its
+   empty panels (.ab-note-tag) instead of in a line of its own, so nothing moves as it clears
    and the titles take the panels' place. The line itself stays in the page's flow, with no height,
    for screen readers, which read it as ever: placed absolutely instead, it would change position
    as loading ends, and Chrome then stops keeping the place of a visitor further down the page
@@ -2110,20 +2110,27 @@ body:has(.ab-card[open]) {
   overflow: hidden;
 }
 
+/* A pill for one line; for a longer note (an outage, the rate limit), at most 40 characters wide,
+   with corners that stay clear of its lines. */
 .ab-note-tag {
   position: absolute;
   z-index: 3;
   top: 16px;
   left: 16px;
-  max-width: calc(100% - 32px);
+  max-width: min(100% - 32px, 40ch);
   padding: 4px 14px;
   border: 3px solid var(--ink);
-  border-radius: 999px;
+  border-radius: 18px;
   background: #fff;
   box-shadow: 3px 3px 0 var(--ink);
   color: var(--ink);
   font-size: 15px;
   font-weight: 800;
+}
+
+/* The strip's tag sits over its empty cards, starting on the first (see Strip). */
+.ab-strip-wait {
+  position: relative;
 }
 
 /* Empty panels and cards hold the layout while titles load. */

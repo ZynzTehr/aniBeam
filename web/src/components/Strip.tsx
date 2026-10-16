@@ -51,8 +51,8 @@ export function Strip({
   children?: ReactNode
 }) {
   const row = grid ? 'ab-strip-row ab-strip-grid' : 'ab-strip-row'
-  // Waiting for its first titles, the strip shows empty cards, and its status line shows as a tag on
-  // the first instead of in a line of its own, so nothing moves as it clears (see .is-tagged).
+  // Waiting for its first titles, the strip shows empty cards, and its status line shows as a tag
+  // over them instead of in a line of its own, so nothing moves as it clears (see .is-tagged).
   const waiting = !titles.length && loading
   // A different list opens at Ch.1: React keeps this row for the next list, which would otherwise
   // open wherever the last one was scrolled. Keyed on which list it is, not on its titles, so a
@@ -74,15 +74,20 @@ export function Strip({
       </p>
       {onRetry && <RetryButton headingId={id} onRetry={onRetry} />}
       {waiting && (
-        <ol className={row} aria-hidden="true">
-          {Array.from({ length: 8 }, (_, i) => (
-            <li key={i} className="ab-strip-item">
-              <span className="ab-strip-panel ab-skeleton-fill">
-                {i === 0 && <span className="ab-note-tag">{note}</span>}
-              </span>
-            </li>
-          ))}
-        </ol>
+        // The tag sits over the cards, across as many as its note needs: inside the first, which
+        // clips what it holds, a long note was cut off, as a phone's card is 150px wide.
+        <div className="ab-strip-wait">
+          <ol className={row} aria-hidden="true">
+            {Array.from({ length: 8 }, (_, i) => (
+              <li key={i} className="ab-strip-item">
+                <span className="ab-strip-panel ab-skeleton-fill" />
+              </li>
+            ))}
+          </ol>
+          <span className="ab-note-tag" aria-hidden="true">
+            {note}
+          </span>
+        </div>
       )}
       <ol ref={titlesRow} className={row} onFocus={grid ? undefined : revealFocused}>
         {titles.map((media, i) => (
