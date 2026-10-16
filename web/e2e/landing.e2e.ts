@@ -403,28 +403,64 @@ test('printed, every part shows, whether it has landed or not', async () => {
   )
 })
 
-test('every part is marked as it arrives, on load and with new titles, and plays no load-time entrance', async () => {
-  const unclaimed = () =>
-    browser.evaluate<{ unmarked: string[]; entering: string[] }>(`(() => {
-      const parts = ${PARTS}
-      const name = (el) => el.className
-      return {
-        unmarked: parts.filter((el) => !el.dataset.land).map(name),
-        entering: parts.filter((el) => el.dataset.land !== 'go' && el.getAnimations({ subtree: true }).some((a) => ${JSON.stringify(ENTRANCES)}.includes(a.animationName))).map(name),
-      }
-    })()`)
-  await browser.forget()
-  await browser.holdAniList(2500)
+test('every part is marked before the browser first draws it, and plays no load-time entrance', async () => {
+  // Frame by frame from the page's first moment, through a slow first visit (the empty panels
+  // giving way to the titles), a reload halfway down the page, a decade picked and a search:
+  // no frame may draw a part not yet marked, which would show it, then hide it, then land it.
+  const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `window.__unmarked = new Set()
+      requestAnimationFrame(function look() {
+        for (const part of document.querySelectorAll(${JSON.stringify(LANDING_PARTS)}))
+          if (!part.dataset.land) window.__unmarked.add(location.search + ' ' + (part.id || part.className.split(' ')[0]))
+        requestAnimationFrame(look)
+      })`,
+  })
+  const unmarked: string[] = []
+  const take = async () =>
+    unmarked.push(...(await browser.evaluate<string[]>('[...window.__unmarked]')))
+  let entering: string[] = []
   try {
-    // A first visit, slow: the empty panels give way to the titles as they come.
-    await browser.load()
+    await browser.forget()
+    await browser.holdAniList(2500)
+    try {
+      await browser.load()
+      assert.ok(await browser.titlesShown())
+    } finally {
+      await browser.holdAniList(0)
+    }
+    await frames()
+    entering = await browser.evaluate<string[]>(
+      `${PARTS}.filter((el) => el.dataset.land !== 'go' && el.getAnimations({ subtree: true }).some((a) => ${JSON.stringify(ENTRANCES)}.includes(a.animationName))).map((el) => el.className)`,
+    )
+    // A decade picked, then a search.
+    const first = `document.querySelector('[aria-labelledby="decades"] .ab-strip-row:not([aria-hidden]) .ab-strip-title')?.textContent`
+    const nineties = await browser.evaluate<string>(first)
+    await browser.evaluate(`document.querySelector('.ab-eras input[value="1980s"]').click(); true`)
+    assert.ok(
+      await browser.waitFor(`${first} !== ${JSON.stringify(nineties)}`),
+      'the 1980s never came',
+    )
+    await browser.search('frieren')
+    assert.ok(await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`))
+    await frames()
+    await take()
+    // Reloaded halfway down, where the browser puts the visitor back before anything is marked.
+    await browser.search('')
+    await browser.evaluate(
+      `document.getElementById('pull').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
+    )
+    await browser.send('Page.reload', {})
+    await browser.waitFor(
+      `document.readyState === 'complete' && document.querySelector('#main')`,
+      30_000,
+    )
     assert.ok(await browser.titlesShown())
+    await frames()
+    await take()
   } finally {
-    await browser.holdAniList(0)
+    await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
   }
-  await frames()
-  const onArrival = await unclaimed()
-  assert.deepEqual(onArrival, { unmarked: [], entering: [] })
+  assert.deepEqual({ unmarked: [...new Set(unmarked)], entering }, { unmarked: [], entering: [] })
 })
 
 test('scrolling down, up and down again replays nothing, and neither does a moved panel', async () => {

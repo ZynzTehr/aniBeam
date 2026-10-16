@@ -179,7 +179,8 @@ export function startLanding(selector: string) {
     for (const part of document.querySelectorAll<HTMLElement>(selector))
       if (set(part, 'found') === 'wait') observer.observe(part)
   }
-  // A MutationObserver's report comes before the browser draws, so a part never shows unmarked.
+  // A MutationObserver's report comes before the browser draws, so a part that arrives later never
+  // shows unmarked (and those there at the start are marked now, before the first frame, see App).
   const arrivals = new MutationObserver(find)
   arrivals.observe(document.body, { childList: true, subtree: true })
   find()

@@ -59,8 +59,9 @@ function useOutage(query: UseQueryResult<Media[]>) {
 
 /** AniBeam's page: the intro, this week's trending titles, the pull, and titles by decade. */
 export default function App() {
-  // Parts of the page land once as they scroll into view (see lib/landing.ts).
-  useEffect(() => startLanding(LANDING_PARTS), [])
+  // Parts of the page land once as they scroll into view (see lib/landing.ts). Started before the
+  // browser first draws the page, so no part shows, then hides, then lands.
+  useLayoutEffect(() => startLanding(LANDING_PARTS), [])
 
   // A Try again button when a section's last attempt failed. One press retries every failed
   // section on the page (see refetchFailed). The button hides while retries run, which may
