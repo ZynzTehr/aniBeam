@@ -78,11 +78,15 @@ const WHERE = `(() => {
     const box = tag?.getBoundingClientRect(), room = panels?.getBoundingClientRect(), start = first?.getBoundingClientRect()
     const over = box && box.width > 0 && box.top >= room.top && box.bottom <= room.bottom && box.left >= room.left && box.right <= room.right
       && box.left >= start.left && box.left < start.right && box.top >= start.top && box.top < start.bottom
+    // The line takes no room, and shows none of its text: it would spill out between the panels.
+    const hidden = line.getBoundingClientRect().height === 0 && getComputedStyle(line).overflowY !== 'visible'
     const status = !line.textContent
       ? 'no line'
-      : over && tag.textContent === line.textContent && line.getBoundingClientRect().height === 0
+      : over && tag.textContent === line.textContent && hidden
         ? '"' + line.textContent + '" as a tag over the empty panels'
-        : '"' + line.textContent + '" in a line of its own'
+        : over && tag.textContent === line.textContent
+          ? '"' + line.textContent + '" as a tag, its line spilling out'
+          : '"' + line.textContent + '" in a line of its own'
     return name + ': ' + status + ', panels ' + gap(part.querySelector('h2'), part.querySelector(row)) + 'px under the heading'
   })
 })()`
@@ -233,7 +237,8 @@ test('while AniList fails, a section waiting for its titles shows its whole long
   // While the sections try again, their status says so at length ("AniList had a problem. It's not
   // something you did. Trying again in a few seconds."), where a phone's or a tablet's strip card
   // is 150px wide. Each tag must show all of it: none of it cut off by what holds the tag, over its
-  // empty panels, its text not spilling out of it, and each of its lines inside its rounded shape.
+  // empty panels, its text not spilling out of it, and each of its lines inside its rounded shape;
+  // and it must keep as clear of the right end of what holds it as of the left.
   const TAGS = `[...document.querySelectorAll('.ab-note-tag')].map((tag) => {
     const name = tag.closest('.ab-page') ? 'trending' : 'decades'
     const box = tag.getBoundingClientRect(), style = getComputedStyle(tag)
@@ -247,6 +252,9 @@ test('while AniList fails, a section waiting for its titles shows its whole long
     }
     const panels = tag.closest('section').querySelector('[aria-hidden="true"]:is(.ab-grid, .ab-strip-row)').getBoundingClientRect()
     if (box.left < panels.left || box.right > panels.right || box.top < panels.top || box.bottom > panels.bottom) problems.push('beyond its empty panels')
+    // As far from the right end of what holds it as from its left.
+    const holder = tag.offsetParent.getBoundingClientRect()
+    if (holder.right - box.right < box.left - holder.left - 0.5) problems.push(Math.round(holder.right - box.right) + 'px from its right end, ' + Math.round(box.left - holder.left) + 'px from its left')
     if (tag.scrollHeight > tag.clientHeight + 1 || tag.scrollWidth > tag.clientWidth + 1) problems.push('its text spills out')
     // Inside the white of its rounded shape: the box within its border, with the corners' radius
     // as drawn (no more than half the box), less the border.
