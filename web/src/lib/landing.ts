@@ -173,8 +173,8 @@ export function startLanding(selector: string) {
       if (landOf(part) === 'wait') observer.observe(part)
   })
   if (header) headerSize.observe(header)
-  // Waiting parts too, not only new ones: started again (as React's StrictMode does in development),
-  // the parts the first start marked would otherwise never be watched.
+  // Waiting parts too, not only new ones: started again (as React's StrictMode does in
+  // development), the parts the first start marked would otherwise never be watched.
   const find = () => {
     for (const part of document.querySelectorAll<HTMLElement>(selector))
       if (set(part, 'found') === 'wait') observer.observe(part)

@@ -30,8 +30,8 @@ const SLAMS = [...ENTRANCES, 'ab-panel-slam', 'ab-machine-drop']
 
 /** Each part as its place, how it stands, how much of it shows (0 to 1) and how see-through. */
 const STATES = `(() => {
-  // As an IntersectionObserver sees it: the part of it inside the screen, and a card inside its row,
-  // which scrolls sideways and clips what lies past its edges.
+  // As an IntersectionObserver sees it: the part of it inside the screen, and a card inside its
+  // row, which scrolls sideways and clips what lies past its edges.
   const seen = (el) => {
     const r = el.getBoundingClientRect()
     const row = el.closest('.ab-strip-row')?.getBoundingClientRect()
@@ -338,8 +338,8 @@ test('a part coming down from above lands as it shows below the header from 900p
         const height = target.offsetHeight, under = header.getBoundingClientRect().bottom
         // What shows of it below the header, or the screen's top once the header has scrolled away.
         const below = Math.max(0, Math.min(top + height, innerHeight) - Math.max(top, under, 0)) / height
-        // Late: more than 15% showing, give or take the 40px four frames scroll while the observer's
-        // report is on its way.
+        // Late: more than 15% showing, give or take the 40px four frames scroll while the
+        // observer's report is on its way.
         if (scrolling && below * height > 0.15 * height + 40) early.push(target.className.split(' ')[0] + (target.id ? '#' + target.id : '') + ' landed late, ' + Math.round(below * 100) + '% of it showing')
         if (scrolling ? below < 0.14 : below <= 0) early.push(target.className.split(' ')[0] + (target.id ? '#' + target.id : '') + ' landed ' + Math.round(below * 100) + '% below the header' + (scrolling ? '' : ', at rest'))
       }
