@@ -56,12 +56,15 @@ export function MangaPage({
   /** Shown as a Try again button after a failed load. */
   onRetry?: () => void
 }) {
+  // Waiting for its first titles, the page shows empty panels, and its status line shows as a tag
+  // on the first instead of in a line of its own, so nothing moves as it clears (see .is-tagged).
+  const waiting = !titles.length && loading
   return (
     <section className="ab-page" aria-labelledby={id}>
       <SfxHeading as={level} id={id} sfx={sfx}>
         {heading}
       </SfxHeading>
-      <p role="status" className="ab-note">
+      <p role="status" className={waiting ? 'ab-note is-tagged' : 'ab-note'}>
         {note}
       </p>
       {onRetry && <RetryButton headingId={id} onRetry={onRetry} />}
@@ -80,7 +83,7 @@ export function MangaPage({
         </ol>
       ) : (
         // Empty panels hold the page's shape until the titles arrive.
-        loading && (
+        waiting && (
           <ol className="ab-grid" aria-hidden="true">
             {LAYOUT.map((span, i) => (
               <li
@@ -89,6 +92,7 @@ export function MangaPage({
                 style={cssVars({ '--c': span[0], '--r': span[1] })}
               >
                 <span className="ab-skeleton-fill" />
+                {i === 0 && <span className="ab-note-tag">{note}</span>}
               </li>
             ))}
           </ol>

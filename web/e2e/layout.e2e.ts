@@ -1,0 +1,484 @@
+// Layout shift: how much the page jumps as it loads and as a visitor uses it, counted as Google's
+// web-vitals counts CLS (see sessionWindow in browser.ts). Spec §9 asks for under 0.1, a "good"
+// score, on Discover.
+import assert from 'node:assert/strict'
+import { after, afterEach, before, beforeEach, test } from 'node:test'
+import { setTimeout as sleep } from 'node:timers/promises'
+import { Browser } from './browser.ts'
+
+// A phone's width, without Chrome's mobile emulation: that marks every shift in the page's first
+// half second as the visitor's input, as it counts its own setting up of the viewport as one, so
+// a jump while the page loads would go uncounted. The layout is the phone's all the same: the
+// page's breakpoints read the width.
+const PHONE = { width: 390, height: 844 }
+const DESKTOP = { width: 1440, height: 900 }
+
+let browser: Browser
+before(async () => {
+  browser = await Browser.open()
+  await browser.watchLayoutShifts()
+})
+after(() => browser?.close())
+
+// Each check fails on an uncaught exception, or a console error or warning, from the page while it
+// ran (see Browser.problems).
+let problemsBefore = 0
+beforeEach(() => {
+  problemsBefore = browser.problems.length
+})
+afterEach(() => {
+  assert.deepEqual(browser.problems.slice(problemsBefore), [], 'the page reported problems')
+})
+
+/**
+ * How a screen reader gets a section's status line, from Chrome's accessibility tree, not the
+ * page's attributes: how many times the section says the line's text, and whether the line is a
+ * status (a live region) that says it.
+ */
+async function heard(name: string, section: string) {
+  const object = async (expression: string) =>
+    (await browser.send('Runtime.evaluate', { expression })).result.objectId as string
+  const text = await browser.evaluate<string>(
+    `document.querySelector('${section} .ab-note').textContent`,
+  )
+  const { nodes: saying } = await browser.send('Accessibility.queryAXTree', {
+    objectId: await object(`document.querySelector('${section}')`),
+    accessibleName: text,
+  })
+  const {
+    nodes: [line],
+  } = await browser.send('Accessibility.getPartialAXTree', {
+    objectId: await object(`document.querySelector('${section} .ab-note')`),
+    fetchRelatives: false,
+  })
+  const status =
+    !line.ignored &&
+    line.role?.value === 'status' &&
+    saying.some((node: any) => node.parentId === line.nodeId)
+  const times = saying.length === 1 ? 'once' : `${saying.length} times`
+  return `${name}: "${text}" read ${times}, ${status ? 'as a status' : 'not as a status'}`
+}
+
+/** The page's layout shift, to 4 places, with what moved in the window that counts. */
+async function shifted() {
+  const { value, shifts } = await browser.layoutShift()
+  return `${value.toFixed(4)}${shifts.length ? `: ${shifts.flatMap(({ moved = [] }) => moved).join(', ')}` : ''}`
+}
+
+// Each section's status while it waits, as a tag over its empty panels, from the first, with its
+// own line taking no room, or in its line; and its panels' place under its heading.
+const WHERE = `(() => {
+  // Measured, then rounded once: the heading itself can move, as what is above it changes.
+  const gap = (from, to) => Math.round(to.getBoundingClientRect().top - from.getBoundingClientRect().top)
+  return [['trending', '.ab-page', '.ab-grid'], ['decades', '.ab-strip', '.ab-strip-row']].map(([name, section, row]) => {
+    const part = document.querySelector(section)
+    const line = part.querySelector('.ab-note')
+    // The empty panels' row, which screen readers skip (the line says it all for them).
+    const panels = part.querySelector('.ab-skeleton-fill')?.closest(row), first = panels?.querySelector('li')
+    const skipped = !panels || panels.getAttribute('aria-hidden') === 'true' ? '' : ', its empty panels read by screen readers'
+    const tag = part.querySelector('.ab-note-tag')
+    const box = tag?.getBoundingClientRect(), room = panels?.getBoundingClientRect(), start = first?.getBoundingClientRect()
+    const over = Boolean(box && room && start) && box.width > 0 && box.top >= room.top && box.bottom <= room.bottom && box.left >= room.left && box.right <= room.right
+      && box.left >= start.left && box.left < start.right && box.top >= start.top && box.top < start.bottom
+    // The line takes no room, and shows none of its text: it would spill out between the panels.
+    const hidden = line.getBoundingClientRect().height === 0 && getComputedStyle(line).overflowY !== 'visible'
+    const status = !line.textContent
+      ? 'no line'
+      : over && tag.textContent === line.textContent && hidden
+        ? '"' + line.textContent + '" as a tag over the empty panels'
+        : over && tag.textContent === line.textContent
+          ? '"' + line.textContent + '" as a tag, its line spilling out'
+          : '"' + line.textContent + '" in a line of its own'
+    return name + ': ' + status + skipped + ', panels ' + gap(part.querySelector('h2'), part.querySelector(row)) + 'px under the heading'
+  })
+})()`
+
+// The strip's rows and its height from heading to foot.
+const STRIP = `(() => {
+  const strip = document.querySelector('.ab-strip')
+  const rows = [...strip.querySelectorAll('.ab-strip-row')].filter((row) => row.getBoundingClientRect().height > 0)
+  const height = Math.round(strip.getBoundingClientRect().bottom - strip.querySelector('h2').getBoundingClientRect().top)
+  return rows.length + (rows.length === 1 ? ' row' : ' rows') + ', ' + height + 'px'
+})()`
+
+// The pull machine's reveal box: its height and the hint it shows, the one hint shown and read, the
+// others there only to hold the room, hidden from eyes and from screen readers.
+const HINT = `(() => {
+  const box = document.querySelector('.ab-reveal')
+  const hints = [...box.querySelectorAll('.ab-hint')]
+  const shown = hints.filter((hint) => getComputedStyle(hint).visibility === 'visible')
+  const read = hints.filter((hint) => !hint.closest('[aria-hidden="true"]'))
+  if (shown.length !== 1 || read.length !== 1 || shown[0] !== read[0])
+    return shown.length + ' hints shown, ' + read.length + ' read by screen readers'
+  // The hints share one place, as tall as the tallest (the box can be taller, from 821px wide,
+  // holding the room of a pulled title).
+  const tallest = Math.max(...hints.map((hint) => hint.getBoundingClientRect().height))
+  const place = box.querySelector('.ab-hints').getBoundingClientRect().height
+  if (Math.abs(place - tallest) > 1)
+    return 'the hints take ' + Math.round(place) + 'px for a tallest of ' + Math.round(tallest) + 'px'
+  return Math.round(box.getBoundingClientRect().height) + 'px: ' + shown[0].textContent.split('.')[0]
+})()`
+
+type Look = { where: string[]; heard: string[]; strip: string; hint: string }
+
+// A slow first visit: AniList's answer held 2.5 s, the visitor down at the decades as it lands. How
+// the page looks while it waits and once its titles land, and how far it jumped, taken once for
+// each screen and motion setting, for every check that reads it: the loads were most of the time
+// this file took.
+const slowLoads = new Map<
+  string,
+  Promise<{ waiting: Look; landed: Look; value: number; shifted: string }>
+>()
+function slowLoad(screen: { width: number; height: number }, reduceMotion: boolean) {
+  const key = `${screen.width}px${reduceMotion ? ', reduced motion' : ''}`
+  let load = slowLoads.get(key)
+  if (!load) {
+    load = (async () => {
+      const look = async (waiting: boolean): Promise<Look> => ({
+        where: await browser.evaluate<string[]>(WHERE),
+        heard: waiting
+          ? [await heard('trending', '.ab-page'), await heard('decades', '.ab-strip')]
+          : [],
+        strip: await browser.evaluate<string>(STRIP),
+        hint: await browser.evaluate<string>(HINT),
+      })
+      await browser.forget()
+      await browser.holdAniList(2500)
+      try {
+        await browser.load({ ...screen, reduceMotion })
+        const waiting = await look(true)
+        await browser.evaluate(
+          `document.getElementById('decades').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
+        )
+        assert.ok(await browser.titlesShown())
+        await browser.holdAniList(0)
+        const landed = await look(false)
+        await sleep(1500)
+        const { value } = await browser.layoutShift()
+        return { waiting, landed, value, shifted: await shifted() }
+      } finally {
+        await browser.holdAniList(0)
+      }
+    })()
+    slowLoads.set(key, load)
+  }
+  return load
+}
+
+test('the measure counts a block that pushes the page down after it has loaded', async () => {
+  await browser.load(DESKTOP)
+  assert.ok(await browser.titlesShown())
+  await browser.animationsDone()
+  await sleep(1000)
+  // Not the visitor's doing: a script puts a tall block at the top of the page.
+  await browser.evaluate(
+    `document.querySelector('main').prepend(Object.assign(document.createElement('div'), { style: 'height: 400px' })); true`,
+  )
+  await sleep(300)
+  const { value } = await browser.layoutShift()
+  assert.ok(value > 0.1, `a 400px block pushing the page down read as ${value.toFixed(4)}`)
+})
+
+test('a first visit loads with a layout shift under 0.1, on a phone and on a wide screen, with motion or without', async () => {
+  // With reduced motion too: with motion allowed the intro's text fades in, and an element still
+  // invisible doesn't count as moving, so a jump while it fades would go uncounted.
+  const seen: string[] = []
+  for (const screen of [PHONE, DESKTOP])
+    for (const reduceMotion of [false, true]) {
+      await browser.forget()
+      await browser.load({ ...screen, reduceMotion })
+      assert.ok(await browser.titlesShown())
+      await browser.animationsDone()
+      await sleep(1000)
+      const { value } = await browser.layoutShift()
+      if (value >= 0.1)
+        seen.push(`${screen.width}px${reduceMotion ? ', reduced motion' : ''}: ${await shifted()}`)
+    }
+  assert.deepEqual(seen, [], 'a first visit jumps')
+})
+
+test('while a section waits for its titles, "Loading…" shows over its empty panels, and nothing moves as they land', async () => {
+  // See WHERE. And screen readers must still read the line, once: the tag is for the eyes alone
+  // (see heard).
+  const seen: Record<string, string[]> = {}
+  const read: Record<string, string[]> = {}
+  for (const screen of [PHONE, DESKTOP]) {
+    const { waiting, landed } = await slowLoad(screen, true)
+    seen[`${screen.width}px`] = [...waiting.where, ...landed.where]
+    read[`${screen.width}px`] = waiting.heard
+  }
+  const under = (panels: Record<string, number>) => (name: string, text: string) =>
+    `${name}: ${text}, panels ${panels[name]}px under the heading`
+  // The panels sit as far under their heading while they wait as once the titles land.
+  for (const [screen, [trending, decades, trendingAfter, decadesAfter]] of Object.entries(seen)) {
+    const gap = (line: string) => Number(/panels (-?\d+)px/.exec(line)?.[1])
+    const panels = { trending: gap(trendingAfter), decades: gap(decadesAfter) }
+    assert.deepEqual(
+      [trending, decades, trendingAfter, decadesAfter],
+      [
+        under(panels)('trending', '"Loading…" as a tag over the empty panels'),
+        under(panels)('decades', '"Loading…" as a tag over the empty panels'),
+        under(panels)('trending', 'no line'),
+        under(panels)('decades', 'no line'),
+      ],
+      `at ${screen}, while the titles load, then once they land`,
+    )
+  }
+  const once = [
+    'trending: "Loading…" read once, as a status',
+    'decades: "Loading…" read once, as a status',
+  ]
+  assert.deepEqual(
+    read,
+    { '390px': once, '1440px': once },
+    'what screen readers get while the titles load',
+  )
+})
+
+test('while AniList fails, a section waiting for its titles shows its whole long status note in its tag, clear of the corners', async () => {
+  // While the sections try again, their status says so at length ("AniList had a problem. It's not
+  // something you did. Trying again in a few seconds."), where a phone's or a tablet's strip card
+  // is 150px wide. Each tag must show all of it: none of it cut off by what holds the tag, over its
+  // empty panels, its text not spilling out of it, and each of its lines inside its rounded shape;
+  // and it must keep as clear of the right end of what holds it as of the left.
+  const TAGS = `[...document.querySelectorAll('.ab-note-tag')].map((tag) => {
+    const name = tag.closest('.ab-page') ? 'trending' : 'decades'
+    const box = tag.getBoundingClientRect(), style = getComputedStyle(tag)
+    const problems = []
+    for (let el = tag.parentElement; el && el !== document.body; el = el.parentElement) {
+      const clips = getComputedStyle(el)
+      if (clips.overflowX === 'visible' && clips.overflowY === 'visible') continue
+      const r = el.getBoundingClientRect()
+      if (box.left < r.left - 0.5 || box.right > r.right + 0.5 || box.top < r.top - 0.5 || box.bottom > r.bottom + 0.5)
+        problems.push('cut off by .' + el.classList[0])
+    }
+    const panels = tag.closest('section').querySelector('.ab-skeleton-fill').closest('.ab-grid, .ab-strip-row').getBoundingClientRect()
+    if (box.left < panels.left || box.right > panels.right || box.top < panels.top || box.bottom > panels.bottom) problems.push('beyond its empty panels')
+    // As far from the right end of what holds it as from its left.
+    const holder = tag.offsetParent.getBoundingClientRect()
+    if (holder.right - box.right < box.left - holder.left - 0.5) problems.push(Math.round(holder.right - box.right) + 'px from its right end, ' + Math.round(box.left - holder.left) + 'px from its left')
+    if (tag.scrollHeight > tag.clientHeight + 1 || tag.scrollWidth > tag.clientWidth + 1) problems.push('its text spills out')
+    // Inside the white of its rounded shape: the box within its border, with the corners' radius
+    // as drawn (no more than half the box), less the border.
+    const border = parseFloat(style.borderTopWidth)
+    const [left, top, right, bottom] = [box.left + border, box.top + border, box.right - border, box.bottom - border]
+    const radius = Math.max(0, Math.min(parseFloat(style.borderTopLeftRadius), box.width / 2, box.height / 2) - border)
+    const inside = (x, y) => {
+      if (x < left - 0.5 || x > right + 0.5 || y < top - 0.5 || y > bottom + 0.5) return false
+      const cx = Math.min(Math.max(x, left + radius), right - radius), cy = Math.min(Math.max(y, top + radius), bottom - radius)
+      return Math.hypot(x - cx, y - cy) <= radius + 0.5
+    }
+    const range = document.createRange()
+    range.selectNodeContents(tag)
+    const lines = [...range.getClientRects()].filter((line) => line.width > 0)
+    const out = lines.filter((line) => ![[line.left, line.top], [line.right, line.top], [line.left, line.bottom], [line.right, line.bottom]].every(([x, y]) => inside(x, y)))
+    if (out.length) problems.push(out.length + ' of its ' + lines.length + ' lines run outside its rounded shape')
+    return name + ': ' + (tag.textContent.includes('Trying again in a few seconds.') ? 'the whole note' : '"' + tag.textContent + '"') + (problems.length ? ', ' + problems.join(', ') : ', shown whole')
+  })`
+  const seen: Record<string, string[]> = {}
+  for (const screen of [PHONE, { width: 834, height: 1112 }, DESKTOP]) {
+    await browser.forget()
+    await browser.rewriteAniList(() => ({
+      status: 500,
+      body: JSON.stringify({ errors: [{ message: 'Internal Server Error', status: 500 }] }),
+    }))
+    try {
+      await browser.load({ ...screen, reduceMotion: true })
+      assert.ok(
+        await browser.waitFor(
+          `(() => {
+            const tags = [...document.querySelectorAll('.ab-note-tag')]
+            return tags.every((tag) => tag.textContent.includes('Trying again')) && new Set(tags.map((tag) => tag.closest('section'))).size === 2
+          })()`,
+          10_000,
+        ),
+        `${screen.width}px: the sections never said they were trying again`,
+      )
+      seen[`${screen.width}px`] = await browser.evaluate<string[]>(TAGS)
+    } finally {
+      await browser.rewriteAniList(null)
+    }
+  }
+  const whole = ['trending: the whole note, shown whole', 'decades: the whole note, shown whole']
+  assert.deepEqual(seen, { '390px': whole, '834px': whole, '1440px': whole })
+})
+
+test('while a decade loads, the strip draws one row of cards, its empty ones, as tall as its titles', async () => {
+  // The strip's rows and its height from heading to foot: the same while it waits as once its
+  // titles land, or the page under it jumps, and a visitor at the foot of the page is pulled up.
+  const seen: string[] = []
+  for (const screen of [PHONE, DESKTOP]) {
+    const { waiting, landed } = await slowLoad(screen, true)
+    if (waiting.strip !== landed.strip)
+      seen.push(
+        `${screen.width}px: ${waiting.strip} while it waits, ${landed.strip} once its titles land`,
+      )
+  }
+  assert.deepEqual(seen, [], 'the strip changes size as its titles land')
+})
+
+test('while a newly picked decade loads, the strip keeps one row, the last decade’s titles, as tall', async () => {
+  // Picked once the 1990s have landed, the 1980s take 2.5 s to come: meanwhile the strip shows the
+  // 1990s, its rows and height as they were (a row of empty cards on top of them pushed the page
+  // under it down, and up again as the 1980s landed), and the same once the 1980s land. And the
+  // row: the 1990s stay where the visitor had scrolled them, at Ch.5, and the 1980s open at Ch.1,
+  // however the visitor scrolled the 1990s while waiting (to Ch.3 here).
+  const first = `document.querySelector('.ab-strip-row .ab-strip-panel[href] .ab-strip-title')?.textContent`
+  const row = `document.querySelector('.ab-strip-row:not([aria-hidden])')`
+  const scrollTo = (chapter: number) =>
+    browser.evaluate<number>(`new Promise((resolve) => {
+      ${row}.children[${chapter - 1}].scrollIntoView({ inline: 'start', block: 'nearest', behavior: 'instant' })
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve(Math.round(${row}.scrollLeft))))
+    })`)
+  const scrolled = () => browser.evaluate<number>(`Math.round(${row}.scrollLeft)`)
+  const seen: string[] = []
+  for (const screen of [PHONE, DESKTOP]) {
+    await browser.forget()
+    await browser.load({ ...screen, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    const nineties = await browser.evaluate<string>(first)
+    const before = await browser.evaluate<string>(STRIP)
+    const atCh5 = await scrollTo(5)
+    assert.ok(atCh5 > 0, `${screen.width}px: the 1990s row didn't scroll to Ch.5`)
+    await browser.holdAniList(2500)
+    try {
+      await browser.evaluate(
+        `document.querySelector('.ab-eras input[value="1980s"]').click(); true`,
+      )
+      // Past the chips' pause (300 ms), with the 1980s on their way.
+      await sleep(800)
+      const kept = await scrolled()
+      const loading =
+        (await browser.evaluate<string>(STRIP)) +
+        ((await browser.evaluate<string>(first)) === nineties ? '' : ', the 1990s gone') +
+        (Math.abs(kept - atCh5) <= 1 ? '' : `, the row moved from ${atCh5}px to ${kept}px`)
+      await scrollTo(3)
+      assert.ok(
+        await browser.waitFor(`${first} !== ${JSON.stringify(nineties)}`, 10_000),
+        `${screen.width}px: the 1980s never landed`,
+      )
+      const opened = await scrolled()
+      const loaded =
+        (await browser.evaluate<string>(STRIP)) +
+        (opened === 0 ? '' : `, the 1980s opening ${opened}px along, not at Ch.1`)
+      if (new Set([before, loading, loaded]).size > 1)
+        seen.push(
+          `${screen.width}px: ${before}, then ${loading} while the 1980s load, then ${loaded}`,
+        )
+    } finally {
+      await browser.holdAniList(0)
+    }
+  }
+  assert.deepEqual(seen, [], 'the strip changes as a picked decade loads')
+})
+
+test("the pull machine's hint keeps its size as the titles land and change what it says", async () => {
+  // Before any titles it says they're on their way; once they land, to pick a vibe and pull. On a
+  // phone the machine sits above the decades, so a hint that grew pushed them down.
+  const seen: string[] = []
+  for (const screen of [PHONE, DESKTOP]) {
+    const { waiting, landed } = await slowLoad(screen, true)
+    const [before, after] = [waiting.hint, landed.hint]
+    if (
+      !/^\d+px: /.test(before) ||
+      !/^\d+px: /.test(after) ||
+      before.split(':')[0] !== after.split(':')[0]
+    )
+      seen.push(`${screen.width}px: ${before}, then ${after}`)
+  }
+  assert.deepEqual(seen, [], 'the hint changes size')
+})
+
+test('a slow first load, seen at the decades, jumps under 0.1, on a phone and on a wide screen', async () => {
+  // See slowLoad.
+  const seen: string[] = []
+  for (const screen of [PHONE, DESKTOP])
+    for (const reduceMotion of [false, true]) {
+      const { value, shifted } = await slowLoad(screen, reduceMotion)
+      if (value >= 0.1)
+        seen.push(`${screen.width}px${reduceMotion ? ', reduced motion' : ''}: ${shifted}`)
+    }
+  assert.deepEqual(seen, [], 'the page jumps under the visitor as the titles land')
+})
+
+test('a pull on a phone jumps under 0.1, and the next one too, its title laid out at the press', async () => {
+  // With motion allowed, the capsule drops for 900 ms before it opens on the title, more than the
+  // half second after a press that doesn't count. So the title's box is laid out at the press,
+  // invisible and out of reach (inert) until the capsule opens, and the opening moves nothing.
+  await browser.forget()
+  await browser.load(PHONE)
+  assert.ok(await browser.titlesShown())
+  await browser.animationsDone()
+  const result = `(() => {
+    const result = document.querySelector('.ab-result:not([data-old])')
+    if (!result) return 'no result'
+    const parts = [result.querySelector('.ab-result-panel'), result.querySelector('.ab-result-copy')]
+    if (parts.some((part) => !part)) return 'no title laid out'
+    const hidden = parts.every((part) => getComputedStyle(part).visibility === 'hidden' && part.inert)
+    const shown = parts.every((part) => getComputedStyle(part).visibility === 'visible' && !part.inert)
+    // The burst of speed lines in the title's color comes with the opening, not before.
+    const burst = result.querySelector('.ab-burst') ? ' with its burst' : ''
+    return (hidden ? 'hidden and inert' : shown ? 'shown' : 'half shown') + burst + ', ' + Math.round(result.getBoundingClientRect().height) + 'px'
+  })()`
+  const seen: string[] = []
+  for (const pull of ['first', 'second']) {
+    const lever = await browser.evaluate<{ x: number; y: number }>(`(() => {
+      document.querySelector('.ab-result')?.setAttribute('data-old', '')
+      const lever = document.querySelector('.ab-lever')
+      lever.scrollIntoView({ block: 'center', behavior: 'instant' })
+      const box = lever.getBoundingClientRect()
+      return { x: box.left + box.width / 2, y: box.top + box.height / 2 }
+    })()`)
+    for (const type of ['mousePressed', 'mouseReleased'])
+      await browser.send('Input.dispatchMouseEvent', {
+        type,
+        ...lever,
+        button: 'left',
+        clickCount: 1,
+      })
+    const pressed = await browser.evaluate<string>(result)
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-result.is-open:not([data-old])')`, 5000),
+      `the ${pull} pull never opened`,
+    )
+    // The title's entrance and its burst play as the capsule opens, not at the press, unseen.
+    const entering =
+      await browser.evaluate<boolean>(`['.ab-result-panel', '.ab-result-copy', '.ab-sfx-tier', '.ab-burst'].every((part) =>
+      document.querySelector('.ab-result.is-open:not([data-old]) ' + part)?.getAnimations().some((animation) => animation.playState === 'running'))`)
+    // What the opening animates: only what moves nothing else, transform and opacity.
+    const animating =
+      await browser.evaluate<string>(`[...new Set(document.querySelector('.ab-result.is-open:not([data-old])')
+      .getAnimations({ subtree: true }).flatMap((animation) => animation.effect.getKeyframes())
+      .flatMap((keyframe) => Object.keys(keyframe).filter((key) => !['offset', 'computedOffset', 'easing', 'composite'].includes(key))))].sort().join(' and ')`)
+    await browser.animationsDone()
+    await sleep(1000)
+    const opened = await browser.evaluate<string>(result)
+    const { value } = await browser.layoutShift()
+    // And what a finger or the mouse finds at the middle of the poster, the title and its button,
+    // each brought to the middle of the screen: that part, not the burst or anything else on top.
+    const presses = await browser.evaluate<string>(`(() => {
+      const result = document.querySelector('.ab-result.is-open:not([data-old])')
+      const parts = { 'the poster': '.ab-result-panel', 'the title': 'h3', 'Open title card': '.ab-btn' }
+      const missed = Object.entries(parts).flatMap(([name, selector]) => {
+        const part = result.querySelector(selector)
+        part.scrollIntoView({ block: 'center', behavior: 'instant' })
+        const box = part.getBoundingClientRect()
+        const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+        return part.contains(hit) ? [] : [name + ' finds .' + (hit?.classList[0] ?? hit?.tagName)]
+      })
+      return missed.length ? 'a press on ' + missed.join(', on ') : 'each part takes its press'
+    })()`)
+    seen.push(
+      `${pull}: ${pressed} at the press, ${opened} once open, ${entering ? 'entering as it opens' : 'no entrance as it opens'}, animating ${animating}, ${value < 0.1 ? 'under 0.1' : await shifted()}, ${presses}`,
+    )
+  }
+  const height = (line: string) => /(\d+)px once open/.exec(line)?.[1]
+  assert.deepEqual(
+    seen,
+    seen.map(
+      (line, i) =>
+        `${['first', 'second'][i]}: hidden and inert, ${height(line)}px at the press, shown with its burst, ${height(line)}px once open, entering as it opens, animating opacity and transform, under 0.1, each part takes its press`,
+    ),
+    'each pull',
+  )
+})

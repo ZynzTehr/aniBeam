@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { markBroken, markLoaded } from '../../components/cover.ts'
 import { cssVars } from '../../components/cssVars.ts'
 import { opener } from '../../components/opener.ts'
+import { SfxHeading } from '../../components/SfxHeading.tsx'
 import type { OpenTitle } from '../../components/TitleCard.tsx'
 import { reducedMotion } from '../../lib/motion.ts'
 import { formatOf, seasonOf, studioOf, titleOf } from '../anime/format.ts'
@@ -9,6 +10,23 @@ import type { Media } from '../anime/queries.ts'
 import { accentVars } from '../theming/deriveAccent.ts'
 import { MOODS, type Mood } from './moods.ts'
 import { pickTitle, pullable } from './pick.ts'
+
+// What the machine says before a pull: with no titles yet, with none it may hand out, or with some.
+const HINTS = {
+  empty: (
+    <>The machine fills up with titles once AniList answers. It&rsquo;s not something you did.</>
+  ),
+  unpullable: (
+    <>None of the titles on this page can come out of the machine. Try another decade below.</>
+  ),
+  ready: (
+    <>
+      Pick a vibe, then pull. Every capsule holds a real anime from what&rsquo;s on this page.
+      Coming soon: mood sliders for finer picks.
+    </>
+  ),
+}
+type Hint = keyof typeof HINTS
 
 function rarityOf(score: number | null) {
   if (score === null) return { key: 'mystery', label: 'Mystery', stars: '?', sfx: '!?' }
@@ -45,12 +63,13 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
   }
 
   const rarity = pulled ? rarityOf(pulled.averageScore) : null
+  const hint: Hint = !pool.length ? 'empty' : !titles.length ? 'unpullable' : 'ready'
   return (
-    <section id="pull" className="ab-pull" aria-labelledby="ab-pull-title">
-      <h2 id="ab-pull-title" className="ab-sfx ab-sfx-small">
+    // The links to #pull land on the heading, which takes their focus, as the other sections' do.
+    <section className="ab-pull" aria-labelledby="pull">
+      <SfxHeading id="pull" sfx="ガチャ!" small>
         Pull a title
-        <span aria-hidden="true">ガチャ!</span>
-      </h2>
+      </SfxHeading>
       <div className="ab-pull-row">
         <div className="ab-machine">
           <div className="ab-dome" aria-hidden="true">
@@ -100,62 +119,64 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
                 <span className="ab-half ab-top-half" />
                 <span className="ab-half ab-bottom-half" />
               </span>
-              {revealed && (
-                <>
-                  <span className="ab-burst" aria-hidden="true" />
-                  <a
-                    className="ab-result-panel"
-                    href={`#title-${pulled.id}`}
-                    onClick={opener(pulled, onOpen)}
+              {revealed && <span className="ab-burst" aria-hidden="true" />}
+              {/* The title is laid out at the press, so that opening the capsule 900 ms later
+                  moves nothing on the page; until then it is invisible (see .ab-result) and out
+                  of reach, inert. */}
+              <a
+                className="ab-result-panel"
+                href={`#title-${pulled.id}`}
+                onClick={opener(pulled, onOpen)}
+                inert={!revealed}
+              >
+                <img
+                  src={pulled.coverImage.extraLarge}
+                  alt=""
+                  onLoad={markLoaded}
+                  onError={markBroken}
+                />
+                <span className="ab-sfx-tier" aria-hidden="true">
+                  {rarity.sfx}
+                </span>
+                <span className="sr-only">Open the title card for {titleOf(pulled)}</span>
+              </a>
+              <div className="ab-result-copy" inert={!revealed}>
+                <p className="ab-tier">
+                  {rarity.label} <span aria-hidden="true">{rarity.stars}</span>
+                </p>
+                <h3>{titleOf(pulled)}</h3>
+                <p className="ab-result-meta">
+                  {[seasonOf(pulled), formatOf(pulled), studioOf(pulled)]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </p>
+                <div className="ab-row-actions">
+                  <button
+                    type="button"
+                    className="ab-btn ab-btn-ink"
+                    onClick={(event) => onOpen(pulled, event.currentTarget)}
                   >
-                    <img
-                      src={pulled.coverImage.extraLarge}
-                      alt=""
-                      onLoad={markLoaded}
-                      onError={markBroken}
-                    />
-                    <span className="ab-sfx-tier" aria-hidden="true">
-                      {rarity.sfx}
-                    </span>
-                    <span className="sr-only">Open the title card for {titleOf(pulled)}</span>
-                  </a>
-                  <div className="ab-result-copy">
-                    <p className="ab-tier">
-                      {rarity.label} <span aria-hidden="true">{rarity.stars}</span>
-                    </p>
-                    <h3>{titleOf(pulled)}</h3>
-                    <p className="ab-result-meta">
-                      {[seasonOf(pulled), formatOf(pulled), studioOf(pulled)]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </p>
-                    <div className="ab-row-actions">
-                      <button
-                        type="button"
-                        className="ab-btn ab-btn-ink"
-                        onClick={(event) => onOpen(pulled, event.currentTarget)}
-                      >
-                        Open title card
-                      </button>
-                    </div>
-                  </div>
-                </>
-              )}
+                    Open title card
+                  </button>
+                </div>
+              </div>
             </div>
-          ) : !pool.length ? (
-            <p className="ab-hint">
-              The machine fills up with titles once AniList answers. It&rsquo;s not something you
-              did.
-            </p>
-          ) : !titles.length ? (
-            <p className="ab-hint">
-              None of the titles on this page can come out of the machine. Try another decade below.
-            </p>
           ) : (
-            <p className="ab-hint">
-              Pick a vibe, then pull. Every capsule holds a real anime from what&rsquo;s on this
-              page. Coming soon: mood sliders for finer picks.
-            </p>
+            // The hint that applies, then the others, unseen, in the same place: the box takes the
+            // tallest one's size whichever shows, so it doesn't grow as titles arrive and change
+            // what it says (on a phone, that pushed the decades down).
+            <div className="ab-hints">
+              <p key={hint} className="ab-hint">
+                {HINTS[hint]}
+              </p>
+              {(Object.keys(HINTS) as Hint[])
+                .filter((other) => other !== hint)
+                .map((other) => (
+                  <p key={other} className="ab-hint ab-hint-room" aria-hidden="true">
+                    {HINTS[other]}
+                  </p>
+                ))}
+            </div>
           )}
         </div>
       </div>

@@ -329,11 +329,13 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // every visit loads, 78,154 B; the CSS, 8,291 B, once Tailwind read only the app's own code; the
 // JS loaded only when needed, the samples for when AniList can't be reached, 3,337 B; and every
 // other file the build makes, index.html and any a module imports, such as an image, 342 B). A
-// change that needs more raises its number here and says why. The fonts in web/public are copied
-// as they are, outside the build, so this doesn't weigh them.
+// change that needs more raises its number here and says why. The CSS rose to 8,502 B with the
+// layout and keyboard work (the status tags, the room kept for focus rings, the title card's own
+// ring in two tones), so its budget is 9,000 B. The fonts in web/public are copied as they are,
+// outside the build, so this doesn't weigh them.
 const BUDGET = {
   'the JS every visit loads': 78_500,
-  'the CSS': 8_500,
+  'the CSS': 9_000,
   'the JS loaded only when needed': 3_500,
   'every other file': 500,
 }

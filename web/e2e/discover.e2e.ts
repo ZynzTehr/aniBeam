@@ -888,6 +888,29 @@ describe('desktop (1440x900)', () => {
     )
   })
 
+  test('each section is a landmark named by its heading, for screen readers to list and jump to', async () => {
+    // A section is a region only with a name, which aria-labelledby gives it from its heading: an
+    // id there that matches no heading leaves the section out of a screen reader's list of
+    // landmarks, with nothing on screen to show it. From Chrome's accessibility tree, at home.
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-intro')`, 5_000),
+      'the intro is not back',
+    )
+    const { nodes } = await browser.send('Accessibility.getFullAXTree', {})
+    assert.deepEqual(
+      nodes
+        .filter((node: any) => !node.ignored && node.role?.value === 'region')
+        .map((node: any) => node.name?.value),
+      [
+        'What’s hot. What’s new. Talk about it.',
+        'Trending now',
+        'Pull a title',
+        'Browse by decade',
+      ],
+      "the page's regions, as screen readers list them",
+    )
+  })
+
   test('a search with no matches says so, and clearing it brings the intro back', async () => {
     await browser.search('zzqqxxnotananime')
     assert.ok(
@@ -1628,11 +1651,11 @@ describe('desktop (1440x900)', () => {
     }
     const links = [
       ['#ab-trending', 'the Trending heading'],
-      ['#pull', 'the Pull section'],
+      ['#pull', 'the Pull heading'],
     ] as const
     // Presses Enter on a header link from the top of the page, as a keyboard user would. Once
     // the page has jumped: the top of the link's target, and how much of it is under the header,
-    // with its focus ring (4px, 3px out) when it took focus, as the Trending heading does.
+    // with its focus ring (4px, 3px out) when it took focus, as the headings do.
     const jump = async (href: string) => {
       await browser.evaluate(`(() => {
         history.replaceState(null, '', location.pathname)
@@ -2398,13 +2421,23 @@ describe('desktop (1440x900)', () => {
     const sampler = `(() => {
       // Each frame while a card is open: how much of the screen the wipe leaves uncovered (its
       // clip's insets added up; Chrome writes tiny ones as 1.2e-05px), the sheet's opacity, and
-      // the most any word of the title shows.
+      // the most any word of the title shows. And when it closes after Esc, from its close event,
+      // which comes whether or not a frame is drawn in between: with Esc pressed with Enter, the
+      // card can open, close and leave the page between two frames, and a sampler that looked
+      // for the card frame by frame then never saw it close. Only this sampler's run counts, as
+      // each check starts a new one.
       window.__frames = []
       window.__closedIn = null
+      const run = (window.__sampler ?? 0) + 1
+      window.__sampler = run
       const number = /-?[\\d.]+(?:e-?\\d+)?/gi
       let card = null, escAt = null
       addEventListener('keydown', (event) => { if (event.key === 'Escape') escAt ??= performance.now() }, { capture: true })
+      addEventListener('close', (event) => {
+        if (run === window.__sampler && escAt !== null && event.target.matches('dialog.ab-card')) window.__closedIn ??= performance.now() - escAt
+      }, { capture: true })
       requestAnimationFrame(function look() {
+        if (run !== window.__sampler || window.__closedIn !== null) return
         card ??= document.querySelector('dialog.ab-card')
         if (card?.open) window.__frames.push({
           uncovered: (getComputedStyle(card.querySelector('.ab-wipe')).clipPath.match(number) ?? ['0']).map(Number).reduce((a, b) => a + Math.abs(b), 0),
@@ -2412,7 +2445,6 @@ describe('desktop (1440x900)', () => {
           words: Math.max(...[...card.querySelectorAll('.ab-title span')].map((el) => Number(getComputedStyle(el).opacity))),
           at: escAt === null ? null : performance.now() - escAt,
         })
-        if (card && !card.open) { if (escAt !== null) window.__closedIn ??= performance.now() - escAt; return }
         requestAnimationFrame(look)
       })
       return true
@@ -2455,7 +2487,7 @@ describe('desktop (1440x900)', () => {
       )
       const late = await browser.evaluate<{
         frames: { uncovered: number; sheet: number; words: number; at: number }[]
-        closedIn: number
+        closedIn: number | null
       }>(`({ frames: window.__frames.filter((f) => f.at !== null), closedIn: window.__closedIn })`)
       // When the way back reaches the moment the wipe finished arriving; a frame early, to spare.
       const wipeBack = (reached - wipeEnd) / 2 - 20
@@ -2473,7 +2505,8 @@ describe('desktop (1440x900)', () => {
       if (!last || last.sheet > 0.01 || last.words > 0.01)
         off.push(`last frame: sheet ${last?.sheet}, words ${last?.words}`)
       // About half the 1.2 s reached, give or take a few frames; up to 0.6 s longer, it sat still.
-      if (late.closedIn < reached / 2 - 50 || late.closedIn > reached / 2 + 120)
+      if (late.closedIn === null) off.push('no close event after Esc')
+      else if (late.closedIn < reached / 2 - 50 || late.closedIn > reached / 2 + 120)
         off.push(
           `closed ${Math.round(late.closedIn)} ms after Esc, not about ${Math.round(reached / 2)} ms`,
         )
@@ -2495,11 +2528,18 @@ describe('desktop (1440x900)', () => {
       )
       const atOnce = await browser.evaluate<{
         frames: { uncovered: number; sheet: number; words: number }[]
-        closedIn: number
+        closedIn: number | null
       }>(`({ frames: window.__frames, closedIn: window.__closedIn })`)
+      // Closed at once: within a few frames of Esc, with room for a busy run, and well short of
+      // any way back (800 ms).
       seen.atOnce = {
         drawnOpen: atOnce.frames.some((f) => f.uncovered < 1 || f.sheet > 0 || f.words > 0),
-        quick: atOnce.closedIn !== null && atOnce.closedIn < 100,
+        closed:
+          atOnce.closedIn === null
+            ? 'no close event after Esc'
+            : atOnce.closedIn < 250
+              ? 'at once'
+              : `${Math.round(atOnce.closedIn)} ms after Esc`,
         focus: await browser.evaluate<string>(focusPlace),
       }
     } finally {
@@ -2509,7 +2549,7 @@ describe('desktop (1440x900)', () => {
       { ...seen, problems: browser.problems.slice(before) },
       {
         late: { off: [], focus: 'back on its panel' },
-        atOnce: { drawnOpen: false, quick: true, focus: 'back on its panel' },
+        atOnce: { drawnOpen: false, closed: 'at once', focus: 'back on its panel' },
         problems: [],
       },
     )
@@ -2796,8 +2836,8 @@ describe('desktop (1440x900)', () => {
     // A live region speaks every change to its text. The whole reveal used to be one: it spoke
     // its hint when titles arrived, and each pull read the title twice, every star ("black
     // star") and the button's label. Now one status line, there from the start, says each pull.
-    const line = `document.querySelector('#pull > [role="status"]')`
-    const live = `[...document.querySelectorAll('#pull [aria-live], #pull [role="status"], #pull [role="alert"]')].map((el) => el.className)`
+    const line = `document.querySelector('.ab-pull > [role="status"]')`
+    const live = `[...document.querySelectorAll('.ab-pull [aria-live], .ab-pull [role="status"], .ab-pull [role="alert"]')].map((el) => el.className)`
     assert.deepEqual(
       await browser.evaluate(`({ line: ${line}?.textContent ?? null, live: ${live} })`),
       { line: '', live: ['sr-only'] },
@@ -2814,7 +2854,7 @@ describe('desktop (1440x900)', () => {
     })()`
     // Text with a star in it that a screen reader would read out.
     const starsRead = `(() => {
-      const found = [], walker = document.createTreeWalker(document.querySelector('#pull'), NodeFilter.SHOW_TEXT)
+      const found = [], walker = document.createTreeWalker(document.querySelector('.ab-pull'), NodeFilter.SHOW_TEXT)
       for (let node; (node = walker.nextNode()); )
         if (node.textContent.includes('★') && !node.parentElement.closest('[aria-hidden="true"]')) found.push(node.parentElement.className)
       return found
