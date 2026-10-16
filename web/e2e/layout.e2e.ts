@@ -2,7 +2,7 @@
 // web-vitals counts CLS (see sessionWindow in browser.ts). Spec §9 asks for under 0.1, a "good"
 // score, on Discover.
 import assert from 'node:assert/strict'
-import { after, before, test } from 'node:test'
+import { after, afterEach, before, beforeEach, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { Browser } from './browser.ts'
 
@@ -19,6 +19,16 @@ before(async () => {
   await browser.watchLayoutShifts()
 })
 after(() => browser?.close())
+
+// Each check fails on an uncaught exception, or a console error or warning, from the page while it
+// ran (see Browser.problems).
+let problemsBefore = 0
+beforeEach(() => {
+  problemsBefore = browser.problems.length
+})
+afterEach(() => {
+  assert.deepEqual(browser.problems.slice(problemsBefore), [], 'the page reported problems')
+})
 
 /**
  * How a screen reader gets a section's status line, from Chrome's accessibility tree, not the

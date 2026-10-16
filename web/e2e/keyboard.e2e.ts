@@ -1,7 +1,7 @@
 // The page by keyboard alone: where focus goes, and that it always shows. Spec §5 and WCAG 2.4.7
 // (focus visible), 2.4.11 (focus not obscured) and 2.1.1 (keyboard).
 import assert from 'node:assert/strict'
-import { after, before, test } from 'node:test'
+import { after, afterEach, before, beforeEach, test } from 'node:test'
 import { Browser } from './browser.ts'
 
 let browser: Browser
@@ -9,6 +9,16 @@ before(async () => {
   browser = await Browser.open()
 })
 after(() => browser?.close())
+
+// Each check fails on an uncaught exception, or a console error or warning, from the page while it
+// ran (see Browser.problems).
+let problemsBefore = 0
+beforeEach(() => {
+  problemsBefore = browser.problems.length
+})
+afterEach(() => {
+  assert.deepEqual(browser.problems.slice(problemsBefore), [], 'the page reported problems')
+})
 
 // What has focus, and how much of it the sticky header hides: a chip's radio button is see-through,
 // so for a chip it is its pill that shows. Only where the header is drawn on top does it hide
