@@ -335,9 +335,9 @@ img[data-broken] {
   scroll-padding-inline: 8px;
 }
 
-/* The titles' row is always there, for Strip to scroll back to Ch.1, but with no titles in it (while
-   the empty cards' row stands in for it, say) its room for focus rings would add 14px under them,
-   which went as the titles landed, and the page under the strip jumped up. */
+/* The titles' row is always there, for Strip to scroll back to Ch.1, but with no titles in it
+   (while the empty cards' row stands in for it, say) its room for focus rings would add 14px under
+   them, which went as the titles landed, and the page under the strip jumped up. */
 .ab-strip-row:empty {
   display: none;
 }
@@ -807,7 +807,10 @@ body:has(.ab-card[open]) {
 
 /* A chip's radio button is see-through, and covers its whole pill: Tab scrolls only if what takes
    focus isn't on the screen, so a 13px button showing while its pill hung off the screen's foot
-   left the pill, and its ring, cut off. Its scroll margin keeps room for the ring (7px). */
+   left the pill, and its ring, cut off. Its size is set as well as its inset: Chrome stretches it
+   by its inset alone, but a browser that sizes a radio button as an image would leave it 13px. Its
+   scroll margin keeps room for the ring (7px) where nothing else does, as for the footer's switch:
+   in the page, the 10px for whatever takes focus there take over above and below. */
 .ab-chip {
   position: relative;
 }
@@ -2100,8 +2103,8 @@ body:has(.ab-card[open]) {
   margin: 0;
 }
 
-/* While a section waits for its first titles, its status line ("Loading…") shows as a tag over its
-   empty panels (.ab-note-tag) instead of in a line of its own, so nothing moves as it clears
+/* While a section waits for its first titles, its status line ("Loading…") shows as a tag over
+   its empty panels (.ab-note-tag) instead of in a line of its own, so nothing moves as it clears
    and the titles take the panels' place. The line itself stays in the page's flow, with no height,
    for screen readers, which read it as ever: placed absolutely instead, it would change position
    as loading ends, and Chrome then stops keeping the place of a visitor further down the page

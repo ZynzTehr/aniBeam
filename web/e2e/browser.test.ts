@@ -25,8 +25,8 @@ test('only a recorded browser starts Chrome unable to resolve AniList’s addres
 })
 
 // Layout shift is counted as web-vitals counts CLS: shifts within 500 ms of the visitor's input
-// (Chrome marks them hadRecentInput) are left out, the rest fall into session windows, each a run of
-// shifts less than 1 s apart and at most 5 s long, and the page's score is its largest window's.
+// (Chrome marks them hadRecentInput) are left out, the rest fall into session windows, each a run
+// of shifts less than 1 s apart and at most 5 s long, and the page's score is its largest window's.
 test('layout shifts count in session windows, the largest one the score, and shifts after input left out', () => {
   const at = (time: number, value: number, input = false) => ({ time, value, input })
   // Scores to 6 places, as adding them up in floating point can leave a speck.
