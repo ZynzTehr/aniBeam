@@ -441,6 +441,23 @@ test('cards landing together, even far along their row, show in full one after a
   assert.deepEqual(slow, [], 'cards that took too long to show')
 })
 
+test('the splash panel is done once its slam has played, while its cover still drifts on screen', async () => {
+  // The splash cover drifts as the page scrolls (a scroll-driven animation, which ends only once
+  // scrolled through): a part is done once its slam's own animations, on the page's clock, end.
+  // Waiting on the drift too, the splash stayed landing for as long as it was on screen.
+  await browser.load()
+  assert.ok(await browser.titlesShown())
+  await browser.evaluate(
+    `document.getElementById('ab-trending').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
+  )
+  await sleep(2000)
+  const splash = await browser.evaluate<string>(`(() => {
+    const splash = document.querySelector('.ab-grid:not([aria-hidden]) > .ab-splash'), box = splash.getBoundingClientRect()
+    return splash.dataset.land + (box.bottom > 0 && box.top < innerHeight ? ', on screen' : ', off screen')
+  })()`)
+  assert.equal(splash, 'done, on screen')
+})
+
 test('every part is marked before the browser first draws it, and plays no load-time entrance', async () => {
   // Frame by frame from the page's first moment, through a slow first visit (the empty panels
   // giving way to the titles), a reload halfway down the page, a decade picked and a search:
