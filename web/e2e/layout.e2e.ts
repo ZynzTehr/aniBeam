@@ -307,8 +307,17 @@ test('while a decade loads, the strip draws one row of cards, its empty ones, as
 test('while a newly picked decade loads, the strip keeps one row, the last decade’s titles, as tall', async () => {
   // Picked once the 1990s have landed, the 1980s take 2.5 s to come: meanwhile the strip shows the
   // 1990s, its rows and height as they were (a row of empty cards on top of them pushed the page
-  // under it down, and up again as the 1980s landed), and the same once the 1980s land.
+  // under it down, and up again as the 1980s landed), and the same once the 1980s land. And the
+  // row: the 1990s stay where the visitor had scrolled them, at Ch.5, and the 1980s open at Ch.1,
+  // however the visitor scrolled the 1990s while waiting (to Ch.3 here).
   const first = `document.querySelector('.ab-strip-row .ab-strip-panel[href] .ab-strip-title')?.textContent`
+  const row = `document.querySelector('.ab-strip-row:not([aria-hidden])')`
+  const scrollTo = (chapter: number) =>
+    browser.evaluate<number>(`new Promise((resolve) => {
+      ${row}.children[${chapter - 1}].scrollIntoView({ inline: 'start', block: 'nearest', behavior: 'instant' })
+      requestAnimationFrame(() => requestAnimationFrame(() => resolve(Math.round(${row}.scrollLeft))))
+    })`)
+  const scrolled = () => browser.evaluate<number>(`Math.round(${row}.scrollLeft)`)
   const seen: string[] = []
   for (const screen of [PHONE, DESKTOP]) {
     await browser.forget()
@@ -316,6 +325,8 @@ test('while a newly picked decade loads, the strip keeps one row, the last decad
     assert.ok(await browser.titlesShown())
     const nineties = await browser.evaluate<string>(first)
     const before = await browser.evaluate<string>(STRIP)
+    const atCh5 = await scrollTo(5)
+    assert.ok(atCh5 > 0, `${screen.width}px: the 1990s row didn't scroll to Ch.5`)
     await browser.holdAniList(2500)
     try {
       await browser.evaluate(
@@ -323,14 +334,20 @@ test('while a newly picked decade loads, the strip keeps one row, the last decad
       )
       // Past the chips' pause (300 ms), with the 1980s on their way.
       await sleep(800)
+      const kept = await scrolled()
       const loading =
         (await browser.evaluate<string>(STRIP)) +
-        ((await browser.evaluate<string>(first)) === nineties ? '' : ', the 1990s gone')
+        ((await browser.evaluate<string>(first)) === nineties ? '' : ', the 1990s gone') +
+        (Math.abs(kept - atCh5) <= 1 ? '' : `, the row moved from ${atCh5}px to ${kept}px`)
+      await scrollTo(3)
       assert.ok(
         await browser.waitFor(`${first} !== ${JSON.stringify(nineties)}`, 10_000),
         `${screen.width}px: the 1980s never landed`,
       )
-      const loaded = await browser.evaluate<string>(STRIP)
+      const opened = await scrolled()
+      const loaded =
+        (await browser.evaluate<string>(STRIP)) +
+        (opened === 0 ? '' : `, the 1980s opening ${opened}px along, not at Ch.1`)
       if (new Set([before, loading, loaded]).size > 1)
         seen.push(
           `${screen.width}px: ${before}, then ${loading} while the 1980s load, then ${loaded}`,
