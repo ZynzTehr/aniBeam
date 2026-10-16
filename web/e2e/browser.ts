@@ -482,17 +482,6 @@ export class Browser {
   }
 
   /**
-   * Lands at once every part of the page that lands as it scrolls into view (see lib/landing.ts),
-   * as if the visitor had scrolled past each, for a check that looks at one below the first screen
-   * without scrolling to it, whatever checks ran before. Parts that arrive later wait as usual.
-   */
-  landAll() {
-    return this.evaluate(
-      `document.querySelectorAll('[data-land]').forEach((part) => { part.dataset.land = 'done'; part.style.removeProperty('--k') }); true`,
-    )
-  }
-
-  /**
    * Resolves once every finite, time-based animation (entrances, pops, wipes) has finished.
    * Scroll-driven ones are skipped: they only finish when scrolled through.
    */

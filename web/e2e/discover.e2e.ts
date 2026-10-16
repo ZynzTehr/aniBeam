@@ -1881,9 +1881,7 @@ describe('desktop (1440x900)', () => {
     // is laid over the same way, and the worst case counts. Text in a box 1px or smaller is for
     // screen readers only. Every label must reach 4.5:1, even the lever's large one (WCAG asks
     // 3:1). The machine is measured at rest, so colors only hover or a press brings are not,
-    // and neither is the text beside it (the hint bubble, the pulled title). Landed, as a visitor
-    // sees it: below the first screen, it waits see-through until scrolled to.
-    await browser.landAll()
+    // and neither is the text beside it (the hint bubble, the pulled title).
     const ratios = await browser.evaluate<{ text: string; ratio: number }[]>(`(() => {
       // Chrome gives colors written in hex, by name, or with rgb() or hsl() as rgb() or rgba().
       // Others, such as the oklch() of Tailwind's palette, would be misread: they stop the check.

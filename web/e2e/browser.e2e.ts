@@ -591,23 +591,3 @@ test('press() presses every key it knows as a keyboard does: its key, code and k
     await browser.close()
   }
 })
-
-test('landAll() lands every part still waiting below the first screen, so each shows, still', async () => {
-  const browser = await Browser.open()
-  try {
-    await browser.load()
-    assert.ok(await browser.titlesShown())
-    const parts = `[...document.querySelectorAll('[data-land]')]`
-    const waiting = await browser.evaluate<number>(
-      `${parts}.filter((part) => part.dataset.land === 'wait').length`,
-    )
-    await browser.landAll()
-    const shown = await browser.evaluate<string[]>(
-      `${parts}.filter((part) => part.dataset.land !== 'done' || getComputedStyle(part.matches('.ab-strip-item') ? part.firstElementChild : part.matches('.ab-sfx') ? part.lastElementChild : part).opacity !== '1').map((part) => part.className + ': ' + part.dataset.land)`,
-    )
-    assert.ok(waiting >= 6, `only ${waiting} parts waiting below the first screen`)
-    assert.deepEqual(shown, [], 'parts landAll() left waiting or see-through')
-  } finally {
-    await browser.close()
-  }
-})
