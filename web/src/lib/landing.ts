@@ -158,10 +158,16 @@ export function startLanding(selector: string) {
   arrivals.observe(document.body, { childList: true, subtree: true })
   find()
   // In the capture phase, so the part has landed before anything on the way handles the focus,
-  // such as the strip scrolling the focused card into view.
+  // such as the strip scrolling the focused card into view. A part that takes focus itself while
+  // out of the Tab order (tabindex -1), as a section heading does when a link jumps to it, lands as
+  // if seen, so its boom plays where the visitor arrives; focus inside a part, from the keyboard,
+  // lands it at once.
   const focused = (event: FocusEvent) => {
     const part = (event.target as Element | null)?.closest?.<HTMLElement>('[data-land]')
-    if (part) set(part, 'focused')
+    if (!part) return
+    if (part === event.target && part.tabIndex < 0) {
+      if (landOf(part) === 'wait') land(part, 0)
+    } else set(part, 'focused')
   }
   document.addEventListener('focusin', focused, true)
   return () => {

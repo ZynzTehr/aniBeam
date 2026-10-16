@@ -248,6 +248,42 @@ test('a part peeking in by less than 15% lands once it has stayed in view a mome
   )
 })
 
+test('a heading reached by a header link or an intro button booms as it takes focus', async () => {
+  // Section headings take focus only from these links (they are out of the Tab order): a jump to
+  // one lands it as if seen, so its sound effect booms there, rather than at once, as Tab lands
+  // what it reaches.
+  const booms: Record<string, string> = {}
+  for (const [from, label] of [
+    ['.ab-nav a', 'Trending'],
+    ['.ab-nav a', 'Pull'],
+    ['.ab-nav a', 'Decades'],
+    ['.ab-intro-actions a', 'Browse by decade'],
+  ]) {
+    await browser.load()
+    assert.ok(await browser.titlesShown())
+    await browser.evaluate(`(() => {
+      window.__booms = []
+      addEventListener('animationstart', (event) => {
+        if (event.animationName === 'ab-boom' && event.target.matches('.ab-sfx > span')) window.__booms.push(event.target.parentElement.id)
+      }, true)
+      ;[...document.querySelectorAll(${JSON.stringify(from)})].find((link) => link.textContent.trim() === ${JSON.stringify(label)}).focus()
+      return true
+    })()`)
+    await browser.press('Enter')
+    // The boom starts as the heading lands, a frame or more after the jump, later on a cold page.
+    await browser.waitFor(`window.__booms.includes(document.activeElement.id)`, 2_000)
+    booms[label] = await browser.evaluate<string>(
+      `(document.activeElement.matches('.ab-sfx') ? '#' + document.activeElement.id : 'focus elsewhere') + ', ' + (window.__booms.includes(document.activeElement.id) ? 'boomed' : 'no boom')`,
+    )
+  }
+  assert.deepEqual(booms, {
+    Trending: '#ab-trending, boomed',
+    Pull: '#pull, boomed',
+    Decades: '#decades, boomed',
+    'Browse by decade': '#decades, boomed',
+  })
+})
+
 test('48 Tabs straight after load never meet a part waiting or mid-slam, on a desktop or a phone', async () => {
   // Keyboard focus lands a part at once: whole, still and in place, however soon the visitor
   // Tabs, and whether the part was waiting or already landing (see landing.ts). PR 7's Tab walk
