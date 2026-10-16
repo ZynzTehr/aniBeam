@@ -122,37 +122,56 @@ test('a title card taller than the screen shows its focus ring, inside its edge,
       await browser.press('Escape')
       continue
     }
-    // The card's left edge as the screen shows it, with its ring, then with focus taken off it and
-    // all else as it was (focus moved on to Close would scroll the card, and the speed lines):
-    // the ring must change the edge from top to bottom, at 3:1 or better against what is there
-    // without it (the title's color, and the speed lines' white). The clip is in the page's
-    // pixels, so it adds the page's scroll.
-    const edge = async () => {
-      const scrolled = await browser.evaluate<{ x: number; y: number }>(
+    // The screen's four edges, which are the card's, as the screen shows them, with its ring, then
+    // with focus taken off it and all else as it was (focus moved on to Close would scroll the
+    // card, and the speed lines): at each point along each edge, the ring must change some of the
+    // 8px in from it at 3:1 or better against what is there without it (the title's color, the
+    // speed lines' white, the card's ink). The clip is in the page's pixels, so it adds the page's
+    // scroll, and on a phone the pixels are twice as many each way.
+    const edges = async () => {
+      const { x, y } = await browser.evaluate<{ x: number; y: number }>(
         `({ x: scrollX, y: scrollY })`,
       )
-      return screenPixels({ x: scrolled.x, y: scrolled.y, width: 8, height: screen.height })
+      const { width, height } = screen
+      return {
+        left: await screenPixels({ x, y, width: 8, height }),
+        right: await screenPixels({ x: x + width - 8, y, width: 8, height }),
+        top: await screenPixels({ x, y, width, height: 8 }),
+        bottom: await screenPixels({ x, y: y + height - 8, width, height: 8 }),
+      }
     }
-    // Scrolled by the keyboard, as it is a Tab stop for that: the ring stays on the screen's edge.
+    // Scrolled by the keyboard, as it is a Tab stop for that: the ring stays on the screen's edges.
     await browser.press('End')
     await browser.evaluate(
       'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
     )
-    const focused = await edge()
+    const focused = await edges()
     const ring = await browser.evaluate<string>(
       `(() => { const style = getComputedStyle(document.activeElement); return style.outlineStyle + ' ' + style.outlineWidth + ' ' + style.outlineColor + ', offset ' + style.outlineOffset })()`,
     )
     await browser.evaluate(`document.activeElement.blur(); true`)
-    const unfocused = await edge()
+    const unfocused = await edges()
     const at = ({ width, rgb }: { width: number; rgb: number[] }, x: number, y: number) =>
       rgb.slice((y * width + x) * 3, (y * width + x) * 3 + 3)
-    const rows = Array.from({ length: screen.height }, (_, y) =>
-      contrast(at(focused, 1, y), at(unfocused, 1, y)),
-    )
-    const shown = rows.filter((ratio) => ratio >= 3).length / rows.length
-    if (shown < 0.95)
+    // The share of the points along an edge where the ring changes any pixel across its depth.
+    const along = (side: keyof typeof focused) => {
+      const [on, off] = [focused[side], unfocused[side]]
+      const upright = side === 'left' || side === 'right'
+      const rows = on.rgb.length / 3 / on.width
+      const [length, depth] = upright ? [rows, on.width] : [on.width, rows]
+      const points = Array.from({ length }, (_, i) =>
+        Array.from({ length: depth }, (_, d) => (upright ? [d, i] : [i, d])).some(
+          ([x, y]) => contrast(at(on, x, y), at(off, x, y)) >= 3,
+        ),
+      )
+      return points.filter(Boolean).length / length
+    }
+    const short = (['left', 'right', 'top', 'bottom'] as const)
+      .map((side) => [side, along(side)] as const)
+      .filter(([, share]) => share < 0.95)
+    if (short.length)
       seen.push(
-        `${screen.width}px: ring ${ring}, at 3:1 on ${Math.round(shown * 100)}% of the card's edge`,
+        `${screen.width}px: ring ${ring}, at 3:1 on ${short.map(([side, share]) => `${Math.round(share * 100)}% of the ${side} edge`).join(', ')}`,
       )
     await browser.press('Escape')
   }
