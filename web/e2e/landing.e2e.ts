@@ -403,6 +403,44 @@ test('printed, every part shows, whether it has landed or not', async () => {
   )
 })
 
+test('cards landing together, even far along their row, show in full one after another, 60ms apart', async () => {
+  // A card's pop starts its place among those landing with it (--k) steps of 60ms after the first:
+  // not by how far along the row it is, which left the last cards blank for nearly two seconds. So
+  // the decade's row jumps to its end, and each card that lands there must show in full within its
+  // pop (0.6s), its place's delay and 0.3s more.
+  await browser.load()
+  assert.ok(await browser.titlesShown())
+  await browser.evaluate(
+    `document.getElementById('decades').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
+  )
+  assert.ok(await landed(), 'cards still landing 5s later')
+  const { slow, timed } = await browser.evaluate<{
+    slow: string[]
+    timed: number
+  }>(`new Promise((resolve) => {
+    const row = document.querySelector('.ab-strip-row:not([aria-hidden])')
+    const went = new Map(), slow = []
+    let timed = 0
+    new MutationObserver((records) => {
+      for (const { target } of records)
+        if (target.dataset.land === 'go') timed++, went.set(target, { at: performance.now(), k: Number(target.style.getPropertyValue('--k') || 0) })
+    }).observe(row, { subtree: true, attributes: true, attributeFilter: ['data-land'] })
+    row.scrollTo({ left: row.scrollWidth, behavior: 'instant' })
+    const since = performance.now()
+    requestAnimationFrame(function look() {
+      for (const [card, { at, k }] of went) {
+        if (Number(getComputedStyle(card.firstElementChild).opacity) === 1) { went.delete(card); continue }
+        const allowed = 600 + k * 60 + 300
+        if (performance.now() - at > allowed) { slow.push('card ' + ([...row.children].indexOf(card) + 1) + ' (place ' + k + ') not in full ' + allowed + 'ms after landing'); went.delete(card) }
+      }
+      if (performance.now() - since > 3000) resolve({ slow, timed })
+      else requestAnimationFrame(look)
+    })
+  })`)
+  assert.ok(timed >= 3, `only ${timed} cards landed at the row's end`)
+  assert.deepEqual(slow, [], 'cards that took too long to show')
+})
+
 test('every part is marked before the browser first draws it, and plays no load-time entrance', async () => {
   // Frame by frame from the page's first moment, through a slow first visit (the empty panels
   // giving way to the titles), a reload halfway down the page, a decade picked and a search:
