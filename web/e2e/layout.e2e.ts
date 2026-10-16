@@ -239,6 +239,50 @@ test('while a decade loads, the strip draws one row of cards, its empty ones, as
   assert.deepEqual(seen, [], 'the strip changes size as its titles land')
 })
 
+test('while a newly picked decade loads, the strip keeps one row, the last decade’s titles, as tall', async () => {
+  // Picked once the 1990s have landed, the 1980s take 2.5 s to come: meanwhile the strip shows the
+  // 1990s, its rows and height as they were (a row of empty cards on top of them pushed the page
+  // under it down, and up again as the 1980s landed), and the same once the 1980s land.
+  const strip = `(() => {
+    const strip = document.querySelector('.ab-strip')
+    const rows = [...strip.querySelectorAll('.ab-strip-row')].filter((row) => row.getBoundingClientRect().height > 0)
+    const height = Math.round(strip.getBoundingClientRect().bottom - strip.querySelector('h2').getBoundingClientRect().top)
+    return rows.length + (rows.length === 1 ? ' row' : ' rows') + ', ' + height + 'px'
+  })()`
+  const first = `document.querySelector('.ab-strip-row .ab-strip-panel[href] .ab-strip-title')?.textContent`
+  const seen: string[] = []
+  for (const screen of [PHONE, DESKTOP]) {
+    await browser.forget()
+    await browser.load({ ...screen, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    const nineties = await browser.evaluate<string>(first)
+    const before = await browser.evaluate<string>(strip)
+    await browser.holdAniList(2500)
+    try {
+      await browser.evaluate(
+        `document.querySelector('.ab-eras input[value="1980s"]').click(); true`,
+      )
+      // Past the chips' pause (300 ms), with the 1980s on their way.
+      await sleep(800)
+      const loading =
+        (await browser.evaluate<string>(strip)) +
+        ((await browser.evaluate<string>(first)) === nineties ? '' : ', the 1990s gone')
+      assert.ok(
+        await browser.waitFor(`${first} !== ${JSON.stringify(nineties)}`, 10_000),
+        `${screen.width}px: the 1980s never landed`,
+      )
+      const loaded = await browser.evaluate<string>(strip)
+      if (new Set([before, loading, loaded]).size > 1)
+        seen.push(
+          `${screen.width}px: ${before}, then ${loading} while the 1980s load, then ${loaded}`,
+        )
+    } finally {
+      await browser.holdAniList(0)
+    }
+  }
+  assert.deepEqual(seen, [], 'the strip changes as a picked decade loads')
+})
+
 test("the pull machine's hint keeps its size as the titles land and change what it says", async () => {
   // Before any titles it says they're on their way; once they land, to pick a vibe and pull. On a
   // phone the machine sits above the decades, so a hint that grew pushed them down.
