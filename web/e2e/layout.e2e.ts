@@ -20,6 +20,35 @@ before(async () => {
 })
 after(() => browser?.close())
 
+/**
+ * How a screen reader gets a section's status line, from Chrome's accessibility tree, not the
+ * page's attributes: how many times the section says the line's text, and whether the line is a
+ * status (a live region) that says it.
+ */
+async function heard(name: string, section: string) {
+  const object = async (expression: string) =>
+    (await browser.send('Runtime.evaluate', { expression })).result.objectId as string
+  const text = await browser.evaluate<string>(
+    `document.querySelector('${section} .ab-note').textContent`,
+  )
+  const { nodes: saying } = await browser.send('Accessibility.queryAXTree', {
+    objectId: await object(`document.querySelector('${section}')`),
+    accessibleName: text,
+  })
+  const {
+    nodes: [line],
+  } = await browser.send('Accessibility.getPartialAXTree', {
+    objectId: await object(`document.querySelector('${section} .ab-note')`),
+    fetchRelatives: false,
+  })
+  const status =
+    !line.ignored &&
+    line.role?.value === 'status' &&
+    saying.some((node: any) => node.parentId === line.nodeId)
+  const times = saying.length === 1 ? 'once' : `${saying.length} times`
+  return `${name}: "${text}" read ${times}, ${status ? 'as a status' : 'not as a status'}`
+}
+
 /** The page's layout shift, to 4 places, with what moved in the window that counts. */
 async function shifted() {
   const { value, shifts } = await browser.layoutShift()
@@ -60,8 +89,8 @@ test('a first visit loads with a layout shift under 0.1, on a phone and on a wid
 
 test('while a section waits for its titles, "Loading…" shows over its empty panels, and nothing moves as they land', async () => {
   // Each section's status: as a tag over its empty panels, from the first, its own line taking no
-  // room (screen readers still read the line), or in its line; and its panels' place under its
-  // heading.
+  // room, or in its line; and its panels' place under its heading. And screen readers must still
+  // read the line, once: the tag is for the eyes alone (see heard).
   const where = `(() => {
     // Measured, then rounded once: the heading itself can move, as what is above it changes.
     const gap = (from, to) => Math.round(to.getBoundingClientRect().top - from.getBoundingClientRect().top)
@@ -82,11 +111,16 @@ test('while a section waits for its titles, "Loading…" shows over its empty pa
     })
   })()`
   const seen: Record<string, string[]> = {}
+  const read: Record<string, string[]> = {}
   for (const screen of [PHONE, DESKTOP]) {
     await browser.forget()
     await browser.holdAniList(2500)
     await browser.load({ ...screen, reduceMotion: true })
     const loading = await browser.evaluate<string[]>(where)
+    read[`${screen.width}px`] = [
+      await heard('trending', '.ab-page'),
+      await heard('decades', '.ab-strip'),
+    ]
     assert.ok(await browser.titlesShown())
     await browser.holdAniList(0)
     const loaded = await browser.evaluate<string[]>(where)
@@ -109,6 +143,15 @@ test('while a section waits for its titles, "Loading…" shows over its empty pa
       `at ${screen}, while the titles load, then once they land`,
     )
   }
+  const once = [
+    'trending: "Loading…" read once, as a status',
+    'decades: "Loading…" read once, as a status',
+  ]
+  assert.deepEqual(
+    read,
+    { '390px': once, '1440px': once },
+    'what screen readers get while the titles load',
+  )
 })
 
 test('while AniList fails, a section waiting for its titles shows its whole long status note in its tag, clear of the corners', async () => {
