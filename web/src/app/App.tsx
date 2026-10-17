@@ -162,10 +162,14 @@ export default function App() {
   const shownEraId = useDebounced(eraId, 300)
   const era = ERAS.find((e) => e.id === shownEraId) ?? ERAS[0]
 
-  // Title first: while a title opened at its address loads or shows, the page's lists wait, so a
-  // shared link costs AniList one request (spec §2), and they ask for theirs as it closes. Lists
-  // saved from an earlier visit still show meanwhile.
-  const listsWait = addressed !== null
+  // Title first: a visit that starts at a title's address asks for that title alone, so a shared
+  // link costs AniList one request while its card loads or shows (spec §2), and the page's lists
+  // ask for theirs as it closes. Lists saved from an earlier visit still show meanwhile. Titles
+  // opened on the page later don't hold the lists: by then they have titles, and holding them would
+  // only send a refresh, or a retry of a failed one, as each card closes. Set as the page renders,
+  // as in useOutage.
+  const [listsWait, setListsWait] = useState(addressed !== null)
+  if (listsWait && addressed === null) setListsWait(false)
   const trending = useQuery({ ...trendingQuery(), enabled: !listsWait })
   // While a new decade loads, the previous decade's titles stay on screen instead of
   // flashing to empty cards.

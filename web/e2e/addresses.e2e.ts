@@ -448,3 +448,31 @@ test('an answer with no title and no error says the title isn’t there, rather 
     await browser.rewriteAniList(null)
   }
 })
+
+test('closing a title opened on the page asks AniList for nothing, even with the lists out of date', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  // 31 minutes on, by the page's clock: trending, fresh for 30, is out of date.
+  await browser.evaluate(
+    `(() => { const now = Date.now; Date.now = () => now() + 31 * 60_000; return true })()`,
+  )
+  const asked: string[] = []
+  await browser.rewriteAniList(({ request }) => {
+    asked.push(
+      request.query.includes('TRENDING_DESC') ? 'trending' : JSON.stringify(request.variables),
+    )
+    return null
+  })
+  try {
+    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
+    assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
+    await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog') && location.pathname === '/'`, 5000),
+    )
+    await sleep(1500)
+    assert.deepEqual(asked, [], 'opening and closing a card asked AniList')
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+})
