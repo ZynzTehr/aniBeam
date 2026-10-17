@@ -221,3 +221,23 @@ test('a first visit to a title’s address asks AniList for that title alone, an
     await browser.rewriteAniList(null)
   }
 })
+
+test('the tab shows the open card’s title, and the site’s again once it closes', async () => {
+  // The page's own title, in index.html.
+  const PAGE = "AniBeam · What's hot in anime"
+  await browser.load({ ...DESKTOP, reduceMotion: true, url: at('/anime/154587') })
+  assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000))
+  assert.equal(await browser.evaluate(`document.title`), 'Frieren: Beyond Journey’s End · AniBeam')
+  await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+  assert.ok(await browser.waitFor(`!document.querySelector('dialog[open]')`, 5000))
+  assert.ok(
+    await browser.waitFor(`document.title === ${JSON.stringify(PAGE)}`, 2000),
+    await browser.evaluate(`document.title`),
+  )
+  // Opened from a panel on the page, too.
+  assert.ok(await browser.titlesShown())
+  await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
+  assert.ok(await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 5000))
+  const named = await browser.evaluate<string>(CARD)
+  assert.equal(await browser.evaluate(`document.title`), `${named} · AniBeam`)
+})
