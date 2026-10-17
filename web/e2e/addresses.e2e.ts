@@ -510,3 +510,32 @@ test('a title clicked while a shared one still loads takes its place, so closing
     await browser.holdAniList(0)
   }
 })
+
+test('after a reload, closing a title opened on the page puts / in its place rather than loading the site again', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  // Frieren, the one title the recordings answer at its address, from a search.
+  await browser.search('frieren')
+  const first = `document.querySelector('.ab-results .ab-strip-panel[href]')`
+  assert.ok(await browser.waitFor(first, 10_000))
+  await browser.evaluate(`${first}.click(); true`)
+  assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 5000))
+  await browser.send('Page.reload')
+  assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000), 'no card after the reload')
+  await browser.animationsDone()
+  // Set on this page: still there after closing, so the site didn't load again.
+  await browser.evaluate(`window.__stayed = true; true`)
+  await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+  assert.ok(
+    await browser.waitFor(
+      `!document.querySelector('dialog[open]') && location.pathname === '/'`,
+      5000,
+    ),
+  )
+  await sleep(500)
+  assert.equal(
+    await browser.evaluate(`window.__stayed === true`),
+    true,
+    'closing loaded the site again',
+  )
+})
