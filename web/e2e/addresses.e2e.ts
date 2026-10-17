@@ -241,3 +241,26 @@ test('the tab shows the open card’s title, and the site’s again once it clos
   const named = await browser.evaluate<string>(CARD)
   assert.equal(await browser.evaluate(`document.title`), `${named} · AniBeam`)
 })
+
+test('every title on the page links to its own address, which opens that same title', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  const LINKS = `[...document.querySelectorAll('.ab-grid .ab-link, .ab-strip-row:not([aria-hidden]) .ab-strip-panel[href]')].map((link) => link.getAttribute('href'))`
+  const links = await browser.evaluate<string[]>(LINKS)
+  assert.ok(links.length >= 9 + 4, `found ${links.length} title links`)
+  const wrong = links.filter((href) => !/^\/anime\/[1-9]\d*$/.test(href))
+  assert.deepEqual(wrong, [], 'title links that are not a title’s address')
+  // A search's first result, Frieren, opened on the page, then at its link's address (the one
+  // title the recordings answer on its own).
+  await browser.search('frieren')
+  const first = `document.querySelector('.ab-results .ab-strip-panel[href]')`
+  assert.ok(await browser.waitFor(first, 10_000), 'no results for frieren')
+  const href = await browser.evaluate<string>(`${first}.getAttribute('href')`)
+  assert.equal(href, '/anime/154587')
+  await browser.evaluate(`${first}.click(); true`)
+  assert.ok(await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 5000))
+  const onPage = await browser.evaluate<string>(CARD)
+  await browser.load({ ...DESKTOP, reduceMotion: true, url: at(href) })
+  assert.ok(await browser.waitFor(`${CARD} !== ''`, 10_000), `${href} opened no card`)
+  assert.equal(await browser.evaluate(CARD), onPage, `${href} opened another title`)
+})

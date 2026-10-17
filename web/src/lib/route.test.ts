@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { replace, titleIdFrom, watchPath } from './route.ts'
+import { replace, titleIdFrom, titlePath, watchPath } from './route.ts'
 
 test('an address opens a title only at /anime/ and its AniList id, with or without a last slash', () => {
   assert.equal(titleIdFrom('/anime/154587'), 154587)
@@ -25,6 +25,11 @@ test('an address opens a title only at /anime/ and its AniList id, with or witho
     '/x/anime/154587',
   ])
     assert.equal(titleIdFrom(path), null, path)
+})
+
+test('a title’s address reads back as its id', () => {
+  for (const id of [1, 154587, 999999999]) assert.equal(titleIdFrom(titlePath(id)), id)
+  assert.equal(titlePath(154587), '/anime/154587')
 })
 
 // A stand-in for the browser's address and history, on globalThis until the test ends, as Node has

@@ -8,6 +8,7 @@ import { opener } from './opener.ts'
 import { RetryButton } from './RetryButton.tsx'
 import { SfxHeading } from './SfxHeading.tsx'
 import type { OpenTitle } from './TitleCard.tsx'
+import { titlePath } from '../lib/route.ts'
 
 // Desktop placement of the first nine panels: [column span of 12, row span]. Rank 1 is the
 // splash panel; panels 4 and 5 share a diagonal cut, like a manga action page.
@@ -127,7 +128,7 @@ function Panel({
         ...cssVars({ '--c': span[0], '--r': span[1], '--i': rank }),
       }}
     >
-      <a className="ab-link" href={`#title-${media.id}`} onClick={opener(media, onOpen)}>
+      <a className="ab-link" href={titlePath(media.id)} onClick={opener(media, onOpen)}>
         <span className="ab-img">
           <picture>
             {splash && media.bannerImage && (

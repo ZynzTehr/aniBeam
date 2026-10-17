@@ -302,7 +302,7 @@ test('AniList’s search still finds a trending title by its name', { skip: off 
     const found = answer.body.data.Page.media.map((media: Media) => media.id)
     assert.ok(
       await browser.waitFor(
-        `document.querySelector('.ab-results .ab-strip-panel[href="#title-${wanted.id}"]')`,
+        `document.querySelector('.ab-results .ab-strip-panel[href="/anime/${wanted.id}"]')`,
         5_000,
       ),
       'the page did not show the title among the results',

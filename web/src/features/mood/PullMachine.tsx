@@ -10,6 +10,7 @@ import type { Media } from '../anime/queries.ts'
 import { accentVars } from '../theming/deriveAccent.ts'
 import { MOODS, type Mood } from './moods.ts'
 import { pickTitle, pullable } from './pick.ts'
+import { titlePath } from '../../lib/route.ts'
 
 // What the machine says before a pull: with no titles yet, with none it may hand out, or with some.
 const HINTS = {
@@ -125,7 +126,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
                   of reach, inert. */}
               <a
                 className="ab-result-panel"
-                href={`#title-${pulled.id}`}
+                href={titlePath(pulled.id)}
                 onClick={opener(pulled, onOpen)}
                 inert={!revealed}
               >

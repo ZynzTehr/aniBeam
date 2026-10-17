@@ -15,6 +15,9 @@ export function titleIdFrom(pathname: string): number | null {
   return id === undefined ? null : Number(id)
 }
 
+/** A title's address, which titleIdFrom reads back: /anime/154587 for 154587. */
+export const titlePath = (id: number) => `/anime/${id}`
+
 // Back and Forward announce themselves (popstate), but the page's own changes to the address
 // don't, so those tell the listeners here.
 const listeners = new Set<() => void>()
