@@ -25,6 +25,7 @@ import {
 } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { pullable } from '../src/features/mood/pick.ts'
+import { AniListError } from '../src/lib/anilist.ts'
 import type { Recording } from './browser.ts'
 
 export const FOLDER = fileURLToPath(new URL('./anilist/', import.meta.url))
@@ -84,9 +85,11 @@ async function sent(ask: (client: QueryClient) => Promise<unknown>): Promise<Req
   }
   const client = new QueryClient()
   try {
-    // What the answer becomes doesn't matter, only the request: a title asked for on its own, say,
-    // fails as not found on the stand-in's empty answer.
-    await ask(client).catch(() => {})
+    // What the answer becomes doesn't matter, only the request: a title asked for on its own fails
+    // as not found on the stand-in's empty answer. Anything else failing is a fault of its own.
+    await ask(client).catch((error: unknown) => {
+      if (!(error instanceof AniListError && error.status === 404)) throw error
+    })
   } finally {
     globalThis.fetch = fetch
     client.clear()
