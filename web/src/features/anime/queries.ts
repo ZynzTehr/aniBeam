@@ -176,7 +176,14 @@ export const titleQuery = (id: number) =>
         return data.Media
       }),
     staleTime: (query) => (query.state.data?.status === 'FINISHED' ? 30 * DAY : 6 * HOUR),
+    // A title AniList said it hasn't got isn't asked for again by itself, back on the tab or on a
+    // return to its address, as a query with no answer otherwise would be (Try again doesn't offer
+    // itself for it either): it would spend a request on the same answer.
+    refetchOnWindowFocus: (query) => !isMissing(query.state.error),
+    retryOnMount: false,
   })
+
+const isMissing = (error: unknown) => error instanceof AniListError && error.status === 404
 
 /** True when `now` refines the search `before` (letters added or removed), not a new search. */
 export const isRefinement = (before: string, now: string) => {

@@ -583,7 +583,18 @@ test('after a reload, closing a title opened on the page puts / in its place rat
 })
 
 test('the note fades out as it closes, by Close or Esc; a second request closes it at once; with no animations it still closes', async () => {
-  const fading = `(() => { const n = document.querySelector('dialog.ab-notice'); return Boolean(n?.open && n.classList.contains('is-closing') && n.getAnimations().some((a) => a.effect.getTiming().duration <= 150)) })()`
+  // Heard in the page as the note starts closing, so a slow round trip from here can't miss a fade
+  // as short as 150 ms: whether it was still open, fading by 150 ms or less, with the page's dim.
+  const watchFade = `(() => {
+    const n = document.querySelector('dialog.ab-notice')
+    window.__faded = false
+    new MutationObserver(() => {
+      // The note and the page's dim behind it (its ::backdrop) both.
+      const fades = document.getAnimations().filter((a) => a.effect.target === n && a.animationName === 'ab-fade-out' && a.effect.getTiming().duration <= 150)
+      if (n.open && n.classList.contains('is-closing') && fades.some((a) => !a.effect.pseudoElement) && fades.some((a) => a.effect.pseudoElement === '::backdrop')) window.__faded = true
+    }).observe(n, { attributes: true, attributeFilter: ['class'] })
+    return true
+  })()`
   const gone = `!document.querySelector('dialog[open]') && location.pathname === '/'`
   for (const how of ['Close', 'Esc', 'twice', 'no animations']) {
     await browser.load({ ...PHONE, reduceMotion: true, url: at(`/anime/${MISSING}`) })
@@ -593,6 +604,7 @@ test('the note fades out as it closes, by Close or Esc; a second request closes 
       await browser.evaluate(
         `document.head.appendChild(Object.assign(document.createElement('style'), { textContent: '*, ::backdrop { animation: none !important }' })); true`,
       )
+    await browser.evaluate(watchFade)
     // The browser lets the page hold Esc's close up only once for each thing the visitor does on
     // the page, and nothing has been done since it loaded: so a Tab first, as a visitor would.
     if (how === 'Esc') {
@@ -602,7 +614,7 @@ test('the note fades out as it closes, by Close or Esc; a second request closes 
       await browser.evaluate(`document.querySelector('dialog.ab-notice .ab-btn-ink').click(); true`)
     if (how === 'Close' || how === 'Esc')
       assert.equal(
-        await browser.evaluate(fading),
+        await browser.evaluate(`window.__faded`),
         true,
         `${how}: no fade of 150 ms or less as it closed`,
       )
@@ -616,4 +628,99 @@ test('the note fades out as it closes, by Close or Esc; a second request closes 
     }
     assert.ok(await browser.waitFor(gone, 1000), `${how}: still open`)
   }
+})
+
+test('the same title opened again grows from where its panel is now, and a shared one closed first doesn’t hold its spot', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  const link = `document.querySelector('.ab-grid .ab-link')`
+  const grows = () =>
+    browser.evaluate<{ top: number; from: number }>(`({
+      top: Math.max(0, ${link}.getBoundingClientRect().top),
+      from: parseFloat(document.querySelector('dialog.ab-card').style.getPropertyValue('--t')),
+    })`)
+  await browser.evaluate(`${link}.click(); true`)
+  assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
+  await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+  assert.ok(
+    await browser.waitFor(`!document.querySelector('dialog') && location.pathname === '/'`, 5000),
+  )
+  // Scrolled after it closed, the panel is somewhere else.
+  await browser.evaluate(`scrollBy(0, 200); true`)
+  await sleep(200)
+  await browser.evaluate(`${link}.click(); true`)
+  assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
+  const { top, from } = await grows()
+  assert.ok(Math.abs(top - from) < 1, `grew from ${from}px down, with the panel ${top}px down`)
+})
+
+test('Back hands focus to the title’s link elsewhere on the page when what opened it has gone', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  // One Piece (21) is in a search's results and on the page too.
+  await browser.search('one piece')
+  const result = `document.querySelector('.ab-results a[href="/anime/21"]')`
+  assert.ok(await browser.waitFor(result, 10_000), 'no One Piece in the results')
+  await browser.evaluate(`${result}.focus(); true`)
+  await browser.press('Enter')
+  assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
+  await browser.evaluate(`history.back(); true`)
+  assert.ok(await browser.waitFor(`!document.querySelector('dialog')`, 5000))
+  // The search cleared: its results, and what opened the title, leave the page.
+  await browser.search('')
+  assert.ok(await browser.waitFor(`!document.querySelector('.ab-results')`, 5000))
+  await browser.evaluate(`history.forward(); true`)
+  assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000), 'Forward opened no card')
+  await browser.evaluate(`history.back(); true`)
+  assert.ok(await browser.waitFor(`!document.querySelector('dialog')`, 5000))
+  assert.ok(
+    await browser.waitFor(`document.activeElement?.getAttribute('href') === '/anime/21'`, 1000),
+    'focus fell to the page',
+  )
+})
+
+test('a title AniList hasn’t got isn’t asked for again back on the tab, and its note stays as it was', async () => {
+  const asked: number[] = []
+  await browser.rewriteAniList(({ request }) => {
+    if (request.variables.id === MISSING) asked.push(MISSING)
+    return null
+  })
+  try {
+    await browser.load({ ...DESKTOP, reduceMotion: true, url: at(`/anime/${MISSING}`) })
+    assert.ok(await browser.waitFor(`${NOTICE}?.text === 'We couldn’t find that title.'`, 10_000))
+    const texts: string[] = []
+    await browser.evaluate(`(() => {
+      window.__texts = []
+      new MutationObserver(() => __texts.push(document.querySelector('.ab-notice-text')?.textContent ?? 'none')).observe(document.body, { subtree: true, childList: true, characterData: true })
+      // Back on the tab, as TanStack hears it.
+      dispatchEvent(new Event('visibilitychange'))
+      return true
+    })()`)
+    await sleep(1000)
+    texts.push(...(await browser.evaluate<string[]>(`window.__texts`)))
+    assert.deepEqual(asked, [MISSING], 'asked for again')
+    assert.deepEqual(
+      texts.filter((text) => text !== 'We couldn’t find that title.'),
+      [],
+      'the note changed',
+    )
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+})
+
+test('two different titles opened one after another on the page each open their card', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  const named: string[] = []
+  for (const n of [0, 1]) {
+    await browser.evaluate(`document.querySelectorAll('.ab-grid .ab-link')[${n}].click(); true`)
+    assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000), `title ${n + 1} opened no card`)
+    named.push(await browser.evaluate<string>(CARD))
+    await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog') && location.pathname === '/'`, 5000),
+    )
+  }
+  assert.notEqual(named[0], named[1], 'the second card named the first title')
 })

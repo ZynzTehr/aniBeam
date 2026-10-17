@@ -108,9 +108,11 @@ export default function App() {
   })
   const shownMedia = addressed !== null ? (fromList ?? title.data) : undefined
   // Where the card grows from: what opened it, where that is now, or, opened at its address, the
-  // middle of the screen. Measured once each time a card opens, as the page renders, as in
-  // useOutage, so the card gets it from the start.
+  // middle of the screen. Measured once each time a card opens, and forgotten as it closes, so the
+  // same title opened again is measured again, as the page renders, as in useOutage, so the card
+  // gets it from the start.
   const [growth, setGrowth] = useState<{ id: number; from: DOMRect } | null>(null)
+  if (!shownMedia && growth) setGrowth(null)
   if (shownMedia && growth?.id !== shownMedia.id)
     setGrowth({
       id: shownMedia.id,
@@ -124,8 +126,9 @@ export default function App() {
   // However the card goes, focus returns to what opened it. The dialog does that itself as it
   // closes (Close, Esc), but Back takes it off the page while it is open, and focus then falls to
   // the start of the page, losing a keyboard user's place. So then, focus goes back to what opened
-  // it (the page behind a modal card can't change, so it is still there). Before the browser draws
-  // the page.
+  // it, or, if that has left the page (a search cleared between Back and Forward, samples giving way
+  // to AniList's titles), to that title's link elsewhere on the page. Before the browser draws the
+  // page.
   const shown = card?.media.id ?? null
   const lastShown = useRef<number | null>(null)
   const closedItself = useRef(false)
@@ -136,7 +139,10 @@ export default function App() {
     closedItself.current = false
     if (shown !== null || id === null || itself || opened?.media.id !== id) return
     if (document.activeElement && document.activeElement !== document.body) return
-    opened.element.focus({ preventScroll: true })
+    const back = opened.element.isConnected
+      ? opened.element
+      : document.querySelector<HTMLElement>(`#main a[href="${titlePath(id)}"]`)
+    back?.focus({ preventScroll: true })
   }, [shown, opened])
   // Once a note has shown for an address, it stays while AniList is asked again, as Try again or a
   // retry does, until the title arrives: TanStack forgets the failure of a query with no answer as
