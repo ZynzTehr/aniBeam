@@ -391,6 +391,49 @@ test('on a slow scroll a part lands at 15%, not as a sliver: slivers land only a
   )
 })
 
+test('after the header grows, scrolling down still lands every part as it shows below it', async () => {
+  // At 960px, WCAG's widened text spacing put on after load gives the header a second row: the
+  // landing watches again from below its new height, every part still waiting included. So
+  // scrolled down in 100px steps, with nothing else changing on the page, no part showing 15% or
+  // more below the header may still wait 300ms later.
+  await browser.load({ width: 960, height: 900 })
+  assert.ok(await browser.titlesShown())
+  const grew = await browser.evaluate<number>(`(async () => {
+    const style = document.head.appendChild(document.createElement('style'))
+    style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+    const header = document.querySelector('.ab-top')
+    for (let agreed = 0; agreed < 5; ) {
+      await new Promise(requestAnimationFrame)
+      agreed = getComputedStyle(document.documentElement).getPropertyValue('--top-h') === header.offsetHeight + 'px' ? agreed + 1 : 0
+    }
+    return header.offsetHeight
+  })()`)
+  const stuck = await browser.evaluate<string[]>(`new Promise((resolve) => {
+    const header = document.querySelector('.ab-top'), stuck = []
+    // What shows of it below the header, inside the screen, and a card inside its row, which
+    // clips what lies past its edges.
+    const shownBelow = (el) => {
+      const box = el.getBoundingClientRect(), under = header.getBoundingClientRect().bottom
+      const row = el.closest('.ab-strip-row')?.getBoundingClientRect()
+      const high = Math.max(0, Math.min(box.bottom, innerHeight, row?.bottom ?? Infinity) - Math.max(box.top, under, row?.top ?? 0))
+      const wide = Math.max(0, Math.min(box.right, innerWidth, row?.right ?? Infinity) - Math.max(box.left, 0, row?.left ?? 0))
+      return (high * wide) / (box.width * box.height)
+    }
+    ;(async () => {
+      const end = document.documentElement.scrollHeight - innerHeight
+      for (let y = 0; y <= end; y += 100) {
+        scrollTo({ top: y, behavior: 'instant' })
+        await new Promise((next) => setTimeout(next, 300))
+        for (const part of document.querySelectorAll(${JSON.stringify(LANDING_PARTS)}))
+          if (part.dataset.land === 'wait' && shownBelow(part) >= 0.15) stuck.push(y + 'px: ' + (part.id || part.className.split(' ')[0]))
+      }
+      resolve([...new Set(stuck)])
+    })()
+  })`)
+  assert.ok(grew > 100, 'the header took no second row')
+  assert.deepEqual(stuck, [], 'parts still waiting with 15% or more below the header')
+})
+
 test('48 Tabs straight after load never meet a part waiting or mid-slam, on a desktop or a phone', async () => {
   // Keyboard focus lands a part at once: whole, still and in place, however soon the visitor
   // Tabs, and whether the part was waiting or already landing (see landing.ts). PR 7's Tab walk
