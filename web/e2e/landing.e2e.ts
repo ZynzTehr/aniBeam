@@ -306,7 +306,7 @@ test('a part coming down from above lands as it shows below the header from 900p
   // phone the header scrolls away with the page: there a part lands as it shows at the top of the
   // screen, so a part that lands with much more than 15% of it showing landed late.
   // And at 960px with WCAG's widened text spacing (1.4.12), put on once the page has loaded: the
-  // header takes a second row, 135px, and what lands must follow its new height.
+  // header takes a second row, 137px, and what lands must follow its new height.
   const SPACING = `(async () => {
     const style = document.head.appendChild(document.createElement('style'))
     style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
