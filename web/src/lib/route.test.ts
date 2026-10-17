@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { replace, titleIdFrom, titlePath, watchPath } from './route.ts'
+import { isOver, push, replace, titleIdFrom, titlePath, watchPath } from './route.ts'
 
 test('an address opens a title only at /anime/ and its AniList id, with or without a last slash', () => {
   assert.equal(titleIdFrom('/anime/154587'), 154587)
@@ -33,17 +33,23 @@ test('a title’s address reads back as its id', () => {
 })
 
 // A stand-in for the browser's address and history, on globalThis until the test ends, as Node has
-// none: replaceState changes the path, as the browser's does, and fires no popstate, as the
-// browser's doesn't. In a browser, window is globalThis, so addEventListener is the window's.
+// none: replaceState and pushState change the path, as the browser's do (pushState in a new entry),
+// and fire no popstate, as the browser's don't. In a browser, window is globalThis, so addEventListener is the window's.
 function fakeWindow(t: import('node:test').TestContext, path = '/') {
   const events = new EventTarget()
   const location = { pathname: path, search: '', hash: '' }
   const history = {
     state: null as unknown,
+    entries: [path],
     replaceState(state: unknown, _title: string, url: string) {
       const next = new URL(url, `https://ani-beam.vercel.app${location.pathname}`)
       Object.assign(location, { pathname: next.pathname, search: next.search, hash: next.hash })
       history.state = state
+      history.entries[history.entries.length - 1] = next.pathname
+    },
+    pushState(state: unknown, title: string, url: string) {
+      history.entries.push('')
+      history.replaceState(state, title, url)
     },
   }
   const page = {
@@ -78,6 +84,7 @@ test('replacing the address tells those watching it, keeps its state, and adds n
   stop()
   replace('/')
   assert.deepEqual(heard, ['/', '/anime/1'], 'a watcher that stopped hears nothing more')
+  assert.deepEqual(history.entries, ['/'], 'replacing added a history entry')
 })
 
 test('Back and Forward (popstate) reach those watching the address, until they stop', (t) => {
@@ -88,4 +95,21 @@ test('Back and Forward (popstate) reach those watching the address, until they s
   stop()
   events.dispatchEvent(new Event('popstate'))
   assert.equal(heard, 1)
+})
+
+test('pushing an address adds a history entry with its state, and tells those watching it', (t) => {
+  const { location, history } = fakeWindow(t, '/')
+  const heard: string[] = []
+  const stop = watchPath(() => heard.push(location.pathname))
+  push('/anime/154587', { over: '/' })
+  stop()
+  assert.deepEqual(heard, ['/anime/154587'])
+  assert.deepEqual(history.state, { over: '/' })
+  assert.deepEqual(history.entries, ['/', '/anime/154587'])
+})
+
+test('an entry the page pushed over an address says so; any other state does not', () => {
+  assert.equal(isOver({ over: '/' }), true)
+  for (const state of [null, undefined, {}, { over: 1 }, 'over', { other: '/' }])
+    assert.equal(isOver(state), false, JSON.stringify(state))
 })

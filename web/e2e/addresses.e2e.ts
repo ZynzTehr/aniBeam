@@ -288,3 +288,105 @@ test('a click with Ctrl, Cmd, Shift or Alt held is left to the browser, and a pl
   assert.equal((await clicked({})).taken, true, 'a plain click')
   assert.ok(await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 5000))
 })
+
+// Where the page is in its history: the Navigation API's index of the current entry.
+const entry = () => browser.evaluate<number>(`navigation.currentEntry.index`)
+
+test('a title opened on the page puts its address in the address bar, from the list with no request; Back closes it and Forward opens it again', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  const asked: string[] = []
+  await browser.rewriteAniList(({ request }) => {
+    asked.push(JSON.stringify(request.variables))
+    return null
+  })
+  try {
+    const start = await entry()
+    const href = await browser.evaluate<string>(
+      `document.querySelector('.ab-grid .ab-link').getAttribute('href')`,
+    )
+    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
+    assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000), 'no card opened')
+    const named = await browser.evaluate<string>(CARD)
+    assert.equal(await where(), href, 'the address bar')
+    assert.equal(await entry(), start + 1, 'opening added no history entry')
+    await browser.evaluate(`history.back(); true`)
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog[open]')`, 5000),
+      'Back left the card open',
+    )
+    assert.equal(await where(), '/')
+    await browser.evaluate(`history.forward(); true`)
+    assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000), 'Forward opened no card')
+    assert.equal(await browser.evaluate(CARD), named, 'Forward opened another title')
+    await sleep(500)
+    assert.deepEqual(asked, [], 'opening, Back and Forward asked AniList')
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+})
+
+test('Close or Esc on a title opened on the page goes Back, so the next Back leaves the page, not the title', async () => {
+  for (const [how, reduceMotion] of [
+    ['button', true],
+    ['Esc', false],
+  ] as const) {
+    await browser.load({ ...DESKTOP, reduceMotion })
+    assert.ok(await browser.titlesShown())
+    const start = await entry()
+    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
+    assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
+    assert.equal(await entry(), start + 1, 'opening added no history entry')
+    await browser.animationsDone()
+    if (how === 'button')
+      await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+    else await browser.press('Escape')
+    assert.ok(
+      await browser.waitFor(
+        `!document.querySelector('dialog[open]') && location.pathname === '/'`,
+        5000,
+      ),
+      `closed by its ${how}`,
+    )
+    assert.equal(
+      await entry(),
+      start,
+      `closed by its ${how}, the page stayed a history entry ahead`,
+    )
+  }
+})
+
+test('after a link to a section, a title closed by Close, Esc or Back leaves the visitor’s place and focus as they were', async () => {
+  for (const how of ['button', 'Esc', 'Back']) {
+    await browser.load({ ...DESKTOP, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    // The header's Decades link leaves #decades in the address; then a little further down.
+    await browser.evaluate(`document.querySelector('.ab-nav a[href="#decades"]').click(); true`)
+    await browser.waitFor(`location.hash === '#decades'`)
+    await browser.evaluate(`scrollBy(0, 120); true`)
+    await sleep(200)
+    const link = `document.querySelector('.ab-strip-row:not([aria-hidden]) .ab-strip-panel[href]')`
+    await browser.evaluate(`${link}.focus({ preventScroll: true }); true`)
+    const before = await browser.evaluate<number>(`scrollY`)
+    await browser.press('Enter')
+    assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
+    await browser.animationsDone()
+    if (how === 'button')
+      await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+    else if (how === 'Esc') await browser.press('Escape')
+    else await browser.evaluate(`history.back(); true`)
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog') && location.pathname === '/'`, 5000),
+      how,
+    )
+    await sleep(300)
+    const after = await browser.evaluate<{ scrollY: number; focused: boolean }>(
+      `({ scrollY, focused: document.activeElement === ${link} })`,
+    )
+    assert.deepEqual(
+      after,
+      { scrollY: before, focused: how !== 'Back' || after.focused },
+      `closed by ${how}`,
+    )
+  }
+})

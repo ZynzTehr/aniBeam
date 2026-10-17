@@ -48,3 +48,19 @@ export function replace(path: string, state: unknown = history.state) {
   history.replaceState(state, '', path)
   for (const listener of listeners) listener()
 }
+
+/**
+ * Whether a history entry's state says the page pushed it, over the address it was opened from
+ * (see push): Back then returns there.
+ */
+export const isOver = (state: unknown): state is { over: string } =>
+  typeof (state as { over?: unknown } | null)?.over === 'string'
+
+/**
+ * Puts `path` in the address bar as a new history entry, with `state` (history.state), so Back
+ * goes to the address there now; and tells those watching, as pushState fires no popstate.
+ */
+export function push(path: string, state: unknown) {
+  history.pushState(state, '', path)
+  for (const listener of listeners) listener()
+}

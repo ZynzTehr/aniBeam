@@ -29,7 +29,7 @@ import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { isRateLimited } from '../lib/anilist.ts'
 import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
-import { replace, titleIdFrom, usePathname } from '../lib/route.ts'
+import { isOver, push, replace, titleIdFrom, titlePath, usePathname } from '../lib/route.ts'
 import { useSteadyList } from '../lib/steadyList.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
 import { noteFor, NOT_FOUND, sampleNote, searchStatus, titleNote } from './status.ts'
@@ -72,28 +72,44 @@ export default function App() {
   const queryClient = useQueryClient()
   const retryFailed = () => void refetchFailed(queryClient)
 
-  const [opened, setOpened] = useState<{ media: Media; from: DOMRect } | null>(null)
-  const open: OpenTitle = (media, from) => setOpened({ media, from: from.getBoundingClientRect() })
-
-  // A visit that starts at a title's address (/anime/:id) opens its card over the page as AniList's
-  // answer arrives, or a note in its place if AniList can't give it (see titleNote); closing either
-  // puts / back. An address the app doesn't know becomes /, before the browser draws the page.
+  // The address says which title's card is open (spec §3.0): /anime/:id, over the page at /. A
+  // title opened on the page puts its address in the address bar, as a new history entry, so Back
+  // closes the card and Forward opens it again. The list's copy of the title stands in for asking
+  // AniList, so the card opens at once, and again on Forward, with no request. `opened` is where it
+  // was opened from, for the card's opening to grow from.
   const path = usePathname()
   const addressed = titleIdFrom(path)
+  const [opened, setOpened] = useState<{ id: number; from: DOMRect } | null>(null)
+  const open: OpenTitle = (media, from) => {
+    queryClient.setQueryData(titleQuery(media.id).queryKey, (saved) => saved ?? media)
+    setOpened({ id: media.id, from: from.getBoundingClientRect() })
+    // Back from the title returns to this address without its #fragment, as a link to a section
+    // leaves one: returning to a fragment, the browser jumps to it again, scrolling to it and
+    // focusing it, so closing the card would lose the visitor's place and focus.
+    if (location.hash) replace(`${location.pathname}${location.search}`)
+    push(titlePath(media.id), { over: path })
+  }
+
+  // A visit that starts at a title's address opens its card over the page as AniList's answer
+  // arrives, or a note in its place if AniList can't give it (see titleNote). Closing either goes
+  // Back to the address it was opened over, or, opened at its address, puts / in its place. An
+  // address the app doesn't know becomes /, before the browser draws the page.
   useLayoutEffect(() => {
     if (path !== '/' && addressed === null) replace(`/${location.search}${location.hash}`)
   }, [path, addressed])
   const title = useQuery({ ...titleQuery(addressed ?? 0), enabled: addressed !== null })
-  // No panel opened it, so the card grows from the middle of the screen.
+  // Opened at its address, with no panel to grow from, the card grows from the middle of the screen.
   const middle = useMemo(
     () => new DOMRect(innerWidth / 2, innerHeight / 2, 0, 0),
     // Once for each title opened at its address, not at each render.
     [addressed],
   )
   const card =
-    opened ?? (addressed !== null && title.data ? { media: title.data, from: middle } : null)
+    addressed !== null && title.data
+      ? { media: title.data, from: opened?.id === addressed ? opened.from : middle }
+      : null
   const missing = addressed !== null ? titleNote(title, isRateLimited()) : null
-  const closeAddressed = () => replace('/')
+  const close = () => (isOver(history.state) ? history.back() : replace('/'))
 
   // What the search box shows, and the part of it to search (see SiteHeader's onSearch).
   const [search, setSearch] = useState({ shown: '', text: '' })
@@ -299,12 +315,7 @@ export default function App() {
         <p>Data from AniList. AniBeam is not affiliated with AniList.</p>
       </footer>
       {card && (
-        <TitleCard
-          key={card.media.id}
-          media={card.media}
-          from={card.from}
-          onClose={opened ? () => setOpened(null) : closeAddressed}
-        />
+        <TitleCard key={card.media.id} media={card.media} from={card.from} onClose={close} />
       )}
       {missing && (
         <TitleNotice
@@ -315,7 +326,7 @@ export default function App() {
               ? () => void title.refetch()
               : undefined
           }
-          onClose={closeAddressed}
+          onClose={close}
         />
       )}
     </div>

@@ -18,8 +18,11 @@ export type Media = {
   nextAiringEpisode: { episode: number; airingAt: number } | null
 }
 
-/** One title asked for on its own (see titleQuery): Media's fields, and how far it has aired. */
-export type Title = Media & { status: string | null }
+/**
+ * One title asked for on its own (see titleQuery): Media's fields, and how far it has aired, which
+ * a list's copy of a title, opened from the list, doesn't have.
+ */
+export type Title = Media & { status?: string | null }
 
 // Every media query must keep SAFE, which keeps adult titles out (the gacha
 // shows random picks to anyone). queries.test.ts fails if any media(...) call in
