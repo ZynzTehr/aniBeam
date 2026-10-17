@@ -74,7 +74,9 @@ export function NavFlight({ active }: { active: boolean }) {
       clone.style.fontSize = `${lerp(fs, fs * 0.94, t)}px`
       const short = t > 0.55
       clone.textContent = short ? (SHORT[a.getAttribute('href')!] ?? a.textContent) : a.textContent
-      clone.classList.toggle('is-ink', a.classList.contains('ab-btn-ink') && !short)
+      // Landing in the header on the section the visitor is in, it arrives in its active look.
+      const slot = slots[intro.indexOf(a as HTMLAnchorElement)]
+      clone.classList.toggle('is-ink', short && slot?.hasAttribute('aria-current') === true)
     }
 
     // A: scroll-linked. Progress runs from the buttons' top 220px below the header to the header.
@@ -91,7 +93,9 @@ export function NavFlight({ active }: { active: boolean }) {
       })
     }
 
-    // B: dock. Docks as the header reaches the buttons, undocks once they are clear of it again.
+    // B: dock. Docks as the header reaches the buttons; undocks only once their place in the intro
+    // is well into view again (UNDOCK px below the header), so they fly back down into it.
+    const UNDOCK = 200
     const fly = (toHeader: boolean) => {
       flying.forEach((f) => f.cancel())
       if (reducedMotion()) return restAt(toHeader)
@@ -126,7 +130,7 @@ export function NavFlight({ active }: { active: boolean }) {
       const bottom = header.getBoundingClientRect().bottom
       const top = Math.min(...intro.map((a) => a.getBoundingClientRect().top))
       if (!docked && top <= bottom) fly(true)
-      else if (docked && top > bottom + 6) fly(false)
+      else if (docked && top > bottom + UNDOCK) fly(false)
     }
 
     // Phones: the header hides on the way down and comes back on the way up; the links join it
@@ -143,8 +147,25 @@ export function NavFlight({ active }: { active: boolean }) {
       restAt(bottom < 0)
     }
 
+    // The section the visitor is in: the last whose top has passed a line a third of the way down
+    // the screen below the header. Its link in the header shows its active look (aria-current).
+    const sections = ['#ab-trending', '#pull', '#decades']
+    const spy = () => {
+      const line = header.getBoundingClientRect().bottom + (innerHeight - header.offsetHeight) / 3
+      let current: string | null = null
+      for (const id of sections) {
+        const section = document.querySelector(id)
+        if (section && section.getBoundingClientRect().top <= line) current = id
+      }
+      for (const link of document.querySelectorAll<HTMLAnchorElement>('.ab-nav a[href^="#"]')) {
+        if (link.getAttribute('href') === current) link.setAttribute('aria-current', 'location')
+        else link.removeAttribute('aria-current')
+      }
+    }
+
     const update = () => {
       frame = 0
+      spy()
       if (!wide.matches) return framePhone()
       delete root.dataset.headerAway
       if (navProto === 'a') frameA()
@@ -167,6 +188,8 @@ export function NavFlight({ active }: { active: boolean }) {
       delete root.dataset.navProto
       delete root.dataset.headerAway
       setDocked(false)
+      for (const link of document.querySelectorAll('.ab-nav a[aria-current="location"]'))
+        link.removeAttribute('aria-current')
     }
   }, [active])
   return null

@@ -62,3 +62,19 @@
     transition: none;
   }
 }
+
+/* One look for the three buttons, in the intro and in the header: white, and ink when hovered or
+   pressed; in the header, ink too for the section the visitor is in (aria-current). */
+[data-nav-proto] .ab-intro-actions .ab-btn {
+  background: #fff;
+  color: var(--ink);
+}
+
+[data-nav-proto] .ab-intro-actions .ab-btn:hover,
+[data-nav-proto] .ab-intro-actions .ab-btn:active,
+[data-nav-proto] .ab-nav a[href^='#']:hover,
+[data-nav-proto] .ab-nav a[href^='#']:active,
+[data-nav-proto] .ab-nav a[aria-current='location'] {
+  background: var(--ink);
+  color: #fff;
+}
