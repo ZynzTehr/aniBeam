@@ -80,7 +80,10 @@ export default function App() {
   const path = usePathname()
   const addressed = titleIdFrom(path)
   const [opened, setOpened] = useState<{ id: number; from: DOMRect } | null>(null)
+  // What opened the title last opened on the page, for focus to return to (see below).
+  const openedBy = useRef<{ id: number; element: HTMLElement } | null>(null)
   const open: OpenTitle = (media, from) => {
+    openedBy.current = { id: media.id, element: from }
     queryClient.setQueryData(titleQuery(media.id).queryKey, (saved) => saved ?? media)
     setOpened({ id: media.id, from: from.getBoundingClientRect() })
     // Back from the title returns to this address without its #fragment, as a link to a section
@@ -108,8 +111,33 @@ export default function App() {
     addressed !== null && title.data
       ? { media: title.data, from: opened?.id === addressed ? opened.from : middle }
       : null
+  // However the card goes, focus returns to what opened it. The dialog does that itself as it
+  // closes (Close, Esc), but Back takes it off the page while it is open, and focus then falls to
+  // the start of the page, losing a keyboard user's place. So then, focus goes back to what opened
+  // it, or, if that has left the page meanwhile (a new search), to its title's link there. Before
+  // the browser draws the page.
+  const shown = card?.media.id ?? null
+  const lastShown = useRef<number | null>(null)
+  const closedItself = useRef(false)
+  useLayoutEffect(() => {
+    const id = lastShown.current
+    lastShown.current = shown
+    const itself = closedItself.current
+    closedItself.current = false
+    if (shown !== null || id === null || itself || openedBy.current?.id !== id) return
+    if (document.activeElement && document.activeElement !== document.body) return
+    const { element } = openedBy.current
+    const back = element.isConnected
+      ? element
+      : document.querySelector<HTMLElement>(`#main a[href="${titlePath(id)}"]`)
+    back?.focus({ preventScroll: true })
+  }, [shown])
   const missing = addressed !== null ? titleNote(title, isRateLimited()) : null
-  const close = () => (isOver(history.state) ? history.back() : replace('/'))
+  const close = () => {
+    closedItself.current = true
+    if (isOver(history.state)) history.back()
+    else replace('/')
+  }
 
   // What the search box shows, and the part of it to search (see SiteHeader's onSearch).
   const [search, setSearch] = useState({ shown: '', text: '' })

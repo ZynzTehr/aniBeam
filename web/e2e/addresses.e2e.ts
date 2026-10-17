@@ -383,10 +383,24 @@ test('after a link to a section, a title closed by Close, Esc or Back leaves the
     const after = await browser.evaluate<{ scrollY: number; focused: boolean }>(
       `({ scrollY, focused: document.activeElement === ${link} })`,
     )
-    assert.deepEqual(
-      after,
-      { scrollY: before, focused: how !== 'Back' || after.focused },
-      `closed by ${how}`,
-    )
+    assert.deepEqual(after, { scrollY: before, focused: true }, `closed by ${how}`)
   }
+})
+
+test('focus returns to what opened a title however its card goes: Back, or Esc on a card Forward opened again', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  const link = `document.querySelector('.ab-grid .ab-link')`
+  await browser.evaluate(`${link}.focus(); true`)
+  await browser.press('Enter')
+  assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
+  await browser.evaluate(`history.back(); true`)
+  assert.ok(await browser.waitFor(`!document.querySelector('dialog')`, 5000), 'Back left the card')
+  assert.ok(await browser.waitFor(`document.activeElement === ${link}`, 1000), 'Back lost focus')
+  await browser.evaluate(`history.forward(); true`)
+  assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000), 'Forward opened no card')
+  await browser.animationsDone()
+  await browser.press('Escape')
+  assert.ok(await browser.waitFor(`!document.querySelector('dialog')`, 5000), 'Esc left the card')
+  assert.ok(await browser.waitFor(`document.activeElement === ${link}`, 1000), 'Esc lost focus')
 })
