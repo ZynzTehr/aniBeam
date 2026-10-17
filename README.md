@@ -36,7 +36,7 @@ The `.env.example` files list every variable with a comment explaining it. Real 
 
 ## Deploying
 
-The site deploys on [Vercel](https://vercel.com). Sign in with GitHub and import this repository. Vercel finds two apps, `web` and the Fastify chat server, so import only `web`. Vercel then uses its Vite settings with `web` as the root directory. It installs the workspaces, runs `npm run build`, and serves `dist`. No environment variables are needed yet.
+The site deploys on [Vercel](https://vercel.com). Sign in with GitHub and import this repository. Vercel finds two apps, `web` and the Fastify chat server, so import only `web`. Vercel then uses its Vite settings with `web` as the root directory. It installs the workspaces, runs `npm run build`, and serves `dist`. No environment variables are needed yet. `web/vercel.json` sends every address that is no file to `index.html`, so a title's own address, such as `/anime/154587`, reaches the app instead of Vercel's 404 (see Title addresses). `npm run dev` and `vite preview` do that on their own, so only a unit check (`web/src/app/vercel.test.ts`) can catch the rule going missing.
 
 After that, every pull request gets a preview link, and merging into `main` updates the live site. The chat server will need a host that keeps WebSocket connections open, which is planned for Phase 6.
 
@@ -52,7 +52,7 @@ AniBeam/
 │   ├── public/              # Static files served as-is, including the fonts
 │   ├── scripts/             # Maintenance scripts, such as the sample titles' refresh
 │   └── src/
-│       ├── app/             # App shell: root component, router, providers
+│       ├── app/             # App shell: root component and providers; the address says which title is open
 │       ├── pages/           # One component per route (Discover, Browse, Detail, Mood, My List)
 │       ├── features/        # Feature modules: logic + UI that pages are built from
 │       │   ├── anime/       #   AniList queries and display helpers
@@ -64,7 +64,7 @@ AniBeam/
 │       ├── components/      # Shared UI from the chosen design: header, panels, title card
 │       ├── prototype/       # Design prototypes, development only (?variant=A|B|C|D)
 │       ├── gallery/         # Component gallery, development only (?gallery)
-│       ├── lib/             # Low-level clients and helpers (AniList client, query cache, Firebase)
+│       ├── lib/             # Low-level clients and helpers (AniList client, query cache, the address, Firebase)
 │       ├── styles/          # Tailwind entry point, design tokens, custom CSS
 │       └── main.tsx         # Entry point
 ├── server/                  # Chat API: Fastify + Socket.IO + Postgres
@@ -92,7 +92,9 @@ TanStack Query saves results in `localStorage` for up to a day (`web/src/lib/que
 
 Saved trending titles are refreshed once they are over 30 minutes old. If the refresh brings a new order while the trending panels or the intro's covers are on screen, they keep the order the visitor is looking at until they are scrolled away, so nothing reshuffles in front of the visitor (`web/src/lib/steadyList.ts`).
 
-Every `media(...)` query in the source must include the `SAFE` filter, which excludes adult titles, and `npm test` fails if one doesn't. `SAFE` only works on top-level queries. Titles nested inside other results, such as relations or recommendations, need a filter in code.
+A title asked for on its own, at its address, is asked for again after 6 hours while it is airing (its next episode changes). A finished one isn't, for as long as it stays saved, which is a day for now: the cache keeps nothing longer until the 30-day cache arrives (plan PR 14).
+
+Every `media(...)` or `Media(...)` query in the source must include the `SAFE` filter, which excludes adult titles, and `npm test` fails if one doesn't. `SAFE` only works on top-level queries. Titles nested inside other results, such as relations or recommendations, need a filter in code.
 
 Saved results and the rate-limit pause belong to one browser tab. With several tabs open, the last tab to save wins.
 
@@ -164,6 +166,12 @@ Everything on the page works from the keyboard. Tab reaches its 43 stops in read
 
 While titles load, each section shows empty panels the size of the titles to come, with its status line as a tag over them ("Loading…", or why the titles are late), so nothing on the page moves as the titles arrive. A pulled title takes its place the moment the lever is pressed, unseen until its capsule opens. `web/e2e/layout.e2e.ts` measures layout shift as web-vitals counts it for CLS, on a first visit and a slow one, on a phone and a wide screen, and on a pull on a phone, and holds each under 0.1, Google's mark for good.
 
+### Title addresses
+
+Every title has its own address, `/anime/` and its AniList id, such as `/anime/154587` for Frieren, and every title on the page links to it. A plain click opens the title's card over the page and puts its address in the address bar, as a new history entry, so Back closes the card and Forward opens it again. The card opens from the list's copy of the title, so neither asks AniList for anything, and that copy is never saved as AniList's answer for the title. A click with Ctrl, Cmd, Shift or Alt held, or with another button, is left to the browser: a new tab, say, opens the title at its address. Close and Esc go Back when the page put the address there, and focus returns to what opened the card however it closes. While a card is open, the browser's tab shows its title.
+
+A typed or shared address opens the title's card over Discover as AniList's answer arrives. On a visit that starts there, Discover's own lists wait until the card closes, so the link costs one request while it is open, and the lists ask for theirs, in one request, as it closes; closing it puts `/` in the address bar. If AniList has no anime for the id, or the title is an adult one, a note says "We couldn't find that title." in the card's place; if AniList can't answer, the note says why, as a section's status line does, with Try again when it can help, and stays, saying it is trying again, while AniList is asked again. The note fades in and out over 150 ms. An address the app doesn't know becomes `/`. `web/src/lib/route.ts` reads the address and changes it; it reads only the path, so the query is left for chat's episode rooms (`/anime/:id?ep=N`, Phase 7) and the fragment for sync. `web/e2e/addresses.e2e.ts` checks these, in Chrome; Back and Forward in Firefox and Safari, and Back after a reload there, are hand checks.
+
 ### Landing (the scroll slam)
 
 Parts of the page land once, as they scroll into view: the trending panels, the decade and search cards, the pull machine and the section headings. The intro, the splash cover's drift, the title card and the pull's reveal play as before. A part waits, see-through in its place, until 15% of it shows, then slams in: a trending panel as solid ink from 1.14 times its size and turned 2.5 degrees, then its ink wipes off, its cover settles and its caption pops; a card pops in; the machine drops in; a heading's sound effect booms. Parts that come into view together land one after another, in reading order, 90 ms apart (cards 60 ms), and a card scrolled into view sideways lands then. After that nothing moves again: scrolling back replays nothing, and neither does a refresh that moves a panel. Keyboard focus lands a part at once, but a heading reached through a header link or an intro button, or handed focus by Try again, booms as it takes focus, and a printed page shows every part. Under reduced motion, from the device or the switch, nothing waits and nothing moves.
@@ -178,7 +186,7 @@ The files are subsets with Latin letters, kana and the star symbol, about 100 KB
 
 ### Browser checks
 
-`web/e2e` holds checks that run the real page in headless Chrome: layout and layout shift on desktop and phone, keyboard use, the scroll slam, reduced motion, Windows contrast themes, the title card, search, the pull, trending refreshed while it is on screen, what a visitor sees when AniList is down, and the component gallery. Two more check AniList's API itself. They need no extra package. Node drives Chrome over its DevTools protocol.
+`web/e2e` holds checks that run the real page in headless Chrome: layout and layout shift on desktop and phone, keyboard use, the scroll slam, title addresses, reduced motion, Windows contrast themes, the title card, search, the pull, trending refreshed while it is on screen, what a visitor sees when AniList is down, and the component gallery. Two more check AniList's API itself. They need no extra package. Node drives Chrome over its DevTools protocol.
 
 To run them, start the app with `npm run dev`, then point `CHROME_BIN` at a Chrome or chrome-headless-shell binary:
 
@@ -192,7 +200,7 @@ A run takes about eight minutes. The outage checks take about two of them, becau
 
 Every check but the two live ones gets AniList's answers from `web/e2e/anilist/`, not from its API. A run would otherwise send AniList about 30 requests, 22 of them in its first minute, against its limit of 30 a minute for each IP address. Each file there holds AniList's real answer to one request the checks send, recorded by `npm run e2e:record`. `web/e2e/browser.ts` answers each request in Chrome with a copy of its recording, 200 ms after the page asks, about as long as AniList takes to answer. Chrome can't even look up AniList's address, so a request that got past the recordings would fail before it reached AniList.
 
-The recordings are [AniList](https://anilist.co)'s data. The folder holds only the 20 answers the checks ask for, about 270 KB of JSON, with no images and no user data. Only the checks use it. `npm test` builds the production bundle in memory and fails if any code or file in it came from `web/e2e/`, whether an import, a glob or an alias brought it in, or a stylesheet or `index.html` named it. A second check reads the code in `web/src` for a path into `web/e2e/` and names the line it finds.
+The recordings are [AniList](https://anilist.co)'s data. The folder holds only the 21 answers the checks ask for, about 270 KB of JSON, with no images and no user data. Only the checks use it. `npm test` builds the production bundle in memory and fails if any code or file in it came from `web/e2e/`, whether an import, a glob or an alias brought it in, or a stylesheet or `index.html` named it. A second check reads the code in `web/src` for a path into `web/e2e/` and names the line it finds.
 
 Some checks stage answers AniList rarely gives, such as a refused request or titles all tagged Ecchi. `browser.ts` rewrites the answer before the page sees it, whether it was recorded or came from AniList.
 
@@ -214,16 +222,16 @@ Run `ANILIST=live` on its own, while nothing else on the machine uses AniList. A
 
 #### Recording again
 
-Run the recorder in `web/` with `npm run e2e:record`, or from the root with `npm run e2e:record --workspace web`. It sends AniList one request at a time, at least 6.5 seconds apart, so never more than 10 in a minute. All 20 take about two minutes. By default it records only the missing and stale recordings, and deletes any that no check asks for. `npm run e2e:record -- --all` records every one again, and `npm run e2e:record -- trending search-frieren` records just those two, by file name. It prints a line for each recording saying what changed.
+Run the recorder in `web/` with `npm run e2e:record`, or from the root with `npm run e2e:record --workspace web`. It sends AniList one request at a time, at least 6.5 seconds apart, so never more than 10 in a minute. All 21 take about two minutes. By default it records only the missing and stale recordings, and deletes any that no check asks for. `npm run e2e:record -- --all` records every one again, and `npm run e2e:record -- trending search-frieren` records just those two, by file name. It prints a line for each recording saying what changed.
 
 Record again when:
 
-- `npm test` says a recording is missing or stale. A recording goes stale when the app changes the request it answers, in its query or its variables. Asking for one more field of every title makes all 20 stale.
-- A check sends a request that has no recording. The check fails, naming the request and saying how to record it. Add the search to `SEARCHES`, or the decade to `DECADES`, in `web/e2e/recordings.ts`, then run the recorder. Another kind of request, such as one for a title on its own, goes in `requests()` there instead, and the message says so. If the request is the start of a search the check typed with `search()`, the page searched mid-word on a busy machine. The message then says to run the check again, with nothing to record. If it is the start of a recorded search, the page may have searched mid-word, and the message says to run the check again first.
+- `npm test` says a recording is missing or stale. A recording goes stale when the app changes the request it answers, in its query or its variables. Asking for one more field of every title makes all 21 stale.
+- A check sends a request that has no recording. The check fails, naming the request and saying how to record it. Add the search to `SEARCHES`, the decade to `DECADES`, or the id of a title opened at its address to `TITLES`, in `web/e2e/recordings.ts`, then run the recorder. Another kind of request goes in `requests()` there instead, and the message says so. If the request is the start of a search the check typed with `search()`, the page searched mid-word on a busy machine. The message then says to run the check again, with nothing to record. If it is the start of a recorded search, the page may have searched mid-word, and the message says to run the check again first.
 
 The recorder writes nothing unless every answer is a 200 with no errors and the titles still hold what each check relies on, such as Frieren first in a search for "frieren". If AniList's titles can't hold it any more, the recorder says which check relies on it. That check must change, and so must its rule in `RULES` in `web/e2e/recordings.ts`.
 
-Keep `SEARCHES` and `DECADES` up to date by hand. When a check stops sending a search, take it out of `SEARCHES`, with any rule for it, and the recorder deletes its recording. Nothing else notices a recording that no check uses any more.
+Keep `SEARCHES`, `DECADES` and `TITLES` up to date by hand. When a check stops sending a search, take it out of `SEARCHES`, with any rule for it, and the recorder deletes its recording. Nothing else notices a recording that no check uses any more.
 
 A new check that needs something particular of a title, such as a banner or a long name, should stage it with `rewriteAniList` in `browser.ts` instead of counting on a recording to have it.
 

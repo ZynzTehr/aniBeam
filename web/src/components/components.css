@@ -2203,6 +2203,54 @@ body:has(.ab-card[open]) {
   }
 }
 
+/* ---------- Title notice (a title opened at its address that AniList can't give) ---------- */
+/* In the title card's look, an ink-framed sheet of paper with a hard shadow, but small, in the
+   middle of the screen, over the page dimmed. It fades in and out over 150 ms, as the card does
+   under reduced motion: shown or gone at once, the dim would change the whole screen in a single
+   frame. */
+.ab-notice {
+  width: min(100% - 32px, 480px);
+  margin: auto;
+  padding: 28px;
+  border: 5px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 10px 10px 0 var(--ink);
+  color: var(--ink);
+  font-family: var(--body);
+}
+
+.ab-notice[open],
+.ab-notice[open]::backdrop {
+  animation: ab-fade 0.15s linear;
+}
+
+/* And it fades out as it closes, the same way: TitleNotice holds it open while the fade plays. */
+.ab-notice[open].is-closing,
+.ab-notice[open].is-closing::backdrop {
+  animation: ab-fade-out 0.15s linear forwards;
+}
+
+.ab-notice::backdrop {
+  background: color-mix(in srgb, var(--ink) 55%, transparent);
+}
+
+.ab-notice-text {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+/* Focused by Try again as it hides while its retry runs (see RetryButton). */
+.ab-notice-text:focus-visible {
+  outline: 4px solid var(--hot);
+  outline-offset: 3px;
+}
+
+.ab-notice .ab-retry {
+  margin: 0;
+}
+
 /* ---------- Page states, decades and search results ---------- */
 .ab-note {
   margin: -8px 0 16px;

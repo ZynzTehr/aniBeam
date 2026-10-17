@@ -83,3 +83,21 @@ export function searchStatus(q: QueryStatus, term: string, rateLimited: boolean)
   if (found === 0) return `No titles found for “${term}”`
   return `${found} ${found === 1 ? 'title' : 'titles'} found for “${term}”`
 }
+
+/** What a card opened at its address (/anime/:id) says while AniList has no title for it. */
+export const NOT_FOUND = 'We couldn’t find that title.'
+
+/**
+ * The note a title opened at its address shows in place of its card, or null while it simply
+ * loads (the card opens as the title arrives) and once it is there: AniList's 404, its answer for
+ * an id with no anime and for an adult title, says the title isn't there; offline, waiting and
+ * failure read as in a section's line.
+ */
+export function titleNote(q: Omit<QueryStatus, 'data'> & { data: unknown }, rateLimited: boolean) {
+  if (q.data !== undefined) return null
+  const status = { ...q, data: undefined, isPlaceholderData: false }
+  const held = q.isFetching && (rateLimited || q.failureReason !== null)
+  if (!q.isPaused && !q.error && !held) return null
+  if (!q.isFetching && q.error instanceof AniListError && q.error.status === 404) return NOT_FOUND
+  return statusText(status, rateLimited)
+}

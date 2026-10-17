@@ -7,6 +7,7 @@ import { opener } from './opener.ts'
 import { RetryButton } from './RetryButton.tsx'
 import { SfxHeading } from './SfxHeading.tsx'
 import type { OpenTitle } from './TitleCard.tsx'
+import { titlePath } from '../lib/route.ts'
 
 /** A row of cover panels that scrolls sideways, numbered like manga chapters. */
 export function Strip({
@@ -94,7 +95,7 @@ export function Strip({
           <li key={media.id} className="ab-strip-item" style={cssVars({ '--i': i })}>
             <a
               className="ab-strip-panel"
-              href={`#title-${media.id}`}
+              href={titlePath(media.id)}
               onClick={opener(media, onOpen)}
             >
               <img

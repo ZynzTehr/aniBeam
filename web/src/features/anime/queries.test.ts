@@ -8,10 +8,13 @@ import {
   isRefinement,
   QUERIES,
   searchQuery,
+  titleQuery,
   trendingQuery,
   type Era,
   type Media,
 } from './queries.ts'
+import { AniListError } from '../../lib/anilist.ts'
+import { shouldRetry } from '../../lib/queryClient.ts'
 
 test('every media query excludes adult titles', () => {
   for (const [name, query] of Object.entries(QUERIES)) {
@@ -55,12 +58,12 @@ const fieldsOf = (value: unknown, path = ''): string[] =>
       : [path]
 
 /**
- * The same paths for what each media(...) call in a query selects, one list per call, since one
- * query can ask for several lists. Arguments are skipped, assuming none holds a parenthesis, as
- * the SAFE tests do too.
+ * The same paths for what each media(...) or Media(...) call in a query selects, one list per call,
+ * since one query can ask for several lists. Arguments are skipped, assuming none holds a
+ * parenthesis, as the SAFE tests do too.
  */
 const selections = (query: string) =>
-  [...query.matchAll(/\bmedia\s*\([^)]*\)\s*\{/g)].map((call) => {
+  [...query.matchAll(/\b[mM]edia\s*\([^)]*\)\s*\{/g)].map((call) => {
     const tokens =
       query
         .slice(call.index + call[0].length)
@@ -82,15 +85,61 @@ const selections = (query: string) =>
 // apart, and a field a query leaves out is undefined on every title it returns. Whole paths are
 // compared, because a check that each name appears would still find a dropped "season" inside
 // "seasonYear", or "episode" inside "episodes".
-test('every query asks AniList for exactly the fields of Media', () => {
-  const wanted = fieldsOf(complete).sort()
+// One title on its own (Title) asks for its status too, for how long it stays fresh.
+test('every query asks AniList for exactly the fields of Media, and a title alone its status too', () => {
   for (const [name, query] of Object.entries(QUERIES)) {
+    const wanted = [...fieldsOf(complete), ...(name === 'title' ? ['status'] : [])].sort()
     const calls = selections(query)
     assert.ok(calls.length > 0, `${name} has no media(...) call`)
     for (const fields of calls) {
-      assert.deepEqual(fields, wanted, `${name} doesn't ask for exactly the fields of Media`)
+      assert.deepEqual(fields, wanted, `${name} doesn't ask for exactly the fields it needs`)
     }
   }
+})
+
+test('one title is asked for by its id, a number, with its own cache entry', () => {
+  const { queryKey } = titleQuery(154587)
+  assert.deepEqual(queryKey, ['anilist', QUERIES.title, { id: 154587 }])
+  assert.notDeepEqual(titleQuery(1).queryKey, queryKey)
+  assert.match(QUERIES.title, /\bMedia\(id: \$id, type: ANIME, /)
+})
+
+test('a finished title stays fresh for 30 days, an airing one for 6 hours', () => {
+  const staleTime = titleQuery(1).staleTime as (query: unknown) => number
+  const after = (status: string | null) => staleTime({ state: { data: { status } } })
+  assert.equal(after('FINISHED'), 30 * 24 * 60 * 60_000)
+  for (const status of ['RELEASING', 'NOT_YET_RELEASED', 'HIATUS', null])
+    assert.equal(after(status), 6 * 60 * 60_000, String(status))
+  assert.equal(staleTime({ state: { data: undefined } }), 6 * 60 * 60_000)
+})
+
+test('an answer with no title and no error reads as AniList’s 404 too', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ data: { Media: null } }))
+  const asked = titleQuery(99999999).queryFn!({ signal: new AbortController().signal } as never)
+  const error = await Promise.resolve(asked).then(
+    () => assert.fail('an empty answer came back as found'),
+    (error: unknown) => error,
+  )
+  assert.ok(error instanceof AniListError)
+  assert.equal(error.status, 404)
+})
+
+test("a title AniList doesn't have fails as its 404, which is never retried", async (t) => {
+  // AniList's answer for an id with no anime, or an adult title that SAFE keeps out.
+  t.mock.method(globalThis, 'fetch', async () =>
+    Response.json(
+      { data: { Media: null }, errors: [{ message: 'Not Found.', status: 404 }] },
+      { status: 404 },
+    ),
+  )
+  const asked = titleQuery(99999999).queryFn!({ signal: new AbortController().signal } as never)
+  const error = await Promise.resolve(asked).then(
+    () => assert.fail('a missing title came back as found'),
+    (error: unknown) => error,
+  )
+  assert.ok(error instanceof AniListError)
+  assert.equal(error.status, 404)
+  assert.equal(shouldRetry(0, error), false)
 })
 
 test('the 1980s cover 1980-01-01 through 1989-12-31, including year-only dates', () => {
@@ -421,17 +470,19 @@ test('every variable a query sends is declared by that query', async (t) => {
   const sent: { query: string; variables: Record<string, unknown> }[] = []
   t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
     sent.push(JSON.parse(init.body as string))
-    return new Response(JSON.stringify({ data: { Page: { media: [] } } }))
+    // A list for the lists, a title for the title on its own.
+    return new Response(JSON.stringify({ data: { Page: { media: [] }, Media: { id: 1 } } }))
   })
   for (const options of [
     trendingQuery(),
     ...ERAS.map((era) => eraQuery(era)),
     searchQuery('frieren'),
+    titleQuery(154587),
   ]) {
     // The cast stands in for the context TanStack Query passes; only the signal is used.
     await options.queryFn!({ signal: new AbortController().signal } as never)
   }
-  assert.equal(sent.length, ERAS.length + 2)
+  assert.equal(sent.length, ERAS.length + 3)
   for (const { query, variables } of sent) {
     for (const name of Object.keys(variables)) {
       assert.ok(query.includes(`$${name}:`), `sends $${name}, which its query doesn't declare`)

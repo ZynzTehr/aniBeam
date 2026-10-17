@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { titleOf } from '../src/features/anime/format.ts'
 import type { Media } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { compare, JUDGED, problems, recordings, requests } from './recordings.ts'
@@ -138,13 +139,28 @@ const notTitles: [string, string, number, (body: any) => unknown, string][] = [
     () => ({ data: null }),
     'AniList answered 200 with no list of titles',
   ],
+  [
+    // AniList's answer for an id with no anime, or an adult title.
+    'a 404 for a title',
+    'title-154587',
+    404,
+    () => ({ data: { Media: null }, errors: [{ message: 'Not Found.', status: 404 }] }),
+    'AniList answered 404 with errors: [{"message":"Not Found.","status":404}]',
+  ],
+  [
+    'a 200 with data.Media null',
+    'title-154587',
+    200,
+    () => ({ data: { Media: null } }),
+    'AniList answered 200 with no list of titles',
+  ],
 ]
 for (const [what, name, status, answer, says] of notTitles)
   test(`a recording that isn’t a 200 with titles is named once, with what AniList answered: ${what}`, () =>
     namedOnce(
       name,
       (recording) => Object.assign(recording, { status, body: answer(recording.body) }),
-      `${name} needs to be a 200 with no errors and a list of titles for each list asked for`,
+      `${name} needs to be a 200 with no errors and a list of titles for each list asked for (or the title asked for)`,
       says,
     ))
 
@@ -279,12 +295,23 @@ const lacking: [string, [string, string], (titles: Media[]) => Media[], string, 
     'search-one-piece needs a title',
     'it has none',
   ],
+  [
+    'Frieren’s address answered with another title',
+    ['title-154587', 'Media'],
+    () => [ninetiesFirst()],
+    "title-154587's Media needs a title naming Frieren",
+    `it is '${titleOf(ninetiesFirst())}'`,
+  ],
 ]
 for (const [what, [name, list], change, starts, says] of lacking)
   test(`a recording that lacks what a check relies on is named, with the rule it breaks: ${what}`, () =>
     namedOnce(
       name,
-      ({ body }) => (body.data[list].media = change(body.data[list].media)),
+      ({ body }) =>
+        // A title asked for on its own is the answer's data.Media itself, not a list.
+        list === 'Media'
+          ? (body.data.Media = change([body.data.Media])[0])
+          : (body.data[list].media = change(body.data[list].media)),
       starts,
       says,
     ))
@@ -307,6 +334,7 @@ test('JUDGED holds every recording a rule judges, and no other', () => {
       'search-zzqqxx',
       'search-zzqqxxnotananime',
       'search-zzqqxxy',
+      'title-154587',
       'trending',
     ],
     'JUDGED isn’t the recordings RULES in recordings.ts judge; a rule for another recording adds it here',

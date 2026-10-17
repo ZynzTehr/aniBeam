@@ -332,11 +332,14 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // change that needs more raises its number here and says why. The CSS rose to 8,502 B with the
 // layout and keyboard work (the status tags, the room kept for focus rings, the title card's own
 // ring in two tones), so its budget is 9,000 B; and the JS every visit loads passed 78,500 B with
-// the scroll slam's landing (lib/landing.ts, 78,954 B with its follow-ups), so its budget is
-// 79,000 B. The fonts in web/public are copied as they are, outside the build, so this doesn't
+// the scroll slam's landing (lib/landing.ts, 78,954 B with its follow-ups), then 79,000 B with the
+// request for one title on its own (titleQuery, for title addresses: 79,019 B), and 79,500 B with
+// opening a title at its address (lib/route.ts, the note in place of a card: 79,519 B), and
+// 80,000 B with the title addresses' review fixes (the note's fade-out among them: 80,043 B), so
+// its budget is 80,500 B. The fonts in web/public are copied as they are, outside the build, so this doesn't
 // weigh them.
 const BUDGET = {
-  'the JS every visit loads': 79_000,
+  'the JS every visit loads': 80_500,
   'the CSS': 9_000,
   'the JS loaded only when needed': 3_500,
   'every other file': 500,

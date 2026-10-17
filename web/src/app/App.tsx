@@ -12,6 +12,7 @@ import { MotionSwitch } from '../components/MotionSwitch.tsx'
 import { SiteHeader } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
+import { TitleNotice } from '../components/TitleNotice.tsx'
 import { loadSamples, outOfReach, samplesFor } from '../features/anime/fallback.ts'
 import {
   ERAS,
@@ -19,6 +20,7 @@ import {
   FIRST_ERA,
   isRefinement,
   searchQuery,
+  titleQuery,
   trendingQuery,
   type Era,
   type Media,
@@ -27,9 +29,10 @@ import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { isRateLimited } from '../lib/anilist.ts'
 import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
+import { isOver, push, replace, titleIdFrom, titlePath, usePathname } from '../lib/route.ts'
 import { useSteadyList } from '../lib/steadyList.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
-import { noteFor, sampleNote, searchStatus } from './status.ts'
+import { noteFor, NOT_FOUND, sampleNote, searchStatus, titleNote } from './status.ts'
 
 const note = (query: UseQueryResult<Media[]>) => noteFor(query, isRateLimited())
 // A Try again button when a section's last attempt failed (see App's retryFailed).
@@ -69,8 +72,93 @@ export default function App() {
   const queryClient = useQueryClient()
   const retryFailed = () => void refetchFailed(queryClient)
 
-  const [opened, setOpened] = useState<{ media: Media; from: DOMRect } | null>(null)
-  const open: OpenTitle = (media, from) => setOpened({ media, from: from.getBoundingClientRect() })
+  // The address says which title's card is open (spec §3.0): /anime/:id, over the page at /. A
+  // title opened on the page puts its address in the address bar, as a new history entry, so Back
+  // closes the card and Forward opens it again. `opened` is the title last opened on the page, as
+  // its list had it, and what opened it, for focus to return to (see below).
+  const path = usePathname()
+  const addressed = titleIdFrom(path)
+  const [opened, setOpened] = useState<{ media: Media; element: HTMLElement } | null>(null)
+  const open: OpenTitle = (media, from) => {
+    setOpened({ media, element: from })
+    // Back from the title returns to this address without its #fragment, as a link to a section
+    // leaves one: returning to a fragment, the browser jumps to it again, scrolling to it and
+    // focusing it, so closing the card would lose the visitor's place and focus. Opened while a
+    // shared title still loads at its address, before its card shows, the new title takes that
+    // address's place, so closing it returns to the page, not to the shared title's card.
+    const over = addressed !== null ? '/' : path
+    if (addressed !== null || location.hash) replace(`${over}${location.search}`)
+    push(titlePath(media.id), { over })
+  }
+
+  // A visit that starts at a title's address opens its card over the page as AniList's answer
+  // arrives, or a note in its place if AniList can't give it (see titleNote). Closing either goes
+  // Back to the address it was opened over, or, opened at its address, puts / in its place. An
+  // address the app doesn't know becomes /, before the browser draws the page.
+  useLayoutEffect(() => {
+    if (path !== '/' && addressed === null) replace(`/${location.search}${location.hash}`)
+  }, [path, addressed])
+  // A title opened on the page shows its list's copy, at once and again on Forward, with no
+  // request. That copy is never saved as AniList's answer for the title: it may be a sample, shown
+  // while AniList can't be reached, or older than an answer saved for it.
+  const fromList = opened && opened.media.id === addressed ? opened.media : undefined
+  const title = useQuery({
+    ...titleQuery(addressed ?? 0),
+    enabled: addressed !== null && !fromList,
+  })
+  const shownMedia = addressed !== null ? (fromList ?? title.data) : undefined
+  // Where the card grows from: what opened it, where that is now, or, opened at its address, the
+  // middle of the screen. Measured once each time a card opens, and forgotten as it closes, so the
+  // same title opened again is measured again, as the page renders, as in useOutage, so the card
+  // gets it from the start.
+  const [growth, setGrowth] = useState<{ id: number; from: DOMRect } | null>(null)
+  if (!shownMedia && growth) setGrowth(null)
+  if (shownMedia && growth?.id !== shownMedia.id)
+    setGrowth({
+      id: shownMedia.id,
+      from:
+        fromList && opened?.element.isConnected
+          ? opened.element.getBoundingClientRect()
+          : new DOMRect(innerWidth / 2, innerHeight / 2, 0, 0),
+    })
+  const card =
+    shownMedia && growth?.id === shownMedia.id ? { media: shownMedia, from: growth.from } : null
+  // However the card goes, focus returns to what opened it. The dialog does that itself as it
+  // closes (Close, Esc), but Back takes it off the page while it is open, and focus then falls to
+  // the start of the page, losing a keyboard user's place. So then, focus goes back to what opened
+  // it, or, if that has left the page (a search cleared between Back and Forward, samples giving way
+  // to AniList's titles), to that title's link elsewhere on the page. Before the browser draws the
+  // page.
+  const shown = card?.media.id ?? null
+  const lastShown = useRef<number | null>(null)
+  const closedItself = useRef(false)
+  useLayoutEffect(() => {
+    const id = lastShown.current
+    lastShown.current = shown
+    const itself = closedItself.current
+    closedItself.current = false
+    if (shown !== null || id === null || itself || opened?.media.id !== id) return
+    if (document.activeElement && document.activeElement !== document.body) return
+    const back = opened.element.isConnected
+      ? opened.element
+      : document.querySelector<HTMLElement>(`#main a[href="${titlePath(id)}"]`)
+    back?.focus({ preventScroll: true })
+  }, [shown, opened])
+  // Once a note has shown for an address, it stays while AniList is asked again, as Try again or a
+  // retry does, until the title arrives: TanStack forgets the failure of a query with no answer as
+  // it tries again, so titleNote reads a plain first load, which shows nothing, and the note, with
+  // the focus Try again handed it, would go. Set as the page renders, as in useOutage.
+  const titleSays = addressed !== null && !fromList ? titleNote(title, isRateLimited()) : null
+  const [noted, setNoted] = useState<number | null>(null)
+  if (titleSays && noted !== addressed) setNoted(addressed)
+  const missing =
+    titleSays ??
+    (addressed !== null && noted === addressed && !shownMedia ? 'Trying AniList again…' : null)
+  const close = () => {
+    closedItself.current = true
+    if (isOver(history.state)) history.back()
+    else replace('/')
+  }
 
   // What the search box shows, and the part of it to search (see SiteHeader's onSearch).
   const [search, setSearch] = useState({ shown: '', text: '' })
@@ -88,10 +176,22 @@ export default function App() {
   const shownEraId = useDebounced(eraId, 300)
   const era = ERAS.find((e) => e.id === shownEraId) ?? ERAS[0]
 
-  const trending = useQuery(trendingQuery())
+  // Title first: a visit that starts at a title's address asks for that title alone, so a shared
+  // link costs AniList one request while its card loads or shows (spec §2), and the page's lists
+  // ask for theirs as it closes. Lists saved from an earlier visit still show meanwhile. Titles
+  // opened on the page later don't hold the lists: by then they have titles, and holding them would
+  // only send a refresh, or a retry of a failed one, as each card closes. Set as the page renders,
+  // as in useOutage.
+  const [listsWait, setListsWait] = useState(addressed !== null)
+  if (listsWait && addressed === null) setListsWait(false)
+  const trending = useQuery({ ...trendingQuery(), enabled: !listsWait })
   // While a new decade loads, the previous decade's titles stay on screen instead of
   // flashing to empty cards.
-  const decade = useQuery({ ...eraQuery(era), placeholderData: keepPreviousData })
+  const decade = useQuery({
+    ...eraQuery(era),
+    placeholderData: keepPreviousData,
+    enabled: !listsWait,
+  })
 
   // A section that can't reach AniList shows sample titles instead, labelled (see useOutage):
   // trending the first 9, the strip the open decade's. They load the first time a section needs
@@ -267,12 +367,19 @@ export default function App() {
         <MotionSwitch id="reduce-motion" />
         <p>Data from AniList. AniBeam is not affiliated with AniList.</p>
       </footer>
-      {opened && (
-        <TitleCard
-          key={opened.media.id}
-          media={opened.media}
-          from={opened.from}
-          onClose={() => setOpened(null)}
+      {card && (
+        <TitleCard key={card.media.id} media={card.media} from={card.from} onClose={close} />
+      )}
+      {missing && (
+        <TitleNotice
+          text={missing}
+          // Not for a title that isn't there: asking again finds it no more.
+          onRetry={
+            missing !== NOT_FOUND && title.isError && !title.isFetching
+              ? () => void title.refetch()
+              : undefined
+          }
+          onClose={close}
         />
       )}
     </div>

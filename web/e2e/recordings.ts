@@ -19,11 +19,13 @@ import {
   eraQuery,
   FIRST_ERA,
   searchQuery,
+  titleQuery,
   trendingQuery,
   type Media,
 } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { pullable } from '../src/features/mood/pick.ts'
+import { AniListError } from '../src/lib/anilist.ts'
 import type { Recording } from './browser.ts'
 
 export const FOLDER = fileURLToPath(new URL('./anilist/', import.meta.url))
@@ -57,10 +59,18 @@ export const SEARCHES = [
 /** The decades the checks ask for on their own: the 1980s, picked, and the 1990s, refreshed. */
 export const DECADES = ['1980s', '1990s']
 
+/**
+ * The titles the checks open at their address (/anime/:id), so the page asks for each on its own:
+ * Frieren. Not here: an id AniList has no anime for, which the checks answer with a rewrite.
+ */
+export const TITLES = [154587]
+
 type Request = Recording['request']
 
-// What the stand-in for fetch answers: no titles, for whichever lists were asked for.
-const NO_TITLES = { data: { Page: { media: [] }, trending: { media: [] }, era: { media: [] } } }
+// What the stand-in for fetch answers: no titles, for whichever lists, or title, were asked for.
+const NO_TITLES = {
+  data: { Page: { media: [] }, trending: { media: [] }, era: { media: [] }, Media: null },
+}
 
 /**
  * The one request the app sends AniList while `ask` runs, caught on its way out by a stand-in for
@@ -75,7 +85,11 @@ async function sent(ask: (client: QueryClient) => Promise<unknown>): Promise<Req
   }
   const client = new QueryClient()
   try {
-    await ask(client)
+    // What the answer becomes doesn't matter, only the request: a title asked for on its own fails
+    // as not found on the stand-in's empty answer. Anything else failing is a fault of its own.
+    await ask(client).catch((error: unknown) => {
+      if (!(error instanceof AniListError && error.status === 404)) throw error
+    })
   } finally {
     globalThis.fetch = fetch
     client.clear()
@@ -131,9 +145,15 @@ export async function requests(): Promise<{ name: string; request: Request }[]> 
     const request = await sent((client) => client.fetchQuery(searchQuery(term)))
     wanted.push({ name: searchName(String(request.variables.search)), request })
   }
+  for (const id of TITLES)
+    wanted.push({
+      name: `title-${id}`,
+      request: await sent((client) => client.fetchQuery(titleQuery(id))),
+    })
   const names = wanted.map(({ name }) => name)
   const twice = names.filter((name, i) => names.indexOf(name) !== i)
-  if (twice.length) throw new Error(`SEARCHES or DECADES asks for one request twice: ${twice}`)
+  if (twice.length)
+    throw new Error(`SEARCHES, DECADES or TITLES asks for one request twice: ${twice}`)
   return wanted
 }
 
@@ -178,25 +198,35 @@ export function compare(
   }
 }
 
+// A title asked for on its own comes as data.Media, the title itself, not a list.
+const isTitle = (name: string, value: any) => name === 'Media' && Number.isInteger(value?.id)
+
 /**
  * Why an answer can't be kept as a recording, or '' when it can: it must be a 200 with no errors
- * and a list of titles for each list asked for, empty for a search that matches nothing.
+ * and a list of titles for each list asked for, empty for a search that matches nothing, or the
+ * title asked for.
  */
 function unusable({ status, body }: Recording): string {
   if (status !== 200 || body?.errors)
     return `AniList answered ${status}${body?.errors ? ` with errors: ${JSON.stringify(body.errors)}` : ''}`
-  const lists = Object.values(body?.data ?? {})
-  if (!lists.length || lists.some((list: any) => !Array.isArray(list?.media)))
+  const lists = Object.entries(body?.data ?? {})
+  if (
+    !lists.length ||
+    lists.some(([name, list]: [string, any]) => !Array.isArray(list?.media) && !isTitle(name, list))
+  )
     return `AniList answered ${status} with no list of titles`
   return ''
 }
 
-/** The lists of titles in an answer, by name: data.Page, or a first visit's trending and era. */
+/**
+ * The lists of titles in an answer, by name: data.Page, or a first visit's trending and era; a
+ * title asked for on its own as a list of one, data.Media.
+ */
 export const listsOf = ({ body }: Recording): Record<string, Media[]> =>
   Object.fromEntries(
     Object.entries(body?.data ?? {}).map(([name, list]: [string, any]) => [
       name,
-      Array.isArray(list?.media) ? list.media : [],
+      isTitle(name, list) ? [list] : Array.isArray(list?.media) ? list.media : [],
     ]),
   )
 
@@ -344,6 +374,17 @@ const RULES: {
     broken: (titles) => (titles.length ? `it has ${titles.length}` : ''),
   },
   {
+    lists: [['title-154587', 'Media']],
+    needs: 'a title naming Frieren',
+    why: "as addresses.e2e.ts's checks open /anime/154587, then wait for a card naming Frieren, as 'a visit to a title’s address opens its card over the page, with or without a last slash, and again on a refresh' does",
+    broken: (titles) =>
+      !titles.length
+        ? 'it has none'
+        : /frieren/i.test(titleOf(titles[0]))
+          ? ''
+          : `it is '${titleOf(titles[0])}'`,
+  },
+  {
     lists: [search('one piece')],
     needs: 'a title',
     why: "as discover.e2e.ts's 'search results show in a grid without sideways overflow', on a phone, waits for one",
@@ -372,7 +413,7 @@ export function problems(saved: Map<string, Recording>): string[] {
     const why = unusable(recording)
     if (why)
       found.push(
-        `${name} needs to be a 200 with no errors and a list of titles for each list asked for, as the checks expect AniList's titles, not the samples or Try again; ${why}.`,
+        `${name} needs to be a 200 with no errors and a list of titles for each list asked for (or the title asked for), as the checks expect AniList's titles, not the samples or Try again; ${why}.`,
       )
     else usable.set(name, listsOf(recording))
   }

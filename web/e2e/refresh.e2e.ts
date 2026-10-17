@@ -21,7 +21,7 @@ after(() => browser?.close())
 // The trending titles the page saved (see queryClient.ts), and what it shows of them: the panels'
 // ids and the intro's covers.
 const saved = `JSON.parse(localStorage.getItem('anibeam:cache')).clientState.queries.find((query) => query.queryKey[1].includes('TRENDING_DESC')).state.data`
-const panels = `[...document.querySelectorAll('.ab-grid .ab-link')].map((link) => Number(link.hash.replace('#title-', '')))`
+const panels = `[...document.querySelectorAll('.ab-grid .ab-link')].map((link) => Number(link.pathname.replace('/anime/', '')))`
 const covers = `[...document.querySelectorAll('.ab-intro-art img')].map((img) => img.getAttribute('src'))`
 // What should show of a list: its first nine titles, and the intro's cover fan, which is the first
 // three big covers (see IntroHero).
@@ -38,7 +38,7 @@ const inView = (selector: string) =>
 // in the decade strip, and the ids of the titles in it, in order.
 const savedDecade = `JSON.parse(localStorage.getItem('anibeam:cache')).clientState.queries.find((query) => query.queryKey[1].includes('POPULARITY_DESC')).state.data`
 const decadeRow = `document.querySelector('[aria-labelledby="decades"] .ab-strip-row:not([aria-hidden])')`
-const decadePanels = `[...${decadeRow}.querySelectorAll('.ab-strip-panel')].map((link) => Number(link.hash.replace('#title-', '')))`
+const decadePanels = `[...${decadeRow}.querySelectorAll('.ab-strip-panel')].map((link) => Number(link.pathname.replace('/anime/', '')))`
 
 /**
  * Comes back as a visitor would an hour later: trending goes out of date after 30 minutes, so

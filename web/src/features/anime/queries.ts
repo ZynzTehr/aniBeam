@@ -1,5 +1,5 @@
 import { queryOptions, type QueryClient } from '@tanstack/react-query'
-import { anilist, isRateLimited, type Variables } from '../../lib/anilist.ts'
+import { anilist, AniListError, isRateLimited, type Variables } from '../../lib/anilist.ts'
 
 /** The fields the panels, title card and pull need. AniList leaves many of them null. */
 export type Media = {
@@ -17,6 +17,12 @@ export type Media = {
   /** airingAt is a Unix time in seconds, so a cached result never shows a stale countdown. */
   nextAiringEpisode: { episode: number; airingAt: number } | null
 }
+
+/**
+ * One title asked for on its own (see titleQuery): Media's fields, and how far it has aired, which
+ * a list's copy of a title, opened from the list, doesn't have.
+ */
+export type Title = Media & { status?: string | null }
 
 // Every media query must keep SAFE, which keeps adult titles out (the gacha
 // shows random picks to anyone). queries.test.ts fails if any media(...) call in
@@ -44,6 +50,9 @@ export const QUERIES = {
   firstVisit: `query (${ERA_VARIABLES}) { trending: ${TRENDING} era: ${ERA} }`,
   // The titles bundled for when AniList can't be reached, by id (see scripts/refresh-samples.ts).
   // Only finished titles, so none has an episode countdown that would go stale in the bundle.
+  // One title by its AniList id, for a card opened at its address (/anime/:id). AniList answers 404
+  // for an id it has no anime for, and for an adult title, which SAFE keeps out.
+  title: `query ($id: Int) { Media(id: $id, type: ANIME, ${SAFE}) { ${CARD} status } }`,
   samples: `query ($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, status: FINISHED, type: ANIME, ${SAFE}) { ${CARD} } } }`,
 }
 
@@ -73,6 +82,7 @@ export const FIRST_ERA = ERAS.find((era) => era.id === '1990s')!
 
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
+const DAY = 24 * HOUR
 
 type Page = { media: Media[] }
 
@@ -142,6 +152,38 @@ const searchTerm = (term: string) => term.trim().replace(/\s+/g, ' ').toLowerCas
 
 export const searchQuery = (term: string) =>
   mediaQuery(QUERIES.search, { search: searchTerm(term) }, 6 * HOUR)
+
+/**
+ * One title, by its AniList id: a number, as each title's id in the lists is, so a card opened from
+ * a list and one opened at its address share the key. TanStack's default staleTime (0) would ask
+ * AniList again at each opening: a finished title's details don't change, so they stay fresh for
+ * 30 days, and an airing title's (its next episode) for 6 hours. For now the saved cache keeps an
+ * answer a day at most (see lib/queryClient.ts), so a finished title is asked for again after a day,
+ * until the 30-day cache (plan PR 14).
+ */
+export const titleQuery = (id: number) =>
+  queryOptions({
+    queryKey: ['anilist', QUERIES.title, { id }],
+    queryFn: (context) =>
+      anilist<{ Media: Title }>(
+        QUERIES.title,
+        { id },
+        isRateLimited() ? context.signal : undefined,
+      ).then((data) => {
+        // AniList answers 404 with an error for an id with no anime (anilist() throws it); an
+        // answer with no title and no error says the same, so it reads the same.
+        if (!data.Media) throw new AniListError('Not Found.', 404)
+        return data.Media
+      }),
+    staleTime: (query) => (query.state.data?.status === 'FINISHED' ? 30 * DAY : 6 * HOUR),
+    // A title AniList said it hasn't got isn't asked for again by itself, back on the tab or on a
+    // return to its address, as a query with no answer otherwise would be (Try again doesn't offer
+    // itself for it either): it would spend a request on the same answer.
+    refetchOnWindowFocus: (query) => !isMissing(query.state.error),
+    retryOnMount: false,
+  })
+
+const isMissing = (error: unknown) => error instanceof AniListError && error.status === 404
 
 /** True when `now` refines the search `before` (letters added or removed), not a new search. */
 export const isRefinement = (before: string, now: string) => {

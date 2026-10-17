@@ -172,6 +172,8 @@ export function TitleCard({
         }),
       }}
     >
+      {/* The tab's title while the card is open: React 19 puts it in the page's head. */}
+      <title>{`${title} · AniBeam`}</title>
       <div className="ab-wipe" aria-hidden="true" />
       <article className="ab-sheet">
         <button type="button" className="ab-close" onClick={close} aria-label="Close title card">
