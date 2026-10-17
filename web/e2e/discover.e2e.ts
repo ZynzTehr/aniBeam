@@ -1884,7 +1884,7 @@ describe('desktop (1440x900)', () => {
     // 3:1). The machine is measured at rest, so colors only hover or a press brings are not,
     // and neither is the text beside it (the hint bubble, the pulled title). Landed, as a visitor
     // sees it: below the first screen, it waits see-through until scrolled to.
-    await browser.landAll()
+    await browser.landAll('.ab-machine')
     const ratios = await browser.evaluate<{ text: string; ratio: number }[]>(`(() => {
       // Chrome gives colors written in hex, by name, or with rgb() or hsl() as rgb() or rgba().
       // Others, such as the oklch() of Tailwind's palette, would be misread: they stop the check.
