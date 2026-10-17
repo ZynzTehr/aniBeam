@@ -147,15 +147,20 @@ test('a part below the first screen waits, see-through, and lands as 15% of it s
   const slams = await browser.evaluate<number[]>(
     `${PARTS}.map((part) => window.__slams.get(part) ?? 0)`,
   )
+  // And once done, a part keeps no place among those it landed with.
+  const placed = await browser.evaluate<string[]>(
+    `${PARTS}.filter((part) => part.dataset.land === 'done' && part.style.getPropertyValue('--k')).map((part) => part.className)`,
+  )
   await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
   assert.ok(atLoad.length >= 6, `only ${atLoad.length} parts below the first screen to check`)
   assert.deepEqual(
-    { notWaiting, waiting, unlanded, slams },
+    { notWaiting, waiting, unlanded, slams, placed },
     {
       notWaiting: [],
       waiting: [],
       unlanded: [],
       slams: states.map((p) => (p.land === 'done' ? 1 : 0)),
+      placed: [],
     },
   )
 })
