@@ -360,6 +360,37 @@ test('a part coming down from above lands as it shows below the header from 900p
   assert.deepEqual(early, [], 'parts that landed under the header')
 })
 
+test('on a slow scroll a part lands at 15%, not as a sliver: slivers land only at rest', async () => {
+  // Scrolled down 2px a frame (about 120px a second, a reading pace), the pull machine comes up
+  // from the screen's foot: it must land once 15% of it shows, as a sliver's wait starts over
+  // while the page moves. Landing as a sliver, it dropped in with 4% of it on screen.
+  await browser.load()
+  assert.ok(await browser.titlesShown())
+  const landedAt = await browser.evaluate<string>(`new Promise((resolve) => {
+    const frame = () => new Promise((next) => requestAnimationFrame(next))
+    const machine = document.querySelector('.ab-machine')
+    let top = -scrollY
+    for (let el = machine; el; el = el.offsetParent) top += el.offsetTop
+    scrollTo({ top: top + scrollY - innerHeight - 20, behavior: 'instant' })
+    ;(async () => {
+      for (let i = 0; i < 10; i++) await frame()
+      for (let i = 0; i < 400 && machine.dataset.land === 'wait'; i++) {
+        scrollTo({ top: scrollY + 2, behavior: 'instant' })
+        await frame()
+      }
+      let at = -scrollY
+      for (let el = machine; el; el = el.offsetParent) at += el.offsetTop
+      const shown = Math.max(0, innerHeight - at) / machine.offsetHeight
+      resolve(machine.dataset.land + ' with ' + Math.round(shown * 100) + '% showing')
+    })()
+  })`)
+  const percent = Number(/(\d+)% showing/.exec(landedAt)?.[1])
+  assert.ok(
+    !landedAt.startsWith('wait') && percent >= 14 && percent <= 25,
+    `the machine: ${landedAt}`,
+  )
+})
+
 test('48 Tabs straight after load never meet a part waiting or mid-slam, on a desktop or a phone', async () => {
   // Keyboard focus lands a part at once: whole, still and in place, however soon the visitor
   // Tabs, and whether the part was waiting or already landing (see landing.ts). PR 7's Tab walk

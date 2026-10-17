@@ -16,8 +16,9 @@ export type Land = 'wait' | 'go' | 'done'
 export const LANDING_RATIO = 0.15
 
 /**
- * How long a part must stay in view, short of LANDING_RATIO, before it lands all the same: so a
- * decade's card peeking in at the row's edge shows, but one scrolled past doesn't land unseen.
+ * How long a part must stay in view, short of LANDING_RATIO, with the page at rest, before it
+ * lands all the same: so a decade's card peeking in at the row's edge shows, but one scrolled past,
+ * or coming into view on a slow scroll, lands as 15% of it shows, not before.
  */
 export const LINGER_MS = 200
 
@@ -138,15 +139,22 @@ export function startLanding(selector: string) {
       lingering.delete(part)
     }
     landingNow(entries).forEach(land)
-    for (const part of slivers(entries))
-      if (!lingering.has(part))
-        lingering.set(
-          part,
-          setTimeout(() => {
-            if (landOf(part) === 'wait') land(part, 0)
-          }, LINGER_MS),
-        )
+    for (const part of slivers(entries)) if (!lingering.has(part)) linger(part)
   }
+  // A sliver lands once the page has been still for LINGER_MS: each scroll, of the page or of a
+  // row, starts its wait over.
+  const linger = (part: HTMLElement) => {
+    clearTimeout(lingering.get(part))
+    lingering.set(
+      part,
+      setTimeout(() => {
+        lingering.delete(part)
+        if (landOf(part) === 'wait') land(part, 0)
+      }, LINGER_MS),
+    )
+  }
+  const moved = () => [...lingering.keys()].forEach(linger)
+  addEventListener('scroll', moved, { capture: true, passive: true })
   // What is under the sticky header isn't seen, so from 900px wide, where it stays on screen, the
   // screen the observer watches starts below it. Its height can change (a second row with wider
   // text), so the observer is made again for the new height, watching the parts still waiting.
@@ -202,5 +210,8 @@ export function startLanding(selector: string) {
     headerSize.disconnect()
     arrivals.disconnect()
     document.removeEventListener('focusin', focused, true)
+    removeEventListener('scroll', moved, { capture: true })
+    lingering.forEach(clearTimeout)
+    lingering.clear()
   }
 }
