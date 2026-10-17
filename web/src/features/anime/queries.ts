@@ -1,5 +1,5 @@
 import { queryOptions, type QueryClient } from '@tanstack/react-query'
-import { anilist, isRateLimited, type Variables } from '../../lib/anilist.ts'
+import { anilist, AniListError, isRateLimited, type Variables } from '../../lib/anilist.ts'
 
 /** The fields the panels, title card and pull need. AniList leaves many of them null. */
 export type Media = {
@@ -167,7 +167,12 @@ export const titleQuery = (id: number) =>
         QUERIES.title,
         { id },
         isRateLimited() ? context.signal : undefined,
-      ).then((data) => data.Media),
+      ).then((data) => {
+        // AniList answers 404 with an error for an id with no anime (anilist() throws it); an
+        // answer with no title and no error says the same, so it reads the same.
+        if (!data.Media) throw new AniListError('Not Found.', 404)
+        return data.Media
+      }),
     staleTime: (query) => (query.state.data?.status === 'FINISHED' ? 30 * DAY : 6 * HOUR),
   })
 

@@ -113,6 +113,17 @@ test('a finished title stays fresh for 30 days, an airing one for 6 hours', () =
   assert.equal(staleTime({ state: { data: undefined } }), 6 * 60 * 60_000)
 })
 
+test('an answer with no title and no error reads as AniList’s 404 too', async (t) => {
+  t.mock.method(globalThis, 'fetch', async () => Response.json({ data: { Media: null } }))
+  const asked = titleQuery(99999999).queryFn!({ signal: new AbortController().signal } as never)
+  const error = await Promise.resolve(asked).then(
+    () => assert.fail('an empty answer came back as found'),
+    (error: unknown) => error,
+  )
+  assert.ok(error instanceof AniListError)
+  assert.equal(error.status, 404)
+})
+
 test("a title AniList doesn't have fails as its 404, which is never retried", async (t) => {
   // AniList's answer for an id with no anime, or an adult title that SAFE keeps out.
   t.mock.method(globalThis, 'fetch', async () =>
@@ -459,7 +470,8 @@ test('every variable a query sends is declared by that query', async (t) => {
   const sent: { query: string; variables: Record<string, unknown> }[] = []
   t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
     sent.push(JSON.parse(init.body as string))
-    return new Response(JSON.stringify({ data: { Page: { media: [] } } }))
+    // A list for the lists, a title for the title on its own.
+    return new Response(JSON.stringify({ data: { Page: { media: [] }, Media: { id: 1 } } }))
   })
   for (const options of [
     trendingQuery(),

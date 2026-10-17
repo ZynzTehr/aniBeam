@@ -426,3 +426,19 @@ test('a title opened on the page shows its list’s copy, never saved as AniList
     'the title was saved on its own',
   )
 })
+
+test('an answer with no title and no error says the title isn’t there, rather than showing nothing', async () => {
+  await browser.forget()
+  await browser.rewriteAniList(({ request }) =>
+    request.variables.id === 154587 ? { status: 200, body: { data: { Media: null } } } : null,
+  )
+  try {
+    await browser.load({ ...DESKTOP, reduceMotion: true, url: at('/anime/154587') })
+    assert.ok(
+      await browser.waitFor(`${NOTICE}?.text === 'We couldn’t find that title.'`, 10_000),
+      'no note showed',
+    )
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+})

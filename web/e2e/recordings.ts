@@ -84,7 +84,9 @@ async function sent(ask: (client: QueryClient) => Promise<unknown>): Promise<Req
   }
   const client = new QueryClient()
   try {
-    await ask(client)
+    // What the answer becomes doesn't matter, only the request: a title asked for on its own, say,
+    // fails as not found on the stand-in's empty answer.
+    await ask(client).catch(() => {})
   } finally {
     globalThis.fetch = fetch
     client.clear()
