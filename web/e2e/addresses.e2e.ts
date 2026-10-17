@@ -264,3 +264,27 @@ test('every title on the page links to its own address, which opens that same ti
   assert.ok(await browser.waitFor(`${CARD} !== ''`, 10_000), `${href} opened no card`)
   assert.equal(await browser.evaluate(CARD), onPage, `${href} opened another title`)
 })
+
+test('a click with Ctrl, Cmd, Shift or Alt held is left to the browser, and a plain one opens the card on the page', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  // Clicks a trending panel's link with `keys` held, and says whether the page took the click
+  // for itself (cancelled what the browser would do) and opened a card. Heard last, on the
+  // window, which then cancels the click itself, so the browser doesn't leave the page.
+  const clicked = (keys: object) =>
+    browser.evaluate<{ taken: boolean; opened: boolean }>(`(() => {
+      let taken
+      const hear = (event) => { taken = event.defaultPrevented; event.preventDefault() }
+      addEventListener('click', hear, { once: true })
+      const link = document.querySelector('.ab-grid .ab-link')
+      link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0, ...${JSON.stringify(keys)} }))
+      return { taken, opened: Boolean(document.querySelector('dialog.ab-card[open]')) }
+    })()`)
+  for (const keys of [{ ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { altKey: true }])
+    assert.deepEqual(await clicked(keys), { taken: false, opened: false }, JSON.stringify(keys))
+  await sleep(300)
+  assert.equal(await browser.evaluate(`document.querySelector('dialog[open]')`), null)
+  // The card opens as React next renders, just after the click.
+  assert.equal((await clicked({})).taken, true, 'a plain click')
+  assert.ok(await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 5000))
+})
