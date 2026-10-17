@@ -92,7 +92,7 @@ TanStack Query saves results in `localStorage` for up to a day (`web/src/lib/que
 
 Saved trending titles are refreshed once they are over 30 minutes old. If the refresh brings a new order while the trending panels or the intro's covers are on screen, they keep the order the visitor is looking at until they are scrolled away, so nothing reshuffles in front of the visitor (`web/src/lib/steadyList.ts`).
 
-A title asked for on its own, at its address, stays fresh for 30 days once it has finished airing, and for 6 hours otherwise.
+A title asked for on its own, at its address, is asked for again after 6 hours while it is airing (its next episode changes). A finished one isn't, for as long as it stays saved, which is a day for now: the cache keeps nothing longer until the 30-day cache arrives (plan PR 14).
 
 Every `media(...)` or `Media(...)` query in the source must include the `SAFE` filter, which excludes adult titles, and `npm test` fails if one doesn't. `SAFE` only works on top-level queries. Titles nested inside other results, such as relations or recommendations, need a filter in code.
 
@@ -168,9 +168,9 @@ While titles load, each section shows empty panels the size of the titles to com
 
 ### Title addresses
 
-Every title has its own address, `/anime/` and its AniList id, such as `/anime/154587` for Frieren, and every title on the page links to it. A plain click opens the title's card over the page and puts its address in the address bar, as a new history entry, so Back closes the card and Forward opens it again. The card opens from the list's copy of the title, so neither asks AniList for anything. A click with Ctrl, Cmd, Shift or Alt held, or with another button, is left to the browser: a new tab, say, opens the title at its address. Close and Esc go Back when the page put the address there, and focus returns to what opened the card however it closes. While a card is open, the browser's tab shows its title.
+Every title has its own address, `/anime/` and its AniList id, such as `/anime/154587` for Frieren, and every title on the page links to it. A plain click opens the title's card over the page and puts its address in the address bar, as a new history entry, so Back closes the card and Forward opens it again. The card opens from the list's copy of the title, so neither asks AniList for anything, and that copy is never saved as AniList's answer for the title. A click with Ctrl, Cmd, Shift or Alt held, or with another button, is left to the browser: a new tab, say, opens the title at its address. Close and Esc go Back when the page put the address there, and focus returns to what opened the card however it closes. While a card is open, the browser's tab shows its title.
 
-A typed or shared address opens the title's card over Discover as AniList's answer arrives. Discover's own lists wait until it closes, so the link costs one request, and closing it puts `/` in the address bar. If AniList has no anime for the id, or the title is an adult one, a note says "We couldn't find that title." in the card's place; if AniList can't answer, the note says why, as a section's status line does, with Try again when it can help. An address the app doesn't know becomes `/`. `web/src/lib/route.ts` reads the address and changes it; it reads only the path, so the query is left for chat's episode rooms (`/anime/:id?ep=N`, Phase 7) and the fragment for sync. `web/e2e/addresses.e2e.ts` checks it all.
+A typed or shared address opens the title's card over Discover as AniList's answer arrives. On a visit that starts there, Discover's own lists wait until the card closes, so the link costs one request while it is open, and the lists ask for theirs, in one request, as it closes; closing it puts `/` in the address bar. If AniList has no anime for the id, or the title is an adult one, a note says "We couldn't find that title." in the card's place; if AniList can't answer, the note says why, as a section's status line does, with Try again when it can help, and stays, saying it is trying again, while AniList is asked again. The note fades in and out over 150 ms. An address the app doesn't know becomes `/`. `web/src/lib/route.ts` reads the address and changes it; it reads only the path, so the query is left for chat's episode rooms (`/anime/:id?ep=N`, Phase 7) and the fragment for sync. `web/e2e/addresses.e2e.ts` checks these, in Chrome; Back and Forward in Firefox and Safari, and Back after a reload there, are hand checks.
 
 ### Landing (the scroll slam)
 
@@ -186,7 +186,7 @@ The files are subsets with Latin letters, kana and the star symbol, about 100 KB
 
 ### Browser checks
 
-`web/e2e` holds checks that run the real page in headless Chrome: layout and layout shift on desktop and phone, keyboard use, the scroll slam, reduced motion, Windows contrast themes, the title card, search, the pull, trending refreshed while it is on screen, what a visitor sees when AniList is down, and the component gallery. Two more check AniList's API itself. They need no extra package. Node drives Chrome over its DevTools protocol.
+`web/e2e` holds checks that run the real page in headless Chrome: layout and layout shift on desktop and phone, keyboard use, the scroll slam, title addresses, reduced motion, Windows contrast themes, the title card, search, the pull, trending refreshed while it is on screen, what a visitor sees when AniList is down, and the component gallery. Two more check AniList's API itself. They need no extra package. Node drives Chrome over its DevTools protocol.
 
 To run them, start the app with `npm run dev`, then point `CHROME_BIN` at a Chrome or chrome-headless-shell binary:
 
