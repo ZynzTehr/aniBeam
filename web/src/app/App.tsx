@@ -74,18 +74,13 @@ export default function App() {
 
   // The address says which title's card is open (spec §3.0): /anime/:id, over the page at /. A
   // title opened on the page puts its address in the address bar, as a new history entry, so Back
-  // closes the card and Forward opens it again. The list's copy of the title stands in for asking
-  // AniList, so the card opens at once, and again on Forward, with no request. `opened` is where it
-  // was opened from, for the card's opening to grow from.
+  // closes the card and Forward opens it again. `opened` is the title last opened on the page, as
+  // its list had it, and what opened it, for focus to return to (see below).
   const path = usePathname()
   const addressed = titleIdFrom(path)
-  const [opened, setOpened] = useState<{ id: number; from: DOMRect } | null>(null)
-  // What opened the title last opened on the page, for focus to return to (see below).
-  const openedBy = useRef<{ id: number; element: HTMLElement } | null>(null)
+  const [opened, setOpened] = useState<{ media: Media; element: HTMLElement } | null>(null)
   const open: OpenTitle = (media, from) => {
-    openedBy.current = { id: media.id, element: from }
-    queryClient.setQueryData(titleQuery(media.id).queryKey, (saved) => saved ?? media)
-    setOpened({ id: media.id, from: from.getBoundingClientRect() })
+    setOpened({ media, element: from })
     // Back from the title returns to this address without its #fragment, as a link to a section
     // leaves one: returning to a fragment, the browser jumps to it again, scrolling to it and
     // focusing it, so closing the card would lose the visitor's place and focus.
@@ -100,17 +95,29 @@ export default function App() {
   useLayoutEffect(() => {
     if (path !== '/' && addressed === null) replace(`/${location.search}${location.hash}`)
   }, [path, addressed])
-  const title = useQuery({ ...titleQuery(addressed ?? 0), enabled: addressed !== null })
-  // Opened at its address, with no panel to grow from, the card grows from the middle of the screen.
-  const middle = useMemo(
-    () => new DOMRect(innerWidth / 2, innerHeight / 2, 0, 0),
-    // Once for each title opened at its address, not at each render.
-    [addressed],
-  )
+  // A title opened on the page shows its list's copy, at once and again on Forward, with no
+  // request. That copy is never saved as AniList's answer for the title: it may be a sample, shown
+  // while AniList can't be reached, or older than an answer saved for it.
+  const fromList = opened && opened.media.id === addressed ? opened.media : undefined
+  const title = useQuery({
+    ...titleQuery(addressed ?? 0),
+    enabled: addressed !== null && !fromList,
+  })
+  const shownMedia = addressed !== null ? (fromList ?? title.data) : undefined
+  // Where the card grows from: what opened it, where that is now, or, opened at its address, the
+  // middle of the screen. Measured once each time a card opens, as the page renders, as in
+  // useOutage, so the card gets it from the start.
+  const [growth, setGrowth] = useState<{ id: number; from: DOMRect } | null>(null)
+  if (shownMedia && growth?.id !== shownMedia.id)
+    setGrowth({
+      id: shownMedia.id,
+      from:
+        fromList && opened?.element.isConnected
+          ? opened.element.getBoundingClientRect()
+          : new DOMRect(innerWidth / 2, innerHeight / 2, 0, 0),
+    })
   const card =
-    addressed !== null && title.data
-      ? { media: title.data, from: opened?.id === addressed ? opened.from : middle }
-      : null
+    shownMedia && growth?.id === shownMedia.id ? { media: shownMedia, from: growth.from } : null
   // However the card goes, focus returns to what opened it. The dialog does that itself as it
   // closes (Close, Esc), but Back takes it off the page while it is open, and focus then falls to
   // the start of the page, losing a keyboard user's place. So then, focus goes back to what opened
@@ -124,15 +131,15 @@ export default function App() {
     lastShown.current = shown
     const itself = closedItself.current
     closedItself.current = false
-    if (shown !== null || id === null || itself || openedBy.current?.id !== id) return
+    if (shown !== null || id === null || itself || opened?.media.id !== id) return
     if (document.activeElement && document.activeElement !== document.body) return
-    const { element } = openedBy.current
+    const { element } = opened
     const back = element.isConnected
       ? element
       : document.querySelector<HTMLElement>(`#main a[href="${titlePath(id)}"]`)
     back?.focus({ preventScroll: true })
-  }, [shown])
-  const missing = addressed !== null ? titleNote(title, isRateLimited()) : null
+  }, [shown, opened])
+  const missing = addressed !== null && !fromList ? titleNote(title, isRateLimited()) : null
   const close = () => {
     closedItself.current = true
     if (isOver(history.state)) history.back()

@@ -404,3 +404,25 @@ test('focus returns to what opened a title however its card goes: Back, or Esc o
   assert.ok(await browser.waitFor(`!document.querySelector('dialog')`, 5000), 'Esc left the card')
   assert.ok(await browser.waitFor(`document.activeElement === ${link}`, 1000), 'Esc lost focus')
 })
+
+test('a title opened on the page shows its list’s copy, never saved as AniList’s answer for it', async () => {
+  // The copy may be a sample, or older than an answer saved for the title: saved under the title,
+  // it would pass for AniList's answer, fresh, on the next visit to its address.
+  await browser.forget()
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
+  assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
+  // The cache is saved at most once a second.
+  await sleep(1500)
+  const saved = await browser.evaluate<string[]>(`(() => {
+    const copy = JSON.parse(localStorage.getItem('anibeam:cache') ?? 'null')
+    return (copy?.clientState.queries ?? []).map((query) => String(query.queryKey[1]).slice(0, 30))
+  })()`)
+  assert.ok(saved.length > 0, 'nothing was saved at all')
+  assert.deepEqual(
+    saved.filter((query) => query === QUERIES.title.slice(0, 30)),
+    [],
+    'the title was saved on its own',
+  )
+})
