@@ -44,6 +44,8 @@ const NOTICE = `(() => {
   const notice = document.querySelector('dialog.ab-notice[open]')
   return notice && {
     text: notice.querySelector('.ab-notice-text').textContent,
+    // Screen readers hear the text change, as it does from retrying to failed.
+    live: notice.querySelector('.ab-notice-text').getAttribute('aria-live'),
     buttons: [...notice.querySelectorAll('button')].map((button) => button.textContent.trim()),
     focused: notice.contains(document.activeElement) && document.activeElement.textContent.trim(),
   }
@@ -103,11 +105,15 @@ test('closing a card opened at its address, by its button or Esc, puts / in the 
 test('a title AniList doesn’t have says so in place of its card, with Close and no Try again, and Close puts / back', async () => {
   await browser.load({ ...PHONE, reduceMotion: true, url: at(`/anime/${MISSING}`) })
   assert.ok(await browser.waitFor(NOTICE, 10_000), 'no note showed')
-  const notice = await browser.evaluate<{ text: string; buttons: string[]; focused: string }>(
-    NOTICE,
-  )
+  const notice = await browser.evaluate<{
+    text: string
+    live: string
+    buttons: string[]
+    focused: string
+  }>(NOTICE)
   assert.deepEqual(notice, {
     text: 'We couldn’t find that title.',
+    live: 'polite',
     buttons: ['Close'],
     focused: 'Close',
   })

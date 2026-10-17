@@ -27,8 +27,9 @@ export function TitleNotice({
   }, [])
   return (
     <dialog ref={ref} className="ab-notice" aria-labelledby="ab-notice-text" onClose={onClose}>
-      {/* Focusable, for Try again to hand focus to as it hides while the retry runs. */}
-      <p id="ab-notice-text" className="ab-notice-text" tabIndex={-1}>
+      {/* Focusable, for Try again to hand focus to as it hides while the retry runs. Read as it
+          changes (retrying, then failed with Try again), not only as the note opens. */}
+      <p id="ab-notice-text" className="ab-notice-text" tabIndex={-1} aria-live="polite">
         {text}
       </p>
       <div className="ab-row-actions">
