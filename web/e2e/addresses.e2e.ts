@@ -539,3 +539,39 @@ test('after a reload, closing a title opened on the page puts / in its place rat
     'closing loaded the site again',
   )
 })
+
+test('the note fades out as it closes, by Close or Esc; a second request closes it at once; with no animations it still closes', async () => {
+  const fading = `(() => { const n = document.querySelector('dialog.ab-notice'); return Boolean(n?.open && n.classList.contains('is-closing') && n.getAnimations().some((a) => a.effect.getTiming().duration <= 150)) })()`
+  const gone = `!document.querySelector('dialog[open]') && location.pathname === '/'`
+  for (const how of ['Close', 'Esc', 'twice', 'no animations']) {
+    await browser.load({ ...PHONE, reduceMotion: true, url: at(`/anime/${MISSING}`) })
+    assert.ok(await browser.waitFor(NOTICE, 10_000), `${how}: no note`)
+    await browser.animationsDone()
+    if (how === 'no animations')
+      await browser.evaluate(
+        `document.head.appendChild(Object.assign(document.createElement('style'), { textContent: '*, ::backdrop { animation: none !important }' })); true`,
+      )
+    // The browser lets the page hold Esc's close up only once for each thing the visitor does on
+    // the page, and nothing has been done since it loaded: so a Tab first, as a visitor would.
+    if (how === 'Esc') {
+      await browser.press('Tab')
+      await browser.press('Escape')
+    } else
+      await browser.evaluate(`document.querySelector('dialog.ab-notice .ab-btn-ink').click(); true`)
+    if (how === 'Close' || how === 'Esc')
+      assert.equal(
+        await browser.evaluate(fading),
+        true,
+        `${how}: no fade of 150 ms or less as it closed`,
+      )
+    if (how === 'twice') {
+      await browser.evaluate(`document.querySelector('dialog.ab-notice .ab-btn-ink').click(); true`)
+      assert.equal(
+        await browser.evaluate(`!document.querySelector('dialog.ab-notice')?.open`),
+        true,
+        'a second Close left it open',
+      )
+    }
+    assert.ok(await browser.waitFor(gone, 1000), `${how}: still open`)
+  }
+})

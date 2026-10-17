@@ -2205,8 +2205,9 @@ body:has(.ab-card[open]) {
 
 /* ---------- Title notice (a title opened at its address that AniList can't give) ---------- */
 /* In the title card's look, an ink-framed sheet of paper with a hard shadow, but small, in the
-   middle of the screen, over the page dimmed. It fades in over 150 ms, as the card does under
-   reduced motion: shown at once, the dim would change the whole screen in a single frame. */
+   middle of the screen, over the page dimmed. It fades in and out over 150 ms, as the card does
+   under reduced motion: shown or gone at once, the dim would change the whole screen in a single
+   frame. */
 .ab-notice {
   width: min(100% - 32px, 480px);
   margin: auto;
@@ -2221,6 +2222,12 @@ body:has(.ab-card[open]) {
 .ab-notice[open],
 .ab-notice[open]::backdrop {
   animation: ab-fade 0.15s linear;
+}
+
+/* And it fades out as it closes, the same way: TitleNotice holds it open while the fade plays. */
+.ab-notice[open].is-closing,
+.ab-notice[open].is-closing::backdrop {
+  animation: ab-fade-out 0.15s linear forwards;
 }
 
 .ab-notice::backdrop {
