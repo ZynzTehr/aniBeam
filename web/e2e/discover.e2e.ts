@@ -177,7 +177,8 @@ async function rowSettled() {
  * ring (4px plus a 3px gap) is cut off.
  */
 async function tabThroughStrip() {
-  await browser.animationsDone() // the panels pop in; measure them once they have landed
+  // Whatever has landed has popped in; a card Tab reaches lands at once (see lib/landing.ts).
+  await browser.animationsDone()
   await browser.evaluate(`document.querySelector('.ab-eras input:checked').focus(); true`)
   const seen: { panel: number; back: boolean; visible: number; ringCut: boolean }[] = []
   for (const back of [false, true]) {
@@ -1881,7 +1882,9 @@ describe('desktop (1440x900)', () => {
     // is laid over the same way, and the worst case counts. Text in a box 1px or smaller is for
     // screen readers only. Every label must reach 4.5:1, even the lever's large one (WCAG asks
     // 3:1). The machine is measured at rest, so colors only hover or a press brings are not,
-    // and neither is the text beside it (the hint bubble, the pulled title).
+    // and neither is the text beside it (the hint bubble, the pulled title). Landed, as a visitor
+    // sees it: below the first screen, it waits see-through until scrolled to.
+    await browser.landAll('.ab-machine')
     const ratios = await browser.evaluate<{ text: string; ratio: number }[]>(`(() => {
       // Chrome gives colors written in hex, by name, or with rgb() or hsl() as rgb() or rgba().
       // Others, such as the oklch() of Tailwind's palette, would be misread: they stop the check.
@@ -1981,7 +1984,8 @@ describe('desktop (1440x900)', () => {
   })
 
   test('with motion allowed, hovering a panel eases its cover into a zoom and its caption up', async () => {
-    await browser.animationsDone() // each cover settles in from 1.3 times its size
+    // Below the first screen the panels land as they are scrolled to (see lib/landing.ts): the
+    // hover eases all the same, landing or landed.
     await browser.evaluate(`document.querySelector('#ab-trending').scrollIntoView(); true`)
     const panel = `document.querySelectorAll('.ab-grid .ab-link')[1]`
     const cover = `getComputedStyle(${panel}.querySelector('.ab-img img')).transform`
@@ -2692,7 +2696,9 @@ describe('desktop (1440x900)', () => {
     // or out: at least 4,400 for a whole ring or frame here, and 0 for none. The boxes of panels 4
     // and 5 overlap along the cut, where the other panel's cover shows (or its color, brand hot
     // itself for a title without one), so pixels inside another panel's box don't count.
-    await browser.animationsDone() // each panel's ink wipe covers its frame until it has gone
+    // A landing panel's ink wipe covers its frame until it has gone; one Tab reaches lands at once,
+    // with no ink (see lib/landing.ts).
+    await browser.animationsDone()
     const panels = `document.querySelectorAll('.ab-grid .ab-link')`
     const seen: { reached: number; focusVisible: boolean; hot: number }[] = []
     for (let k = 0; k < 9; k++) {

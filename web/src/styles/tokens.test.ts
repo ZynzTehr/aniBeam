@@ -39,3 +39,29 @@ test('component CSS reads the tokens instead of copying their values', () => {
     [],
   )
 })
+
+test('the scroll slam’s knobs are tokens, read with no fallback, so changing one changes the slam', () => {
+  // How big a landing panel starts, its tilt, and the time between parts landing together (see
+  // the Landing section of components.css): the values chosen from draft #16.
+  const knobs = Object.fromEntries(
+    tokens.filter(({ name }) => name.startsWith('--slam-')).map(({ name, value }) => [name, value]),
+  )
+  assert.deepEqual(knobs, {
+    '--slam-scale': '1.14',
+    '--slam-tilt': '-2.5deg',
+    '--slam-stagger': '90ms',
+  })
+  // A fallback would go on standing in, and hide a knob's name misspelt in index.css.
+  assert.deepEqual(
+    [...components.matchAll(/var\(\s*(--slam-[\w-]+)\s*,/g)].map(([, name]) => name),
+    [],
+  )
+})
+
+test('every slam knob the stylesheet reads is one index.css defines', () => {
+  // A knob misspelt where it is read reads as nothing, and the slam quietly loses it there.
+  const defined = new Set(tokens.map(({ name }) => name))
+  const read = [...components.matchAll(/var\(\s*(--slam-[\w-]+)/g)].map(([, name]) => name)
+  assert.ok(read.length >= 6, `only ${read.length} reads of a slam knob found`)
+  assert.deepEqual([...new Set(read.filter((name) => !defined.has(name)))], [])
+})

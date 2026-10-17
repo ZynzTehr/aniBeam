@@ -331,10 +331,12 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // other file the build makes, index.html and any a module imports, such as an image, 342 B). A
 // change that needs more raises its number here and says why. The CSS rose to 8,502 B with the
 // layout and keyboard work (the status tags, the room kept for focus rings, the title card's own
-// ring in two tones), so its budget is 9,000 B. The fonts in web/public are copied as they are,
-// outside the build, so this doesn't weigh them.
+// ring in two tones), so its budget is 9,000 B; and the JS every visit loads passed 78,500 B with
+// the scroll slam's landing (lib/landing.ts, 78,954 B with its follow-ups), so its budget is
+// 79,000 B. The fonts in web/public are copied as they are, outside the build, so this doesn't
+// weigh them.
 const BUDGET = {
-  'the JS every visit loads': 78_500,
+  'the JS every visit loads': 79_000,
   'the CSS': 9_000,
   'the JS loaded only when needed': 3_500,
   'every other file': 500,

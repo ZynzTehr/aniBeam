@@ -25,6 +25,7 @@ import {
 } from '../features/anime/queries.ts'
 import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { isRateLimited } from '../lib/anilist.ts'
+import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
 import { useSteadyList } from '../lib/steadyList.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
@@ -58,6 +59,10 @@ function useOutage(query: UseQueryResult<Media[]>) {
 
 /** AniBeam's page: the intro, this week's trending titles, the pull, and titles by decade. */
 export default function App() {
+  // Parts of the page land once as they scroll into view (see lib/landing.ts). Started before the
+  // browser first draws the page, so no part shows, then hides, then lands.
+  useLayoutEffect(() => startLanding(LANDING_PARTS), [])
+
   // A Try again button when a section's last attempt failed. One press retries every failed
   // section on the page (see refetchFailed). The button hides while retries run, which may
   // first wait out anilist()'s one-minute pause; the status line says so meanwhile.

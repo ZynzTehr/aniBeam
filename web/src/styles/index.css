@@ -86,6 +86,9 @@
 
   /* Motion */
   --spring: cubic-bezier(0.2, 1.5, 0.35, 1);
+  --slam-scale: 1.14; /* how big a panel starts as it lands (see components.css, Landing) */
+  --slam-tilt: -2.5deg; /* how far it starts turned */
+  --slam-stagger: 90ms; /* the time between parts that land together */
 }
 
 @theme inline {

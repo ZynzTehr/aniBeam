@@ -535,6 +535,117 @@ img[data-broken] {
   }
 }
 
+/* ---------- Landing: parts that slam in once, as they scroll into view ----------
+   lib/landing.ts marks each part with data-land: wait, go, then done (see there). A trending panel
+   slams in as solid ink, bigger than its slot and tilted, the ink wipes off, its cover settles and
+   its caption pops; parts landing together follow one another, --k steps of the stagger apart.
+   The knobs, --slam-scale, --slam-tilt and --slam-stagger, are tokens in index.css. */
+
+/* A slamming panel starts bigger than its slot, and would widen a phone's page. Clip, not hidden:
+   hidden makes a scroll container, and the splash cover's drift follows the nearest one. */
+.ab-page {
+  overflow-x: clip;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  :where(:root:not([data-motion='reduce'])) {
+    /* Their load-time entrances give way to the slam, which plays them as they land. */
+    .ab-panel[data-land]::after,
+    .ab-panel[data-land] .ab-img img,
+    .ab-panel[data-land] .ab-caption,
+    .ab-strip-item[data-land] > .ab-strip-panel,
+    .ab-sfx[data-land] > span {
+      animation: none;
+    }
+
+    /* The ink block covers a panel only while it lands. */
+    .ab-panel[data-land]:not([data-land='go'])::after {
+      content: none;
+    }
+
+    /* Not seen yet: see-through only, so nothing in the layout moves and it stays in the Tab order
+       (visibility or display would take it out). On a screen only: printed, every part shows. */
+    @media screen {
+      .ab-panel[data-land='wait'],
+      .ab-strip-item[data-land='wait'] > .ab-strip-panel,
+      .ab-machine[data-land='wait'],
+      .ab-sfx[data-land='wait'] > span {
+        opacity: 0;
+      }
+    }
+
+    /* While a part slams, Chrome keeps the visitor's place by something else: a part whose
+       transform changes stops scroll anchoring, so content arriving above it, such as a search's
+       late answer, pushed the page down by its whole height. */
+    [data-land='go'] {
+      overflow-anchor: none;
+    }
+
+    .ab-panel[data-land='go'] {
+      animation: ab-panel-slam 0.5s cubic-bezier(0.2, 0.9, 0.25, 1) backwards;
+      animation-delay: calc(var(--k, 0) * var(--slam-stagger));
+    }
+
+    .ab-panel[data-land='go']::after {
+      animation: ab-ink 0.6s cubic-bezier(0.75, 0, 0.2, 1) both;
+      animation-delay: calc(var(--k, 0) * var(--slam-stagger) + 160ms);
+    }
+
+    .ab-panel[data-land='go'] .ab-img img {
+      animation: ab-settle 1s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+      animation-delay: calc(var(--k, 0) * var(--slam-stagger) + 200ms);
+    }
+
+    .ab-panel[data-land='go'] .ab-caption {
+      animation: ab-pop 0.6s var(--spring) backwards;
+      animation-delay: calc(var(--k, 0) * var(--slam-stagger) + 520ms);
+    }
+
+    /* A decade or search card snaps in, closer behind the one before. Its list item is the part,
+       as the row snaps to it and search results measure it; the card inside moves, as an item that
+       grew pulled the row sideways and back (see the strip's load-time pop). */
+    .ab-strip-item[data-land='go'] > .ab-strip-panel {
+      animation: ab-pop 0.6s var(--spring) backwards;
+      animation-delay: calc(var(--k, 0) * var(--slam-stagger) * 2 / 3);
+    }
+
+    /* A heading's sound effect booms; the pull machine drops in on the spring. */
+    .ab-sfx[data-land='go'] > span {
+      animation: ab-boom 0.7s var(--spring) backwards;
+    }
+
+    .ab-machine[data-land='go'] {
+      animation: ab-machine-drop 0.6s var(--spring) backwards;
+    }
+  }
+}
+
+@keyframes ab-panel-slam {
+  0% {
+    opacity: 0;
+    transform: scale(var(--slam-scale)) rotate(var(--slam-tilt));
+  }
+
+  25% {
+    opacity: 1;
+  }
+
+  62% {
+    transform: scale(0.985) rotate(calc(var(--slam-tilt) * -0.12));
+  }
+
+  100% {
+    transform: none;
+  }
+}
+
+@keyframes ab-machine-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-48px) scale(1.06);
+  }
+}
+
 /* ---------- Refinements: splash caption, diagonal cut, phone panels ---------- */
 @media (min-width: 900px) {
   .ab-splash .ab-caption {
