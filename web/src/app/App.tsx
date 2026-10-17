@@ -83,9 +83,12 @@ export default function App() {
     setOpened({ media, element: from })
     // Back from the title returns to this address without its #fragment, as a link to a section
     // leaves one: returning to a fragment, the browser jumps to it again, scrolling to it and
-    // focusing it, so closing the card would lose the visitor's place and focus.
-    if (location.hash) replace(`${location.pathname}${location.search}`)
-    push(titlePath(media.id), { over: path })
+    // focusing it, so closing the card would lose the visitor's place and focus. Opened while a
+    // shared title still loads at its address, before its card shows, the new title takes that
+    // address's place, so closing it returns to the page, not to the shared title's card.
+    const over = addressed !== null ? '/' : path
+    if (addressed !== null || location.hash) replace(`${over}${location.search}`)
+    push(titlePath(media.id), { over })
   }
 
   // A visit that starts at a title's address opens its card over the page as AniList's answer

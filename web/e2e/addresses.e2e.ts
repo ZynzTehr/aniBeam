@@ -476,3 +476,37 @@ test('closing a title opened on the page asks AniList for nothing, even with the
     await browser.rewriteAniList(null)
   }
 })
+
+test('a title clicked while a shared one still loads takes its place, so closing it returns to the page', async () => {
+  // Saved lists, from a visit to /, show while the shared title loads.
+  await browser.forget()
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.holdAniList(4000)
+  try {
+    await browser.load({ ...DESKTOP, reduceMotion: true, url: at('/anime/154587') })
+    assert.ok(
+      await browser.waitFor(`document.querySelectorAll('.ab-grid .ab-link').length >= 9`, 3000),
+      'no saved titles showed',
+    )
+    assert.equal(await browser.evaluate(CARD), '', 'Frieren arrived before the click')
+    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
+    assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
+    assert.doesNotMatch(await browser.evaluate<string>(CARD), /Frieren/)
+    await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog') && location.pathname === '/'`, 5000),
+      'closing left the page elsewhere',
+    )
+    // Long enough for Frieren's held answer to have come.
+    await sleep(4500)
+    assert.equal(
+      await browser.evaluate(`document.querySelector('dialog[open]')`),
+      null,
+      'Frieren’s card came back',
+    )
+    assert.equal(await where(), '/')
+  } finally {
+    await browser.holdAniList(0)
+  }
+})
