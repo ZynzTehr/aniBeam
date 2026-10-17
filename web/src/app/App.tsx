@@ -111,10 +111,18 @@ export default function App() {
   const shownEraId = useDebounced(eraId, 300)
   const era = ERAS.find((e) => e.id === shownEraId) ?? ERAS[0]
 
-  const trending = useQuery(trendingQuery())
+  // Title first: while a title opened at its address loads or shows, the page's lists wait, so a
+  // shared link costs AniList one request (spec §2), and they ask for theirs as it closes. Lists
+  // saved from an earlier visit still show meanwhile.
+  const listsWait = addressed !== null
+  const trending = useQuery({ ...trendingQuery(), enabled: !listsWait })
   // While a new decade loads, the previous decade's titles stay on screen instead of
   // flashing to empty cards.
-  const decade = useQuery({ ...eraQuery(era), placeholderData: keepPreviousData })
+  const decade = useQuery({
+    ...eraQuery(era),
+    placeholderData: keepPreviousData,
+    enabled: !listsWait,
+  })
 
   // A section that can't reach AniList shows sample titles instead, labelled (see useOutage):
   // trending the first 9, the strip the open decade's. They load the first time a section needs

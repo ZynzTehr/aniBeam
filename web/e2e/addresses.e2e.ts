@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { after, afterEach, before, beforeEach, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { QUERIES } from '../src/features/anime/queries.ts'
-import { BASE_URL, Browser } from './browser.ts'
+import { BASE_URL, Browser, type Answer } from './browser.ts'
 import { recordings } from './recordings.ts'
 
 // An id AniList has no anime for, and its answer, as AniList gives it for a missing or an adult
@@ -192,4 +192,32 @@ test('a first visit to a title’s address moves nothing on the page, with AniLi
         seen.push(`${screen.width}px${reduceMotion ? ', reduced motion' : ''}: ${value.toFixed(4)}`)
     }
   assert.deepEqual(seen, [], 'a first visit to a title’s address jumps')
+})
+
+test('a first visit to a title’s address asks AniList for that title alone, and for the lists, in one request, once it closes', async () => {
+  // Each request, as what it asks for: a title by its id, or the lists it asks for.
+  const asked: string[] = []
+  const what = ({ query, variables }: Answer['request']) =>
+    query === QUERIES.title
+      ? `title ${variables.id}`
+      : query === QUERIES.firstVisit
+        ? 'trending + 1990s'
+        : JSON.stringify(query.slice(0, 40))
+  await browser.forget()
+  await browser.rewriteAniList(({ request }) => {
+    asked.push(what(request))
+    return null
+  })
+  try {
+    await browser.load({ ...DESKTOP, reduceMotion: true, url: at('/anime/154587') })
+    assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000))
+    // Long enough for the lists to have asked, had they not waited.
+    await sleep(1500)
+    assert.deepEqual(asked, ['title 154587'], 'while the card is open')
+    await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+    assert.ok(await browser.titlesShown(), 'the lists never loaded once the card closed')
+    assert.deepEqual(asked, ['title 154587', 'trending + 1990s'], 'once it closed')
+  } finally {
+    await browser.rewriteAniList(null)
+  }
 })
