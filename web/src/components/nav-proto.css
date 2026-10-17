@@ -39,9 +39,8 @@
   white-space: nowrap;
 }
 
-.ab-fly.is-ink {
-  background: var(--ink);
-  color: #fff;
+.ab-fly.is-current {
+  background: var(--sun);
 }
 
 /* Phones: the header stays on hand, hiding on the way down and back on the way up. */
@@ -64,17 +63,24 @@
 }
 
 /* One look for the three buttons, in the intro and in the header: white, and ink when hovered or
-   pressed; in the header, ink too for the section the visitor is in (aria-current). */
+   pressed. In the header, the section the visitor is in (aria-current) is sound-effect yellow,
+   raised, as a picked chip is, so it reads apart from a hovered one; hovered, it turns ink too. */
 [data-nav-proto] .ab-intro-actions .ab-btn {
   background: #fff;
   color: var(--ink);
 }
 
+[data-nav-proto] .ab-nav a[aria-current='location'] {
+  background: var(--sun);
+  box-shadow: 3px 3px 0 var(--ink);
+  color: var(--ink);
+  transform: translate(-2px, -2px);
+}
+
 [data-nav-proto] .ab-intro-actions .ab-btn:hover,
 [data-nav-proto] .ab-intro-actions .ab-btn:active,
 [data-nav-proto] .ab-nav a[href^='#']:hover,
-[data-nav-proto] .ab-nav a[href^='#']:active,
-[data-nav-proto] .ab-nav a[aria-current='location'] {
+[data-nav-proto] .ab-nav a[href^='#']:active {
   background: var(--ink);
   color: #fff;
 }

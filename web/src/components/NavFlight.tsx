@@ -76,7 +76,7 @@ export function NavFlight({ active }: { active: boolean }) {
       clone.textContent = short ? (SHORT[a.getAttribute('href')!] ?? a.textContent) : a.textContent
       // Landing in the header on the section the visitor is in, it arrives in its active look.
       const slot = slots[intro.indexOf(a as HTMLAnchorElement)]
-      clone.classList.toggle('is-ink', short && slot?.hasAttribute('aria-current') === true)
+      clone.classList.toggle('is-current', short && slot?.hasAttribute('aria-current') === true)
     }
 
     // A: scroll-linked. Progress runs from the buttons' top 220px below the header to the header.
@@ -147,11 +147,13 @@ export function NavFlight({ active }: { active: boolean }) {
       restAt(bottom < 0)
     }
 
-    // The section the visitor is in: the last whose top has passed a line a third of the way down
-    // the screen below the header. Its link in the header shows its active look (aria-current).
+    // The section the visitor is in: the last whose top has passed a line two thirds of the way
+    // down the screen below the header, so a section counts once it is well in view. Its link in
+    // the header shows its active look (aria-current).
     const sections = ['#ab-trending', '#pull', '#decades']
     const spy = () => {
-      const line = header.getBoundingClientRect().bottom + (innerHeight - header.offsetHeight) / 3
+      const line =
+        header.getBoundingClientRect().bottom + ((innerHeight - header.offsetHeight) * 2) / 3
       let current: string | null = null
       for (const id of sections) {
         const section = document.querySelector(id)
