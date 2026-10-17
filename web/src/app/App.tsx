@@ -124,8 +124,8 @@ export default function App() {
   // However the card goes, focus returns to what opened it. The dialog does that itself as it
   // closes (Close, Esc), but Back takes it off the page while it is open, and focus then falls to
   // the start of the page, losing a keyboard user's place. So then, focus goes back to what opened
-  // it, or, if that has left the page meanwhile (a new search), to its title's link there. Before
-  // the browser draws the page.
+  // it (the page behind a modal card can't change, so it is still there). Before the browser draws
+  // the page.
   const shown = card?.media.id ?? null
   const lastShown = useRef<number | null>(null)
   const closedItself = useRef(false)
@@ -136,13 +136,18 @@ export default function App() {
     closedItself.current = false
     if (shown !== null || id === null || itself || opened?.media.id !== id) return
     if (document.activeElement && document.activeElement !== document.body) return
-    const { element } = opened
-    const back = element.isConnected
-      ? element
-      : document.querySelector<HTMLElement>(`#main a[href="${titlePath(id)}"]`)
-    back?.focus({ preventScroll: true })
+    opened.element.focus({ preventScroll: true })
   }, [shown, opened])
-  const missing = addressed !== null && !fromList ? titleNote(title, isRateLimited()) : null
+  // Once a note has shown for an address, it stays while AniList is asked again, as Try again or a
+  // retry does, until the title arrives: TanStack forgets the failure of a query with no answer as
+  // it tries again, so titleNote reads a plain first load, which shows nothing, and the note, with
+  // the focus Try again handed it, would go. Set as the page renders, as in useOutage.
+  const titleSays = addressed !== null && !fromList ? titleNote(title, isRateLimited()) : null
+  const [noted, setNoted] = useState<number | null>(null)
+  if (titleSays && noted !== addressed) setNoted(addressed)
+  const missing =
+    titleSays ??
+    (addressed !== null && noted === addressed && !shownMedia ? 'Trying AniList again…' : null)
   const close = () => {
     closedItself.current = true
     if (isOver(history.state)) history.back()

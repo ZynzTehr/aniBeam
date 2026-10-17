@@ -46,10 +46,20 @@ const NOTICE = `(() => {
     text: notice.querySelector('.ab-notice-text').textContent,
     // Screen readers hear the text change, as it does from retrying to failed.
     live: notice.querySelector('.ab-notice-text').getAttribute('aria-live'),
+    // Modal, so the page behind is out of reach, and whole on the screen.
+    modal: notice.matches(':modal'),
+    fits: (({ left, right, top, bottom }) => left >= 0 && right <= innerWidth && top >= 0 && bottom <= innerHeight)(notice.getBoundingClientRect()),
     buttons: [...notice.querySelectorAll('button')].map((button) => button.textContent.trim()),
     focused: notice.contains(document.activeElement) && document.activeElement.textContent.trim(),
   }
 })()`
+// Reloads the page and waits for the new one: Page.reload returns before it replaces the old one,
+// which could otherwise answer what a check waits for next.
+async function reload() {
+  await browser.evaluate(`window.__beforeReload = true; true`)
+  await browser.send('Page.reload')
+  await browser.waitFor(`!window.__beforeReload && document.readyState === 'complete'`)
+}
 const where = () => browser.evaluate<string>(`location.pathname + location.search + location.hash`)
 
 test('a visit to a title’s address opens its card over the page, with or without a last slash, and again on a refresh', async () => {
@@ -66,8 +76,7 @@ test('a visit to a title’s address opens its card over the page, with or witho
         `Boolean(document.querySelector('.ab-top') && document.getElementById('ab-trending'))`,
       ),
     )
-    await browser.send('Page.reload')
-    await browser.waitFor(`document.readyState === 'complete'`)
+    await reload()
     assert.ok(
       await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000),
       `${path} refreshed opened no card`,
@@ -108,12 +117,16 @@ test('a title AniList doesn’t have says so in place of its card, with Close an
   const notice = await browser.evaluate<{
     text: string
     live: string
+    modal: boolean
+    fits: boolean
     buttons: string[]
     focused: string
   }>(NOTICE)
   assert.deepEqual(notice, {
     text: 'We couldn’t find that title.',
     live: 'polite',
+    modal: true,
+    fits: true,
     buttons: ['Close'],
     focused: 'Close',
   })
@@ -153,9 +166,29 @@ test('a title AniList fails to give says why, as a section does, and Try again b
   } finally {
     await browser.rewriteAniList(null)
   }
-  await browser.evaluate(
-    `[...document.querySelectorAll('dialog.ab-notice button')].find((b) => b.textContent === 'Try again').click(); true`,
-  )
+  // From the keyboard: Try again hides while its retry runs, and hands focus to the note's text, so
+  // it doesn't fall to the page.
+  await browser.holdAniList(1500)
+  try {
+    await browser.evaluate(
+      `[...document.querySelectorAll('dialog.ab-notice button')].find((b) => b.textContent === 'Try again').focus(); true`,
+    )
+    await browser.press('Enter')
+    assert.ok(
+      await browser.waitFor(`document.activeElement?.id === 'ab-notice-text'`, 1000),
+      'Try again, hiding, left focus elsewhere',
+    )
+    // And the note stays while AniList is asked again, saying so.
+    await sleep(500)
+    assert.equal(
+      await browser.evaluate(
+        `document.activeElement?.id === 'ab-notice-text' && document.activeElement.textContent`,
+      ),
+      'Trying AniList again…',
+    )
+  } finally {
+    await browser.holdAniList(0)
+  }
   assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000), 'Try again brought no card')
   assert.equal(await browser.evaluate(NOTICE), null)
 })
@@ -179,7 +212,7 @@ test('an address the app doesn’t know becomes /, keeping its query and hash, w
   }
 })
 
-test('a first visit to a title’s address moves nothing on the page, with AniList’s answers held 2 s', async () => {
+test('a first visit to a title’s address moves nothing on the page, with AniList’s answers held 2 s, before or after its card closes', async () => {
   const seen: string[] = []
   for (const screen of [PHONE, DESKTOP])
     for (const reduceMotion of [false, true]) {
@@ -188,6 +221,10 @@ test('a first visit to a title’s address moves nothing on the page, with AniLi
       try {
         await browser.load({ ...screen, reduceMotion, url: at('/anime/154587') })
         assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 15_000))
+        await browser.animationsDone()
+        // On past Close, as the page's lists, held while the card was open, arrive behind it.
+        await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+        assert.ok(await browser.titlesShown(), 'the lists never came once the card closed')
         await browser.animationsDone()
         await sleep(1000)
       } finally {
@@ -254,6 +291,11 @@ test('every title on the page links to its own address, which opens that same ti
   const LINKS = `[...document.querySelectorAll('.ab-grid .ab-link, .ab-strip-row:not([aria-hidden]) .ab-strip-panel[href]')].map((link) => link.getAttribute('href'))`
   const links = await browser.evaluate<string[]>(LINKS)
   assert.ok(links.length >= 9 + 4, `found ${links.length} title links`)
+  // A pulled title too.
+  await browser.evaluate(`document.querySelector('.ab-lever').click(); true`)
+  const pulled = `document.querySelector('.ab-result.is-open .ab-result-panel')`
+  assert.ok(await browser.waitFor(pulled, 5000), 'no title was pulled')
+  links.push(await browser.evaluate<string>(`${pulled}.getAttribute('href')`))
   const wrong = links.filter((href) => !/^\/anime\/[1-9]\d*$/.test(href))
   assert.deepEqual(wrong, [], 'title links that are not a title’s address')
   // A search's first result, Frieren, opened on the page, then at its link's address (the one
@@ -275,19 +317,19 @@ test('a click with Ctrl, Cmd, Shift or Alt held is left to the browser, and a pl
   await browser.load({ ...DESKTOP, reduceMotion: true })
   assert.ok(await browser.titlesShown())
   // Clicks a trending panel's link with `keys` held, and says whether the page took the click
-  // for itself (cancelled what the browser would do) and opened a card. Heard last, on the
+  // for itself (cancelled what the browser would do). Heard last, on the
   // window, which then cancels the click itself, so the browser doesn't leave the page.
   const clicked = (keys: object) =>
-    browser.evaluate<{ taken: boolean; opened: boolean }>(`(() => {
+    browser.evaluate<{ taken: boolean }>(`(() => {
       let taken
       const hear = (event) => { taken = event.defaultPrevented; event.preventDefault() }
       addEventListener('click', hear, { once: true })
       const link = document.querySelector('.ab-grid .ab-link')
       link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0, ...${JSON.stringify(keys)} }))
-      return { taken, opened: Boolean(document.querySelector('dialog.ab-card[open]')) }
+      return { taken }
     })()`)
   for (const keys of [{ ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { altKey: true }])
-    assert.deepEqual(await clicked(keys), { taken: false, opened: false }, JSON.stringify(keys))
+    assert.deepEqual(await clicked(keys), { taken: false }, JSON.stringify(keys))
   await sleep(300)
   assert.equal(await browser.evaluate(`document.querySelector('dialog[open]')`), null)
   // The card opens as React next renders, just after the click.
@@ -520,7 +562,7 @@ test('after a reload, closing a title opened on the page puts / in its place rat
   assert.ok(await browser.waitFor(first, 10_000))
   await browser.evaluate(`${first}.click(); true`)
   assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 5000))
-  await browser.send('Page.reload')
+  await reload()
   assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000), 'no card after the reload')
   await browser.animationsDone()
   // Set on this page: still there after closing, so the site didn't load again.
