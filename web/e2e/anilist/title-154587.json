@@ -1,0 +1,42 @@
+{
+  "request": {
+    "query": "query ($id: Int) { Media(id: $id, type: ANIME, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } status } }",
+    "variables": {
+      "id": 154587
+    }
+  },
+  "status": 200,
+  "body": {
+    "data": {
+      "Media": {
+        "id": 154587,
+        "title": {
+          "romaji": "Sousou no Frieren",
+          "english": "Frieren: Beyond Journey’s End",
+          "native": "葬送のフリーレン"
+        },
+        "coverImage": {
+          "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-qQTzQnEJJ3oB.jpg",
+          "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx154587-qQTzQnEJJ3oB.jpg",
+          "color": "#bbf1a1"
+        },
+        "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/154587-ivXNJ23SM1xB.jpg",
+        "genres": ["Adventure", "Drama", "Fantasy"],
+        "averageScore": 91,
+        "format": "TV",
+        "episodes": 28,
+        "season": "FALL",
+        "seasonYear": 2023,
+        "studios": {
+          "nodes": [
+            {
+              "name": "MADHOUSE"
+            }
+          ]
+        },
+        "nextAiringEpisode": null,
+        "status": "FINISHED"
+      }
+    }
+  }
+}

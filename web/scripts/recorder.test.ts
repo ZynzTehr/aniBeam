@@ -309,7 +309,7 @@ test('an answer that can’t be kept stops the run at once, before the next requ
   )
   stoppedSaying(
     run,
-    /^trending needs to be a 200 with no errors and a list of titles for each list asked for, .*; AniList answered 400 with errors: .*Cannot query field/,
+    /^trending needs to be a 200 with no errors and a list of titles for each list asked for \(or the title asked for\), .*; AniList answered 400 with errors: .*Cannot query field/,
   )
 })
 

@@ -138,13 +138,28 @@ const notTitles: [string, string, number, (body: any) => unknown, string][] = [
     () => ({ data: null }),
     'AniList answered 200 with no list of titles',
   ],
+  [
+    // AniList's answer for an id with no anime, or an adult title.
+    'a 404 for a title',
+    'title-154587',
+    404,
+    () => ({ data: { Media: null }, errors: [{ message: 'Not Found.', status: 404 }] }),
+    'AniList answered 404 with errors: [{"message":"Not Found.","status":404}]',
+  ],
+  [
+    'a 200 with data.Media null',
+    'title-154587',
+    200,
+    () => ({ data: { Media: null } }),
+    'AniList answered 200 with no list of titles',
+  ],
 ]
 for (const [what, name, status, answer, says] of notTitles)
   test(`a recording that isn’t a 200 with titles is named once, with what AniList answered: ${what}`, () =>
     namedOnce(
       name,
       (recording) => Object.assign(recording, { status, body: answer(recording.body) }),
-      `${name} needs to be a 200 with no errors and a list of titles for each list asked for`,
+      `${name} needs to be a 200 with no errors and a list of titles for each list asked for (or the title asked for)`,
       says,
     ))
 
