@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { landAfter, landingNow, outOfSight, slivers } from './landing.ts'
+import { coveredBy, landAfter, landingNow, outOfSight, slivers } from './landing.ts'
 
 // Parts as an IntersectionObserver hands them over: each its place in the page (its order in the
 // markup), how it stands (data-land), and how much of it shows.
@@ -83,4 +83,11 @@ test('a part out of view is one whose wait to land as a sliver ends', () => {
     isIntersecting: true,
   } as IntersectionObserverEntry
   assert.deepEqual(places(outOfSight([...entries, touching])), [1, 3, 4])
+})
+
+test('the observer starts below a header that stays on screen, rounded up, and at the top otherwise', () => {
+  // At 960px with widened text spacing the header is 137.19px: the 0.19px under it isn't seen.
+  assert.equal(coveredBy(137.1875, true), 138)
+  assert.equal(coveredBy(78, true), 78)
+  assert.equal(coveredBy(230.4, false), 0)
 })

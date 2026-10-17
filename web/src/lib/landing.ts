@@ -93,6 +93,13 @@ export function outOfSight(
     .map(({ target }) => target as HTMLElement)
 }
 
+/**
+ * How far down the screen the observer starts: below a header that stays on screen (sticky), and
+ * rounded up, as its height can run to a fraction of a pixel and the sliver under it would count
+ * as in view; at the top when the header scrolls away.
+ */
+export const coveredBy = (height: number, sticky: boolean) => (sticky ? Math.ceil(height) : 0)
+
 // Node.DOCUMENT_POSITION_FOLLOWING, without needing a DOM to name it.
 const FOLLOWING = 4
 
@@ -159,11 +166,12 @@ export function startLanding(selector: string) {
   // screen the observer watches starts below it. Its height can change (a second row with wider
   // text), so the observer is made again for the new height, watching the parts still waiting.
   const header = document.querySelector<HTMLElement>('.ab-top')
-  // Rounded up: the header's height can run to a fraction of a pixel, and the sliver under it
-  // would count as in view.
   const covered = () =>
-    header && getComputedStyle(header).position === 'sticky'
-      ? Math.ceil(header.getBoundingClientRect().height)
+    header
+      ? coveredBy(
+          header.getBoundingClientRect().height,
+          getComputedStyle(header).position === 'sticky',
+        )
       : 0
   let top = covered()
   const watch = () =>
@@ -200,7 +208,7 @@ export function startLanding(selector: string) {
   const focused = (event: FocusEvent) => {
     const part = (event.target as Element | null)?.closest?.<HTMLElement>('[data-land]')
     if (!part) return
-    if (part === event.target && part.tabIndex < 0) {
+    if (part === event.target && part.getAttribute('tabindex') === '-1') {
       if (landOf(part) === 'wait') land(part, 0)
     } else set(part, 'focused')
   }
