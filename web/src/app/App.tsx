@@ -12,6 +12,7 @@ import { MotionSwitch } from '../components/MotionSwitch.tsx'
 import { SiteHeader } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
+import { TitleNotice } from '../components/TitleNotice.tsx'
 import { loadSamples, outOfReach, samplesFor } from '../features/anime/fallback.ts'
 import {
   ERAS,
@@ -19,6 +20,7 @@ import {
   FIRST_ERA,
   isRefinement,
   searchQuery,
+  titleQuery,
   trendingQuery,
   type Era,
   type Media,
@@ -27,9 +29,10 @@ import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { isRateLimited } from '../lib/anilist.ts'
 import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
+import { replace, titleIdFrom, usePathname } from '../lib/route.ts'
 import { useSteadyList } from '../lib/steadyList.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
-import { noteFor, sampleNote, searchStatus } from './status.ts'
+import { noteFor, NOT_FOUND, sampleNote, searchStatus, titleNote } from './status.ts'
 
 const note = (query: UseQueryResult<Media[]>) => noteFor(query, isRateLimited())
 // A Try again button when a section's last attempt failed (see App's retryFailed).
@@ -71,6 +74,26 @@ export default function App() {
 
   const [opened, setOpened] = useState<{ media: Media; from: DOMRect } | null>(null)
   const open: OpenTitle = (media, from) => setOpened({ media, from: from.getBoundingClientRect() })
+
+  // A visit that starts at a title's address (/anime/:id) opens its card over the page as AniList's
+  // answer arrives, or a note in its place if AniList can't give it (see titleNote); closing either
+  // puts / back. An address the app doesn't know becomes /, before the browser draws the page.
+  const path = usePathname()
+  const addressed = titleIdFrom(path)
+  useLayoutEffect(() => {
+    if (path !== '/' && addressed === null) replace(`/${location.search}${location.hash}`)
+  }, [path, addressed])
+  const title = useQuery({ ...titleQuery(addressed ?? 0), enabled: addressed !== null })
+  // No panel opened it, so the card grows from the middle of the screen.
+  const middle = useMemo(
+    () => new DOMRect(innerWidth / 2, innerHeight / 2, 0, 0),
+    // Once for each title opened at its address, not at each render.
+    [addressed],
+  )
+  const card =
+    opened ?? (addressed !== null && title.data ? { media: title.data, from: middle } : null)
+  const missing = addressed !== null ? titleNote(title, isRateLimited()) : null
+  const closeAddressed = () => replace('/')
 
   // What the search box shows, and the part of it to search (see SiteHeader's onSearch).
   const [search, setSearch] = useState({ shown: '', text: '' })
@@ -267,12 +290,24 @@ export default function App() {
         <MotionSwitch id="reduce-motion" />
         <p>Data from AniList. AniBeam is not affiliated with AniList.</p>
       </footer>
-      {opened && (
+      {card && (
         <TitleCard
-          key={opened.media.id}
-          media={opened.media}
-          from={opened.from}
-          onClose={() => setOpened(null)}
+          key={card.media.id}
+          media={card.media}
+          from={card.from}
+          onClose={opened ? () => setOpened(null) : closeAddressed}
+        />
+      )}
+      {missing && (
+        <TitleNotice
+          text={missing}
+          // Not for a title that isn't there: asking again finds it no more.
+          onRetry={
+            missing !== NOT_FOUND && title.isError && !title.isFetching
+              ? () => void title.refetch()
+              : undefined
+          }
+          onClose={closeAddressed}
         />
       )}
     </div>

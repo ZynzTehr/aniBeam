@@ -369,6 +369,17 @@ const RULES: {
     broken: (titles) => (titles.length ? `it has ${titles.length}` : ''),
   },
   {
+    lists: [['title-154587', 'Media']],
+    needs: 'a title naming Frieren',
+    why: "as addresses.e2e.ts's checks open /anime/154587, then wait for a card naming Frieren, as 'a visit to a title’s address opens its card over the page, with or without a last slash, and again on a refresh' does",
+    broken: (titles) =>
+      !titles.length
+        ? 'it has none'
+        : /frieren/i.test(titleOf(titles[0]))
+          ? ''
+          : `it is '${titleOf(titles[0])}'`,
+  },
+  {
     lists: [search('one piece')],
     needs: 'a title',
     why: "as discover.e2e.ts's 'search results show in a grid without sideways overflow', on a phone, waits for one",

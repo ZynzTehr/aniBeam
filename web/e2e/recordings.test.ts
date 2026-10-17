@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
+import { titleOf } from '../src/features/anime/format.ts'
 import type { Media } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { compare, JUDGED, problems, recordings, requests } from './recordings.ts'
@@ -294,12 +295,23 @@ const lacking: [string, [string, string], (titles: Media[]) => Media[], string, 
     'search-one-piece needs a title',
     'it has none',
   ],
+  [
+    'Frieren’s address answered with another title',
+    ['title-154587', 'Media'],
+    () => [ninetiesFirst()],
+    "title-154587's Media needs a title naming Frieren",
+    `it is '${titleOf(ninetiesFirst())}'`,
+  ],
 ]
 for (const [what, [name, list], change, starts, says] of lacking)
   test(`a recording that lacks what a check relies on is named, with the rule it breaks: ${what}`, () =>
     namedOnce(
       name,
-      ({ body }) => (body.data[list].media = change(body.data[list].media)),
+      ({ body }) =>
+        // A title asked for on its own is the answer's data.Media itself, not a list.
+        list === 'Media'
+          ? (body.data.Media = change([body.data.Media])[0])
+          : (body.data[list].media = change(body.data[list].media)),
       starts,
       says,
     ))
@@ -322,6 +334,7 @@ test('JUDGED holds every recording a rule judges, and no other', () => {
       'search-zzqqxx',
       'search-zzqqxxnotananime',
       'search-zzqqxxy',
+      'title-154587',
       'trending',
     ],
     'JUDGED isn’t the recordings RULES in recordings.ts judge; a rule for another recording adds it here',

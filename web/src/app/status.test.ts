@@ -1,7 +1,15 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { AniListError } from '../lib/anilist.ts'
-import { noteFor, sampleNote, searchStatus, statusText, type QueryStatus } from './status.ts'
+import {
+  noteFor,
+  NOT_FOUND,
+  sampleNote,
+  searchStatus,
+  statusText,
+  titleNote,
+  type QueryStatus,
+} from './status.ts'
 
 const idle: QueryStatus = {
   data: undefined,
@@ -336,4 +344,47 @@ test("the time a list was fetched reads in the visitor's own locale, never one s
   } finally {
     Date.prototype.toLocaleTimeString = original
   }
+})
+
+// A title opened at its address shows its card once it arrives, and a note in its place only
+// when something is wrong.
+test('a title opened at its address says nothing while it loads, and nothing once it is there', () => {
+  assert.equal(titleNote({ ...idle, isFetching: true }, false), null)
+  assert.equal(titleNote({ ...idle, data: { id: 1 } }, false), null)
+  // A failed refresh of a title already there leaves its card as it is.
+  assert.equal(titleNote({ ...idle, data: { id: 1 }, error: serverError }, false), null)
+})
+
+test('a title AniList has no anime for, or an adult one, isn’t found; a retry of one still loads', () => {
+  const notFound = new AniListError('Not Found.', 404)
+  assert.equal(titleNote({ ...idle, error: notFound }, false), NOT_FOUND)
+  assert.equal(NOT_FOUND, 'We couldn’t find that title.')
+  assert.equal(
+    titleNote({ ...idle, error: notFound, isFetching: true }, false),
+    'Trying AniList again…',
+  )
+})
+
+test('a title held up says why, as a section does: offline, busy, rate-limited or failed', () => {
+  assert.equal(titleNote({ ...idle, isPaused: true }, false), 'Offline: waiting for a connection.')
+  assert.equal(
+    titleNote({ ...idle, isFetching: true, failureReason: tooMany }, false),
+    'AniList is busy right now. It’s not something you did. Trying again within a minute.',
+  )
+  assert.equal(
+    titleNote({ ...idle, isFetching: true }, true),
+    'Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.',
+  )
+  assert.equal(
+    titleNote({ ...idle, error: serverError }, false),
+    'AniList, where AniBeam gets its anime, isn’t responding right now. It’s not something you did. Try again in a minute.',
+  )
+  assert.equal(
+    titleNote({ ...idle, error: noConnection }, false),
+    statusText({ ...idle, error: noConnection }, false),
+  )
+  assert.equal(
+    titleNote({ ...idle, error: savedError }, false),
+    statusText({ ...idle, error: savedError }, false),
+  )
 })
