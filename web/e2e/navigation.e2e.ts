@@ -990,6 +990,64 @@ test('in contrast themes the current section’s link takes the theme’s select
   }
 })
 
+test('a tap or click on a section link focuses its heading with no ring, even where the link takes no focus, and Enter with its ring', async () => {
+  // Safari, and every browser on an iPhone, doesn't focus a link as it is tapped or clicked, and so
+  // counts the heading's focus as the keyboard's; Chrome focuses the link, which hides the ring by
+  // itself. So the click here is made as Safari makes it: the link's focus on mousedown cancelled.
+  const safari = `document.addEventListener('mousedown', (e) => { if (e.target.closest('a')) e.preventDefault() }, true); true`
+  // What has focus, and whether its ring shows: drawn behind it, or in contrast themes its outline.
+  const ring = `(() => {
+    const focused = document.activeElement
+    return { id: focused.id, ring: focused.matches(':focus-visible') && getComputedStyle(focused, '::before').content !== 'none', outline: getComputedStyle(focused).outlineStyle }
+  })()`
+  for (const contrast of [false, true]) {
+    await browser.load({ ...DESKTOP, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    await browser.landAll()
+    if (contrast)
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [
+          { name: 'forced-colors', value: 'active' },
+          { name: 'prefers-reduced-motion', value: 'reduce' },
+        ],
+      })
+    try {
+      await browser.evaluate(safari)
+      const { x, y } = await pointAt('.ab-intro-actions a[href="#decades"]')
+      for (const type of ['mousePressed', 'mouseReleased'])
+        await browser.send('Input.dispatchMouseEvent', {
+          type,
+          x,
+          y,
+          button: 'left',
+          clickCount: 1,
+        })
+      await frames()
+      const seen = await browser.evaluate<{ id: string; ring: boolean; outline: string }>(ring)
+      assert.deepEqual(
+        contrast ? { id: seen.id, outline: seen.outline } : { id: seen.id, ring: seen.ring },
+        contrast ? { id: 'decades', outline: 'none' } : { id: 'decades', ring: false },
+        contrast ? 'clicked, in a contrast theme' : 'clicked',
+      )
+    } finally {
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'forced-colors', value: 'none' }],
+      })
+    }
+  }
+  // From the keyboard: Enter on the intro's Pull button.
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.evaluate(
+    `document.querySelector('.ab-intro-actions a[href="#pull"]').focus(); true`,
+  )
+  await browser.press('Enter')
+  await frames()
+  const keyed = await browser.evaluate<{ id: string; ring: boolean }>(ring)
+  assert.deepEqual({ id: keyed.id, ring: keyed.ring }, { id: 'pull', ring: true }, 'Enter')
+})
+
 test('one landmark named Sections is read at a time: the intro’s or a phone bar’s; the header’s, which holds My List too, is Site', async () => {
   const landmarks = async () => {
     const { nodes } = await browser.send('Accessibility.getFullAXTree')

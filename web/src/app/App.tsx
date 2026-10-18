@@ -28,6 +28,7 @@ import {
 } from '../features/anime/queries.ts'
 import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { isRateLimited } from '../lib/anilist.ts'
+import { markPointerJumps } from '../lib/jumps.ts'
 import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
 import { isOver, push, replace, titleIdFrom, titlePath, usePathname } from '../lib/route.ts'
@@ -74,6 +75,10 @@ export default function App() {
   // Parts of the page land once as they scroll into view (see lib/landing.ts). Started before the
   // browser first draws the page, so no part shows, then hides, then lands.
   useLayoutEffect(() => startLanding(LANDING_PARTS), [])
+
+  // A section link's jump focuses its heading, with the keyboard's ring only when a key made it
+  // (see lib/jumps.ts).
+  useEffect(() => markPointerJumps(), [])
 
   // The page's section links (see lib/sectionNav.ts): the header marks the section the visitor is
   // in, and from 900px the intro's buttons dock in the header as it reaches them. Started before

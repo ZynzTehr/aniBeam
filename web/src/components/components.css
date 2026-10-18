@@ -2621,11 +2621,21 @@ body:has(.ab-card[open]) {
   content: '';
 }
 
+/* A link's jump moves focus to its heading too, but after a tap or click (data-jump, see
+   lib/jumps.ts) the ring stays hidden: it is there to show the keyboard where it is. */
+.ab-sfx[data-jump='pointer']:focus-visible::before {
+  content: none;
+}
+
 /* Forced colors put a solid plate behind text, which would hide a ring drawn behind it. */
 @media (forced-colors: active) {
   .ab-sfx:focus-visible {
     outline: 4px solid CanvasText;
     outline-offset: 3px;
+  }
+
+  .ab-sfx[data-jump='pointer']:focus-visible {
+    outline: none;
   }
 
   .ab-sfx:focus-visible::before {
