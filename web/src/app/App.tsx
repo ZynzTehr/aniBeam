@@ -9,7 +9,8 @@ import { coverFan, COVERS } from '../components/coverFan.ts'
 import { IntroHero } from '../components/IntroHero.tsx'
 import { MangaPage, PANELS } from '../components/MangaPage.tsx'
 import { MotionSwitch } from '../components/MotionSwitch.tsx'
-import { SiteHeader } from '../components/SiteHeader.tsx'
+import { SectionBar } from '../components/SectionBar.tsx'
+import { SiteHeader, type NavLink } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
 import { TitleNotice } from '../components/TitleNotice.tsx'
@@ -36,6 +37,13 @@ import { useDebounced } from '../lib/useDebounced.ts'
 import { noteFor, NOT_FOUND, sampleNote, searchStatus, titleNote } from './status.ts'
 
 const note = (query: UseQueryResult<Media[]>) => noteFor(query, isRateLimited())
+// The header's links: the page's three sections, and My List, to come.
+const HEADER_LINKS: NavLink[] = [
+  { href: '#ab-trending', label: 'Trending' },
+  { href: '#pull', label: 'Pull' },
+  { href: '#decades', label: 'Decades' },
+  { href: '#my-list', label: 'My List', soon: true },
+]
 // A Try again button when a section's last attempt failed (see App's retryFailed).
 const retryFor = (query: UseQueryResult<Media[]>, retryFailed: () => void) =>
   query.isError && !query.isFetching ? retryFailed : undefined
@@ -73,11 +81,17 @@ export default function App() {
   const [currentHref, setCurrentHref] = useState<string | null>(null)
   const appRef = useRef<HTMLDivElement>(null)
   const actionsRef = useRef<HTMLElement>(null)
+  const barRef = useRef<HTMLElement>(null)
   const sectionNav = useRef<ReturnType<typeof startSectionNav>>(null)
   useLayoutEffect(() => {
     const header = document.querySelector<HTMLElement>('.ab-top')
     if (!appRef.current || !header) return
-    const nav = startSectionNav({ app: appRef.current, header, onCurrent: setCurrentHref })
+    const nav = startSectionNav({
+      app: appRef.current,
+      header,
+      bar: barRef.current,
+      onCurrent: setCurrentHref,
+    })
     sectionNav.current = nav
     return () => {
       nav.stop()
@@ -283,16 +297,12 @@ export default function App() {
         Skip to Reduce motion
       </a>
       <SiteHeader
-        links={[
-          { href: '#ab-trending', label: 'Trending' },
-          { href: '#pull', label: 'Pull' },
-          { href: '#decades', label: 'Decades' },
-          { href: '#my-list', label: 'My List', soon: true },
-        ]}
+        links={HEADER_LINKS}
         search={search.shown}
         onSearch={(shown, text) => setSearch({ shown, text })}
         currentHref={currentHref}
       />
+      <SectionBar links={HEADER_LINKS} currentHref={currentHref} barRef={barRef} />
       <main id="main">
         <p role="status" className="sr-only">
           {announcement}

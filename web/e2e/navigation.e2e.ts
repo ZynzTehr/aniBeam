@@ -410,3 +410,151 @@ test('in the gallery, which has no intro, the header’s links all show', async 
     true,
   )
 })
+
+const PHONE = { width: 390, height: 844, phone: true }
+// A phone's bar: whether it is the set shown, drawn, reachable, and what it reads.
+const BAR = `(() => {
+  const bar = document.querySelector('.ab-bar')
+  return {
+    links: document.querySelector('.ab-app').dataset.links,
+    drawn: getComputedStyle(bar).visibility === 'visible',
+    inert: bar.inert,
+    reads: [...bar.querySelectorAll('a')].map((a) => a.textContent).join(' / '),
+    current: bar.querySelector('a[aria-current="location"]')?.textContent ?? 'none',
+  }
+})()`
+/** Scrolls a phone well past the intro's buttons, then up `up` px, a frame for each step. */
+async function revealBar(up = 40) {
+  const past = await browser.evaluate<number>(`(() => {
+    let top = 0
+    for (let el = document.querySelector('.ab-intro-actions'); el; el = el.offsetParent) top += el.offsetTop
+    return top + 1400
+  })()`)
+  await scrollAndSettle(past)
+  await scrollAndSettle(past - up)
+  return past - up
+}
+
+test('on a phone, once the intro’s buttons have gone, the links bar slides in on a scroll up and out on a scroll down', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const out = { links: 'intro', drawn: false, inert: true, reads: 'Trending / Pull / Decades' }
+  const look = async () => {
+    const { current, ...rest } = await browser.evaluate<Record<string, unknown>>(BAR)
+    return { rest, current }
+  }
+  assert.deepEqual((await look()).rest, out, 'at the top')
+  // Up a little with the buttons still on the screen: nothing.
+  await scrollAndSettle(300)
+  await scrollAndSettle(260)
+  assert.deepEqual((await look()).rest, out, 'with the buttons on the screen')
+  const y = await revealBar()
+  const shown = await look()
+  assert.deepEqual(
+    shown.rest,
+    { links: 'bar', drawn: true, inert: false, reads: 'Trending / Pull / Decades' },
+    'scrolled up',
+  )
+  assert.notEqual(shown.current, 'none', 'no section marked in the bar')
+  assert.equal(
+    await browser.evaluate(
+      `getComputedStyle(document.querySelector('.ab-bar a[aria-current="location"]')).backgroundColor`,
+    ),
+    'rgb(255, 212, 0)',
+  )
+  await scrollAndSettle(y + 40)
+  assert.deepEqual((await look()).rest, out, 'scrolled down again')
+  assert.equal(
+    await browser.evaluate(`getComputedStyle(document.querySelector('.ab-top')).position`),
+    'relative',
+  )
+})
+
+test('on a phone, one set of section links is drawn at a time, the bar in or out, and while searching', async () => {
+  const drawn = `[...document.querySelectorAll('a[href="#ab-trending"], a[href="#pull"], a[href="#decades"]')].filter((a) => a.checkVisibility({ visibilityProperty: true }) && !a.closest('[inert]')).map((a) => a.getAttribute('href')).sort().join(' ')`
+  const all = '#ab-trending #decades #pull'
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  assert.equal(await browser.evaluate(drawn), all, 'at the top')
+  await revealBar()
+  assert.equal(await browser.evaluate(drawn), all, 'the bar in')
+  await scrollAndSettle(0)
+  await browser.search('frieren')
+  assert.ok(
+    await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`, 10_000),
+  )
+  assert.equal(await browser.evaluate(drawn), all, 'while searching')
+})
+
+test('on a phone, focus in the bar keeps it in, and a jump from it lands its heading clear of it', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await revealBar()
+  await browser.evaluate(
+    `document.querySelector('.ab-bar a[href="#pull"]').focus({ preventScroll: true }); true`,
+  )
+  await browser.evaluate(`scrollBy(0, 300); true`)
+  await frames()
+  assert.deepEqual(
+    await browser.evaluate(
+      `({ links: document.querySelector('.ab-app').dataset.links, focus: document.activeElement.textContent })`,
+    ),
+    { links: 'bar', focus: 'Pull' },
+    'scrolled down with focus in the bar',
+  )
+  // Its Trending link, followed from the keyboard: the heading takes focus, clear of the bar.
+  await browser.evaluate(`document.querySelector('.ab-bar a[href="#ab-trending"]').focus(); true`)
+  await browser.press('Enter')
+  assert.ok(await browser.waitFor(`document.activeElement?.id === 'ab-trending'`, 5000), 'no jump')
+  await frames()
+  const clear = await browser.evaluate<{ links: string; ring: number; bar: number }>(`({
+    links: document.querySelector('.ab-app').dataset.links,
+    ring: Math.round(document.activeElement.getBoundingClientRect().top - 7),
+    bar: Math.round(document.querySelector('.ab-bar').getBoundingClientRect().bottom),
+  })`)
+  assert.ok(
+    clear.links !== 'bar' || clear.ring >= clear.bar,
+    `the heading's ring at ${clear.ring}px, under the bar to ${clear.bar}px`,
+  )
+})
+
+test('on a phone, a decade row scrolled sideways leaves the bar as it is', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await revealBar()
+  await browser.evaluate(
+    `document.querySelector('.ab-strip-row:not([aria-hidden])').scrollBy(300, 0); true`,
+  )
+  await frames()
+  assert.equal(await browser.evaluate(`document.querySelector('.ab-app').dataset.links`), 'bar')
+})
+
+test('the bar slides with motion allowed, and comes and goes at once under reduced motion; nothing on the page moves either way', async () => {
+  for (const reduceMotion of [false, true]) {
+    await browser.watchLayoutShifts()
+    await browser.load({ ...PHONE, reduceMotion })
+    assert.ok(await browser.titlesShown())
+    await browser.landAll()
+    await browser.animationsDone()
+    const before = (await browser.layoutShift()).value
+    await revealBar()
+    const slide = await browser.evaluate<string>(
+      `getComputedStyle(document.querySelector('.ab-bar')).transitionDuration`,
+    )
+    assert.equal(
+      slide,
+      reduceMotion ? '0s' : '0.22s, 0s',
+      reduceMotion ? 'reduced motion' : 'motion allowed',
+    )
+    await browser.evaluate(`scrollBy(0, 200); true`)
+    await frames()
+    await browser.animationsDone()
+    assert.ok(
+      (await browser.layoutShift()).value - before < 0.01,
+      `${reduceMotion ? 'reduced motion' : 'motion'}: the page shifted`,
+    )
+  }
+})

@@ -337,11 +337,12 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // follow-ups), then 79,000 B with the request for one title on its own (titleQuery, for title
 // addresses: 79,019 B), 79,500 B with opening a title at its address (lib/route.ts, the note in
 // place of a card: 79,519 B), 80,000 B with the title addresses' review fixes (the note's fade-out
-// among them: 80,043 B), and 80,500 B with the section links (lib/sectionNav.ts, docking the
-// intro's buttons: 80,741 B), so its budget is 81,000 B. The fonts in web/public are copied as they
+// among them: 80,043 B), 80,500 B with the section links (lib/sectionNav.ts, docking the intro's
+// buttons: 80,741 B), and 81,000 B with a phone's bar of them (SectionBar: 81,118 B), so its budget
+// is 81,500 B. The fonts in web/public are copied as they
 // are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 81_000,
+  'the JS every visit loads': 81_500,
   'the CSS': 9_500,
   'the JS loaded only when needed': 3_500,
   'every other file': 500,

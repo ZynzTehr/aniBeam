@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { currentSection, dockedAfter, linkSet, sectionLine, UNDOCK_GAP } from './sectionNav.ts'
+import {
+  BAR_SLACK,
+  barAfter,
+  currentSection,
+  dockedAfter,
+  linkSet,
+  sectionLine,
+  UNDOCK_GAP,
+} from './sectionNav.ts'
 
 test('a section counts as reached two thirds of the way down the screen below the header', () => {
   // A 78px header on a 900px screen: 78 + (822 * 2/3).
@@ -56,11 +64,82 @@ test('docked, they stay until their place is UNDOCK_GAP below the header, or the
   assert.equal(dockedAfter(true, at(-500, 0)), false, 'the top of the page')
 })
 
-test('the set with focus stays shown; with no intro the header’s shows; otherwise docking decides', () => {
-  assert.equal(linkSet({ introOnPage: true, docked: false, held: null }), 'intro')
-  assert.equal(linkSet({ introOnPage: true, docked: true, held: null }), 'header')
-  assert.equal(linkSet({ introOnPage: false, docked: false, held: null }), 'header')
-  assert.equal(linkSet({ introOnPage: true, docked: true, held: 'intro' }), 'intro')
-  assert.equal(linkSet({ introOnPage: true, docked: false, held: 'header' }), 'header')
-  assert.equal(linkSet({ introOnPage: false, docked: false, held: 'header' }), 'header')
+test('the set with focus stays shown; then a phone’s bar while in; with no intro the header’s; else docking decides', () => {
+  const set = (
+    introOnPage: boolean,
+    docked: boolean,
+    barIn: boolean,
+    held: 'intro' | 'header' | 'bar' | null,
+  ) => linkSet({ introOnPage, docked, barIn, held })
+  assert.equal(set(true, false, false, null), 'intro')
+  assert.equal(set(true, true, false, null), 'header')
+  assert.equal(set(false, false, false, null), 'header')
+  assert.equal(set(true, false, true, null), 'bar')
+  assert.equal(set(false, false, true, null), 'bar')
+  assert.equal(set(true, true, false, 'intro'), 'intro')
+  assert.equal(set(true, false, false, 'header'), 'header')
+  assert.equal(set(true, false, true, 'header'), 'header')
+  assert.equal(set(true, false, false, 'bar'), 'bar')
+})
+
+// A phone scrolled to y, past the intro's buttons, focus on nothing in particular.
+const scrolledTo = (y: number, more: Partial<Parameters<typeof barAfter>[1]> = {}) => ({
+  y,
+  eligible: true,
+  focusInBar: false,
+  focusUnder: false,
+  fromFocus: false,
+  dialogOpen: false,
+  ...more,
+})
+
+test('a phone’s bar comes in on a scroll up of BAR_SLACK, from the lowest point, and goes out on as much down', () => {
+  assert.equal(BAR_SLACK, 8)
+  let bar = { barIn: false, anchor: 1000 }
+  bar = barAfter(bar, scrolledTo(1500))
+  assert.deepEqual(bar, { barIn: false, anchor: 1500 }, 'down: the anchor follows')
+  bar = barAfter(bar, scrolledTo(1493))
+  assert.deepEqual(bar, { barIn: false, anchor: 1500 }, '7px up: not yet')
+  bar = barAfter(bar, scrolledTo(1492))
+  assert.deepEqual(bar, { barIn: true, anchor: 1492 }, '8px up: in')
+  bar = barAfter(bar, scrolledTo(1200))
+  assert.deepEqual(bar, { barIn: true, anchor: 1200 }, 'up: the anchor follows')
+  bar = barAfter(bar, scrolledTo(1207))
+  assert.deepEqual(bar, { barIn: true, anchor: 1200 }, '7px down: still in')
+  bar = barAfter(bar, scrolledTo(1208))
+  assert.deepEqual(bar, { barIn: false, anchor: 1208 }, '8px down: out')
+  assert.deepEqual(barAfter(bar, scrolledTo(1208)), bar, 'the same scroll changes nothing')
+})
+
+test('the bar stays out until what it stands for has gone, and never covers what has focus', () => {
+  assert.deepEqual(barAfter({ barIn: false, anchor: 500 }, scrolledTo(300, { eligible: false })), {
+    barIn: false,
+    anchor: 300,
+  })
+  assert.deepEqual(barAfter({ barIn: true, anchor: 500 }, scrolledTo(400, { eligible: false })), {
+    barIn: false,
+    anchor: 400,
+  })
+  assert.deepEqual(barAfter({ barIn: true, anchor: 500 }, scrolledTo(490, { focusUnder: true })), {
+    barIn: false,
+    anchor: 490,
+  })
+})
+
+test('focus in the bar keeps it in; a dialog, or a scroll focus made, leaves it as it is', () => {
+  const inBar = { barIn: true, anchor: 500 }
+  assert.equal(barAfter(inBar, scrolledTo(900, { focusInBar: true })).barIn, true, 'down 400px')
+  assert.equal(barAfter(inBar, scrolledTo(900, { focusInBar: true, eligible: false })).barIn, true)
+  assert.deepEqual(barAfter(inBar, scrolledTo(900, { fromFocus: true })), {
+    barIn: true,
+    anchor: 900,
+  })
+  assert.deepEqual(barAfter({ barIn: false, anchor: 900 }, scrolledTo(500, { fromFocus: true })), {
+    barIn: false,
+    anchor: 500,
+  })
+  assert.deepEqual(barAfter(inBar, scrolledTo(900, { dialogOpen: true })), {
+    barIn: true,
+    anchor: 900,
+  })
 })
