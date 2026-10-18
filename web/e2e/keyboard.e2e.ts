@@ -226,8 +226,15 @@ test("each of the header's section links hands focus to its section's heading, a
     await browser.load({ ...screen, reduceMotion: true })
     assert.ok(await browser.titlesShown())
     for (const label of ['Trending', 'Pull', 'Decades']) {
+      // From the top of the page; on a wide screen, from its end, where the intro's buttons have
+      // docked and the header's links show.
+      await browser.evaluate(
+        `scrollTo({ top: ${screen.width >= 900 ? 'document.documentElement.scrollHeight' : 0}, behavior: 'instant' }); true`,
+      )
+      await browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
       await browser.evaluate(`(() => {
-        scrollTo({ top: 0, behavior: 'instant' })
         ;[...document.querySelectorAll('.ab-nav a')].find((link) => link.textContent === '${label}').focus()
         return true
       })()`)
@@ -249,7 +256,8 @@ test("each of the header's section links hands focus to its section's heading, a
 })
 
 // Each Tab stop of the page, in order: a run of stops alike is one entry, with its count. Title
-// panels go by their section, as their titles come from AniList.
+// panels go by their section, as their titles come from AniList. On a phone the header's section
+// links show beside the intro's buttons (see lib/sectionNav.ts).
 const STOPS = [
   'Skip to content',
   'Skip to Reduce motion',
@@ -267,6 +275,26 @@ const STOPS = [
   'Decade: 1990s',
   'a title in Browse by decade ×20',
   'Reduce motion',
+]
+
+// From 900px, the header's section links wait hidden while the intro's buttons are on the screen,
+// so a walk from the top meets only the buttons; walking back from the end, the buttons have
+// docked in the header, so it meets the header's links instead.
+const STOPS_WIDE = STOPS.filter((stop) => !['Trending', 'Pull', 'Decades'].includes(stop))
+const BACK_WIDE = [
+  'Reduce motion',
+  'a title in Browse by decade ×20',
+  'Decade: 1990s',
+  'Pull!',
+  'Pick a vibe: Any vibe',
+  'a title in Trending now ×9',
+  'Search titles',
+  'Decades',
+  'Pull',
+  'Trending',
+  'AniBeam',
+  'Skip to Reduce motion',
+  'Skip to content',
 ]
 
 // The stop that has focus, and what is wrong with how it shows, read as Tab reaches it: it must be
@@ -381,8 +409,10 @@ test('Tab walks every stop of the page in order and Shift+Tab walks them back, e
       problems,
     }
   }
-  const expected = { stops: STOPS, back: 'the same, reversed', problems: [] }
-  assert.deepEqual(seen, { '1440px': expected, '390px': expected })
+  assert.deepEqual(seen, {
+    '1440px': { stops: STOPS_WIDE, back: BACK_WIDE, problems: [] },
+    '390px': { stops: STOPS, back: 'the same, reversed', problems: [] },
+  })
 })
 
 test('by keyboard alone, Esc empties the search box, arrow keys choose a vibe and a decade, and Space pulls, opens a title card on its Close button and closes it', async () => {

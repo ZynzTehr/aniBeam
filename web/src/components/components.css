@@ -61,6 +61,16 @@
   color: var(--paper);
 }
 
+/* One set of the page's section links shows at a time (data-links on the page's root, see
+   lib/sectionNav.ts): from 900px the header's wait hidden in their place while the intro's
+   buttons are on the screen, and the buttons hide in theirs once they have docked. Hidden, not
+   taken out: both keep their room, so nothing moves, and neither can be reached or read. My List
+   stays. With no data-links (under 900px, the gallery), both show. */
+.ab-app[data-links='intro'] .ab-top .ab-nav a,
+.ab-app[data-links='header'] .ab-intro-actions {
+  visibility: hidden;
+}
+
 /* The link to the section the visitor is in (aria-current="location", see lib/sectionNav.ts) is
    sound-effect yellow, raised with a hard shadow, as a picked chip is; hovered or pressed, it
    turns ink, as every header link does, so the two never look alike. The raise is a transform
@@ -2089,8 +2099,9 @@ body:has(.ab-card[open]) {
   grid-area: actions;
 }
 
-/* The intro's buttons are the page's section links (they fly into the header as it reaches them,
-   see NavFlight), so they share one look, white, and turn ink as one is hovered or pressed. */
+/* The intro's buttons are the page's section links (they dock in the header as it reaches them,
+   see lib/sectionNav.ts), so they share one look, white, and turn ink as one is hovered or
+   pressed. */
 .ab-intro-actions .ab-btn:hover,
 .ab-intro-actions .ab-btn:active {
   background: var(--ink);

@@ -1658,12 +1658,25 @@ describe('desktop (1440x900)', () => {
     // the page has jumped: the top of the link's target, and how much of it is under the header,
     // with its focus ring (4px, 3px out) when it took focus, as the headings do.
     const jump = async (href: string) => {
+      // From the top of the page; where the header's section links wait hidden there (from
+      // 900px, while the intro's buttons show), from its end, where the buttons have docked.
       await browser.evaluate(`(() => {
         history.replaceState(null, '', location.pathname)
         scrollTo(0, 0)
-        document.querySelector('.ab-nav a[href="${href}"]').focus()
         return true
       })()`)
+      await browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+      await browser.evaluate(`(() => {
+        const link = document.querySelector('.ab-nav a[href="${href}"]')
+        if (getComputedStyle(link).visibility === 'hidden') scrollTo(0, document.documentElement.scrollHeight)
+        return true
+      })()`)
+      await browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+      await browser.evaluate(`document.querySelector('.ab-nav a[href="${href}"]').focus(); true`)
       await browser.press('Enter')
       assert.ok(
         await browser.waitFor(`location.hash === '${href}'`, 5_000),

@@ -2,7 +2,7 @@
 // reaches them, and the header's links, which mark the section the visitor is in.
 import assert from 'node:assert/strict'
 import { after, afterEach, before, beforeEach, test } from 'node:test'
-import { Browser } from './browser.ts'
+import { BASE_URL, Browser } from './browser.ts'
 
 let browser: Browser
 before(async () => {
@@ -141,4 +141,240 @@ test('at the end of the page the last section is current, and while searching, a
   )
   await frames()
   assert.equal(await browser.evaluate(CURRENT), '#ab-trending', 'scrolled down to trending')
+})
+
+// Which set of section links shows (data-links, see lib/sectionNav.ts), and whether each is drawn.
+const SHOWN = `(() => {
+  const shown = (el) => Boolean(el) && getComputedStyle(el).visibility === 'visible'
+  return {
+    links: document.querySelector('.ab-app').dataset.links ?? 'none',
+    header: [...document.querySelectorAll('.ab-top .ab-nav a')].every(shown),
+    intro: shown(document.querySelector('.ab-intro-actions')),
+  }
+})()`
+// Where the intro's buttons are laid out on the page, and the header's bottom: a fraction of a
+// pixel with text spacing (137.19px, say), which the page compares with as it is.
+const GEOMETRY = `(() => {
+  let top = 0
+  for (let el = document.querySelector('.ab-intro-actions'); el; el = el.offsetParent) top += el.offsetTop
+  return { top, bottom: document.querySelector('.ab-top').getBoundingClientRect().bottom }
+})()`
+// The scroll at which the intro's buttons reach the header's bottom.
+const DOCK_AT = `(({ top, bottom }) => top - Math.floor(bottom))(${GEOMETRY})`
+const scrollAndSettle = async (y: number | string) => {
+  await browser.evaluate(`scrollTo(0, ${y}); true`)
+  await frames()
+}
+const TEXT_SPACING = `(() => {
+  const style = document.head.appendChild(document.createElement('style'))
+  style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+  return true
+})()`
+
+test('from 900px the header’s links wait hidden until the intro’s buttons reach the header, and swap back 200px later', async () => {
+  for (const [screen, spacing] of [
+    [DESKTOP, false],
+    [{ width: 1024, height: 600 }, false],
+    [{ width: 960, height: 900 }, true],
+  ] as const) {
+    const at = `${screen.width}px${spacing ? ', text spacing' : ''}`
+    await browser.load({ ...screen, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    if (spacing) {
+      await browser.evaluate(TEXT_SPACING)
+      await frames()
+    }
+    assert.deepEqual(
+      await browser.evaluate(SHOWN),
+      { links: 'intro', header: false, intro: true },
+      `${at}, at the top`,
+    )
+    const dockAt = await browser.evaluate<number>(DOCK_AT)
+    await scrollAndSettle(dockAt - 1)
+    assert.equal(
+      (await browser.evaluate<{ links: string }>(SHOWN)).links,
+      'intro',
+      `${at}, a pixel short`,
+    )
+    await scrollAndSettle(dockAt)
+    assert.deepEqual(
+      await browser.evaluate(SHOWN),
+      { links: 'header', header: true, intro: false },
+      `${at}, docked`,
+    )
+    // They swap back once their place is 200px below the header, or, on a screen too short for
+    // that, where it is at the top of the page.
+    const { top, bottom } = await browser.evaluate<{ top: number; bottom: number }>(GEOMETRY)
+    const gap = Math.min(200, top - bottom)
+    const undockAt = top - Math.ceil(bottom + gap)
+    const links = async () => (await browser.evaluate<{ links: string }>(SHOWN)).links
+    if (undockAt < dockAt - 100) {
+      await scrollAndSettle(dockAt - 100)
+      assert.equal(await links(), 'header', `${at}, 100px back up`)
+    }
+    if (undockAt > 0) {
+      await scrollAndSettle(undockAt + 1)
+      assert.equal(await links(), 'header', `${at}, a pixel short of the gap`)
+    }
+    await scrollAndSettle(Math.max(0, undockAt))
+    assert.equal(await links(), 'intro', `${at}, at the gap`)
+    await scrollAndSettle(dockAt + 300)
+    await scrollAndSettle(0)
+    assert.equal(
+      (await browser.evaluate<{ links: string }>(SHOWN)).links,
+      'intro',
+      `${at}, back at the top`,
+    )
+  }
+})
+
+test('swapping the links moves nothing: the header, its links and the intro’s buttons keep their place and size', async () => {
+  const boxes = `(() => {
+    const box = (el) => [el.offsetLeft, el.offsetTop, el.offsetWidth, el.offsetHeight].join(',')
+    return [document.querySelector('.ab-top').offsetHeight, getComputedStyle(document.documentElement).getPropertyValue('--top-h'),
+      ...[...document.querySelectorAll('.ab-top .ab-nav a, .ab-top .ab-soon, .ab-intro-actions .ab-btn')].map(box)].join(' | ')
+  })()`
+  for (const [screen, spacing] of [
+    [DESKTOP, false],
+    [{ width: 960, height: 900 }, true],
+  ] as const) {
+    await browser.watchLayoutShifts()
+    await browser.load({ ...screen, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    await browser.landAll()
+    if (spacing) {
+      await browser.evaluate(TEXT_SPACING)
+      await frames()
+    }
+    const before = await browser.evaluate<string>(boxes)
+    const shiftBefore = (await browser.layoutShift()).value
+    const dockAt = await browser.evaluate<number>(DOCK_AT)
+    for (const y of [dockAt + 10, 0, dockAt + 10, 0]) {
+      await scrollAndSettle(y)
+      assert.equal(
+        await browser.evaluate<string>(boxes),
+        before,
+        `${screen.width}px at ${y}: something moved`,
+      )
+    }
+    assert.equal(
+      (await browser.layoutShift()).value,
+      shiftBefore,
+      `${screen.width}px: a layout shift`,
+    )
+  }
+})
+
+test('one set of section links shows at a time, to the mouse, the keyboard and screen readers', async () => {
+  // Each link to the three sections that is drawn: hidden ones can't be reached or read.
+  const drawn = `[...document.querySelectorAll('a[href="#ab-trending"], a[href="#pull"], a[href="#decades"]')].filter((a) => a.checkVisibility({ visibilityProperty: true })).map((a) => a.getAttribute('href')).sort().join(' ')`
+  const all = '#ab-trending #decades #pull'
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  assert.equal(await browser.evaluate(drawn), all, 'at the top')
+  await scrollAndSettle(await browser.evaluate<number>(DOCK_AT))
+  assert.equal(await browser.evaluate(drawn), all, 'docked')
+  await scrollAndSettle(0)
+  await browser.search('frieren')
+  assert.ok(
+    await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`, 10_000),
+  )
+  assert.equal(await browser.evaluate(drawn), all, 'while searching')
+})
+
+test('while searching, the header’s links show, and clearing the search at the top brings the intro’s buttons back with nothing moved', async () => {
+  await browser.watchLayoutShifts()
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.search('frieren')
+  assert.ok(
+    await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`, 10_000),
+  )
+  assert.deepEqual(
+    await browser.evaluate(SHOWN),
+    { links: 'header', header: true, intro: false },
+    'while searching',
+  )
+  const shift = (await browser.layoutShift()).value
+  await browser.search('')
+  assert.ok(await browser.waitFor(`document.querySelector('.ab-intro-actions')`, 5000))
+  await frames()
+  assert.deepEqual(
+    await browser.evaluate(SHOWN),
+    { links: 'intro', header: false, intro: true },
+    'cleared',
+  )
+  assert.ok(
+    (await browser.layoutShift()).value - shift < 0.01,
+    'clearing the search moved the page',
+  )
+})
+
+test('a reload partway down the page shows the header’s links from the first frame drawn there', async () => {
+  // Each frame's scroll and set, from the page's first moment.
+  await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `window.__frames = []; (function record() { const app = document.querySelector('.ab-app'); window.__frames.push([scrollY, app ? app.dataset.links ?? 'none' : 'no app']); if (window.__frames.length < 120) requestAnimationFrame(record) })()`,
+  })
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  const dockAt = await browser.evaluate<number>(DOCK_AT)
+  await scrollAndSettle(dockAt + 600)
+  await browser.evaluate(`window.__beforeReload = true; true`)
+  await browser.send('Page.reload')
+  await browser.waitFor(`!window.__beforeReload && window.__frames.length >= 60`, 10_000)
+  const wrong = (await browser.evaluate<[number, string][]>(`window.__frames`)).filter(
+    ([y, links]) => y >= dockAt + 10 && links !== 'header',
+  )
+  assert.deepEqual(wrong, [], 'frames past the buttons without the header’s links')
+})
+
+test('a link that has focus never hides: the set holding it stays until focus leaves', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  const dockAt = await browser.evaluate<number>(DOCK_AT)
+  // An intro button with focus, scrolled past the header.
+  await browser.evaluate(
+    `document.querySelector('.ab-intro-actions a[href="#pull"]').focus({ preventScroll: true }); true`,
+  )
+  await scrollAndSettle(dockAt + 300)
+  assert.deepEqual(
+    await browser.evaluate(SHOWN),
+    { links: 'intro', header: false, intro: true },
+    'an intro button focused',
+  )
+  await browser.evaluate(`document.activeElement.blur(); true`)
+  await frames()
+  assert.equal((await browser.evaluate<{ links: string }>(SHOWN)).links, 'header', 'once it left')
+  // A header link with focus, scrolled back to the top.
+  await browser.evaluate(
+    `document.querySelector('.ab-nav a[href="#pull"]').focus({ preventScroll: true }); true`,
+  )
+  await scrollAndSettle(0)
+  assert.deepEqual(
+    await browser.evaluate(SHOWN),
+    { links: 'header', header: true, intro: false },
+    'a header link focused',
+  )
+  await browser.evaluate(`document.activeElement.blur(); true`)
+  await frames()
+  assert.equal((await browser.evaluate<{ links: string }>(SHOWN)).links, 'intro', 'once it left')
+})
+
+test('under 900px, and in the gallery, both sets show as they did', async () => {
+  await browser.load({ width: 860, height: 900, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  assert.deepEqual(
+    await browser.evaluate(SHOWN),
+    { links: 'none', header: true, intro: true },
+    '860px',
+  )
+  await browser.load({ ...DESKTOP, reduceMotion: true, url: new URL('/?gallery', BASE_URL).href })
+  assert.ok(await browser.waitFor(`document.querySelector('.ab-top .ab-nav a')`, 10_000))
+  assert.equal(
+    await browser.evaluate(
+      `[...document.querySelectorAll('.ab-top .ab-nav a')].every((a) => getComputedStyle(a).visibility === 'visible')`,
+    ),
+    true,
+    'the gallery',
+  )
 })

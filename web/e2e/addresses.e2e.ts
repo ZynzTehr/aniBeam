@@ -408,8 +408,10 @@ test('after a link to a section, a title closed by Close, Esc or Back leaves the
   for (const how of ['button', 'Esc', 'Back']) {
     await browser.load({ ...DESKTOP, reduceMotion: true })
     assert.ok(await browser.titlesShown())
-    // The header's Decades link leaves #decades in the address; then a little further down.
-    await browser.evaluate(`document.querySelector('.ab-nav a[href="#decades"]').click(); true`)
+    // The intro's Browse by decade leaves #decades in the address; then a little further down.
+    await browser.evaluate(
+      `document.querySelector('.ab-intro-actions a[href="#decades"]').click(); true`,
+    )
     await browser.waitFor(`location.hash === '#decades'`)
     await browser.evaluate(`scrollBy(0, 120); true`)
     await sleep(200)

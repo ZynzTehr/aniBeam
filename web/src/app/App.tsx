@@ -67,11 +67,22 @@ export default function App() {
   // browser first draws the page, so no part shows, then hides, then lands.
   useLayoutEffect(() => startLanding(LANDING_PARTS), [])
 
-  // The header marks the section the visitor is in (see lib/sectionNav.ts).
+  // The page's section links (see lib/sectionNav.ts): the header marks the section the visitor is
+  // in, and from 900px the intro's buttons dock in the header as it reaches them. Started before
+  // the browser first draws the page, so the right set of links shows from the first frame.
   const [currentHref, setCurrentHref] = useState<string | null>(null)
+  const appRef = useRef<HTMLDivElement>(null)
+  const actionsRef = useRef<HTMLElement>(null)
+  const sectionNav = useRef<ReturnType<typeof startSectionNav>>(null)
   useLayoutEffect(() => {
     const header = document.querySelector<HTMLElement>('.ab-top')
-    return header ? startSectionNav({ header, onCurrent: setCurrentHref }) : undefined
+    if (!appRef.current || !header) return
+    const nav = startSectionNav({ app: appRef.current, header, onCurrent: setCurrentHref })
+    sectionNav.current = nav
+    return () => {
+      nav.stop()
+      sectionNav.current = null
+    }
   }, [])
 
   // A Try again button when a section's last attempt failed. One press retries every failed
@@ -251,13 +262,18 @@ export default function App() {
     return all.filter((media, i) => all.findIndex((other) => other.id === media.id) === i)
   }, [trendingShown, decadeShown])
 
+  // The intro's buttons, for the section links: none while searching, as results take its place.
+  useLayoutEffect(() => {
+    sectionNav.current?.intro(searching ? null : actionsRef.current)
+  }, [searching])
+
   // Search results take the intro's place at the top of the page; bring them into view.
   useEffect(() => {
     if (searching) window.scrollTo({ top: 0 })
   }, [searching])
 
   return (
-    <div className="ab-app">
+    <div ref={appRef} className="ab-app">
       <a className="ab-skip" href="#main">
         Skip to content
       </a>
@@ -292,6 +308,7 @@ export default function App() {
           <IntroHero
             titles={trending.data ? introCovers : trendingSamples}
             coversRef={introRef}
+            actionsRef={actionsRef}
             // Not once a try has failed or the browser is offline: covers that aren't coming
             // would leave an empty band pushing the buttons off a phone's first screen. The
             // samples' covers are coming, though, until their file fails to load.

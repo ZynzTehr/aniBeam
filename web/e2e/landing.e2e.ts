@@ -265,7 +265,9 @@ test('a part peeking in by less than 15% lands once it has stayed in view a mome
 test('a heading reached by a header link or an intro button booms as it takes focus', async () => {
   // Section headings take focus only from these links (they are out of the Tab order): a jump to
   // one lands it as if seen, so its sound effect booms there, rather than at once, as Tab lands
-  // what it reaches.
+  // what it reaches. The header's links wait hidden while the intro's buttons are on the screen
+  // (see lib/sectionNav.ts), so they are followed while searching, where results take the intro's
+  // place, and the sections below them haven't landed yet.
   const booms: Record<string, string> = {}
   for (const [from, label] of [
     ['.ab-nav a', 'Trending'],
@@ -275,6 +277,15 @@ test('a heading reached by a header link or an intro button booms as it takes fo
   ]) {
     await browser.load()
     assert.ok(await browser.titlesShown())
+    if (from === '.ab-nav a') {
+      await browser.search('frieren')
+      assert.ok(
+        await browser.waitFor(
+          `document.querySelector('.ab-results .ab-strip-panel[href]')`,
+          10_000,
+        ),
+      )
+    }
     await browser.evaluate(`(() => {
       window.__booms = []
       addEventListener('animationstart', (event) => {

@@ -17,6 +17,7 @@ export function IntroHero({
   coversRef,
   loading = false,
   actions,
+  actionsRef,
 }: {
   titles: Media[]
   /** Gets the cover fan, so App can tell when it is on screen (see useSteadyList). */
@@ -24,6 +25,8 @@ export function IntroHero({
   /** Hold the covers' place while the first load runs (on phones, so the headline stays put). */
   loading?: boolean
   actions: IntroAction[]
+  /** The intro's buttons, the page's section links while they are on the screen (sectionNav). */
+  actionsRef?: Ref<HTMLElement>
 }) {
   // The same pick App's hold uses (see coverFan).
   const covers = coverFan(titles)
@@ -64,7 +67,7 @@ export function IntroHero({
         See what&rsquo;s trending this week, pull a random pick for your mood, or dig through past
         decades. Coming soon: chat with other fans about the shows, movies and OVAs you love.
       </p>
-      <nav className="ab-intro-actions" aria-label="Ways to find a title">
+      <nav ref={actionsRef} className="ab-intro-actions" aria-label="Ways to find a title">
         {actions.map((action) => (
           <a key={action.href} className="ab-btn" href={action.href}>
             {action.label}
