@@ -114,18 +114,19 @@
 
 /* A phone's bar of the section links (SectionBar): fixed at the top, out of the page's flow, so
    it moves nothing. Out of sight above the screen and hidden until it is the set shown, when it
-   comes down; inside the motion gate below, it slides. Not drawn from 900px, where the header
-   stays on screen. */
+   comes down; inside the motion gate below, it slides, with the site's spring, which overshoots:
+   so it starts 12px above the screen's top, and what shows as it overshoots is more bar, never a
+   strip of the page above it. Not drawn from 900px, where the header stays on screen. */
 .ab-bar {
   position: fixed;
   z-index: 30;
-  top: 0;
+  top: -12px;
   right: 0;
   left: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 9px var(--page-x);
+  padding: calc(9px + 12px) var(--page-x) 9px;
   border-bottom: var(--border) solid var(--ink);
   background: var(--paper);
   transform: translateY(calc(-100% - 8px));

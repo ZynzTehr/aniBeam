@@ -325,7 +325,8 @@ export function startSectionNav({
     if (!bar || !focused || focused === document.body || bar.contains(focused)) return false
     const shown = focused.matches('label > input') ? focused.nextElementSibling : focused
     const box = (shown ?? focused).getBoundingClientRect()
-    return box.bottom > 0 && box.top < bar.offsetHeight + 9
+    // The bar's bottom where it rests (it starts above the screen's top, for its overshoot).
+    return box.bottom > 0 && box.top < bar.offsetTop + bar.offsetHeight + 9
   }
 
   const evaluate = () => {

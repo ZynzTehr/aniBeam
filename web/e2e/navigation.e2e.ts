@@ -720,7 +720,7 @@ test('on a phone, a part that shows only under the links bar waits to land until
     const machine = document.querySelector('.ab-machine')
     let top = 0
     for (let el = machine; el; el = el.offsetParent) top += el.offsetTop
-    return { top, height: machine.offsetHeight, bar: document.querySelector('.ab-bar').offsetHeight }
+    return { top, height: machine.offsetHeight, bar: (({ offsetTop, offsetHeight }) => offsetTop + offsetHeight)(document.querySelector('.ab-bar')) }
   })()`)
   assert.equal(await browser.evaluate(`document.querySelector('.ab-machine').dataset.land`), 'wait')
   // Below the bar, 10px short of 15% of it; above, under the bar, the bar's height more.
@@ -788,5 +788,27 @@ test('on a phone, focus that a move brings in at the top of the screen is never 
   assert.ok(
     at.links !== 'bar' || at.ring >= at.bar,
     `the lever's ring at ${at.ring}px, under the bar to ${at.bar}px`,
+  )
+})
+
+test('with motion allowed, the links bar slides in with its spring and never shows a strip of the page above it', async () => {
+  await browser.load(PHONE)
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.animationsDone()
+  // The bar's top edge each frame as it slides in: at or above the screen's top throughout.
+  await browser.evaluate(`(() => {
+    window.__barTops = []
+    const record = () => { window.__barTops.push(document.querySelector('.ab-bar').getBoundingClientRect().top); if (window.__barTops.length < 40) requestAnimationFrame(record) }
+    requestAnimationFrame(record)
+    return true
+  })()`)
+  await revealBar()
+  await browser.waitFor(`window.__barTops.length >= 40`, 5000)
+  const tops = await browser.evaluate<number[]>(`window.__barTops`)
+  assert.equal(await browser.evaluate(`document.querySelector('.ab-app').dataset.links`), 'bar')
+  assert.ok(
+    Math.max(...tops) <= 0,
+    `the bar's top came ${Math.max(...tops).toFixed(1)}px below the screen's top`,
   )
 })

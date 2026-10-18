@@ -93,4 +93,6 @@ test('the observer starts below a header that stays on screen, rounded up, and a
   // A phone's bar of the section links, while in, covers the top as the header would.
   assert.equal(coveredBy(230.4, false, 68.2), 69)
   assert.equal(coveredBy(78, true, 68), 78)
+  // Sliding in, the bar can still be above the screen: that covers nothing.
+  assert.equal(coveredBy(230.4, false, -40), 0)
 })
