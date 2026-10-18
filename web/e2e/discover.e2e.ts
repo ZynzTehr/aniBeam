@@ -1683,13 +1683,20 @@ describe('desktop (1440x900)', () => {
       await browser.evaluate(
         'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
       )
-      await browser.evaluate(`(() => {
+      // From 900px the header's link must show by now: a fall back to the intro's button there
+      // would pass without pressing it.
+      const used = await browser.evaluate<string>(`(() => {
         const header = document.querySelector('.ab-nav a[href="${href}"]')
-        if (getComputedStyle(header).visibility !== 'hidden') return header.focus(), true
+        if (getComputedStyle(header).visibility !== 'hidden') return header.focus(), 'header'
         scrollTo(0, 0)
         document.querySelector('.ab-intro-actions a[href="${href}"]').focus()
-        return true
+        return 'intro'
       })()`)
+      const wide = await browser.evaluate<boolean>(`innerWidth >= 900`)
+      assert.ok(
+        !wide || used === 'header',
+        `the header’s ${href} link didn’t show at the page’s end`,
+      )
       await browser.press('Enter')
       assert.ok(
         await browser.waitFor(`location.hash === '${href}'`, 5_000),
