@@ -705,3 +705,34 @@ test('a jump by an intro button swaps the sets at once, with no flight', async (
   assert.equal((await browser.evaluate<{ links: string }>(SHOWN)).links, 'header')
   assert.equal(await browser.evaluate(CURRENT), '#pull')
 })
+
+test('on a phone, a part that shows only under the links bar waits to land until it shows below it', async () => {
+  // The pull machine, scrolled up into view with the bar coming in: most of what shows of it is
+  // under the bar, and less than the 15% a part needs below it. The scroll slam counts the bar
+  // as covering the top, as it counts the sticky header from 900px (lib/landing.ts).
+  await browser.load(PHONE)
+  assert.ok(await browser.titlesShown())
+  const { top, height, bar } = await browser.evaluate<{
+    top: number
+    height: number
+    bar: number
+  }>(`(() => {
+    const machine = document.querySelector('.ab-machine')
+    let top = 0
+    for (let el = machine; el; el = el.offsetParent) top += el.offsetTop
+    return { top, height: machine.offsetHeight, bar: document.querySelector('.ab-bar').offsetHeight }
+  })()`)
+  assert.equal(await browser.evaluate(`document.querySelector('.ab-machine').dataset.land`), 'wait')
+  // Below the bar, 10px short of 15% of it; above, under the bar, the bar's height more.
+  const below = Math.floor(height * 0.15) - 10
+  const y = top - (bar + below - height)
+  await browser.evaluate(`scrollTo(0, ${y + 80}); true`)
+  await browser.evaluate(`new Promise((resolve) => requestAnimationFrame(() => resolve(true)))`)
+  await browser.evaluate(`scrollTo(0, ${y}); true`)
+  await frames()
+  const now = await browser.evaluate<{ links: string; land: string }>(
+    `({ links: document.querySelector('.ab-app').dataset.links, land: document.querySelector('.ab-machine').dataset.land })`,
+  )
+  assert.equal(now.links, 'bar', 'the bar didn’t come in')
+  assert.equal(now.land, 'wait', 'it landed under the bar')
+})
