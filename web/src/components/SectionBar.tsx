@@ -17,7 +17,7 @@ export function SectionBar({
   barRef: Ref<HTMLElement>
 }) {
   return (
-    <nav ref={barRef} className="ab-bar" aria-label="Jump to a section" inert>
+    <nav ref={barRef} className="ab-bar" aria-label="Sections" inert>
       {links
         .filter((link) => !link.soon)
         .map((link) => (

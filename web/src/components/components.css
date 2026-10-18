@@ -2634,6 +2634,7 @@ body:has(.ab-card[open]) {
     forced-color-adjust: none;
   }
 
+  :is(.ab-nav, .ab-bar) a[aria-current='location']:focus-visible,
   .ab-chip input:checked:focus-visible + span {
     outline-color: CanvasText;
   }

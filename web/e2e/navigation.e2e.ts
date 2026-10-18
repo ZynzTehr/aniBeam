@@ -922,3 +922,65 @@ test('widening past 900px hands focus in the links bar on to the header’s link
     'widened with focus in the bar',
   )
 })
+
+test('in contrast themes the current section’s link takes the theme’s selection colors, and its focus ring the theme’s text color', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.send('Emulation.setEmulatedMedia', {
+    features: [
+      { name: 'forced-colors', value: 'active' },
+      { name: 'prefers-reduced-motion', value: 'reduce' },
+    ],
+  })
+  try {
+    await browser.evaluate(
+      `document.getElementById('pull').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
+    )
+    await frames()
+    // The theme's colors, as the page resolves them.
+    const colors = `(() => {
+      const probe = document.body.appendChild(document.createElement('div'))
+      probe.style.cssText = 'forced-color-adjust: none; background: Highlight; color: CanvasText'
+      const { backgroundColor, color } = getComputedStyle(probe)
+      probe.remove()
+      const style = (sel) => getComputedStyle(document.querySelector(sel))
+      return {
+        highlight: backgroundColor,
+        text: color,
+        current: style('.ab-nav a[aria-current="location"]').backgroundColor,
+        other: style('.ab-nav a[href="#decades"]').backgroundColor,
+      }
+    })()`
+    const seen = await browser.evaluate<{
+      highlight: string
+      text: string
+      current: string
+      other: string
+    }>(colors)
+    assert.equal(seen.current, seen.highlight, 'the current link’s fill')
+    assert.notEqual(seen.other, seen.highlight, 'another link’s fill')
+    // Reached from the keyboard: Shift+Tab from the heading after the header.
+    await browser.evaluate(`document.querySelector('.ab-nav a[href="#decades"]').focus(); true`)
+    await browser.press('Tab', true)
+    const ring = await browser.evaluate<{ name: string; outline: string }>(
+      `({ name: document.activeElement.textContent, outline: getComputedStyle(document.activeElement).outlineColor })`,
+    )
+    assert.deepEqual(ring, { name: 'Pull', outline: seen.text }, 'its focus ring')
+  } finally {
+    await browser.send('Emulation.setEmulatedMedia', {
+      features: [{ name: 'forced-colors', value: 'none' }],
+    })
+  }
+})
+
+test('the three sets of section links share one name, Sections, so each reads alike as a landmark', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  assert.deepEqual(
+    await browser.evaluate(
+      `['.ab-top .ab-nav', '.ab-intro-actions', '.ab-bar'].map((sel) => document.querySelector(sel).getAttribute('aria-label'))`,
+    ),
+    ['Sections', 'Sections', 'Sections'],
+  )
+})
