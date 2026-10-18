@@ -3754,6 +3754,40 @@ describe('tablet (834x1112, iPad Pro 11" portrait) and up', () => {
     })
     assert.deepEqual(wider, [], 'the page grew wider than the screen')
   })
+
+  test('stacked under the machine, the rarity sticker sits clear of it and its shadow, whatever its label', async () => {
+    const under: string[] = []
+    for (const [width, height, phone] of [
+      [320, 568, true],
+      [390, 844, true],
+      [430, 932, true],
+      [768, 1024, false],
+    ] as const) {
+      // Reduced motion: the capsule opens at once, and the sticker rests where it lands.
+      await browser.load({ width, height, phone, reduceMotion: true })
+      assert.ok(await browser.titlesShown())
+      await browser.landAll()
+      await browser.evaluate(
+        `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').click(); true`,
+      )
+      assert.ok(await browser.waitFor(`document.querySelector('.ab-result.is-open .ab-sfx-tier')`))
+      // Each label the sticker can have (see rarityOf in PullMachine), in turn on the one pulled,
+      // against the foot of the machine's drop shadow (its offset down, 8px, below the machine).
+      const reach = await browser.evaluate<string[]>(`(() => {
+        const body = document.querySelector('.ab-body')
+        const drop = parseFloat(getComputedStyle(body).boxShadow.match(/(-?[\\d.]+)px/g)[1])
+        const foot = body.getBoundingClientRect().bottom + drop
+        const sticker = document.querySelector('.ab-result.is-open .ab-sfx-tier')
+        return ['SSR!!', 'SR!', 'R', '!?'].flatMap((label) => {
+          sticker.textContent = label
+          const top = sticker.getBoundingClientRect().top
+          return top < foot ? [label + ' reaches ' + (foot - top).toFixed(1) + 'px under it'] : []
+        })
+      })()`)
+      for (const line of reach) under.push(`${width}px: ${line}`)
+    }
+    assert.deepEqual(under, [], 'stickers reaching under the machine')
+  })
 })
 
 // Visitors can ask for reduced motion on their device, or on the site itself, whose setting is

@@ -1683,6 +1683,13 @@ body:has(.ab-card[open]) {
     grid-template-columns: 1fr;
   }
 
+  /* Stacked, the pulled poster's rarity sticker stands up to 29px above it (SSR!!), and the
+     machine's drop shadow hangs 8px below the machine: 44px between them keeps the sticker clear
+     of both, where 20px tucked its top under the machine. */
+  .ab-pull-row {
+    row-gap: 44px;
+  }
+
   .ab-reveal {
     min-height: 0;
   }
