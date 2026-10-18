@@ -55,8 +55,9 @@
   text-decoration: none;
 }
 
-/* SiteHeader's `current` option (NavLink.current) marks the link to the page on screen. No
-   link sets it yet: each link in the app goes to a section of this one page. */
+/* SiteHeader's `current` option (NavLink.current) marks the link to the page on screen. Only the
+   development prototype (VariantD) sets it: each link in the app goes to a section of this one
+   page. */
 .ab-nav a[aria-current='page'] {
   background: var(--ink);
   color: var(--paper);

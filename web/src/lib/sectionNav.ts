@@ -343,6 +343,9 @@ export function startSectionNav({
   const focusUnder = () => {
     const focused = document.activeElement as HTMLElement | null
     if (!bar || !focused || focused === document.body || bar.contains(focused)) return false
+    // Only focus that shows its ring: a tap that focuses something partly under the bar shows
+    // none, and shouldn't push the bar away.
+    if (!focused.matches(':focus-visible')) return false
     const shown = focused.matches('label > input') ? focused.nextElementSibling : focused
     const box = (shown ?? focused).getBoundingClientRect()
     // The bar's bottom where it rests (it starts above the screen's top, for its overshoot).
@@ -496,14 +499,35 @@ export function startSectionNav({
       .querySelector<HTMLElement>(`.ab-nav a[href="${from.getAttribute('href')}"]`)
       ?.focus({ preventScroll: true })
   }
-  // A resize lands a flight under way: its copies were placed for the page as it was. Widened
-  // past 900px with focus in a phone's bar, which isn't drawn there, focus goes on to the header's
-  // link to the same place: at once, before the browser drops it from the bar to the page's start.
+  // A resize that changes the width lands a flight under way: its copies were placed for the page
+  // as it was. Widened past 900px with focus in a phone's bar, which isn't drawn there, focus goes
+  // on to the header's link to the same place: at once, before the browser drops it from the bar
+  // to the page's start.
+  let width = innerWidth
   const resized = () => {
     const focused = document.activeElement as HTMLElement | null
-    if (focused && bar?.contains(focused) && getComputedStyle(header).position === 'sticky')
-      handOff(focused)
-    finishFlight()
+    const sticky = getComputedStyle(header).position === 'sticky'
+    if (focused && bar?.contains(focused) && sticky) handOff(focused)
+    // And back: narrowed below 900px with focus on a header link the header has taken off the
+    // screen as it scrolled away, focus goes on to the bar's link to the same place.
+    else if (
+      bar &&
+      focused?.matches('.ab-top .ab-nav a') &&
+      !sticky &&
+      header.getBoundingClientRect().bottom <= 0
+    ) {
+      barState = { barIn: true, anchor: scrollY }
+      apply('bar')
+      bar
+        .querySelector<HTMLElement>(`a[href="${focused.getAttribute('href')}"]`)
+        ?.focus({ preventScroll: true })
+    }
+    // Only a change of width moves what a flight was placed against: a browser's toolbar
+    // showing or hiding as the page scrolls changes only the height.
+    if (innerWidth !== width) {
+      width = innerWidth
+      finishFlight()
+    }
     soon()
   }
   addEventListener('resize', resized)

@@ -550,6 +550,10 @@ test('the bar slides with motion allowed, and comes and goes at once under reduc
   }
 })
 
+// Pauses the flight's animations, so that a check sees the page end it, not its own landing.
+const PAUSE_FLIGHT = `document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight')).forEach((a) => a.pause()); true`
+// What is left of a flight, paused or not: its animations and its copies.
+const FLIGHT_LEFT = `document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight')).length + document.querySelectorAll('.ab-flight-chip').length`
 // The flight's animations under way: where each runs, its timing, and what its keyframes change.
 const FLIGHT_NOW = `document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight') && a.playState === 'running').map((a) => {
   const t = a.effect.getTiming()
@@ -860,7 +864,7 @@ test('each flying copy’s shadow fades to the look it lands on, and a dock star
   )
 })
 
-test('a resize lands a flight under way at once', async () => {
+test('a change of width lands a flight under way at once, and a change of height alone doesn’t', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())
   await browser.landAll()
@@ -868,21 +872,29 @@ test('a resize lands a flight under way at once', async () => {
   await browser.evaluate(`scrollTo(0, ${await browser.evaluate<number>(DOCK_AT)}); true`)
   await frames()
   assert.ok((await browser.evaluate<unknown[]>(FLIGHT_NOW)).length > 0, 'no flight')
+  // Paused, so that only the page can end it, not its own landing.
+  await browser.evaluate(PAUSE_FLIGHT)
+  // A browser's toolbar hiding as the page scrolls: only the height changes.
   await browser.send('Emulation.setDeviceMetricsOverride', {
-    width: 800,
-    height: 900,
+    width: 1440,
+    height: 840,
     deviceScaleFactor: 1,
     mobile: false,
   })
   await frames()
-  assert.deepEqual(
-    {
-      flight: await browser.evaluate(FLIGHT_NOW),
-      copies: await browser.evaluate(`document.querySelectorAll('.ab-flight-chip').length`),
-      links: (await browser.evaluate<{ links: string }>(SHOWN)).links === 'none' ? 'none' : 'a set',
-    },
-    { flight: [], copies: 0, links: 'a set' },
-    'narrowed mid-flight',
+  assert.ok((await browser.evaluate<number>(FLIGHT_LEFT)) > 0, 'a change of height landed it')
+  await browser.send('Emulation.setDeviceMetricsOverride', {
+    width: 800,
+    height: 840,
+    deviceScaleFactor: 1,
+    mobile: false,
+  })
+  await frames()
+  assert.equal(await browser.evaluate(FLIGHT_LEFT), 0, 'narrowed, it is still flying')
+  assert.notEqual(
+    (await browser.evaluate<{ links: string }>(SHOWN)).links,
+    'none',
+    'narrowed, no set shows',
   )
 })
 
@@ -955,7 +967,7 @@ test('in contrast themes the current section’s link takes the theme’s select
     }>(colors)
     assert.equal(seen.current, seen.highlight, 'the current link’s fill')
     assert.notEqual(seen.other, seen.highlight, 'another link’s fill')
-    // Reached from the keyboard: Shift+Tab from the heading after the header.
+    // Reached from the keyboard: Shift+Tab from the Decades link.
     await browser.evaluate(`document.querySelector('.ab-nav a[href="#decades"]').focus(); true`)
     await browser.press('Tab', true)
     const ring = await browser.evaluate<{ name: string; outline: string }>(
@@ -969,15 +981,24 @@ test('in contrast themes the current section’s link takes the theme’s select
   }
 })
 
-test('the three sets of section links share one name, Sections, so each reads alike as a landmark', async () => {
+test('one landmark named Sections is read at a time: the intro’s or a phone bar’s; the header’s, which holds My List too, is Site', async () => {
+  const landmarks = async () => {
+    const { nodes } = await browser.send('Accessibility.getFullAXTree')
+    return (nodes as { ignored: boolean; role?: { value: string }; name?: { value: string } }[])
+      .filter((n) => !n.ignored && n.role?.value === 'navigation')
+      .map((n) => n.name?.value)
+      .sort()
+  }
   await browser.load({ ...DESKTOP, reduceMotion: true })
   assert.ok(await browser.titlesShown())
-  assert.deepEqual(
-    await browser.evaluate(
-      `['.ab-top .ab-nav', '.ab-intro-actions', '.ab-bar'].map((sel) => document.querySelector(sel).getAttribute('aria-label'))`,
-    ),
-    ['Sections', 'Sections', 'Sections'],
-  )
+  assert.deepEqual(await landmarks(), ['Sections', 'Site'], 'at the top')
+  await scrollAndSettle(await browser.evaluate<number>(DOCK_AT))
+  assert.deepEqual(await landmarks(), ['Site'], 'docked')
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await revealBar()
+  assert.deepEqual(await landmarks(), ['Sections', 'Site'], 'a phone, the bar in')
 })
 
 test('mid-flight both sets hide, each copy starts where it leaves, its labels cross the right way, and only a dock lands yellow', async () => {
@@ -997,9 +1018,13 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
       yellow: chip.querySelector('.ab-flight-pill').classList.contains('is-current'),
     })),
   }))()`
-  await browser.evaluate(`scrollTo(0, ${dockAt}); true`)
-  // The first frame: the third copy's 90ms stagger hasn't run out, so it must wait at its start.
-  await browser.evaluate(`new Promise((resolve) => requestAnimationFrame(() => resolve(true)))`)
+  // The first frame after the scroll, read in the page with the flight paused there, so no time
+  // passes between: the third copy's 90ms stagger hasn't run out, so it must wait at its start.
+  const firstFrame = (y: number) =>
+    browser.evaluate(
+      `new Promise((resolve) => { scrollTo(0, ${y}); requestAnimationFrame(() => requestAnimationFrame(() => { ${PAUSE_FLIGHT}; resolve(true) })) })`,
+    )
+  await firstFrame(dockAt)
   const dock = await browser.evaluate<{
     layer: string
     hidden: boolean
@@ -1022,12 +1047,14 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
     },
     'docking',
   )
-  await browser.animationsDone()
-  const { top, bottom } = await browser.evaluate<{ top: number; bottom: number }>(GEOMETRY)
+  // Let the paused flight go, and land.
   await browser.evaluate(
-    `scrollTo(0, ${top - Math.ceil(bottom + Math.min(200, top - bottom))}); true`,
+    `document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight')).forEach((a) => a.play()); true`,
   )
-  await browser.evaluate(`new Promise((resolve) => requestAnimationFrame(() => resolve(true)))`)
+  await browser.animationsDone()
+  await frames()
+  const { top, bottom } = await browser.evaluate<{ top: number; bottom: number }>(GEOMETRY)
+  await firstFrame(top - Math.ceil(bottom + Math.min(200, top - bottom)))
   const undock = await browser.evaluate<{
     layer: string
     hidden: boolean
@@ -1050,7 +1077,7 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
   )
 })
 
-test('focus moved mid-flight, by a click or a script, lands the flight first', async () => {
+test('focus moved mid-flight by a script lands the flight first', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())
   await browser.landAll()
@@ -1058,9 +1085,11 @@ test('focus moved mid-flight, by a click or a script, lands the flight first', a
   await browser.evaluate(`scrollTo(0, ${await browser.evaluate<number>(DOCK_AT)}); true`)
   await frames()
   assert.ok((await browser.evaluate<unknown[]>(FLIGHT_NOW)).length > 0, 'no flight')
+  // Paused, so that only the page can end it, not its own landing.
+  await browser.evaluate(PAUSE_FLIGHT)
   await browser.evaluate(`document.querySelector('.ab-search input').focus(); true`)
   await frames()
-  assert.deepEqual(await browser.evaluate(FLIGHT_NOW), [], 'still flying')
+  assert.equal(await browser.evaluate(FLIGHT_LEFT), 0, 'still flying')
   assert.notEqual((await browser.evaluate<{ links: string }>(SHOWN)).links, 'none')
 })
 
@@ -1074,6 +1103,14 @@ test('on a phone the bar comes into view in full, never over focus near the top,
     `(({ top, bottom }) => ({ top, bottom }))(document.querySelector('.ab-bar').getBoundingClientRect())`,
   )
   assert.ok(seen.top <= 0 && seen.bottom > 40, `the bar in, at ${seen.top} to ${seen.bottom}px`)
+  // Its links whole, rings and all (7px out, 2px more for a raised pill): none cut off at the top.
+  const linkTops = await browser.evaluate<number[]>(
+    `[...document.querySelectorAll('.ab-bar a')].map((a) => Math.round(a.getBoundingClientRect().top))`,
+  )
+  assert.ok(
+    linkTops.length > 0 && Math.min(...linkTops) >= 7,
+    `the bar's links start at ${linkTops}px`,
+  )
   // The intro's buttons' top above the screen but their bottom still on it: no bar.
   const buttons = await browser.evaluate<{ top: number; height: number }>(`(() => {
     const actions = document.querySelector('.ab-intro-actions')
@@ -1118,4 +1155,140 @@ test('a phone bar’s links turn ink when hovered, as the header’s do', async 
   )
   await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 800 })
   assert.deepEqual(hovered, { fill: 'rgb(20, 20, 20)', text: 'rgb(255, 255, 255)' })
+})
+
+// A trending panel on a phone, placed `top` px below the screen's top with the bar in: the page
+// scrolled to just below it, then up 40px.
+async function panelUnderBar(top: number) {
+  const panel = `document.querySelectorAll('.ab-grid .ab-link')[4]`
+  await browser.evaluate(`${panel}.scrollIntoView({ block: 'start', behavior: 'instant' }); true`)
+  await frames()
+  const target = await browser.evaluate<number>(
+    `scrollY + ${panel}.getBoundingClientRect().top - ${top}`,
+  )
+  await scrollAndSettle(target + 40)
+  await scrollAndSettle(target)
+  return panel
+}
+
+test('on a phone, a tap that focuses something partly under the bar leaves it in: only focus that shows its ring pushes it away', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const panel = await panelUnderBar(30)
+  assert.equal(
+    await browser.evaluate(`document.querySelector('.ab-app').dataset.links`),
+    'bar',
+    'the bar isn’t in',
+  )
+  // A tap on its part below the bar: it takes focus, with no ring, and opens the title's card.
+  const point = await browser.evaluate<{ x: number; y: number }>(`(() => {
+    const box = ${panel}.getBoundingClientRect()
+    return { x: box.left + box.width / 2, y: box.top + 80 }
+  })()`)
+  await browser.send('Input.dispatchMouseEvent', {
+    type: 'mousePressed',
+    x: point.x,
+    y: point.y,
+    button: 'left',
+    clickCount: 1,
+  })
+  await frames()
+  const pressed = await browser.evaluate<{ links: string; ring: boolean }>(
+    `({ links: document.querySelector('.ab-app').dataset.links, ring: document.activeElement.matches(':focus-visible') })`,
+  )
+  await browser.send('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    x: point.x,
+    y: point.y,
+    button: 'left',
+    clickCount: 1,
+  })
+  assert.deepEqual(pressed, { links: 'bar', ring: false }, 'pressed')
+})
+
+test('on a phone, focus moved by a script onto something under the bar, or with its ring under it, with no scroll, takes the bar out', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  // Where the bar's bottom rests.
+  const barBottom = await browser.evaluate<number>(
+    `(() => { const bar = document.querySelector('.ab-bar'); return bar.offsetTop + bar.offsetHeight })()`,
+  )
+  // Well under it, and just below it with the top of its ring (7px out) still under it.
+  for (const top of [20, barBottom + 5]) {
+    await browser.evaluate(`document.activeElement.blur(); true`)
+    const panel = await panelUnderBar(top)
+    assert.equal(
+      await browser.evaluate(`document.querySelector('.ab-app').dataset.links`),
+      'bar',
+      `the bar isn’t in, the panel ${top}px down`,
+    )
+    await browser.evaluate(`${panel}.focus({ preventScroll: true }); true`)
+    await frames()
+    assert.notEqual(
+      await browser.evaluate(`document.querySelector('.ab-app').dataset.links`),
+      'bar',
+      `the bar stayed over focus ${top}px down`,
+    )
+  }
+})
+
+test('narrowed below 900px with focus on a header link scrolled away, focus goes on to the bar’s link', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await scrollAndSettle(
+    `document.getElementById('decades').getBoundingClientRect().top + scrollY - 200`,
+  )
+  await browser.evaluate(
+    `document.querySelector('.ab-nav a[href="#pull"]').focus({ preventScroll: true }); true`,
+  )
+  await browser.send('Emulation.setDeviceMetricsOverride', {
+    width: 800,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  })
+  await frames()
+  assert.deepEqual(
+    await browser.evaluate(
+      `({ inBar: Boolean(document.activeElement.closest('.ab-bar')), href: document.activeElement.getAttribute('href'), links: document.querySelector('.ab-app').dataset.links })`,
+    ),
+    { inBar: true, href: '#pull', links: 'bar' },
+  )
+})
+
+test('widening hands focus from the bar to the header both ways it can come: the resize heard first, or focus dropped first', async () => {
+  // Made to come each way: the header made sticky (as from 900px) with the resize heard while
+  // focus is still in the bar; and the bar taken from the page (as from 900px) with focus dropped
+  // before any resize.
+  for (const order of ['resize first', 'focus dropped first']) {
+    await browser.load({ ...PHONE, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    await browser.landAll()
+    await revealBar()
+    await browser.evaluate(
+      `document.querySelector('.ab-bar a[href="#decades"]').focus({ preventScroll: true }); true`,
+    )
+    const atOnce = await browser.evaluate<boolean>(`(() => {
+      const style = document.head.appendChild(document.createElement('style'))
+      style.textContent = '.ab-top { position: sticky !important }' + (${order === 'focus dropped first'} ? ' .ab-bar { display: none !important }' : '')
+      if (${order === 'resize first'}) {
+        dispatchEvent(new Event('resize'))
+        // At once, not a frame later with focus on the page's start between.
+        return Boolean(document.activeElement.closest('.ab-top'))
+      }
+      return true
+    })()`)
+    assert.ok(atOnce, `${order}: focus didn't move on with the resize`)
+    await frames()
+    assert.deepEqual(
+      await browser.evaluate(
+        `({ inHeader: Boolean(document.activeElement.closest('.ab-top')), href: document.activeElement.getAttribute('href') })`,
+      ),
+      { inHeader: true, href: '#decades' },
+      order,
+    )
+  }
 })

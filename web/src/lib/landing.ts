@@ -97,8 +97,8 @@ export function outOfSight(
  * How far down the screen the observer starts: below a header that stays on screen (sticky), and
  * rounded up, as its height can run to a fraction of a pixel and the sliver under it would count
  * as in view; with the header scrolled away, below a phone's bar of the section links while it is
- * in (`bar`, where its bottom is, 0 while out, and never above the screen's top as it slides), and
- * at the top otherwise.
+ * in (`bar`, where its bottom rests, 0 while out; never taken as less than 0), and at the top
+ * otherwise.
  */
 export const coveredBy = (height: number, sticky: boolean, bar = 0) =>
   sticky ? Math.ceil(height) : Math.max(0, Math.ceil(bar))
