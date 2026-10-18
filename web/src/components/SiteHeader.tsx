@@ -3,7 +3,8 @@ import { searchable } from '../lib/ime.ts'
 
 /**
  * A section link. `soon` marks a feature from a later phase: shown with a tag, not a link.
- * `current` marks the link to the page on screen (aria-current="page"); no link sets it yet.
+ * `current` marks the link to the page on screen (aria-current="page"); only the development
+ * prototype (VariantD) sets it.
  */
 export type NavLink = { href: string; label: string; current?: boolean; soon?: boolean }
 
