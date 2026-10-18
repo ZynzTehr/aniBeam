@@ -159,7 +159,7 @@ test('the flight is one 420 ms move with a slight overshoot, the buttons 45 ms a
   })
 })
 
-test('a flight moves from the middle of one box to the other’s, resizes the pill, and swaps the labels halfway, with transforms and opacity only', () => {
+test('a flight moves from the middle of one box to the other’s, resizes the pill, and swaps the labels halfway, inside it, with transforms, opacity and a clip only', () => {
   // A 180x48 button 600px down, flying to a 90x44 header slot.
   const frames = flightFrames(
     { left: 48, top: 600, width: 180, height: 48 },
@@ -169,10 +169,16 @@ test('a flight moves from the middle of one box to the other’s, resizes the pi
   assert.deepEqual(frames.pill, [{ transform: `scale(2, ${48 / 44})` }, { transform: 'none' }])
   assert.deepEqual(frames.leaving, [{ opacity: 1 }, { opacity: 0, offset: 0.5 }, { opacity: 0 }])
   assert.deepEqual(frames.arriving, [{ opacity: 0 }, { opacity: 0, offset: 0.5 }, { opacity: 1 }])
+  // The labels' box clipped to the inside of the pill's 3px border, from the button's size,
+  // 45px further out at each side and 2px above and below, to the link's.
+  assert.deepEqual(frames.text, [
+    { clipPath: 'inset(1px -42px round 999px)' },
+    { clipPath: 'inset(3px round 999px)' },
+  ])
   const properties = Object.values(frames).flatMap((keyframes) =>
     keyframes.flatMap((frame) => Object.keys(frame).filter((key) => key !== 'offset')),
   )
-  assert.deepEqual([...new Set(properties)].sort(), ['opacity', 'transform'])
+  assert.deepEqual([...new Set(properties)].sort(), ['clipPath', 'opacity', 'transform'])
 })
 
 test('a copy’s shadow fades from the look of the end it leaves to the end it lands on', () => {

@@ -88,8 +88,6 @@
 
 .ab-flight-chip {
   position: absolute;
-  display: grid;
-  place-items: center;
 }
 
 .ab-flight-pill {
@@ -109,15 +107,25 @@
   inset: 3px -3px -3px 3px;
 }
 
+.ab-flight-text {
+  position: absolute;
+  inset: 0;
+}
+
 .ab-flight-pill.is-current {
   background: var(--sun);
 }
 
+/* Each label sits on the copy's middle, however much wider than the copy it is (a long intro label
+   on a copy the size of a header link): drawn from the middle out, so it overflows both sides
+   evenly and lines up with the real link's text at both ends. */
 .ab-flight-label {
-  position: relative;
+  position: absolute;
+  top: 50%;
+  left: 50%;
   color: var(--ink);
   font: 800 var(--text-label) var(--body);
-  grid-area: 1 / 1;
+  translate: -50% -50%;
   white-space: nowrap;
 }
 

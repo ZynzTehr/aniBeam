@@ -160,8 +160,10 @@ export type Box = { left: number; top: number; width: number; height: number }
  * of `from` to that of `to`, its pill grows or shrinks from the size of one to the other, its label
  * crosses from the one it leaves to the one it arrives as, halfway, and its hard shadow fades from
  * the look of one end to the other's (`shadows`: whether each has one; an intro button does, a
- * header link only as the current section's). Only transforms and opacity change, so nothing is
- * laid out again, and the label is never stretched.
+ * header link only as the current section's). The labels show only inside the pill (`text`, its
+ * clip, which follows the pill's size), so a long one never spills out of a shrinking pill. Only
+ * transforms, opacity and a clip change, so nothing is laid out again, and the label is never
+ * stretched.
  */
 export function flightFrames(from: Box, to: Box, shadows = { from: true, to: true }) {
   const dx = from.left + from.width / 2 - (to.left + to.width / 2)
@@ -175,6 +177,13 @@ export function flightFrames(from: Box, to: Box, shadows = { from: true, to: tru
     leaving: [{ opacity: 1 }, { opacity: 0, offset: 0.5 }, { opacity: 0 }],
     arriving: [{ opacity: 0 }, { opacity: 0, offset: 0.5 }, { opacity: 1 }],
     shadow: [{ opacity: shadows.from ? 1 : 0 }, { opacity: shadows.to ? 1 : 0 }],
+    // Inside the pill's 3px border, as far out as the pill reaches at each end.
+    text: [
+      {
+        clipPath: `inset(${3 - (from.height - to.height) / 2}px ${3 - (from.width - to.width) / 2}px round 999px)`,
+      },
+      { clipPath: 'inset(3px round 999px)' },
+    ],
   }
 }
 
@@ -293,8 +302,11 @@ export function startSectionNav({
       const pill = chip.appendChild(document.createElement('span'))
       pill.className = 'ab-flight-pill'
       if (toHeader && onCurrent) pill.classList.add('is-current')
+      // Its labels, in a box clipped to the pill as it grows or shrinks.
+      const text = chip.appendChild(document.createElement('span'))
+      text.className = 'ab-flight-text'
       const [leaving, arriving] = [button, link].map((source) => {
-        const label = chip.appendChild(document.createElement('span'))
+        const label = text.appendChild(document.createElement('span'))
         label.className = 'ab-flight-label'
         label.textContent = source.textContent
         return label
@@ -306,7 +318,10 @@ export function startSectionNav({
       const timing = {
         duration: FLIGHT.duration,
         delay: i * FLIGHT.stagger,
-        fill: 'backwards' as const,
+        // Both ways: before its delay a copy shows where it starts, and once landed it holds the
+        // end it landed on until the last copy lands and all go together (else the labels and
+        // shadow of an earlier copy snap back to their unanimated look for up to 90 ms).
+        fill: 'both' as const,
       }
       const moving = { ...timing, easing: FLIGHT.easing }
       return [
@@ -314,6 +329,7 @@ export function startSectionNav({
         pill.animate(frames.pill, moving),
         shadow.animate(frames.pill, moving),
         shadow.animate(frames.shadow, timing),
+        text.animate(frames.text, moving),
         (toHeader ? leaving : arriving).animate(frames.leaving, timing),
         (toHeader ? arriving : leaving).animate(frames.arriving, timing),
       ]

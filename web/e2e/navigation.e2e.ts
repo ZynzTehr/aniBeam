@@ -606,7 +606,16 @@ test('with motion allowed, the intro’s buttons fly into the header as a scroll
       '420 90 cubic-bezier(0.2, 1.35, 0.35, 1)',
     ],
   )
-  assert.deepEqual([...new Set(flying.map((a) => a.changes))].sort(), ['opacity', 'transform'])
+  // Transforms and opacity, and the clip that keeps the labels inside the pill, on their box only.
+  assert.deepEqual([...new Set(flying.map((a) => a.changes))].sort(), [
+    'clipPath',
+    'opacity',
+    'transform',
+  ])
+  assert.deepEqual(
+    [...new Set(flying.filter((a) => a.changes === 'clipPath').map((a) => a.on))],
+    ['ab-flight-text'],
+  )
   await browser.animationsDone()
   await frames()
   assert.deepEqual(
@@ -1075,6 +1084,73 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
     },
     'undocking',
   )
+})
+
+test('throughout a flight each copy’s label sits on its middle, shows only inside its pill, crosses with the other without a pile-up, and one landed early holds its look', async () => {
+  await browser.load(DESKTOP)
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.animationsDone()
+  // The paused flight stepped 20ms at a time from its start to just before the last copy lands
+  // (all in one go in the page, so it can't land and go between steps), each step measured: what
+  // shows of a label (its box, cut to its clip if it has one) must lie on the copy's middle and
+  // within its pill, the labels' strengths add up to one at most, and a copy past its own end
+  // shows the shadow it lands with.
+  const stepped = `(() => {
+    const animations = document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight'))
+    const end = Math.max(...animations.map((a) => a.effect.getComputedTiming().endTime))
+    const problems = []
+    const insetOf = (clip, box) => {
+      if (!clip.startsWith('inset(')) return box
+      const v = clip.slice(6).split(' round')[0].replace(')', '').trim().split(/\\s+/).map(parseFloat)
+      const [t, r = t, b = t, l = r] = v
+      return { left: box.left + l, right: box.right - r, top: box.top + t, bottom: box.bottom - b }
+    }
+    for (let t = 0; t < end; t += 20) {
+      for (const a of animations) a.currentTime = t
+      document.querySelectorAll('.ab-flight-chip').forEach((chip, i) => {
+        const pill = chip.querySelector('.ab-flight-pill').getBoundingClientRect()
+        const middle = pill.left + pill.width / 2
+        const clipper = chip.querySelector('.ab-flight-text')
+        const clip = clipper ? insetOf(getComputedStyle(clipper).clipPath, clipper.getBoundingClientRect()) : null
+        let strength = 0
+        for (const label of chip.querySelectorAll('.ab-flight-label')) {
+          const opacity = Number(getComputedStyle(label).opacity)
+          strength += opacity
+          if (opacity < 0.02) continue
+          const box = label.getBoundingClientRect()
+          const off = box.left + box.width / 2 - middle
+          if (Math.abs(off) > 1.5) problems.push('t=' + t + ' copy ' + i + ': "' + label.textContent + '" ' + off.toFixed(1) + 'px off its middle')
+          const left = clip ? Math.max(box.left, clip.left) : box.left
+          const right = clip ? Math.min(box.right, clip.right) : box.right
+          if (right > left && (left < pill.left - 0.5 || right > pill.right + 0.5)) problems.push('t=' + t + ' copy ' + i + ': "' + label.textContent + '" shows outside its pill')
+        }
+        if (strength > 1.02) problems.push('t=' + t + ' copy ' + i + ': labels at ' + strength.toFixed(2) + ' together')
+        const shadow = chip.querySelector('.ab-flight-shadow')
+        const fade = animations.find((a) => a.effect.target === shadow && a.effect.getKeyframes().some((k) => 'opacity' in k))
+        const { endTime } = fade.effect.getComputedTiming()
+        const last = Number(fade.effect.getKeyframes().at(-1).opacity)
+        if (t >= endTime && Math.abs(Number(getComputedStyle(shadow).opacity) - last) > 0.02) problems.push('t=' + t + ' copy ' + i + ': landed, its shadow at ' + getComputedStyle(shadow).opacity + ', not ' + last)
+      })
+    }
+    return problems
+  })()`
+  const firstFrame = (y: number) =>
+    browser.evaluate(
+      `new Promise((resolve) => { scrollTo(0, ${y}); requestAnimationFrame(() => requestAnimationFrame(() => { ${PAUSE_FLIGHT}; resolve(true) })) })`,
+    )
+  await firstFrame(await browser.evaluate<number>(DOCK_AT))
+  assert.ok((await browser.evaluate<number>(FLIGHT_LEFT)) > 0, 'no dock')
+  assert.deepEqual(await browser.evaluate<string[]>(stepped), [], 'docking')
+  await browser.evaluate(
+    `document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight')).forEach((a) => a.play()); true`,
+  )
+  await browser.animationsDone()
+  await frames()
+  const { top, bottom } = await browser.evaluate<{ top: number; bottom: number }>(GEOMETRY)
+  await firstFrame(top - Math.ceil(bottom + Math.min(200, top - bottom)))
+  assert.ok((await browser.evaluate<number>(FLIGHT_LEFT)) > 0, 'no undock')
+  assert.deepEqual(await browser.evaluate<string[]>(stepped), [], 'undocking')
 })
 
 test('focus moved mid-flight by a script lands the flight first', async () => {
