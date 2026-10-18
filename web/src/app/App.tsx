@@ -9,7 +9,6 @@ import { coverFan, COVERS } from '../components/coverFan.ts'
 import { IntroHero } from '../components/IntroHero.tsx'
 import { MangaPage, PANELS } from '../components/MangaPage.tsx'
 import { MotionSwitch } from '../components/MotionSwitch.tsx'
-import { NavFlight } from '../components/NavFlight.tsx'
 import { SiteHeader } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
@@ -364,8 +363,6 @@ export default function App() {
           </fieldset>
         </Strip>
       </main>
-      {/* DRAFT PROTOTYPE: ?nav=a or ?nav=b (see NavFlight). */}
-      <NavFlight active={!searching} />
       <footer className="ab-foot">
         <MotionSwitch id="reduce-motion" />
         <p>Data from AniList. AniBeam is not affiliated with AniList.</p>
