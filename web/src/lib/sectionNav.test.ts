@@ -5,6 +5,8 @@ import {
   barAfter,
   currentSection,
   dockedAfter,
+  FLIGHT,
+  flightFrames,
   linkSet,
   sectionLine,
   UNDOCK_GAP,
@@ -142,4 +144,28 @@ test('focus in the bar keeps it in; a dialog, or a scroll focus made, leaves it 
     barIn: true,
     anchor: 900,
   })
+})
+
+test('the flight is one 420 ms move with a slight overshoot, the buttons 45 ms apart', () => {
+  assert.deepEqual(FLIGHT, {
+    duration: 420,
+    stagger: 45,
+    easing: 'cubic-bezier(0.2, 1.35, 0.35, 1)',
+  })
+})
+
+test('a flight moves from the middle of one box to the other’s, resizes the pill, and swaps the labels halfway, with transforms and opacity only', () => {
+  // A 180x48 button 600px down, flying to a 90x44 header slot.
+  const frames = flightFrames(
+    { left: 48, top: 600, width: 180, height: 48 },
+    { left: 238, top: 16, width: 90, height: 44 },
+  )
+  assert.deepEqual(frames.move, [{ transform: 'translate(-145px, 586px)' }, { transform: 'none' }])
+  assert.deepEqual(frames.pill, [{ transform: `scale(2, ${48 / 44})` }, { transform: 'none' }])
+  assert.deepEqual(frames.leaving, [{ opacity: 1 }, { opacity: 0, offset: 0.5 }, { opacity: 0 }])
+  assert.deepEqual(frames.arriving, [{ opacity: 0 }, { opacity: 0, offset: 0.5 }, { opacity: 1 }])
+  const properties = Object.values(frames).flatMap((keyframes) =>
+    keyframes.flatMap((frame) => Object.keys(frame).filter((key) => key !== 'offset')),
+  )
+  assert.deepEqual([...new Set(properties)].sort(), ['opacity', 'transform'])
 })

@@ -558,3 +558,150 @@ test('the bar slides with motion allowed, and comes and goes at once under reduc
     )
   }
 })
+
+// The flight's animations under way: where each runs, its timing, and what its keyframes change.
+const FLIGHT_NOW = `document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight') && a.playState === 'running').map((a) => {
+  const t = a.effect.getTiming()
+  return { on: a.effect.target.className, duration: t.duration, delay: t.delay, easing: t.easing,
+    changes: [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k).filter((p) => !['offset', 'easing', 'composite', 'computedOffset'].includes(p))))].join(',') }
+})`
+
+test('with motion allowed, the intro’s buttons fly into the header as a scroll brings it to them, and back down, landing in place', async () => {
+  await browser.load(DESKTOP)
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.animationsDone()
+  const dockAt = await browser.evaluate<number>(DOCK_AT)
+  // Where each copy is drawn to land, against where the link it lands as is.
+  const landing = `[...document.querySelectorAll('.ab-flight-chip')].map((chip, i) => {
+    const link = document.querySelectorAll(${JSON.stringify('.ab-top .ab-nav a[href^="#"]')})[i]
+    const to = link.getBoundingClientRect(), offset = getComputedStyle(document.querySelector('.ab-flight')).position === 'absolute' ? [scrollX, scrollY] : [0, 0]
+    return [parseFloat(chip.style.left) - offset[0] - to.left, parseFloat(chip.style.top) - offset[1] - to.top, parseFloat(chip.style.width) - to.width].map((d) => Math.abs(d) < 1)
+  }).flat().every(Boolean)`
+  await browser.evaluate(`scrollTo(0, ${dockAt}); true`)
+  await frames()
+  const mid = await browser.evaluate<{
+    links: string
+    hidden: boolean
+    inert: boolean
+    current: boolean
+  }>(`({
+    links: document.querySelector('.ab-app').dataset.links,
+    hidden: document.querySelector('.ab-flight').getAttribute('aria-hidden') === 'true',
+    inert: document.querySelector('.ab-flight').inert,
+    current: document.querySelector('.ab-flight-chip .ab-flight-pill').classList.contains('is-current'),
+  })`)
+  assert.deepEqual(mid, { links: 'none', hidden: true, inert: true, current: true }, 'mid-flight')
+  assert.equal(await browser.evaluate(landing), true, 'the copies don’t land on the header’s links')
+  const flying =
+    await browser.evaluate<
+      { on: string; duration: number; delay: number; easing: string; changes: string }[]
+    >(FLIGHT_NOW)
+  assert.deepEqual(
+    [
+      ...new Set(
+        flying
+          .filter((a) => a.on === 'ab-flight-chip')
+          .map((a) => `${a.duration} ${a.delay} ${a.easing}`),
+      ),
+    ],
+    [
+      '420 0 cubic-bezier(0.2, 1.35, 0.35, 1)',
+      '420 45 cubic-bezier(0.2, 1.35, 0.35, 1)',
+      '420 90 cubic-bezier(0.2, 1.35, 0.35, 1)',
+    ],
+  )
+  assert.deepEqual([...new Set(flying.map((a) => a.changes))].sort(), ['opacity', 'transform'])
+  await browser.animationsDone()
+  await frames()
+  assert.deepEqual(
+    await browser.evaluate(SHOWN),
+    { links: 'header', header: true, intro: false },
+    'landed',
+  )
+  assert.equal(await browser.evaluate(`document.querySelectorAll('.ab-flight-chip').length`), 0)
+  // And back down, onto the intro's buttons, drawn on the page.
+  const { top, bottom } = await browser.evaluate<{ top: number; bottom: number }>(GEOMETRY)
+  await browser.evaluate(
+    `scrollTo(0, ${top - Math.ceil(bottom + Math.min(200, top - bottom))}); true`,
+  )
+  await frames()
+  const back = `[...document.querySelectorAll('.ab-flight-chip')].map((chip, i) => {
+    const to = document.querySelectorAll('.ab-intro-actions a')[i].getBoundingClientRect()
+    return Math.abs(parseFloat(chip.style.left) - scrollX - to.left) < 1 && Math.abs(parseFloat(chip.style.top) - scrollY - to.top) < 1
+  })`
+  assert.deepEqual(
+    await browser.evaluate(back),
+    [true, true, true],
+    'the copies don’t land on the intro’s buttons',
+  )
+  await browser.animationsDone()
+  await frames()
+  assert.deepEqual(
+    await browser.evaluate(SHOWN),
+    { links: 'intro', header: false, intro: true },
+    'back down',
+  )
+})
+
+test('under reduced motion, from the device or the site’s switch, the sets swap at once, with no flight', async () => {
+  for (const how of ['device', 'switch']) {
+    await browser.load({ ...DESKTOP, reduceMotion: how === 'device' })
+    assert.ok(await browser.titlesShown())
+    await browser.landAll()
+    if (how === 'switch')
+      await browser.evaluate(`document.getElementById('reduce-motion').click(); true`)
+    await browser.animationsDone()
+    await browser.evaluate(`scrollTo(0, ${await browser.evaluate<number>(DOCK_AT)}); true`)
+    await frames()
+    assert.deepEqual(await browser.evaluate(FLIGHT_NOW), [], `${how}: a flight`)
+    assert.equal(
+      (await browser.evaluate<{ links: string }>(SHOWN)).links,
+      'header',
+      `${how}: not swapped`,
+    )
+    // The switch's choice is saved for later visits: off again for the checks after this one.
+    if (how === 'switch')
+      await browser.evaluate(`document.getElementById('reduce-motion').click(); true`)
+  }
+})
+
+test('a flight cut short by the switch to reduce motion, or by Tab, lands at once', async () => {
+  for (const how of ['switch', 'Tab']) {
+    await browser.load(DESKTOP)
+    assert.ok(await browser.titlesShown())
+    await browser.landAll()
+    await browser.animationsDone()
+    await browser.evaluate(`scrollTo(0, ${await browser.evaluate<number>(DOCK_AT)}); true`)
+    await frames()
+    assert.ok(
+      (await browser.evaluate<unknown[]>(FLIGHT_NOW)).length > 0,
+      `${how}: no flight to cut short`,
+    )
+    if (how === 'switch')
+      await browser.evaluate(`document.documentElement.dataset.motion = 'reduce'; true`)
+    else await browser.press('Tab')
+    await frames()
+    assert.deepEqual(await browser.evaluate(FLIGHT_NOW), [], `${how}: still flying`)
+    // Landed: a set shows again, the one the page is at (Tab to the skip link scrolls to the top).
+    assert.notEqual(
+      (await browser.evaluate<{ links: string }>(SHOWN)).links,
+      'none',
+      `${how}: not landed`,
+    )
+  }
+})
+
+test('a jump by an intro button swaps the sets at once, with no flight', async () => {
+  await browser.load(DESKTOP)
+  assert.ok(await browser.titlesShown())
+  await browser.animationsDone()
+  await browser.evaluate(
+    `document.querySelector('.ab-intro-actions a[href="#pull"]').click(); true`,
+  )
+  assert.ok(await browser.waitFor(`location.hash === '#pull'`, 5000))
+  await frames()
+  assert.deepEqual(await browser.evaluate(FLIGHT_NOW), [], 'a flight')
+  assert.equal((await browser.evaluate<{ links: string }>(SHOWN)).links, 'header')
+  assert.equal(await browser.evaluate(CURRENT), '#pull')
+})

@@ -1666,6 +1666,9 @@ describe('desktop (1440x900)', () => {
         scrollTo(0, 0)
         return true
       })()`)
+      // Scrolling the intro's buttons past the header can fly them into it, or back down: both
+      // sets of links hide meanwhile, so it waits for the flight to land.
+      await browser.animationsDone()
       await browser.evaluate(
         'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
       )
@@ -1674,6 +1677,9 @@ describe('desktop (1440x900)', () => {
         if (getComputedStyle(link).visibility === 'hidden') scrollTo(0, document.documentElement.scrollHeight)
         return true
       })()`)
+      // Scrolling the intro's buttons past the header can fly them into it, or back down: both
+      // sets of links hide meanwhile, so it waits for the flight to land.
+      await browser.animationsDone()
       await browser.evaluate(
         'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
       )

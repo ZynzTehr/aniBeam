@@ -68,9 +68,48 @@
    taken out: both keep their room, so nothing moves, and neither can be reached or read. My List
    stays. Under 900px the buttons never dock: the header's links show only while searching. With
    no data-links (the gallery), both show. */
-.ab-app:is([data-links='intro'], [data-links='bar']) .ab-top .ab-nav a,
-.ab-app:is([data-links='header'], [data-links='bar']) .ab-intro-actions {
+.ab-app:is([data-links='intro'], [data-links='bar'], [data-links='none']) .ab-top .ab-nav a,
+.ab-app:is([data-links='header'], [data-links='bar'], [data-links='none']) .ab-intro-actions {
   visibility: hidden;
+}
+
+/* The intro's buttons flying into the header and back (lib/sectionNav.ts): copies drawn over the
+   page, under the skip links, out of the way of the pointer, while both sets hide
+   (data-links="none"). Each is placed where it lands; the script moves it there, asking
+   reducedMotion() first, and swaps the sets at once under reduced motion. */
+.ab-flight {
+  position: fixed;
+  z-index: 40;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+}
+
+.ab-flight-chip {
+  position: absolute;
+  display: grid;
+  place-items: center;
+}
+
+.ab-flight-pill {
+  position: absolute;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 3px 3px 0 var(--ink);
+  inset: 0;
+}
+
+.ab-flight-pill.is-current {
+  background: var(--sun);
+}
+
+.ab-flight-label {
+  position: relative;
+  color: var(--ink);
+  font: 800 var(--text-label) var(--body);
+  grid-area: 1 / 1;
+  white-space: nowrap;
 }
 
 /* A phone's bar of the section links (SectionBar): fixed at the top, out of the page's flow, so
