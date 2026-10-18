@@ -96,8 +96,16 @@
   border: 3px solid var(--ink);
   border-radius: 999px;
   background: #fff;
-  box-shadow: 3px 3px 0 var(--ink);
   inset: 0;
+}
+
+/* The pill's hard shadow, 3px down and right, as a layer of its own, which fades from the look
+   of the end the copy leaves to the end it lands on. */
+.ab-flight-shadow {
+  position: absolute;
+  border-radius: 999px;
+  background: var(--ink);
+  inset: 3px -3px -3px 3px;
 }
 
 .ab-flight-pill.is-current {

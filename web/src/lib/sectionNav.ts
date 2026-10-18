@@ -157,11 +157,13 @@ export type Box = { left: number; top: number; width: number; height: number }
 
 /**
  * The keyframes of one button's flight from `from` to `to`, drawn at `to`: it moves from the middle
- * of `from` to that of `to`, its pill grows or shrinks from the size of one to the other, and its
- * label crosses from the one it leaves to the one it arrives as, halfway. Only transforms and
- * opacity change, so nothing is laid out again, and the label is never stretched.
+ * of `from` to that of `to`, its pill grows or shrinks from the size of one to the other, its label
+ * crosses from the one it leaves to the one it arrives as, halfway, and its hard shadow fades from
+ * the look of one end to the other's (`shadows`: whether each has one; an intro button does, a
+ * header link only as the current section's). Only transforms and opacity change, so nothing is
+ * laid out again, and the label is never stretched.
  */
-export function flightFrames(from: Box, to: Box) {
+export function flightFrames(from: Box, to: Box, shadows = { from: true, to: true }) {
   const dx = from.left + from.width / 2 - (to.left + to.width / 2)
   const dy = from.top + from.height / 2 - (to.top + to.height / 2)
   return {
@@ -172,6 +174,7 @@ export function flightFrames(from: Box, to: Box) {
     ],
     leaving: [{ opacity: 1 }, { opacity: 0, offset: 0.5 }, { opacity: 0 }],
     arriving: [{ opacity: 0 }, { opacity: 0, offset: 0.5 }, { opacity: 1 }],
+    shadow: [{ opacity: shadows.from ? 1 : 0 }, { opacity: shadows.to ? 1 : 0 }],
   }
 }
 
@@ -225,6 +228,8 @@ export function startSectionNav({
   layer.setAttribute('aria-hidden', 'true')
   layer.inert = true
 
+  const headerBottomNow = () => header.getBoundingClientRect().bottom
+
   const apply = (set: LinkSet) => {
     shown = set
     app.dataset.links = set
@@ -259,7 +264,13 @@ export function startSectionNav({
     layer.replaceChildren()
     layer.dataset.flying = ''
     flight = pairs.flatMap(({ button, link }, i) => {
-      const from = (toHeader ? button : link).getBoundingClientRect()
+      // A dock starts where the button shows: it can be partly under the header by then, and a
+      // copy drawn there would show over the header what the header hides.
+      const start = (toHeader ? button : link).getBoundingClientRect()
+      const from =
+        toHeader && start.top < headerBottomNow()
+          ? new DOMRect(start.left, headerBottomNow(), start.width, start.height)
+          : start
       const box = (toHeader ? link : button).getBoundingClientRect()
       // The link to the section the visitor is in sits raised 2px up and left, as it is about to
       // be marked: the copy lands where it will be.
@@ -274,17 +285,24 @@ export function startSectionNav({
         width: `${to.width}px`,
         height: `${to.height}px`,
       })
+      // Its shadow, under its pill, and its pill. Landing on the section the visitor is in, it
+      // arrives in that link's yellow, raised on its shadow.
+      const onCurrent = link.getAttribute('href') === current
+      const shadow = chip.appendChild(document.createElement('span'))
+      shadow.className = 'ab-flight-shadow'
       const pill = chip.appendChild(document.createElement('span'))
       pill.className = 'ab-flight-pill'
-      // Landing on the section the visitor is in, it arrives in that link's yellow.
-      if (toHeader && link.getAttribute('href') === current) pill.classList.add('is-current')
+      if (toHeader && onCurrent) pill.classList.add('is-current')
       const [leaving, arriving] = [button, link].map((source) => {
         const label = chip.appendChild(document.createElement('span'))
         label.className = 'ab-flight-label'
         label.textContent = source.textContent
         return label
       })
-      const frames = flightFrames(from, to)
+      const frames = flightFrames(from, to, {
+        from: toHeader || onCurrent,
+        to: !toHeader || onCurrent,
+      })
       const timing = {
         duration: FLIGHT.duration,
         delay: i * FLIGHT.stagger,
@@ -294,6 +312,8 @@ export function startSectionNav({
       return [
         chip.animate(frames.move, moving),
         pill.animate(frames.pill, moving),
+        shadow.animate(frames.pill, moving),
+        shadow.animate(frames.shadow, timing),
         (toHeader ? leaving : arriving).animate(frames.leaving, timing),
         (toHeader ? arriving : leaving).animate(frames.arriving, timing),
       ]

@@ -174,3 +174,17 @@ test('a flight moves from the middle of one box to the other’s, resizes the pi
   )
   assert.deepEqual([...new Set(properties)].sort(), ['opacity', 'transform'])
 })
+
+test('a copy’s shadow fades from the look of the end it leaves to the end it lands on', () => {
+  const box = { left: 0, top: 0, width: 100, height: 40 }
+  assert.deepEqual(flightFrames(box, box).shadow, [{ opacity: 1 }, { opacity: 1 }])
+  // An intro button, shadowed, to a plain header link: it fades out.
+  assert.deepEqual(flightFrames(box, box, { from: true, to: false }).shadow, [
+    { opacity: 1 },
+    { opacity: 0 },
+  ])
+  assert.deepEqual(flightFrames(box, box, { from: false, to: true }).shadow, [
+    { opacity: 0 },
+    { opacity: 1 },
+  ])
+})

@@ -812,3 +812,55 @@ test('with motion allowed, the links bar slides in with its spring and never sho
     `the bar's top came ${Math.max(...tops).toFixed(1)}px below the screen's top`,
   )
 })
+
+test('each flying copy’s shadow fades to the look it lands on, and a dock starts below the header, not over it', async () => {
+  await browser.load(DESKTOP)
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.animationsDone()
+  const dockAt = await browser.evaluate<number>(DOCK_AT)
+  // Scrolled 30px past the line: the buttons are partly under the header as the flight starts.
+  await browser.evaluate(`scrollTo(0, ${dockAt + 30}); true`)
+  await frames()
+  const flight = `(() => {
+    const bottom = document.querySelector('.ab-top').getBoundingClientRect().bottom
+    return [...document.querySelectorAll('.ab-flight-chip')].map((chip) => {
+      const fade = chip.querySelector('.ab-flight-shadow').getAnimations().find((a) => a.effect.getKeyframes()[0].opacity !== undefined)
+      const move = chip.getAnimations()[0].effect.getKeyframes()[0].transform
+      const dy = parseFloat(/translate\\([^,]+,\\s*([-\\d.]+)px/.exec(move)[1])
+      const top = parseFloat(chip.style.top), height = parseFloat(chip.style.height)
+      return {
+        shadow: fade.effect.getKeyframes().map((k) => Number(k.opacity)).join(' to '),
+        current: chip.querySelector('.ab-flight-pill').classList.contains('is-current'),
+        // Where the copy starts: its landing box moved by the first keyframe, its start height
+        // the button's (a 48px button lands as a 44px link).
+        startsBelow: top + height / 2 + dy - document.querySelector('.ab-intro-actions a').offsetHeight / 2 >= bottom - 0.5,
+      }
+    })
+  })()`
+  const docking =
+    await browser.evaluate<{ shadow: string; current: boolean; startsBelow: boolean }[]>(flight)
+  assert.equal(docking.length, 3, 'no flight')
+  assert.deepEqual(
+    docking.map(({ shadow, current }) => `${current ? 'current' : 'plain'}: ${shadow}`),
+    ['current: 1 to 1', 'plain: 1 to 0', 'plain: 1 to 0'],
+    'docking',
+  )
+  assert.deepEqual(
+    docking.map(({ startsBelow }) => startsBelow),
+    [true, true, true],
+    'a copy started over the header',
+  )
+  await browser.animationsDone()
+  const { top, bottom } = await browser.evaluate<{ top: number; bottom: number }>(GEOMETRY)
+  await browser.evaluate(
+    `scrollTo(0, ${top - Math.ceil(bottom + Math.min(200, top - bottom))}); true`,
+  )
+  await frames()
+  const undocking = await browser.evaluate<{ shadow: string }[]>(flight)
+  assert.deepEqual(
+    undocking.map(({ shadow }) => shadow),
+    ['1 to 1', '0 to 1', '0 to 1'],
+    'undocking',
+  )
+})
