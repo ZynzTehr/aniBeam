@@ -65,7 +65,8 @@
    lib/sectionNav.ts): from 900px the header's wait hidden in their place while the intro's
    buttons are on the screen, and the buttons hide in theirs once they have docked. Hidden, not
    taken out: both keep their room, so nothing moves, and neither can be reached or read. My List
-   stays. With no data-links (under 900px, the gallery), both show. */
+   stays. Under 900px the buttons never dock: the header's links show only while searching. With
+   no data-links (the gallery), both show. */
 .ab-app[data-links='intro'] .ab-top .ab-nav a,
 .ab-app[data-links='header'] .ab-intro-actions {
   visibility: hidden;

@@ -360,14 +360,47 @@ test('a link that has focus never hides: the set holding it stays until focus le
   assert.equal((await browser.evaluate<{ links: string }>(SHOWN)).links, 'intro', 'once it left')
 })
 
-test('under 900px, and in the gallery, both sets show as they did', async () => {
-  await browser.load({ width: 860, height: 900, reduceMotion: true })
-  assert.ok(await browser.titlesShown())
-  assert.deepEqual(
-    await browser.evaluate(SHOWN),
-    { links: 'none', header: true, intro: true },
-    '860px',
-  )
+test('under 900px the header’s section links wait hidden while the intro is on the page, and show while searching; the header keeps its size', async () => {
+  const header = `(() => { const top = document.querySelector('.ab-top'); return [top.offsetHeight, getComputedStyle(top).position, document.querySelector('.ab-top .ab-soon').offsetLeft].join(' ') })()`
+  for (const screen of [
+    { width: 390, height: 844, phone: true },
+    { width: 768, height: 1024, phone: true },
+    { width: 860, height: 900 },
+  ]) {
+    await browser.load({ ...screen, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    assert.deepEqual(
+      await browser.evaluate(SHOWN),
+      { links: 'intro', header: false, intro: true },
+      `${screen.width}px, at the top`,
+    )
+    const atTop = await browser.evaluate<string>(header)
+    await scrollAndSettle('document.documentElement.scrollHeight')
+    assert.equal(
+      (await browser.evaluate<{ links: string }>(SHOWN)).links,
+      'intro',
+      `${screen.width}px, at the end: they never dock`,
+    )
+    await scrollAndSettle(0)
+    await browser.search('frieren')
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`, 10_000),
+    )
+    assert.deepEqual(
+      await browser.evaluate(SHOWN),
+      { links: 'header', header: true, intro: false },
+      `${screen.width}px, searching`,
+    )
+    assert.equal(
+      await browser.evaluate<string>(header),
+      atTop,
+      `${screen.width}px: the header changed`,
+    )
+    assert.match(atTop, / relative /, `${screen.width}px: the header no longer scrolls away`)
+  }
+})
+
+test('in the gallery, which has no intro, the header’s links all show', async () => {
   await browser.load({ ...DESKTOP, reduceMotion: true, url: new URL('/?gallery', BASE_URL).href })
   assert.ok(await browser.waitFor(`document.querySelector('.ab-top .ab-nav a')`, 10_000))
   assert.equal(
@@ -375,6 +408,5 @@ test('under 900px, and in the gallery, both sets show as they did', async () => 
       `[...document.querySelectorAll('.ab-top .ab-nav a')].every((a) => getComputedStyle(a).visibility === 'visible')`,
     ),
     true,
-    'the gallery',
   )
 })

@@ -225,6 +225,17 @@ test("each of the header's section links hands focus to its section's heading, a
   ]) {
     await browser.load({ ...screen, reduceMotion: true })
     assert.ok(await browser.titlesShown())
+    // The header's section links wait hidden while the intro's buttons are on the page: on a
+    // phone, they show while searching, as results take the intro's place.
+    if (screen.width < 900) {
+      await browser.search('frieren')
+      assert.ok(
+        await browser.waitFor(
+          `document.querySelector('.ab-results .ab-strip-panel[href]')`,
+          10_000,
+        ),
+      )
+    }
     for (const label of ['Trending', 'Pull', 'Decades']) {
       // From the top of the page; on a wide screen, from its end, where the intro's buttons have
       // docked and the header's links show.
@@ -256,8 +267,7 @@ test("each of the header's section links hands focus to its section's heading, a
 })
 
 // Each Tab stop of the page, in order: a run of stops alike is one entry, with its count. Title
-// panels go by their section, as their titles come from AniList. On a phone the header's section
-// links show beside the intro's buttons (see lib/sectionNav.ts).
+// panels go by their section, as their titles come from AniList.
 const STOPS = [
   'Skip to content',
   'Skip to Reduce motion',
@@ -277,10 +287,11 @@ const STOPS = [
   'Reduce motion',
 ]
 
-// From 900px, the header's section links wait hidden while the intro's buttons are on the screen,
-// so a walk from the top meets only the buttons; walking back from the end, the buttons have
-// docked in the header, so it meets the header's links instead.
-const STOPS_WIDE = STOPS.filter((stop) => !['Trending', 'Pull', 'Decades'].includes(stop))
+// The header's section links wait hidden while the intro's buttons are on the page (see
+// lib/sectionNav.ts), so a walk from the top meets only the buttons. On a wide screen, walking
+// back from the end, the buttons have docked in the header, so it meets the header's links
+// instead; on a phone they never dock, so it meets the buttons again.
+const STOPS_TOP = STOPS.filter((stop) => !['Trending', 'Pull', 'Decades'].includes(stop))
 const BACK_WIDE = [
   'Reduce motion',
   'a title in Browse by decade ×20',
@@ -410,8 +421,8 @@ test('Tab walks every stop of the page in order and Shift+Tab walks them back, e
     }
   }
   assert.deepEqual(seen, {
-    '1440px': { stops: STOPS_WIDE, back: BACK_WIDE, problems: [] },
-    '390px': { stops: STOPS, back: 'the same, reversed', problems: [] },
+    '1440px': { stops: STOPS_TOP, back: BACK_WIDE, problems: [] },
+    '390px': { stops: STOPS_TOP, back: 'the same, reversed', problems: [] },
   })
 })
 

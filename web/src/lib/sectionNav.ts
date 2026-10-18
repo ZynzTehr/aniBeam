@@ -1,8 +1,8 @@
 /**
  * The page's section links (spec §5, the design signed off from draft #22). The intro's three
- * buttons are the section links while they are on the screen; from 900px, where the header stays
- * on screen, its Trending, Pull and Decades links wait hidden in their place until the header
- * reaches the buttons, then take over (the buttons dock). The header marks the section the visitor
+ * buttons are the section links while they are on the page; the header's Trending, Pull and
+ * Decades links wait hidden in their place, and from 900px, where the header stays on screen, take
+ * over once it reaches the buttons (the buttons dock). The header marks the section the visitor
  * is in. One set of links is shown, reachable and read at a time. Its rules are pure functions, so
  * unit tests hold them without a browser; startSectionNav applies them to the page, writing which
  * set shows as data-links on the page's root (.ab-app), which components.css reads.
@@ -100,8 +100,8 @@ const layoutTop = (element: HTMLElement) => {
 /**
  * Follows the section the visitor is in as the page scrolls, resizes or changes, and hands its
  * link's address (#pull, say) to `onCurrent` each time it changes, null above the first section.
- * From 900px, where the header is sticky, it also docks and undocks the intro's buttons, writing
- * the set that shows as data-links on `app`; below 900px it writes nothing, and both show.
+ * It also writes the set of section links that shows as data-links on `app`: from 900px, where the
+ * header is sticky, the intro's buttons dock in it and undock; under 900px they never dock.
  * `intro()` tells it the intro's buttons (their nav), or null while there is no intro (a search).
  * Returns them, and a stop.
  */
@@ -131,11 +131,12 @@ export function startSectionNav({
   const evaluate = () => {
     frame = 0
     const headerBottom = header.getBoundingClientRect().bottom
-    // The links: from 900px only, once the page has said whether it has an intro.
-    if (getComputedStyle(header).position !== 'sticky' || actions === undefined)
-      delete app.dataset.links
+    // The links, once the page has said whether it has an intro. Under 900px the header scrolls
+    // away, so the buttons never dock: the header's links show only with no intro (a search).
+    if (actions === undefined) delete app.dataset.links
     else {
-      if (actions) {
+      if (getComputedStyle(header).position !== 'sticky') docked = false
+      else if (actions) {
         // Where the header ends at the top of the page: where the page's main part starts, as
         // sticking moves the header (and its offsetTop) but nothing laid out after it.
         const main = document.querySelector('main')
