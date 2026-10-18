@@ -136,6 +136,11 @@ test('focus in the bar keeps it in; a dialog, or a scroll focus made, leaves it 
     barIn: true,
     anchor: 900,
   })
+  // Unless that scroll left focus under it: Shift+Tab to something above the screen.
+  assert.deepEqual(barAfter(inBar, scrolledTo(400, { fromFocus: true, focusUnder: true })), {
+    barIn: false,
+    anchor: 400,
+  })
   assert.deepEqual(barAfter({ barIn: false, anchor: 900 }, scrolledTo(500, { fromFocus: true })), {
     barIn: false,
     anchor: 500,

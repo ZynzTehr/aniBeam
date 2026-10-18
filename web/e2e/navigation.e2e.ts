@@ -736,3 +736,57 @@ test('on a phone, a part that shows only under the links bar waits to land until
   assert.equal(now.links, 'bar', 'the bar didn’t come in')
   assert.equal(now.land, 'wait', 'it landed under the bar')
 })
+
+test('on a phone, focus that a move brings in at the top of the screen is never left under the links bar', async () => {
+  // A desktop browser zoomed to 200%, or a tablet with a keyboard: under 900px, with the bar in.
+  // Shift+Tab from the picked decade chip to the Pull! lever, just above the screen: Firefox (and,
+  // likely, Safari) brings what takes focus in at the nearest edge, here 10px from the top, under
+  // the bar. Chrome brings it to the middle, so here the move is made as they make it: focus, then
+  // the scroll to the top, together.
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const y = await browser.evaluate<number>(`(() => {
+    const lever = document.querySelector('.ab-lever')
+    let top = 0
+    for (let el = lever; el; el = el.offsetParent) top += el.offsetTop
+    return top + lever.offsetHeight + 20
+  })()`)
+  await scrollAndSettle(y + 40)
+  await scrollAndSettle(y)
+  await browser.evaluate(
+    `document.querySelector('.ab-eras input:checked').focus({ preventScroll: true }); true`,
+  )
+  await frames()
+  assert.equal(
+    await browser.evaluate(`document.querySelector('.ab-app').dataset.links`),
+    'bar',
+    'the bar didn’t come in',
+  )
+  await browser.evaluate(`(() => {
+    const lever = document.querySelector('.ab-lever')
+    lever.focus({ preventScroll: true })
+    lever.scrollIntoView({ block: 'start', behavior: 'instant' })
+    return true
+  })()`)
+  await frames()
+  const at = await browser.evaluate<{
+    name: string
+    links: string
+    ring: number
+    bar: number
+  }>(`(() => {
+    const focused = document.activeElement
+    return {
+      name: focused.textContent.trim().slice(0, 30),
+      links: document.querySelector('.ab-app').dataset.links,
+      ring: Math.round(focused.getBoundingClientRect().top - 7),
+      bar: Math.round(document.querySelector('.ab-bar').getBoundingClientRect().bottom),
+    }
+  })()`)
+  assert.equal(at.name, 'Pull!')
+  assert.ok(
+    at.links !== 'bar' || at.ring >= at.bar,
+    `the lever's ring at ${at.ring}px, under the bar to ${at.bar}px`,
+  )
+})

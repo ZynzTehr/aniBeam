@@ -103,8 +103,9 @@ export type BarState = { barIn: boolean; anchor: number }
 /**
  * A phone's bar after the page has scrolled to `y`. It is in only once what it stands for has
  * scrolled away (`eligible`: the intro's buttons, or the header while searching), and never over
- * what has focus (`focusUnder`), unless focus is in it; a dialog open over the page, and a scroll
- * that a move of focus made (`fromFocus`, as Tab and a link's jump do), leave it as it is. Else it
+ * what has focus (`focusUnder`), unless focus is in it; a dialog open over the page leaves it as
+ * it is, and so does a scroll that a move of focus made (`fromFocus`, as Tab and a link's jump
+ * do), unless that left focus under it. Else it
  * comes in on a scroll up of BAR_SLACK or more, from the lowest point since it went out, and goes
  * out on a scroll down of as much, from the highest point since it came in, unless focus is in it.
  */
@@ -126,8 +127,11 @@ export function barAfter(
     dialogOpen: boolean
   },
 ): BarState {
-  if (dialogOpen || fromFocus) return { barIn, anchor: y }
+  if (dialogOpen) return { barIn, anchor: y }
+  // Never over what has focus, a scroll that a move of focus made included (Shift+Tab to
+  // something above the screen brings it in at the top, under the bar).
   if (!focusInBar && (!eligible || focusUnder)) return { barIn: false, anchor: y }
+  if (fromFocus) return { barIn, anchor: y }
   if (barIn) {
     if (y < anchor) return { barIn, anchor: y }
     if (y - anchor >= BAR_SLACK && !focusInBar) return { barIn: false, anchor: y }
@@ -431,6 +435,9 @@ export function startSectionNav({
     finishFlight()
     focusMoved = true
     requestAnimationFrame(() => (focusMoved = false))
+    // And a look once it has landed, even with no scroll and nothing left (Tab from the page's
+    // start onto something already under a phone's bar).
+    soon()
   }
   // Tab lands a flight before focus moves.
   const keyDown = (event: KeyboardEvent) => {
