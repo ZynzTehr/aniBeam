@@ -1,7 +1,10 @@
 import { useLayoutEffect, useRef } from 'react'
 import { searchable } from '../lib/ime.ts'
 
-/** A section link. `soon` marks a feature from a later phase: shown with a tag, not a link. */
+/**
+ * A section link. `soon` marks a feature from a later phase: shown with a tag, not a link.
+ * `current` marks the link to the page on screen (aria-current="page"); no link sets it yet.
+ */
 export type NavLink = { href: string; label: string; current?: boolean; soon?: boolean }
 
 /**
@@ -15,12 +18,15 @@ export function SiteHeader({
   search,
   onSearch,
   homeHref = '/',
+  currentHref,
 }: {
   links: NavLink[]
   search: string
   /** Every change to the box: what it shows, and the part of it to search (see searchable). */
   onSearch: (shown: string, text: string) => void
   homeHref?: string
+  /** The address of the section the visitor is in (#pull, say): its link is marked current. */
+  currentHref?: string | null
 }) {
   const header = useRef<HTMLElement>(null)
   useLayoutEffect(() => {
@@ -53,7 +59,13 @@ export function SiteHeader({
               {link.label} <small>Soon</small>
             </span>
           ) : (
-            <a key={link.href} href={link.href} aria-current={link.current ? 'page' : undefined}>
+            <a
+              key={link.href}
+              href={link.href}
+              aria-current={
+                link.current ? 'page' : link.href === currentHref ? 'location' : undefined
+              }
+            >
               {link.label}
             </a>
           ),

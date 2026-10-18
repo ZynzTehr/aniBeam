@@ -30,6 +30,7 @@ import { isRateLimited } from '../lib/anilist.ts'
 import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
 import { isOver, push, replace, titleIdFrom, titlePath, usePathname } from '../lib/route.ts'
+import { startSectionNav } from '../lib/sectionNav.ts'
 import { useSteadyList } from '../lib/steadyList.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
 import { noteFor, NOT_FOUND, sampleNote, searchStatus, titleNote } from './status.ts'
@@ -65,6 +66,13 @@ export default function App() {
   // Parts of the page land once as they scroll into view (see lib/landing.ts). Started before the
   // browser first draws the page, so no part shows, then hides, then lands.
   useLayoutEffect(() => startLanding(LANDING_PARTS), [])
+
+  // The header marks the section the visitor is in (see lib/sectionNav.ts).
+  const [currentHref, setCurrentHref] = useState<string | null>(null)
+  useLayoutEffect(() => {
+    const header = document.querySelector<HTMLElement>('.ab-top')
+    return header ? startSectionNav({ header, onCurrent: setCurrentHref }) : undefined
+  }, [])
 
   // A Try again button when a section's last attempt failed. One press retries every failed
   // section on the page (see refetchFailed). The button hides while retries run, which may
@@ -267,6 +275,7 @@ export default function App() {
         ]}
         search={search.shown}
         onSearch={(shown, text) => setSearch({ shown, text })}
+        currentHref={currentHref}
       />
       <main id="main">
         <p role="status" className="sr-only">

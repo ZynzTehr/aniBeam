@@ -61,6 +61,23 @@
   color: var(--paper);
 }
 
+/* The link to the section the visitor is in (aria-current="location", see lib/sectionNav.ts) is
+   sound-effect yellow, raised with a hard shadow, as a picked chip is; hovered or pressed, it
+   turns ink, as every header link does, so the two never look alike. The raise is a transform
+   and a shadow, which take no room: the header keeps its size. */
+.ab-nav a[aria-current='location'] {
+  background: var(--sun);
+  box-shadow: 3px 3px 0 var(--ink);
+  color: var(--ink);
+  transform: translate(-2px, -2px);
+}
+
+.ab-nav a:hover,
+.ab-nav a:active {
+  background: var(--ink);
+  color: #fff;
+}
+
 .ab-app a:focus-visible,
 .ab-app input:focus-visible {
   outline: 4px solid var(--hot);
@@ -2492,13 +2509,14 @@ body:has(.ab-card[open]) {
 }
 
 /* Contrast themes (forced colors) drop the chosen chip's yellow fill and its shadow, so it
-   looked like the others. It takes the theme's selection colors instead, and keeps its lift as
+   looked like the others, and so did the header's link to the section the visitor is in. It takes the theme's selection colors instead, and keeps its lift as
    a shadow in the theme's text color. forced-color-adjust: none stops Chrome painting a plate in
    the page's color behind the label, which would hide it. It also stops Chrome recoloring the
    focus ring, which would keep the color written for it (white, or brand hot on the decades),
    so here it takes the theme's text color. That rule ties with the decade chips' brand ring, so
    it has to come after it. */
 @media (forced-colors: active) {
+  .ab-nav a[aria-current='location'],
   .ab-chip input:checked + span {
     border-color: Highlight;
     background: Highlight;
