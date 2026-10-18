@@ -864,3 +864,61 @@ test('each flying copy’s shadow fades to the look it lands on, and a dock star
     'undocking',
   )
 })
+
+test('a resize lands a flight under way at once', async () => {
+  await browser.load(DESKTOP)
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.animationsDone()
+  await browser.evaluate(`scrollTo(0, ${await browser.evaluate<number>(DOCK_AT)}); true`)
+  await frames()
+  assert.ok((await browser.evaluate<unknown[]>(FLIGHT_NOW)).length > 0, 'no flight')
+  await browser.send('Emulation.setDeviceMetricsOverride', {
+    width: 800,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  })
+  await frames()
+  assert.deepEqual(
+    {
+      flight: await browser.evaluate(FLIGHT_NOW),
+      copies: await browser.evaluate(`document.querySelectorAll('.ab-flight-chip').length`),
+      links: (await browser.evaluate<{ links: string }>(SHOWN)).links === 'none' ? 'none' : 'a set',
+    },
+    { flight: [], copies: 0, links: 'a set' },
+    'narrowed mid-flight',
+  )
+})
+
+test('widening past 900px hands focus in the links bar on to the header’s link to the same place', async () => {
+  // Focus in a phone's bar, then wider than 900px, where the bar isn't drawn.
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await revealBar()
+  await browser.evaluate(
+    `document.querySelector('.ab-bar a[href="#pull"]').focus({ preventScroll: true }); true`,
+  )
+  assert.deepEqual(
+    await browser.evaluate(
+      `({ links: document.querySelector('.ab-app').dataset.links, inBar: Boolean(document.activeElement.closest('.ab-bar')) })`,
+    ),
+    { links: 'bar', inBar: true },
+    'focus in the bar, before widening',
+  )
+  await browser.send('Emulation.setDeviceMetricsOverride', {
+    width: 1024,
+    height: 900,
+    deviceScaleFactor: 1,
+    mobile: false,
+  })
+  await frames()
+  assert.deepEqual(
+    await browser.evaluate(
+      `({ inHeader: Boolean(document.activeElement.closest('.ab-top')), href: document.activeElement.getAttribute('href'), shown: getComputedStyle(document.activeElement).visibility })`,
+    ),
+    { inHeader: true, href: '#pull', shown: 'visible' },
+    'widened with focus in the bar',
+  )
+})

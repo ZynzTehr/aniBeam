@@ -476,9 +476,37 @@ export function startSectionNav({
   })
   // Focus leaving a set that it held: the set the page is at may now show, once focus has landed
   // (as it leaves, the page still reports it where it was), so a frame later.
-  const focusLeft = () => soon()
+  const focusLeft = (event: FocusEvent) => {
+    soon()
+    // A phone's bar stops being drawn as the page widens past 900px, and the browser can drop
+    // focus from it before the resize is heard: then too, focus goes on to the header's link.
+    const left = event.target as HTMLElement | null
+    if (!event.relatedTarget && left && bar?.contains(left))
+      requestAnimationFrame(() => {
+        const nowhere = !document.activeElement || document.activeElement === document.body
+        if (nowhere && getComputedStyle(header).position === 'sticky') handOff(left)
+      })
+  }
   addEventListener('scroll', scrolled, { passive: true })
-  addEventListener('resize', soon)
+  // Hands focus from a link in a phone's bar on to the header's link to the same place, the
+  // header's links shown first: hidden, they couldn't take it.
+  const handOff = (from: HTMLElement) => {
+    apply('header')
+    header
+      .querySelector<HTMLElement>(`.ab-nav a[href="${from.getAttribute('href')}"]`)
+      ?.focus({ preventScroll: true })
+  }
+  // A resize lands a flight under way: its copies were placed for the page as it was. Widened
+  // past 900px with focus in a phone's bar, which isn't drawn there, focus goes on to the header's
+  // link to the same place: at once, before the browser drops it from the bar to the page's start.
+  const resized = () => {
+    const focused = document.activeElement as HTMLElement | null
+    if (focused && bar?.contains(focused) && getComputedStyle(header).position === 'sticky')
+      handOff(focused)
+    finishFlight()
+    soon()
+  }
+  addEventListener('resize', resized)
   document.addEventListener('focusout', focusLeft, true)
   document.addEventListener('focusin', focusCame, true)
   document.addEventListener('keydown', keyDown, true)
@@ -506,7 +534,7 @@ export function startSectionNav({
       siteSwitch.disconnect()
       document.removeEventListener('keydown', keyDown, true)
       removeEventListener('scroll', scrolled)
-      removeEventListener('resize', soon)
+      removeEventListener('resize', resized)
       document.removeEventListener('focusout', focusLeft, true)
       document.removeEventListener('focusin', focusCame, true)
       if (bar) bar.inert = true
