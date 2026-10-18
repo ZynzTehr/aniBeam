@@ -298,7 +298,6 @@ export default function App() {
                 // button that leads there says so too. The header's Trending link stays: it names
                 // the section's place in the page.
                 label: trendingSamples.length ? 'See fan favorites' : 'See what’s trending',
-                primary: true,
               },
               { href: '#pull', label: 'Pull a random title' },
               { href: '#decades', label: 'Browse by decade' },

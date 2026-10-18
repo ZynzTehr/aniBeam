@@ -5,7 +5,7 @@ import { markBroken, markLoaded } from './cover.ts'
 import { coverFan } from './coverFan.ts'
 import { cssVars } from './cssVars.ts'
 
-export type IntroAction = { href: string; label: string; primary?: boolean }
+export type IntroAction = { href: string; label: string }
 
 /**
  * The first screen says what AniBeam is before anything else: a place for anime fans to keep
@@ -66,11 +66,7 @@ export function IntroHero({
       </p>
       <nav className="ab-intro-actions" aria-label="Ways to find a title">
         {actions.map((action) => (
-          <a
-            key={action.href}
-            className={action.primary ? 'ab-btn ab-btn-ink' : 'ab-btn'}
-            href={action.href}
-          >
+          <a key={action.href} className="ab-btn" href={action.href}>
             {action.label}
           </a>
         ))}

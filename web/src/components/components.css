@@ -2072,6 +2072,14 @@ body:has(.ab-card[open]) {
   grid-area: actions;
 }
 
+/* The intro's buttons are the page's section links (they fly into the header as it reaches them,
+   see NavFlight), so they share one look, white, and turn ink as one is hovered or pressed. */
+.ab-intro-actions .ab-btn:hover,
+.ab-intro-actions .ab-btn:active {
+  background: var(--ink);
+  color: #fff;
+}
+
 .ab-intro-art {
   position: relative;
   display: flex;

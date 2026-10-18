@@ -302,7 +302,7 @@ function SectionStates({ onOpen }: { onOpen: OpenTitle }) {
     ),
   }
   const actions = [
-    { href: '#gal-titles', label: 'See the title cases', primary: true },
+    { href: '#gal-titles', label: 'See the title cases' },
     { href: '#gal-states', label: 'See the sections' },
   ]
   const intro: Record<State<'intro'>, ReactNode> = {
