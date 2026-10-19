@@ -193,7 +193,8 @@ function SearchBubble({
     const copy = mirror.current
     const placeholderCopy = placeholderMirror.current
     const wrapped = rows.current
-    if (!label || !copy || !placeholderCopy || !wrapped) return
+    const typed = box.current
+    if (!label || !copy || !placeholderCopy || !wrapped || !typed) return
     const observer = new ResizeObserver(() => {
       label.style.setProperty('--text-w', `${copy.offsetWidth}px`)
       label.style.setProperty('--placeholder-w', `${placeholderCopy.offsetWidth}px`)
@@ -204,10 +205,16 @@ function SearchBubble({
       label.style.setProperty('--row', `${row}px`)
       // Only past three rows can the box scroll (components.css).
       label.toggleAttribute('data-over', shown.over)
+      // From 900px, typing at the end of a long query, the caret stays in view as the box
+      // narrows: the bubble's spring overshoots after a paste, and the browser, which scrolled
+      // to the caret in the wider box, wouldn't scroll back until the next key.
+      if (typed === document.activeElement && typed.selectionStart === typed.value.length)
+        typed.scrollLeft = typed.scrollWidth
     })
     observer.observe(copy)
     observer.observe(placeholderCopy)
     observer.observe(wrapped)
+    observer.observe(typed)
     return () => observer.disconnect()
   }, [])
   return (
@@ -245,8 +252,9 @@ function SearchBubble({
               event.preventDefault()
               if (matchMedia('(pointer: coarse)').matches) event.currentTarget.blur()
             }}
-            // Folded back to one row as focus leaves (on a phone), it shows the first.
-            onBlur={(event) => (event.currentTarget.scrollTop = 0)}
+            // Folded back to one row as focus leaves (on a phone), it shows the first; from
+            // 900px, a long query shows its start, as a search input's did.
+            onBlur={(event) => (event.currentTarget.scrollTop = event.currentTarget.scrollLeft = 0)}
             onCompositionStart={(event) => (before.current = event.currentTarget.value)}
             onChange={(event) => {
               const box = event.target

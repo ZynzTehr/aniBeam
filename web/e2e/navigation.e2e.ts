@@ -2562,13 +2562,17 @@ test('from 900px the search keeps to one line as before, and while it holds a qu
     // the box's padding, less how far the box has scrolled sideways to keep the caret in view.
     const pen = document.createElement('canvas').getContext('2d')
     pen.font = style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily
-    const end =
-      box.getBoundingClientRect().left + box.clientLeft + parseFloat(style.paddingLeft) +
-      pen.measureText(box.value).width - box.scrollLeft
+    const left = box.getBoundingClientRect().left + box.clientLeft
+    const end = left + parseFloat(style.paddingLeft) + pen.measureText(box.value).width - box.scrollLeft
+    // Where the text starts showing: as far in as the box's padding less its sideways scroll,
+    // but never left of the box, which cuts it there; how far that is inside the bubble's 3px
+    // border.
+    const starts = Math.max(left, left + parseFloat(style.paddingLeft) - box.scrollLeft)
     return {
       bubble: Math.round(field.height),
       header: document.querySelector('.ab-top').offsetHeight,
       oneLine: box.scrollHeight <= box.clientHeight,
+      textInset: Math.round(starts - field.left - 3),
       clear: drawn && {
         size: Math.round(drawn.width) + 'x' + Math.round(drawn.height),
         name: clear.getAttribute('aria-label'),
@@ -2599,6 +2603,12 @@ test('from 900px the search keeps to one line as before, and while it holds a qu
       'the long search never showed its results',
     )
     seen[`${width}px holding a long query`] = await browser.evaluate(STATE)
+    // As focus leaves, the box shows the query's start again, as the search input did.
+    await browser.evaluate(`${BOX}.blur(); true`)
+    seen[`${width}px, focus gone`] = await browser.evaluate(
+      `${BOX}.scrollLeft === 0 ? 'its start' : 'scrolled ' + Math.round(${BOX}.scrollLeft) + 'px along'`,
+    )
+    await browser.evaluate(`${BOX}.focus(); true`)
     // Where focus is with the button held down, before the click's own refocus could hide a
     // press that took it from the box (and blurred the box) for a moment.
     const { x, y } = await middleOf('.ab-clear')
@@ -2631,11 +2641,39 @@ test('from 900px the search keeps to one line as before, and while it holds a qu
     await browser.press('Escape')
     seen[`${width}px, Esc`] = await browser.evaluate(`${BOX}.value`)
   }
-  const rest = { bubble: 50, header: 78, oneLine: true, clear: null, value: '', focused: false }
+  // A paste with motion allowed: the bubble springs past its new width and back, and the box,
+  // made narrower again as it settles, must still show the caret at the end, short of the button.
+  await browser.load(DESKTOP)
+  assert.ok(await browser.titlesShown())
+  await browser.animationsDone()
+  await browser.evaluate(`${BOX}.focus(); true`)
+  await browser.animationsDone()
+  await browser.send('Input.insertText', { text: long })
+  assert.ok(
+    await browser.waitFor(
+      `document.querySelector('#results')?.textContent.includes('keeps going')`,
+    ),
+    'the pasted search never showed its results',
+  )
+  await browser.animationsDone()
+  await twoFrames()
+  seen['1440px, pasted as the bubble springs'] = (
+    await browser.evaluate<{ clear: { textEnds: string } | null }>(STATE)
+  ).clear?.textEnds
+  const rest = {
+    bubble: 50,
+    header: 78,
+    oneLine: true,
+    textInset: 18,
+    clear: null,
+    value: '',
+    focused: false,
+  }
   const holding = {
     bubble: 50,
     header: 78,
     oneLine: true,
+    textInset: 18,
     clear: {
       size: '24x24',
       name: 'Clear search',
@@ -2647,20 +2685,27 @@ test('from 900px the search keeps to one line as before, and while it holds a qu
     focused: true,
   }
   const cleared = { ...rest, focused: true }
-  assert.deepEqual(seen, {
-    '900px at rest': rest,
-    '900px holding a long query': holding,
-    '900px, the button held down': 'focus in the box',
-    '900px cleared': cleared,
-    '900px, Tab from the box': 'on past it',
-    '900px, Esc': '',
-    '1440px at rest': rest,
-    '1440px holding a long query': holding,
-    '1440px, the button held down': 'focus in the box',
-    '1440px cleared': cleared,
-    '1440px, Tab from the box': 'on past it',
-    '1440px, Esc': '',
-  })
+  assert.deepEqual(
+    seen,
+    {
+      '900px at rest': rest,
+      '900px holding a long query': holding,
+      '900px, focus gone': 'its start',
+      '900px, the button held down': 'focus in the box',
+      '900px cleared': cleared,
+      '900px, Tab from the box': 'on past it',
+      '900px, Esc': '',
+      '1440px at rest': rest,
+      '1440px holding a long query': holding,
+      '1440px, focus gone': 'its start',
+      '1440px, the button held down': 'focus in the box',
+      '1440px cleared': cleared,
+      '1440px, Tab from the box': 'on past it',
+      '1440px, Esc': '',
+      '1440px, pasted as the bubble springs': 'before it',
+    },
+    'the desktop search box at each step',
+  )
 })
 
 test('the search is a search landmark that holds the box, and the box is named Search titles alone, empty or holding a query, on a phone and from 900px', async () => {
@@ -2728,5 +2773,46 @@ test('the search box asks a phone’s keyboard not to capitalise or correct what
     ),
     { autocapitalize: 'none', autocorrect: 'off', spellcheck: false },
     'what the box tells a touch keyboard',
+  )
+})
+
+test('the search box’s text is 16px wherever a touch keyboard is likely, under 900px and on a touch screen of any width, so iOS never zooms the page as it takes focus; with a mouse from 900px it keeps the header’s 15px', async () => {
+  // The box, and the copies that measure its text for the bubble's width and rows (SearchBubble),
+  // which must keep to the same size; and the room the bubble at rest leaves its placeholder.
+  const SIZES = `(() => {
+    const box = ${BOX}, style = getComputedStyle(box)
+    const pen = document.createElement('canvas').getContext('2d')
+    pen.font = style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily
+    return {
+      sizes: [...new Set([box, ...document.querySelectorAll('.ab-search-rows, .ab-search-mirror')].map((el) => getComputedStyle(el).fontSize))].join(),
+      placeholderWhole: box.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) >= pen.measureText(box.placeholder).width,
+    }
+  })()`
+  const seen: Record<string, unknown> = {}
+  // An iPhone Plus or Pro Max held sideways is 926 to 956px wide: wide enough for the desktop
+  // header, under a finger.
+  await browser.load({ width: 932, height: 430, phone: true, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await withTouch(async () => {
+    await twoFrames()
+    seen['932px, a touch screen'] = await browser.evaluate(SIZES)
+  })
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await withTouch(async () => {
+    await twoFrames()
+    seen['a phone'] = await browser.evaluate(SIZES)
+  })
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  seen['1440px, a mouse'] = await browser.evaluate(SIZES)
+  assert.deepEqual(
+    seen,
+    {
+      '932px, a touch screen': { sizes: '16px', placeholderWhole: true },
+      'a phone': { sizes: '16px', placeholderWhole: true },
+      '1440px, a mouse': { sizes: '15px', placeholderWhole: true },
+    },
+    'the text sizes of the box and its measuring copies, and whether the placeholder shows whole',
   )
 })

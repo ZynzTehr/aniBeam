@@ -964,7 +964,8 @@ img[data-broken] {
 /* The clear button the search input had, from 900px, in the room the bubble keeps at its end.
    The box's text stops short of it: that room is the frame's, not the box's own padding, which
    Chrome leaves out of what a one-line textarea scrolls, so a long query scrolled to its end
-   would run under the button. */
+   would run under the button. The 18px at the box's start is the frame's too: a textarea scrolls
+   its padding there away with its text, which then ran into the bubble's left edge. */
 .ab-clear {
   display: none;
 }
@@ -997,6 +998,16 @@ img[data-broken] {
     stroke: currentColor;
     stroke-linecap: round;
     stroke-width: 2.5;
+  }
+
+  .ab-bubble-clip {
+    padding-left: 18px;
+  }
+
+  /* Square, so its rounded corners don't cut the text now at its edge. */
+  .ab-search textarea {
+    padding-left: 0;
+    border-radius: 0;
   }
 
   .ab-bubble-field:has(textarea:not(:placeholder-shown)) .ab-bubble-clip {
@@ -1037,9 +1048,8 @@ img[data-broken] {
    at a time as what is typed wraps, up to three (--text-h), then scrolls. It hangs from its slot
    in the header over the page, so nothing else moves, and folds back to one row as focus leaves,
    so it never sits over what the page shows, and a hidden header takes it all off the screen.
-   The text is 16px, so iOS doesn't zoom the page as the box takes focus. With no clear button to
-   keep room for, it sits 52px wider than its text at rest: the border, the padding and 18px of
-   air. */
+   With no clear button to keep room for, it sits 52px wider than its text at rest: the border,
+   the padding and 18px of air. */
 @media (max-width: 899px) {
   .ab-bubble-field {
     position: absolute;
@@ -1086,7 +1096,12 @@ img[data-broken] {
   .ab-search-rows {
     inset-inline: 14px;
   }
+}
 
+/* The text is 16px wherever a touch keyboard is likely, so iOS doesn't zoom the page as the box
+   takes focus: under 900px, and on a touch screen at any width, such as a big iPhone held
+   sideways, which gets the desktop header. The copies that measure it keep to the same size. */
+@media (max-width: 899px), (pointer: coarse) {
   .ab-search :is(textarea, .ab-search-rows, .ab-search-mirror) {
     font-size: 16px;
   }
