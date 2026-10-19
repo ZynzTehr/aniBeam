@@ -90,7 +90,7 @@ const retryFor = (term: string) =>
  */
 async function paste(browser: Browser, text: string) {
   await browser.evaluate(
-    `(() => { const input = document.querySelector('.ab-search input'); input.focus(); input.select(); return true })()`,
+    `(() => { const input = document.querySelector('.ab-search textarea'); input.focus(); input.select(); return true })()`,
   )
   await browser.send('Input.insertText', { text })
 }

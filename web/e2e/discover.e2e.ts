@@ -115,7 +115,7 @@ async function lateFirstAnswer(term: string) {
     // Pasted, not typed letter by letter: a shorter search run on the way would put its titles on
     // screen to stand in for this one's, which would make this a refinement.
     await browser.evaluate(
-      `(() => { const input = document.querySelector('.ab-search input'); input.focus(); input.select(); return true })()`,
+      `(() => { const input = document.querySelector('.ab-search textarea'); input.focus(); input.select(); return true })()`,
     )
     await browser.send('Input.insertText', { text: term })
     assert.ok(
@@ -1147,7 +1147,7 @@ describe('desktop (1440x900)', () => {
       await own.load()
       await own.animationsDone()
       await recordHeadings(own)
-      await own.evaluate(`document.querySelector('.ab-search input').focus(); true`)
+      await own.evaluate(`document.querySelector('.ab-search textarea').focus(); true`)
       await own.stopClock()
       const type = async (text: string) => {
         for (const character of text) await own.send('Input.insertText', { text: character })
@@ -1173,7 +1173,7 @@ describe('desktop (1440x900)', () => {
     // A Japanese input method shows a word as kana, then as candidate words, until the visitor
     // picks one. Searching any of those would be searching for a word nobody typed. The checks
     // above searched "frieren", so only 進撃の巨人 and "進撃の巨人 final" need a recording each.
-    const box = `document.querySelector('.ab-search input')`
+    const box = `document.querySelector('.ab-search textarea')`
     // Each step is sent 100 ms after the one before: well within the 300 ms pause that starts a
     // search, while a run of steps lasts longer than that pause.
     let sent = 0
@@ -1319,7 +1319,7 @@ describe('desktop (1440x900)', () => {
     assert.ok(await browser.waitFor(retry), 'Try again did not come back')
     await goOffline(true)
     await browser.evaluate(
-      `document.querySelector('.ab-search input').focus(); ${retry}.click(); true`,
+      `document.querySelector('.ab-search textarea').focus(); ${retry}.click(); true`,
     )
     await goOffline(false)
     // The held refresh runs (the button goes) and is turned down (it comes back).
@@ -1337,7 +1337,7 @@ describe('desktop (1440x900)', () => {
       note: 'Offline: waiting for a connection.',
     })
     assert.ok(moved, 'focus fell off the button as it went')
-    assert.equal(elsewhere, 'INPUT', 'the button took focus from the search box as it went')
+    assert.equal(elsewhere, 'TEXTAREA', 'the button took focus from the search box as it went')
   })
 
   test('a mouse press on Try again leaves the page where it is', async () => {
@@ -1542,15 +1542,16 @@ describe('desktop (1440x900)', () => {
     // widths of the placeholder's box and of its text, and how far the bubble runs past the
     // header's right edge, where its room ends. Then how far below the links the bubble sits,
     // the room beside them, and the width the bubble needs there to show its whole placeholder:
-    // its own width around the placeholder's box, and the text's. A range gives the text's
-    // width; scrollWidth gives the box's while the box is the wider.
+    // its own width around the placeholder's box, the text's, and the 14px it keeps at its end
+    // for the clear button (components.css). A range gives the text's width; scrollWidth gives
+    // the box's while the box is the wider.
     const measure = async () => {
       await browser.evaluate(
         'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
       )
       await browser.animationsDone()
       const input = await browser.send('Runtime.evaluate', {
-        expression: `document.querySelector('.ab-search input')`,
+        expression: `document.querySelector('.ab-search textarea')`,
       })
       const { node } = await browser.send('DOM.describeNode', {
         objectId: input.result.objectId,
@@ -1558,7 +1559,7 @@ describe('desktop (1440x900)', () => {
         pierce: true,
       })
       const placeholder = placeholderIn(node)
-      assert.ok(placeholder, 'Chrome’s placeholder box was not found inside the search input')
+      assert.ok(placeholder, 'Chrome’s placeholder box was not found inside the search box')
       const { object } = await browser.send('DOM.resolveNode', {
         backendNodeId: placeholder.backendNodeId,
       })
@@ -1577,7 +1578,7 @@ describe('desktop (1440x900)', () => {
             past: Math.round(bubble.right - edge),
             below: Math.round(bubble.top - links.top),
             room: edge - links.right - parseFloat(style.columnGap),
-            need: bubble.width - this.getBoundingClientRect().width + range.getBoundingClientRect().width,
+            need: bubble.width - this.getBoundingClientRect().width + range.getBoundingClientRect().width + 14,
           }
         }`,
         returnByValue: true,
@@ -1597,7 +1598,7 @@ describe('desktop (1440x900)', () => {
         ['at rest', 'blur'],
         ['focused', 'focus'],
       ] as const) {
-        await browser.evaluate(`document.querySelector('.ab-search input').${focus}(); true`)
+        await browser.evaluate(`document.querySelector('.ab-search textarea').${focus}(); true`)
         // At 900px, and at 960, where the room beside the links is only a little too narrow,
         // and at 970 and 978, where it is a little wider than the bubble needs.
         for (const width of [900, 960, 970, 978]) {
@@ -1623,7 +1624,7 @@ describe('desktop (1440x900)', () => {
       // Back to the normal view, empty and at rest, on this describe's screen before anything is
       // asserted, even if measuring failed, so the checks after this one see the page they expect.
       await browser.evaluate(
-        `document.getElementById('text-spacing').remove(); document.querySelector('.ab-search input').blur(); true`,
+        `document.getElementById('text-spacing').remove(); document.querySelector('.ab-search textarea').blur(); true`,
       )
       await resize(1440)
     }

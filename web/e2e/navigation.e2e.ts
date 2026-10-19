@@ -971,7 +971,7 @@ test('focus moved mid-flight by a script lands the flight first', async () => {
   assert.ok((await browser.evaluate<unknown[]>(FLIGHT_NOW)).length > 0, 'no flight')
   // Paused, so that only the page can end it, not its own landing.
   await browser.evaluate(PAUSE_FLIGHT)
-  await browser.evaluate(`document.querySelector('.ab-search input').focus(); true`)
+  await browser.evaluate(`document.querySelector('.ab-search textarea').focus(); true`)
   await frames()
   assert.equal(await browser.evaluate(FLIGHT_LEFT), 0, 'still flying')
   assert.notEqual((await browser.evaluate<{ links: string }>(SHOWN)).links, 'none')
@@ -1045,7 +1045,7 @@ test('under 900px the header is one 78px row: the menu button and AniBeam at the
       return { left, right, top, bottom }
     }
     const top = document.querySelector('.ab-top')
-    const input = document.querySelector('.ab-search input')
+    const input = document.querySelector('.ab-search textarea')
     const style = getComputedStyle(input)
     const measure = document.createElement('canvas').getContext('2d')
     measure.font = style.font
@@ -1065,9 +1065,12 @@ test('under 900px the header is one 78px row: the menu button and AniBeam at the
   type Box = { left: number; right: number; top: number; bottom: number }
   const searchName = async () => {
     const { nodes } = await browser.send('Accessibility.getFullAXTree')
-    return (nodes as { ignored: boolean; role?: { value: string }; name?: { value: string } }[])
-      .filter((n) => !n.ignored && n.role?.value === 'searchbox')
-      .map((n) => n.name?.value)
+    return (
+      (nodes as { ignored: boolean; role?: { value: string }; name?: { value: string } }[])
+        // A textarea, so it can wrap on a phone: a text box of more than one line.
+        .filter((n) => !n.ignored && n.role?.value === 'textbox')
+        .map((n) => n.name?.value)
+    )
   }
   const problems: string[] = []
   for (const width of [320, 359, 360, 375, 390, 414, 430, 768, 899]) {
@@ -2185,4 +2188,357 @@ test('on a phone, a part that shows only under the header, back on a scroll up, 
     `({ hidden: document.querySelector('.ab-top').hasAttribute('data-hide'), land: document.querySelector('.ab-machine').dataset.land })`,
   )
   assert.deepEqual(now, { hidden: false, land: 'wait' }, 'it landed under the header')
+})
+
+// ---------- Phones: the search bubble grows a row at a time as what is typed wraps ----------
+
+// A title recorded as a search, long enough to wrap onto 4 rows at 390px and 8 at 320px.
+const LONG_TITLE = 'The Laid-Off Cheat-Granting Mage Enjoys a Second Lease on Life'
+// The search box, as a script finds it.
+const BOX = `document.querySelector('.ab-search textarea')`
+// The search bubble and its box, and what must hold still around them: the header's height and
+// the --top-h it publishes, where the page and the intro's title start, and any sideways scroll.
+// The box's rows are its scrolled height in rows of 20px (a phone's box has no padding of its
+// own, and a pixel more than its rows; see components.css).
+const BUBBLE = `(() => {
+  const box = ${BOX}
+  if (!box) return null
+  const field = document.querySelector('.ab-bubble-field').getBoundingClientRect()
+  return {
+    bubble: Math.round(field.height),
+    bottom: Math.round(field.bottom),
+    rows: Math.floor(box.scrollHeight / 20),
+    scrolled: box.scrollTop,
+    showing: box.clientHeight,
+    overflow: getComputedStyle(box).overflowY,
+    value: box.value,
+    focused: document.activeElement === box,
+    header: document.querySelector('.ab-top').offsetHeight,
+    topH: getComputedStyle(document.documentElement).getPropertyValue('--top-h'),
+    main: Math.round(document.querySelector('main').getBoundingClientRect().top),
+    title: Math.round(document.querySelector('.ab-intro-title')?.getBoundingClientRect().top ?? -1),
+    sideways: document.documentElement.scrollWidth - innerWidth,
+  }
+})()`
+type Bubble = {
+  bubble: number
+  bottom: number
+  rows: number
+  scrolled: number
+  showing: number
+  overflow: string
+  value: string
+  focused: boolean
+  header: number
+  topH: string
+  main: number
+  title: number
+  sideways: number
+}
+/** The bubble's state, failing the check if there is no search box to measure. */
+async function bubbleNow(on: Browser = browser) {
+  const seen = await on.evaluate<Bubble | null>(BUBBLE)
+  if (!seen) assert.fail(`nothing on the page is .ab-search textarea`)
+  return seen
+}
+const twoFrames = (on: Browser = browser) =>
+  on.evaluate(
+    'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+  )
+
+test('on a phone the search bubble grows down over the page a row at a time as a long title is typed, keystroke by keystroke, up to three rows, then scrolls a whole row at a time; the header stays one 78px row and nothing else moves', async () => {
+  // Under reduced motion, so each row's height is there as soon as the row is. The search's 300
+  // ms wait after each keystroke is held off in a browser of the check's own, so no search starts
+  // mid-title, however slowly a busy machine types: one would take the intro off the page. (A
+  // stopped clock can't do it: Chrome then draws frames, and reports sizes, only now and then.)
+  // AniList is blocked there too, so nothing is asked of it.
+  for (const [width, height] of [
+    [320, 568],
+    [390, 844],
+  ]) {
+    const own = await Browser.open()
+    try {
+      await own.blockAniList()
+      await own.load({ width, height, phone: true, reduceMotion: true })
+      await own.animationsDone()
+      // From here on, what moves on the page, outside the search bubble: a pseudo-element (the
+      // bubble's tail) by the element it is drawn on.
+      await own.evaluate(`(() => {
+        const wait = window.setTimeout
+        window.setTimeout = (run, ms, ...rest) => (ms === 300 ? 0 : wait(run, ms, ...rest))
+        window.__moved = []
+        new PerformanceObserver((list) => {
+          for (const entry of list.getEntries())
+            for (const { node, previousRect, currentRect } of entry.sources) {
+              const el = node?.nodeType === 1 && !node.nodeName.startsWith('::') ? node : node?.parentElement
+              if (!el?.closest('.ab-search'))
+                window.__moved.push((el?.className || node?.nodeName) + ': ' + Math.round(previousRect.top) + ' → ' + Math.round(currentRect.top) + 'px')
+            }
+        }).observe({ type: 'layout-shift' })
+        ${BOX}?.focus()
+        return true
+      })()`)
+      const start = await bubbleNow(own)
+      const problems: string[] = []
+      const heights = new Set<number>()
+      let most = 0
+      for (let i = 0; i < LONG_TITLE.length; i++) {
+        await own.send('Input.insertText', { text: LONG_TITLE[i] })
+        await twoFrames(own)
+        const now = await bubbleNow(own)
+        const at = `${width}px, "${LONG_TITLE.slice(0, i + 1)}"`
+        heights.add(now.bubble)
+        most = Math.max(most, now.rows)
+        if (now.bubble !== 30 + 20 * Math.min(now.rows, 3))
+          problems.push(`${at}: ${now.rows} rows, but the bubble is ${now.bubble}px tall`)
+        if (now.header !== 78 || now.topH !== '78px')
+          problems.push(`${at}: the header is ${now.header}px tall, --top-h ${now.topH}`)
+        if (now.main !== start.main || now.title !== start.title)
+          problems.push(
+            `${at}: the page moved, its top ${start.main} → ${now.main}px, the intro’s title ${start.title} → ${now.title}px`,
+          )
+        if (now.sideways > 0) problems.push(`${at}: the page scrolls ${now.sideways}px sideways`)
+        // Up to three rows the text holds still as the bubble grows, and a finger's scroll on the
+        // box is the page's. Past three, the box scrolls, showing the last three rows whole.
+        if (now.rows <= 3 && (now.scrolled !== 0 || now.overflow !== 'hidden'))
+          problems.push(`${at}: the box is scrolled ${now.scrolled}px, overflow ${now.overflow}`)
+        if (
+          now.rows > 3 &&
+          (now.scrolled % 20 !== 0 || now.scrolled < 20 * (now.rows - 3) || now.overflow !== 'auto')
+        )
+          problems.push(
+            `${at}: ${now.rows} rows, the box scrolled ${now.scrolled}px, overflow ${now.overflow}`,
+          )
+      }
+      await twoFrames(own)
+      const moved = await own.evaluate<string[]>('window.__moved')
+      assert.deepEqual(problems, [], `${width}px: as the title was typed`)
+      assert.deepEqual(moved, [], `${width}px: something on the page moved as the bubble grew`)
+      assert.deepEqual(
+        [...heights].sort(),
+        [50, 70, 90],
+        `${width}px: the bubble wasn’t 50, 70 and 90px tall, one to three rows`,
+      )
+      assert.ok(most > 3, `${width}px: the title took only ${most} rows`)
+    } finally {
+      await own.close()
+    }
+  }
+})
+
+test('on a phone Enter adds no new line and on a touch screen puts the keyboard away; as focus leaves, the bubble folds back to one row showing the first; pasted line breaks become spaces; Esc empties the box', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const seen: Record<string, unknown> = {}
+  await withTouch(async () => {
+    await browser.search(LONG_TITLE)
+    assert.ok(
+      await browser.waitFor(`document.querySelector('#results')?.textContent.includes('Laid-Off')`),
+      'the long title was never searched',
+    )
+    await twoFrames()
+    const typed = await bubbleNow()
+    seen.typed = {
+      bubble: typed.bubble,
+      rows: typed.rows > 3 ? 'more than 3' : typed.rows,
+      focused: typed.focused,
+    }
+    // The phone keyboard's Search key is an Enter.
+    await browser.press('Enter')
+    await twoFrames()
+    const entered = await bubbleNow()
+    seen.entered = {
+      bubble: entered.bubble,
+      scrolled: entered.scrolled,
+      overflow: entered.overflow,
+      focused: entered.focused,
+      value: entered.value,
+    }
+  })
+  // With a mouse, Enter leaves focus in the box, and still adds no new line.
+  await browser.evaluate(`${BOX}.focus(); true`)
+  await browser.press('Enter')
+  await twoFrames()
+  const mouse = await bubbleNow()
+  seen.mouse = { focused: mouse.focused, value: mouse.value }
+  // A paste of two lines.
+  await browser.evaluate(`${BOX}.select(); true`)
+  await browser.send('Input.insertText', { text: 'one\npiece' })
+  assert.ok(
+    await browser.waitFor(
+      `document.querySelector('#results')?.textContent.includes('“one piece”')`,
+    ),
+    'the pasted search never showed its results',
+  )
+  seen.pasted = (await bubbleNow()).value
+  await browser.press('Escape')
+  seen.escaped = (await bubbleNow()).value
+  assert.deepEqual(seen, {
+    typed: { bubble: 90, rows: 'more than 3', focused: true },
+    entered: { bubble: 50, scrolled: 0, overflow: 'hidden', focused: false, value: LONG_TITLE },
+    mouse: { focused: true, value: LONG_TITLE },
+    pasted: 'one piece',
+    escaped: '',
+  })
+})
+
+test('on a phone, with a long title in the box and focus gone, the header hiding up the screen takes the whole bubble with it', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.search(LONG_TITLE)
+  assert.ok(
+    await browser.waitFor(`document.querySelector('#results')?.textContent.includes('Laid-Off')`),
+    'the long title was never searched',
+  )
+  await browser.evaluate(`${BOX}.blur(); true`)
+  await scrollAndSettle(1000)
+  const { hidden } = await browser.evaluate<Top>(TOP)
+  const { bubble, bottom } = await bubbleNow()
+  // Its tail hangs 14px below it.
+  assert.deepEqual(
+    { hidden, bubble, showing: bottom + 14 > 0 },
+    { hidden: true, bubble: 50, showing: false },
+    'the hidden header left part of the bubble on the screen',
+  )
+})
+
+test('on a phone a finger’s scroll that starts on the search bubble scrolls the page, empty or holding a word', async () => {
+  const seen: Record<string, number> = {}
+  for (const width of [320, 390]) {
+    await browser.load({ width, height: 700, phone: true, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    await withTouch(async () => {
+      for (const word of ['', 'naruto']) {
+        if (word) {
+          await browser.search(word)
+          assert.ok(
+            await browser.waitFor(
+              `document.querySelector('#results')?.textContent.includes('“naruto”')`,
+            ),
+            'naruto was never searched',
+          )
+          await browser.evaluate(`${BOX}.blur(); true`)
+        }
+        await scrollAndSettle(0)
+        const { x, y } = await middleOf('.ab-bubble-field')
+        await swipe(line(x, y, 0, -250, 300))
+        await sleep(400)
+        seen[`${width}px, ${word || 'empty'}`] =
+          (await browser.evaluate<number>('scrollY')) > 150 ? 1 : 0
+      }
+    })
+  }
+  assert.deepEqual(
+    seen,
+    { '320px, empty': 1, '320px, naruto': 1, '390px, empty': 1, '390px, naruto': 1 },
+    'a scroll that started on the bubble left the page where it was (1 is scrolled)',
+  )
+})
+
+test('with motion allowed the search bubble eases to its new rows in 0.3s; under reduced motion, the device’s or the site’s, it takes them at once', async () => {
+  // The bubble's height transitions under way: how long each takes.
+  const growing = `document.querySelector('.ab-bubble-field').getAnimations().filter((a) => a.transitionProperty === 'height').map((a) => a.effect.getTiming().duration).join()`
+  const seen: Record<string, unknown> = {}
+  for (const motion of ['allowed', 'reduced on the device', 'reduced on the site']) {
+    await browser.load({ ...PHONE, reduceMotion: motion === 'reduced on the device' })
+    assert.ok(await browser.titlesShown())
+    if (motion === 'reduced on the site')
+      await browser.evaluate(`document.documentElement.dataset.motion = 'reduce'; true`)
+    await browser.evaluate(`${BOX}?.focus(); true`)
+    await browser.animationsDone()
+    await browser.send('Input.insertText', { text: LONG_TITLE })
+    await twoFrames()
+    const during = await browser.evaluate<string>(growing)
+    const grown = (await bubbleNow()).bubble
+    await browser.animationsDone()
+    seen[motion] = { during, grown: motion === 'allowed' ? grown < 90 : grown === 90 }
+    await browser.evaluate(`${BOX}.blur(); true`)
+  }
+  assert.deepEqual(seen, {
+    allowed: { during: '300', grown: true },
+    'reduced on the device': { during: '', grown: true },
+    'reduced on the site': { during: '', grown: true },
+  })
+})
+
+test('from 900px the search keeps to one line as before, and while it holds a query a Clear search button at its end, no Tab stop, empties it and keeps focus in the box; Esc empties it too', async () => {
+  const STATE = `(() => {
+    const box = ${BOX}, field = document.querySelector('.ab-bubble-field').getBoundingClientRect()
+    const clear = document.querySelector('.ab-clear')
+    const drawn = clear?.checkVisibility() ? clear.getBoundingClientRect() : null
+    const style = getComputedStyle(box)
+    return {
+      bubble: Math.round(field.height),
+      header: document.querySelector('.ab-top').offsetHeight,
+      oneLine: box.scrollHeight <= box.clientHeight,
+      clear: drawn && {
+        size: Math.round(drawn.width) + 'x' + Math.round(drawn.height),
+        name: clear.getAttribute('aria-label'),
+        tabStop: clear.tabIndex >= 0,
+        inside: drawn.right <= field.right - 3 && drawn.left >= field.left,
+        clearOfText: box.getBoundingClientRect().right - parseFloat(style.paddingRight) <= drawn.left,
+      },
+      value: box.value,
+      focused: document.activeElement === box,
+    }
+  })()`
+  const long =
+    'a very long search that keeps going and going past the width of the bubble and the screen '.repeat(
+      2,
+    )
+  const seen: Record<string, unknown> = {}
+  for (const width of [900, 1440]) {
+    await browser.load({ width, height: 900, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    seen[`${width}px at rest`] = await browser.evaluate(STATE)
+    await browser.search(long)
+    assert.ok(
+      await browser.waitFor(
+        `document.querySelector('#results')?.textContent.includes('keeps going')`,
+      ),
+      'the long search never showed its results',
+    )
+    seen[`${width}px holding a long query`] = await browser.evaluate(STATE)
+    await clickAt('.ab-clear')
+    await twoFrames()
+    seen[`${width}px cleared`] = await browser.evaluate(STATE)
+    await browser.search('naruto')
+    await browser.press('Tab')
+    seen[`${width}px, Tab from the box`] = await browser.evaluate(
+      `document.activeElement.matches('.ab-clear') ? 'to the clear button' : 'on past it'`,
+    )
+    await browser.evaluate(`${BOX}.focus(); true`)
+    await browser.press('Escape')
+    seen[`${width}px, Esc`] = await browser.evaluate(`${BOX}.value`)
+  }
+  const rest = { bubble: 50, header: 78, oneLine: true, clear: null, value: '', focused: false }
+  const holding = {
+    bubble: 50,
+    header: 78,
+    oneLine: true,
+    clear: {
+      size: '24x24',
+      name: 'Clear search',
+      tabStop: false,
+      inside: true,
+      clearOfText: true,
+    },
+    value: long,
+    focused: true,
+  }
+  const cleared = { ...rest, focused: true }
+  assert.deepEqual(seen, {
+    '900px at rest': rest,
+    '900px holding a long query': holding,
+    '900px cleared': cleared,
+    '900px, Tab from the box': 'on past it',
+    '900px, Esc': '',
+    '1440px at rest': rest,
+    '1440px holding a long query': holding,
+    '1440px cleared': cleared,
+    '1440px, Tab from the box': 'on past it',
+    '1440px, Esc': '',
+  })
 })

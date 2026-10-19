@@ -40,8 +40,7 @@
   gap: 6px;
 }
 
-.ab-nav a,
-.ab-search input {
+.ab-nav a {
   display: inline-flex;
   min-height: 44px;
   align-items: center;
@@ -791,7 +790,9 @@ img[data-broken] {
   }
 
   /* The search takes the rest of the row, its bubble at the far end. Only the bubble takes taps:
-     a tap on the air between it and the logo doesn't send focus to the box. */
+     a tap on the air between it and the logo doesn't send focus to the box. Its slot is one bubble
+     tall, so the header keeps its one row: the bubble hangs from it, over the page, as it takes
+     rows (see below). */
   .ab-search {
     display: flex;
     height: 50px;
@@ -845,7 +846,7 @@ img[data-broken] {
    grew the sticky header and hid the headings its links jump to. max-content keeps the box
    as narrow as the bubble, so it stays at the right. It never gets narrower than the bubble
    needs to show the whole placeholder, though: the placeholder's measured width and 56px, the
-   bubble's border and padding (42px) and the 14px Chrome keeps for its clear button. That is
+   bubble's border and padding (42px) and the 14px at its end kept for the clear button. That is
    the bubble at rest without its 10px of air (see below), which it can spare. The placeholder
    is the box's only visible label, so where widened text spacing (WCAG 1.4.12) leaves less
    room than that, the search drops to a second row instead of cutting it off. */
@@ -859,8 +860,8 @@ img[data-broken] {
 
 /* At rest the bubble sits snug around "Search titles". --text-w is the measured width of the
    text (or of the placeholder while it's empty). The extra 66px covers the border and padding
-   (42px), the 14px Chrome keeps for its clear button even while the button is hidden, and 10px
-   of air after the text. */
+   (42px), 14px at its end kept for the clear button (see .ab-clear), as the search input kept it
+   for Chrome's, and 10px of air after the text. */
 .ab-bubble-field {
   position: relative;
   display: inline-flex;
@@ -876,7 +877,7 @@ img[data-broken] {
 /* Focused, or holding a query: it pops out and grows to fit the text, with the same 66px, up
    to 566px. From 900px it also stops at the room the links leave (see .ab-search above). */
 .ab-bubble-field:focus-within,
-.ab-bubble-field:has(input:not(:placeholder-shown)) {
+.ab-bubble-field:has(textarea:not(:placeholder-shown)) {
   width: clamp(196px, calc(var(--text-w, 120px) + 66px), 566px);
 }
 
@@ -910,28 +911,85 @@ img[data-broken] {
   background: #fff;
 }
 
-.ab-search input,
-.ab-search input:focus-visible {
+/* The box's frame. min-width: 0, here and on the box, so a textarea's own width (its columns)
+   never holds the bubble wider than the room it has. */
+.ab-bubble-clip {
+  display: block;
   width: 100%;
   min-width: 0;
-  min-height: 44px;
-  padding: 0 18px;
+}
+
+/* The box: a textarea, so a phone's can wrap. From 900px it keeps to one line, as the search
+   input it replaced did, scrolling sideways as it fills. */
+.ab-search textarea {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 12px 18px;
+  overflow: hidden;
+  resize: none;
   border: 0;
   border-radius: 999px;
   outline: none;
   background: transparent;
   box-shadow: none;
   color: var(--ink);
-  font: 800 var(--text-label) var(--body);
+  font: 800 var(--text-label) / 20px var(--body);
+  overflow-wrap: break-word;
+  scrollbar-width: none;
+  white-space: pre;
 }
 
-.ab-search input::placeholder {
+.ab-search textarea::placeholder {
   color: #33302b;
   opacity: 1;
 }
 
-/* Measures the text in the input's font; never visible. It hangs off the right edge, so a
-   long query runs off the left of the page, where it can't make the page scroll sideways. */
+/* The clear button the search input had, from 900px, in the room the bubble keeps at its end.
+   The box's text stops short of it. */
+.ab-clear {
+  display: none;
+}
+
+@media (min-width: 900px) {
+  .ab-clear {
+    position: absolute;
+    top: 50%;
+    right: 8px;
+    display: grid;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    place-items: center;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--ink);
+    cursor: pointer;
+    transform: translateY(-50%);
+  }
+
+  .ab-clear:hover {
+    background: var(--sun);
+  }
+
+  .ab-clear svg {
+    width: 12px;
+    fill: none;
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 2.5;
+  }
+
+  .ab-search textarea:not(:placeholder-shown) {
+    padding-right: 40px;
+  }
+}
+
+/* Measure the text in the box's font; never visible. The first two hang off the right edge, so a
+   long query runs off the left of the page, where it can't make the page scroll sideways. The
+   rows copy wraps as the box does, for the rows it takes (see SearchBubble). */
 .ab-search-mirror {
   position: absolute;
   top: 0;
@@ -942,31 +1000,73 @@ img[data-broken] {
   white-space: pre;
 }
 
-/* Phones: it pops out to all the room the logo leaves. The text is 16px, so iOS doesn't zoom the
-   page as the box takes focus. Beside the hamburger and the logo there is no room for Chrome's
-   clear button, which takes its 14px even while hidden, so the box has none (Esc still clears
-   it) and at rest the bubble sits 52px wider than its text: the border, the padding and 18px of
+.ab-search-rows {
+  position: absolute;
+  top: 0;
+  right: 18px;
+  left: 18px;
+  font: 800 var(--text-label) / 20px var(--body);
+  overflow-wrap: break-word;
+  pointer-events: none;
+  visibility: hidden;
+  white-space: pre-wrap;
+}
+
+/* Phones: it pops out to all the room the logo leaves and, while it has focus, grows down a row
+   at a time as what is typed wraps, up to three (--text-h), then scrolls. It hangs from its slot
+   in the header over the page, so nothing else moves, and folds back to one row as focus leaves,
+   so it never sits over what the page shows, and a hidden header takes it all off the screen.
+   The text is 16px, so iOS doesn't zoom the page as the box takes focus. With no clear button to
+   keep room for, it sits 52px wider than its text at rest: the border, the padding and 18px of
    air. */
 @media (max-width: 899px) {
   .ab-bubble-field {
+    position: absolute;
+    top: 0;
+    right: 0;
     width: calc(var(--text-w, 104px) + 52px);
+    height: calc(var(--row, 20px) + 30px);
+    border-radius: 25px;
   }
 
   .ab-bubble-field:focus-within,
-  .ab-bubble-field:has(input:not(:placeholder-shown)) {
+  .ab-bubble-field:has(textarea:not(:placeholder-shown)) {
     width: 100%;
   }
 
-  .ab-search input,
-  .ab-search input:focus-visible {
+  .ab-bubble-field:focus-within {
+    height: calc(var(--text-h, 20px) + 30px);
+  }
+
+  /* The box's top and bottom padding is the clip's, so past three rows the box scrolls a whole
+     row at a time, with no sliver of a row at its edge. The box is a pixel taller than its rows,
+     for the pixel Chrome's keeps below the last: with it, a box that doesn't need to scroll
+     can't, and a finger's scroll that starts on it scrolls the page. */
+  .ab-bubble-clip {
+    overflow: clip;
+    padding: 12px 0 11px;
+    border-radius: 22px;
+  }
+
+  .ab-search textarea {
+    height: calc(var(--row, 20px) + 1px);
     padding: 0 14px;
+    white-space: pre-wrap;
   }
 
-  .ab-search input::-webkit-search-cancel-button {
-    display: none;
+  .ab-bubble-field:focus-within textarea {
+    height: calc(var(--text-h, 20px) + 1px);
   }
 
-  .ab-search :is(input, .ab-search-mirror) {
+  .ab-search[data-over] .ab-bubble-field:focus-within textarea {
+    overflow-y: auto;
+  }
+
+  .ab-search-rows {
+    inset-inline: 14px;
+  }
+
+  .ab-search :is(textarea, .ab-search-rows, .ab-search-mirror) {
     font-size: 16px;
   }
 }
@@ -2946,6 +3046,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     .ab-bubble-field {
       transition:
         width 0.35s var(--spring),
+        height 0.3s var(--spring),
         filter 0.25s var(--spring),
         transform 0.25s var(--spring);
     }

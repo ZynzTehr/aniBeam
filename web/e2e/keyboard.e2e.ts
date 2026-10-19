@@ -90,7 +90,7 @@ test('from 900px, focus never lands under the sticky header, going back with Shi
     // whole page, the header's height had Chrome scroll to the top as its search box took focus.
     const moved = await browser.evaluate<number>(`(() => {
       scrollTo(0, 1500)
-      document.querySelector('.ab-search input').focus()
+      document.querySelector('.ab-search textarea').focus()
       return Math.round(scrollY) - 1500
     })()`)
     if (moved) seen.push(`${screen.width}px: focusing the search box moved the page ${moved}px`)
@@ -314,7 +314,8 @@ const BACK_WIDE = [
 // The stop that has focus, and what is wrong with how it shows, read as Tab reaches it: it must be
 // whole, its ring too, on the screen, clear of the sticky header and of anything that clips it,
 // and not see-through. A chip's or the switch's input is see-through, so for those it is the pill
-// that shows. A ring reaches its outline's width and offset beyond what it rings, or 7px (the
+// that shows; the search box's focus shows as its bubble's lift, so for it, the bubble, which on
+// a phone clips the box as it grows. A ring reaches its outline's width and offset beyond what it rings, or 7px (the
 // rings drawn as a frame, such as a heading's).
 const STOP = `(() => {
   const focused = document.activeElement
@@ -329,7 +330,7 @@ const STOP = `(() => {
     : focused.matches('fieldset input')
       ? text(focused.closest('fieldset').querySelector('legend')) + ': ' + text(focused.parentElement)
       : focused.getAttribute('aria-label') || (focused.matches('label > input') ? text(focused.parentElement) : text(focused) || focused.placeholder || focused.tagName.toLowerCase())
-  const shown = focused.matches('label > input') ? focused.nextElementSibling : focused
+  const shown = focused.matches('label > input') ? focused.nextElementSibling : focused.closest('.ab-bubble-field') ?? focused
   const style = getComputedStyle(shown)
   const reach = style.outlineStyle === 'none' ? 7 : parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset)
   const box = shown.getBoundingClientRect()
@@ -504,7 +505,7 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
   await browser.press('Escape')
   await browser.waitFor(`document.querySelector('.ab-intro')`, 5_000)
   journey.search = {
-    box: await browser.evaluate<string>(`document.querySelector('.ab-search input').value`),
+    box: await browser.evaluate<string>(`document.querySelector('.ab-search textarea').value`),
     results: await browser.evaluate<boolean>(`Boolean(document.querySelector('.ab-results'))`),
     focus: await focus(),
     then: await next(),
@@ -617,7 +618,7 @@ async function focusShows() {
   }>(`(() => {
     const focused = document.activeElement
     window.__walked = focused
-    const shown = focused.matches('label > input') ? focused.nextElementSibling : focused
+    const shown = focused.matches('label > input') ? focused.nextElementSibling : focused.closest('.ab-bubble-field') ?? focused
     const box = shown.getBoundingClientRect()
     const left = Math.max(0, box.left - 10), top = Math.max(0, box.top - 10)
     const right = Math.min(innerWidth, box.right + 10), bottom = Math.min(innerHeight, box.bottom + 10)
