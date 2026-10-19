@@ -1,0 +1,158 @@
+/*
+ * Draft PR 11's title lab (see TitleLab.tsx): its own layout, around the title card, which brings
+ * its styles from components.css. TitleLab puts this in the page itself, inline with its code, so
+ * none of it reaches the site's stylesheet, and index.css keeps this folder out of what Tailwind
+ * reads. Every class starts with ab-lab-. Unlayered, so it outranks components.css where the lab
+ * sets a choice on the card.
+ */
+.ab-lab {
+  min-height: 100svh;
+  color: var(--ink);
+  font-family: var(--body);
+}
+
+/* The bar: the lab's name, the title picker and its two buttons, on one row where they fit. It
+   stays at the top from 700px; on a phone it takes three rows, so it scrolls away. */
+.ab-lab-bar {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  padding: 10px var(--page-x);
+  border-bottom: var(--border) solid var(--ink);
+  background: #fff;
+}
+
+@media (min-width: 700px) {
+  .ab-lab-bar {
+    position: sticky;
+    top: 0;
+  }
+}
+
+.ab-lab-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0 auto 0 0;
+  font: 400 20px / 1.1 var(--display);
+}
+
+.ab-lab-name b {
+  color: var(--hot-text);
+  font-weight: 400;
+}
+
+.ab-lab-name small {
+  padding: 2px 8px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--sun);
+  font: 800 11px / 1.4 var(--body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ab-lab-pick {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.ab-lab-pick select {
+  max-width: min(62vw, 300px);
+  min-height: 44px;
+  padding: 0 10px;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  font: 800 15px var(--body);
+}
+
+.ab-lab-button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 3px 3px 0 var(--ink);
+  color: var(--ink);
+  font: 800 15px var(--body);
+  cursor: pointer;
+}
+
+.ab-lab-button[aria-expanded='true'] {
+  background: var(--sun);
+}
+
+.ab-lab-button-ink {
+  background: var(--ink);
+  color: #fff;
+}
+
+.ab-lab-pick select:focus-visible,
+.ab-lab-button:focus-visible,
+.ab-lab-choices:focus-visible,
+.ab-lab-stage:focus-visible {
+  outline: 4px solid var(--hot);
+  outline-offset: 3px;
+}
+
+.ab-lab-main {
+  display: grid;
+  gap: 16px;
+  padding-top: 16px;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ab-lab-choices,
+.ab-lab-case {
+  margin-inline: var(--page-x);
+}
+
+.ab-lab-choices {
+  display: grid;
+  gap: 18px;
+  padding: 18px;
+  border: var(--border) solid var(--ink);
+  background: #fff;
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.ab-lab-choices[hidden] {
+  display: none;
+}
+
+.ab-lab-intro,
+.ab-lab-case {
+  max-width: 80ch;
+  margin-block: 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+/* The stage: the card in the page, on its wipe, still. The wipe fills the stage instead of the
+   screen. */
+.ab-lab-stage {
+  scroll-margin-top: 80px;
+}
+
+.ab-lab-screen {
+  position: relative;
+  display: flow-root;
+  isolation: isolate;
+  min-height: 100svh;
+}
+
+.ab-lab-screen > .ab-wipe {
+  position: absolute;
+  z-index: -1;
+}

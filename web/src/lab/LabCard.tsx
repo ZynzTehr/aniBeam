@@ -1,0 +1,164 @@
+import { Fragment, useEffect, useId, useRef, type CSSProperties, type ReactNode } from 'react'
+import { markBroken, markLoaded } from '../components/cover.ts'
+import { cssVars } from '../components/cssVars.ts'
+import { formatOf, nextEpisode, seasonOf, studioOf, titleOf } from '../features/anime/format.ts'
+import { accentVars } from '../features/theming/deriveAccent.ts'
+import type { LabTitle } from './types.ts'
+
+/**
+ * The title card as the lab draws it: TitleCard's markup and classes, so components.css styles it
+ * as the real card. Inline, it sits in the page on its wipe, still, so the choices can be switched
+ * and compared; as the card, it opens as TitleCard does, a modal dialog whose wipe grows from the
+ * button that opened it, and it closes at once (the real card's way back is not one of the
+ * choices).
+ */
+export function LabCard({
+  title,
+  mode,
+  from,
+  onClose,
+}: {
+  title: LabTitle
+  mode: 'inline' | 'card'
+  /** Where the wipe starts, as the card. */
+  from?: DOMRect
+  /** The close button: closes the card, or, inline, goes back to the lab's choices. */
+  onClose: () => void
+}) {
+  const headingId = useId()
+  const name = titleOf(title)
+  const size = name.length > 44 ? 'ab-xl' : name.length > 22 ? 'ab-l' : ''
+  const next = nextEpisode(title)
+  const sheet = (
+    <article className="ab-sheet">
+      <button
+        type="button"
+        className="ab-close"
+        // As the card, it closes the dialog, so the browser returns focus to what opened it.
+        onClick={(event) => {
+          const dialog = event.currentTarget.closest('dialog')
+          if (dialog) dialog.close()
+          else onClose()
+        }}
+        aria-label={mode === 'card' ? 'Close title card' : 'Back to the lab’s choices'}
+      >
+        <span className="ab-x" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </span>
+      </button>
+      <div className="ab-sheet-art">
+        {title.title.native && (
+          <p className="ab-native" lang="ja" aria-hidden="true">
+            {title.title.native}
+          </p>
+        )}
+        <img src={title.coverImage.extraLarge} alt="" onLoad={markLoaded} onError={markBroken} />
+      </div>
+      <div className="ab-sheet-copy">
+        <p className="ab-kicker">
+          {[seasonOf(title), formatOf(title), studioOf(title)].filter(Boolean).join(' · ')}
+        </p>
+        <h2 id={headingId} className={`ab-title ${size}`}>
+          {name.split(' ').map((word, w) => (
+            <Fragment key={w}>
+              <span style={cssVars({ '--w': w })}>{word}</span>{' '}
+            </Fragment>
+          ))}
+        </h2>
+        {title.genres.length > 0 && (
+          <ul className="ab-genres" aria-label="Genres">
+            {title.genres.slice(0, 4).map((genre) => (
+              <li key={genre}>{genre}</li>
+            ))}
+          </ul>
+        )}
+        <dl className="ab-facts">
+          <div>
+            <dt>Score</dt>
+            <dd>{title.averageScore === null ? 'Not rated yet' : `${title.averageScore}%`}</dd>
+          </div>
+          <div>
+            <dt>Episodes</dt>
+            <dd>{title.episodes ?? 'TBA'}</dd>
+          </div>
+          {next && (
+            <div>
+              <dt>Next</dt>
+              <dd>{next}</dd>
+            </div>
+          )}
+        </dl>
+        <div className="ab-row-actions">
+          <a
+            className="ab-btn ab-btn-ink"
+            href={`https://anilist.co/anime/${title.id}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Open on AniList
+          </a>
+          <button type="button" className="ab-soon" disabled>
+            Save to My List <small>Soon</small>
+          </button>
+          <button type="button" className="ab-soon" disabled>
+            Chat about it <small>Soon</small>
+          </button>
+        </div>
+      </div>
+    </article>
+  )
+  const style = {
+    ...accentVars(title.coverImage.color),
+    ...cssVars({
+      '--t': `${Math.max(0, from?.top ?? 0)}px`,
+      '--l': `${Math.max(0, from?.left ?? 0)}px`,
+      '--r': `${Math.max(0, innerWidth - (from?.right ?? innerWidth))}px`,
+      '--b': `${Math.max(0, innerHeight - (from?.bottom ?? innerHeight))}px`,
+      '--n': name.split(' ').length,
+    }),
+  }
+  if (mode === 'card')
+    return (
+      <CardDialog headingId={headingId} style={style} onClose={onClose}>
+        {sheet}
+      </CardDialog>
+    )
+  return (
+    <section className="ab-lab-screen" style={style} aria-labelledby={headingId}>
+      <div className="ab-wipe" aria-hidden="true" />
+      {sheet}
+    </section>
+  )
+}
+
+/** The card as a modal dialog, as TitleCard opens it: Esc and Close close it at once. */
+function CardDialog({
+  headingId,
+  style,
+  onClose,
+  children,
+}: {
+  headingId: string
+  style: CSSProperties
+  onClose: () => void
+  children: ReactNode
+}) {
+  const ref = useRef<HTMLDialogElement>(null)
+  useEffect(() => {
+    if (ref.current && !ref.current.open) ref.current.showModal()
+  }, [])
+  return (
+    <dialog
+      ref={ref}
+      className="ab-card is-landed"
+      aria-labelledby={headingId}
+      onClose={onClose}
+      style={style}
+    >
+      <div className="ab-wipe" aria-hidden="true" />
+      {children}
+    </dialog>
+  )
+}

@@ -1,0 +1,1430 @@
+// The title lab's titles (see TitleLab.tsx), copied from saved AniList answers so the lab makes
+// no request: five from the research's first request (design-research/phase2-rest/title-pages/
+// data/live1.json, 2026-10-11), trimmed to the fields the lab shows. One Piece's card fields come
+// from the browser checks' recording of a search for it, and its synopsis, banner and tags from
+// the research's second request (live2.json), which saved no tag names and no staff, so the lab
+// says so. bannerBytes is each banner's size, measured on 2026-10-19 with one download each from
+// AniList's image server. Generated, then formatted; not edited by hand.
+import type { LabTitle } from './types.ts'
+
+export const TITLES: LabTitle[] = [
+  {
+    id: 154587,
+    title: {
+      romaji: 'Sousou no Frieren',
+      english: 'Frieren: Beyond Journey’s End',
+      native: '葬送のフリーレン',
+    },
+    coverImage: {
+      extraLarge:
+        'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-qQTzQnEJJ3oB.jpg',
+      large:
+        'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx154587-qQTzQnEJJ3oB.jpg',
+      color: '#bbf1a1',
+    },
+    bannerImage: 'https://s4.anilist.co/file/anilistcdn/media/anime/banner/154587-ivXNJ23SM1xB.jpg',
+    genres: ['Adventure', 'Drama', 'Fantasy'],
+    averageScore: 91,
+    format: 'TV',
+    episodes: 28,
+    season: 'FALL',
+    seasonYear: 2023,
+    studios: {
+      nodes: [
+        {
+          name: 'MADHOUSE',
+        },
+      ],
+    },
+    nextAiringEpisode: null,
+    status: 'FINISHED',
+    description:
+      'The adventure is over but life goes on for an elf mage just beginning to learn what living is all about. Elf mage Frieren and her courageous fellow adventurers have defeated the Demon King and brought peace to the land. But Frieren will long outlive the rest of her former party. How will she come to understand what life means to the people around her? Decades after their victory, the funeral of one her friends confronts Frieren with her own near immortality. Frieren sets out to fulfill the last wishes of her comrades and finds herself beginning a new adventure…\n<br><br>\n(Source: Crunchyroll)',
+    trailer: {
+      id: 'tR8YH0G67Rk',
+      site: 'youtube',
+    },
+    tags: [
+      {
+        name: 'Travel',
+        rank: 96,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Magic',
+        rank: 95,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Elf',
+        rank: 91,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Female Protagonist',
+        rank: 85,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Philosophy',
+        rank: 84,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Time Skip',
+        rank: 82,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: 'Medieval',
+        rank: 82,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Found Family',
+        rank: 79,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Kuudere',
+        rank: 75,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Demons',
+        rank: 71,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Shounen',
+        rank: 71,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Foreign',
+        rank: 69,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Iyashikei',
+        rank: 63,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Adoption',
+        rank: 61,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Rural',
+        rank: 60,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Heterosexual',
+        rank: 58,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Aromantic',
+        rank: 58,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Dungeon',
+        rank: 56,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Asexual',
+        rank: 55,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Episodic',
+        rank: 54,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Religion',
+        rank: 47,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Rotoscoping',
+        rank: 47,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Snowscape',
+        rank: 43,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Spearplay',
+        rank: 42,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Dragons',
+        rank: 38,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'CGI',
+        rank: 37,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Food',
+        rank: 36,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Horticulture',
+        rank: 30,
+        spoiler: false,
+        adult: false,
+      },
+    ],
+    staff: [
+      {
+        role: 'Original Story',
+        name: 'Kanehito Yamada',
+      },
+      {
+        role: 'Original Character Design',
+        name: 'Tsukasa Abe',
+      },
+      {
+        role: 'Director',
+        name: 'Keiichirou Saitou',
+      },
+      {
+        role: 'Series Composition',
+        name: 'Tomohiro Suzuki',
+      },
+      {
+        role: 'Action Director',
+        name: 'Tooru Iwazawa',
+      },
+      {
+        role: 'Character Design',
+        name: 'Reiko Nagasawa',
+      },
+    ],
+    bannerBytes: 174631,
+  },
+  {
+    id: 16498,
+    title: {
+      romaji: 'Shingeki no Kyojin',
+      english: 'Attack on Titan',
+      native: '進撃の巨人',
+    },
+    coverImage: {
+      extraLarge:
+        'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx16498-buvcRTBx4NSm.jpg',
+      large:
+        'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx16498-buvcRTBx4NSm.jpg',
+      color: '#f1a143',
+    },
+    bannerImage: 'https://s4.anilist.co/file/anilistcdn/media/anime/banner/16498-8jpFCOcDmneX.jpg',
+    genres: ['Action', 'Drama', 'Fantasy', 'Mystery'],
+    averageScore: 85,
+    format: 'TV',
+    episodes: 25,
+    season: 'SPRING',
+    seasonYear: 2013,
+    studios: {
+      nodes: [
+        {
+          name: 'WIT STUDIO',
+        },
+      ],
+    },
+    nextAiringEpisode: null,
+    status: 'FINISHED',
+    description:
+      'Several hundred years ago, humans were nearly exterminated by titans. Titans are typically several stories tall, seem to have no intelligence, devour human beings and, worst of all, seem to do it for the pleasure rather than as a food source. A small percentage of humanity survived by walling themselves in a city protected by extremely high walls, even taller than the biggest of titans.<br><br>\r\nFlash forward to the present and the city has not seen a titan in over 100 years. Teenage boy Eren and his foster sister Mikasa witness something horrific as the city walls are destroyed by a colossal titan that appears out of thin air. As the smaller titans flood the city, the two kids watch in horror as their mother is eaten alive. Eren vows that he will murder every single titan and take revenge for all of mankind.<br><br>\r\n(Source: MangaHelpers)',
+    trailer: {
+      id: 'LHtdKWJdif4\t',
+      site: 'youtube',
+    },
+    tags: [
+      {
+        name: 'Kaiju',
+        rank: 93,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Revenge',
+        rank: 93,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Tragedy',
+        rank: 89,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: 'Military',
+        rank: 88,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Henshin',
+        rank: 88,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: 'Male Protagonist',
+        rank: 86,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Primarily Teen Cast',
+        rank: 86,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Post-Apocalyptic',
+        rank: 84,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Survival',
+        rank: 84,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Super Power',
+        rank: 81,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: 'Memory Manipulation',
+        rank: 77,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: 'Gore',
+        rank: 77,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Steampunk',
+        rank: 77,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Dystopian',
+        rank: 77,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Swordplay',
+        rank: 74,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Ensemble Cast',
+        rank: 74,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Kuudere',
+        rank: 70,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Cannibalism',
+        rank: 69,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: 'Espionage',
+        rank: 68,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: 'Orphan',
+        rank: 67,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Shounen',
+        rank: 63,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Medieval',
+        rank: 60,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Coming of Age',
+        rank: 60,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Amnesia',
+        rank: 60,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: 'Time Skip',
+        rank: 60,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: 'Suicide',
+        rank: 55,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: 'Rural',
+        rank: 50,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Primarily Male Cast',
+        rank: 33,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Adoption',
+        rank: 31,
+        spoiler: false,
+        adult: false,
+      },
+    ],
+    staff: [
+      {
+        role: 'Original Creator',
+        name: 'Hajime Isayama',
+      },
+      {
+        role: 'Director',
+        name: 'Tetsurou Araki',
+      },
+      {
+        role: 'Assistant Director',
+        name: 'Masashi Koizuka',
+      },
+      {
+        role: 'Assistant Director',
+        name: 'Hiroyuki Tanaka',
+      },
+      {
+        role: 'Series Composition',
+        name: 'Yasuko Kobayashi',
+      },
+      {
+        role: 'Character Design',
+        name: 'Kyouji Asano',
+      },
+    ],
+    bannerBytes: 167942,
+  },
+  {
+    id: 1,
+    title: {
+      romaji: 'Cowboy Bebop',
+      english: 'Cowboy Bebop',
+      native: 'カウボーイビバップ',
+    },
+    coverImage: {
+      extraLarge:
+        'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1-GCsPm7waJ4kS.png',
+      large: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx1-GCsPm7waJ4kS.png',
+      color: '#f16b50',
+    },
+    bannerImage: 'https://s4.anilist.co/file/anilistcdn/media/anime/banner/1-OquNCNB6srGe.jpg',
+    genres: ['Action', 'Adventure', 'Drama', 'Sci-Fi'],
+    averageScore: 86,
+    format: 'TV',
+    episodes: 26,
+    season: 'SPRING',
+    seasonYear: 1998,
+    studios: {
+      nodes: [
+        {
+          name: 'Sunrise',
+        },
+      ],
+    },
+    nextAiringEpisode: null,
+    status: 'FINISHED',
+    description:
+      'Enter a world in the distant future, where Bounty Hunters roam the solar system. Spike and Jet, bounty hunting partners, set out on journeys in an ever struggling effort to win bounty rewards to survive.<br><br>\nWhile traveling, they meet up with other very interesting people. Could Faye, the beautiful and ridiculously poor gambler, Edward, the computer genius, and Ein, the engineered dog be a good addition to the group?',
+    trailer: {
+      id: 'OhNwckCLzis',
+      site: 'youtube',
+    },
+    tags: [
+      {
+        name: 'Space',
+        rank: 94,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Crime',
+        rank: 92,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Episodic',
+        rank: 89,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Ensemble Cast',
+        rank: 86,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Primarily Adult Cast',
+        rank: 85,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Philosophy',
+        rank: 84,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Tragedy',
+        rank: 83,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: 'Travel',
+        rank: 82,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Found Family',
+        rank: 82,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Noir',
+        rank: 80,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Anti-Hero',
+        rank: 79,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Male Protagonist',
+        rank: 78,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Cyberpunk',
+        rank: 78,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Guns',
+        rank: 78,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Female Protagonist',
+        rank: 75,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Heterosexual',
+        rank: 72,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: 'Terrorism',
+        rank: 69,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Cyborg',
+        rank: 66,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Tomboy',
+        rank: 66,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Martial Arts',
+        rank: 66,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Cowboys',
+        rank: 65,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Amnesia',
+        rank: 62,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: 'Work',
+        rank: 60,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Gambling',
+        rank: 59,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Police',
+        rank: 52,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Yakuza',
+        rank: 51,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Drugs',
+        rank: 50,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Nudity',
+        rank: 49,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Cult',
+        rank: 47,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Tanned Skin',
+        rank: 42,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Circus',
+        rank: 36,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'CGI',
+        rank: 20,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'LGBTQ+ Themes',
+        rank: 20,
+        spoiler: false,
+        adult: false,
+      },
+    ],
+    staff: [
+      {
+        role: 'Original Creator',
+        name: 'Hajime Yatate',
+      },
+      {
+        role: 'Director',
+        name: 'Shinichirou Watanabe',
+      },
+      {
+        role: 'Series Composition',
+        name: 'Keiko Nobumoto',
+      },
+      {
+        role: 'Literary Arts',
+        name: 'Akira Toba',
+      },
+      {
+        role: 'Character Design',
+        name: 'Toshihiro Kawamoto',
+      },
+      {
+        role: 'Mechanical Design',
+        name: 'Kimitoshi Yamane',
+      },
+    ],
+    bannerBytes: 282187,
+  },
+  {
+    id: 1052,
+    title: {
+      romaji: 'Tokyo Juushouden',
+      english: 'Ten Tokyo Warriors',
+      native: '倒凶十将伝',
+    },
+    coverImage: {
+      extraLarge:
+        'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b1052-WibX4en0qto6.jpg',
+      large:
+        'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b1052-WibX4en0qto6.jpg',
+      color: '#d6351a',
+    },
+    bannerImage: null,
+    genres: ['Action', 'Adventure', 'Supernatural'],
+    averageScore: 43,
+    format: 'OVA',
+    episodes: 3,
+    season: 'SUMMER',
+    seasonYear: 1999,
+    studios: {
+      nodes: [
+        {
+          name: 'ZEXCS',
+        },
+      ],
+    },
+    nextAiringEpisode: null,
+    status: 'FINISHED',
+    description:
+      'Long ago, in feudal Japan, there was a fierce warrior named the Demon King. He controlled a band of demons, known as the Kyouma. Only the powers of ten warriors sealed the Demon King away and kept the Kyouma under control. But now, Lord Shindigan, a powerful Kyouma is planning to free the Demon King, and the reincarnations of the ten warriors must band together and save the earth.\n<br><br>\n(Source: Anime News Network)',
+    trailer: null,
+    tags: [],
+    staff: [
+      {
+        role: 'Art Director',
+        name: 'Toshihisa Koyama',
+      },
+      {
+        role: 'Art Director',
+        name: 'Mitsuharu Miyamae',
+      },
+      {
+        role: 'Theme Song Performance',
+        name: 'Manabi Mizuno',
+      },
+      {
+        role: 'Script',
+        name: 'Tetsuya Oishi',
+      },
+      {
+        role: 'Colour Setting',
+        name: 'Kumi Akiyama',
+      },
+    ],
+    bannerBytes: null,
+  },
+  {
+    id: 207329,
+    title: {
+      romaji:
+        'Tsuihou Sareta Cheat Fuyo Majutsushi wa Kimama na Second Life wo Ouka Suru.: Ore wa Buki dake ja Naku, Arayuru Mono ni "Kyouka Point" wo Fuyo Dekiru shi, Ore no Ishi de Itsudemo Kouka wo Kaijo Dekiru kedo, Nokotta Hitotachi Daijoubu?',
+      english: 'The Laid-Off Cheat-Granting Mage Enjoys a Second Lease on Life',
+      native:
+        '追放されたチート付与魔術師は気ままなセカンドライフを謳歌する。　～俺は武器だけじゃなく、あらゆるものに『強化ポイント』を付与できるし、俺の意思でいつでも効果を解除できるけど、残った人たち大丈夫？～',
+    },
+    coverImage: {
+      extraLarge:
+        'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b207329-6VPeZIDfF4Sr.png',
+      large:
+        'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b207329-6VPeZIDfF4Sr.png',
+      color: '#f1e4c9',
+    },
+    bannerImage: 'https://s4.anilist.co/file/anilistcdn/media/anime/banner/207329-9IqRSKIsM3TC.jpg',
+    genres: ['Adventure', 'Comedy', 'Fantasy', 'Slice of Life'],
+    averageScore: 73,
+    format: 'TV',
+    episodes: null,
+    season: 'FALL',
+    seasonYear: 2026,
+    studios: {
+      nodes: [
+        {
+          name: 'P.A.WORKS',
+        },
+      ],
+    },
+    nextAiringEpisode: {
+      episode: 2,
+      airingAt: 1791903600,
+    },
+    status: 'RELEASING',
+    description:
+      'Rein, an enchanter, is suddenly expelled from his guild one day. But instead of despairing, he declares, “Now I can do anything!” and begins reclaiming the massive number of enhancement points he once poured into his guildmates’ gear, setting off on a brand-new path as an adventurer.<br><br>\nGathering around him are people carrying wounds that don’t fade easily: a genius adventurer who shut her heart after her party was slaughtered, a warrior who lost her family, and an assassin raised from childhood to kill. Yet Rein never rejects their pasts or their scars—he accepts them all with bright, straightforward warmth.<br><br>\nThe stage is a unique fantasy world where Uzis, slingshots, and even yakuza exist side by side. But in this world, the more people rely on convenient technology, the more their magic weakens, and adventurers grow fragile.<br><br>\nIntelligent, vicious monsters roam freely, while in the underworld, outlaws bare their greed and ambition as schemes and betrayals intertwine. In a world where ideals and justice are easily crushed, adventurers fight on with nothing but their magic and their convictions.<br><br>\nThis is the story of those who have lost their place in the world finding a new way to live. Rein and his companions’ wild, free-spirited second life begins now!\n<br><br>(Source: The Laid-Off Cheat-Granting Mage Enjoys a Second Lease on Life Site)',
+    trailer: {
+      id: 'BJXBr_aFF8s',
+      site: 'youtube',
+    },
+    tags: [
+      {
+        name: 'Surreal Comedy',
+        rank: 92,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Urban Fantasy',
+        rank: 79,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Found Family',
+        rank: 79,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Magic',
+        rank: 66,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Chibi',
+        rank: 66,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Exiled',
+        rank: 66,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Male Protagonist',
+        rank: 60,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Slapstick',
+        rank: 60,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Shounen',
+        rank: 20,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Delinquents',
+        rank: 20,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: 'Gangs',
+        rank: 20,
+        spoiler: false,
+        adult: false,
+      },
+    ],
+    staff: [
+      {
+        role: 'Original Creator',
+        name: 'Youmochi Gyoumu',
+      },
+      {
+        role: 'Director',
+        name: 'Shuu Honma',
+      },
+      {
+        role: 'Series Composition',
+        name: 'Youko Yonaiyama',
+      },
+      {
+        role: 'Character Design',
+        name: 'Yuito Kiyosawa',
+      },
+      {
+        role: 'Sub Character Design',
+        name: 'Masami Gouda',
+      },
+      {
+        role: 'Prop Design',
+        name: 'Hiromi Makino',
+      },
+    ],
+    bannerBytes: 122791,
+  },
+  {
+    id: 21,
+    title: {
+      romaji: 'ONE PIECE',
+      english: 'ONE PIECE',
+      native: 'ONE PIECE',
+    },
+    coverImage: {
+      extraLarge:
+        'https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21-ELSYx3yMPcKM.jpg',
+      large: 'https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx21-ELSYx3yMPcKM.jpg',
+      color: '#e49335',
+    },
+    bannerImage: 'https://s4.anilist.co/file/anilistcdn/media/anime/banner/21-wf37VakJmZqs.jpg',
+    genres: ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy'],
+    averageScore: 87,
+    format: 'TV',
+    episodes: null,
+    season: 'FALL',
+    seasonYear: 1999,
+    studios: {
+      nodes: [
+        {
+          name: 'Toei Animation',
+        },
+      ],
+    },
+    nextAiringEpisode: null,
+    status: 'RELEASING',
+    description:
+      "Gold Roger was known as the Pirate King, the strongest and most infamous being to have sailed the Grand Line. The capture and death of Roger by the World Government brought a change throughout the world. His last words before his death revealed the location of the greatest treasure in the world, One Piece. It was this revelation that brought about the Grand Age of Pirates, men who dreamed of finding One Piece (which promises an unlimited amount of riches and fame), and quite possibly the most coveted of titles for the person who found it, the title of the Pirate King.<br><br>\nEnter Monkey D. Luffy, a 17-year-old boy that defies your standard definition of a pirate. Rather than the popular persona of a wicked, hardened, toothless pirate who ransacks villages for fun, Luffy’s reason for being a pirate is one of pure wonder; the thought of an exciting adventure and meeting new and intriguing people, along with finding One Piece, are his reasons of becoming a pirate. Following in the footsteps of his childhood hero, Luffy and his crew travel across the Grand Line, experiencing crazy adventures, unveiling dark mysteries and battling strong enemies, all in order to reach One Piece.<br><br>\n<b>*This includes the following special episodes:</b><br>\n- Chopperman to the Rescue! Protect the TV Station by the Shore! (Episode 336)<br>\n- The Strongest Tag-Team! Luffy and Toriko's Hard Struggle! (Episode 492)<br>\n- Team Formation! Save Chopper (Episode 542)<br>\n- History's Strongest Collaboration vs. Glutton of the Sea (Episode 590)<br>\n- 20th Anniversary! Special Romance Dawn (Episode 907)",
+    trailer: null,
+    tags: [
+      {
+        name: null,
+        rank: 98,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 94,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 93,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 93,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 90,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 88,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 83,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 81,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 81,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 81,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 80,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 80,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 79,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 79,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 79,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 77,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 76,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 76,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 74,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 73,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 73,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 70,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 70,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 67,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 66,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 66,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 65,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 65,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 65,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 65,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 65,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 64,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 64,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 64,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 63,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 62,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 62,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 62,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 61,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 61,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 61,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 61,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 60,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 60,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 58,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 58,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 58,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 57,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 57,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 57,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 57,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 57,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 56,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 55,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 54,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 54,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 52,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 51,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 51,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 50,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 50,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 50,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 50,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 50,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 49,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 48,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 47,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 46,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 46,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 42,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 42,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 40,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 33,
+        spoiler: false,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 20,
+        spoiler: true,
+        adult: false,
+      },
+      {
+        name: null,
+        rank: 20,
+        spoiler: true,
+        adult: false,
+      },
+    ],
+    staff: null,
+    bannerBytes: 357643,
+  },
+]
