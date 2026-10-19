@@ -1291,14 +1291,17 @@ test('on a phone the menu button opens the menu, a modal panel from the left wit
   assert.equal((await browser.layoutShift()).value, shift, 'the menu moved the page')
 })
 
-test('on a phone the menu shuts on its X, on a tap on the dimmed page and on Esc, handing focus back to the menu button, with no ring after a tap, and the page where it was', async () => {
+test('on a phone the menu shuts on its X, on a tap on the dimmed page and on Esc, handing focus back to the menu button, with no ring after a tap, and the page where it was, partway down it', async () => {
   await browser.load({ ...PHONE, reduceMotion: true })
   assert.ok(await browser.titlesShown())
+  await browser.landAll()
   await browser.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
   try {
     const seen: Record<string, unknown> = {}
     for (const how of ['its X', 'a tap on the dimmed page', 'Esc']) {
-      await scrollAndSettle(0)
+      // Partway down the page, its header back on a scroll up: a lock that put the page back at
+      // its top as the menu shut would throw the visitor there.
+      await headerBackAt(1200)
       await tapOn('.ab-burger')
       assert.ok(await browser.waitFor(MENU_OPEN, 2000), `${how}: the menu didn’t open`)
       if (how === 'its X') await tapOn('.ab-drawer .ab-close')
@@ -1320,22 +1323,31 @@ test('on a phone the menu shuts on its X, on a tap on the dimmed page and on Esc
       expanded: 'false',
       focus: 'Menu',
       ring: false,
-      y: 0,
+      y: 1200,
       locked: false,
     }
-    assert.deepEqual(seen, {
-      'its X': shut,
-      'a tap on the dimmed page': shut,
-      // A key shut it: the button shows its ring, for the keyboard.
-      Esc: { ...shut, ring: true },
-    })
+    assert.deepEqual(
+      seen,
+      {
+        'its X': shut,
+        'a tap on the dimmed page': shut,
+        // A key shut it: the button shows its ring, for the keyboard.
+        Esc: { ...shut, ring: true },
+      },
+      'the menu shut, but not as it should, or not with the page where it was',
+    )
   } finally {
     await browser.send('Emulation.setTouchEmulationEnabled', { enabled: false })
   }
 })
 
-test('a tap on a menu link shuts the menu and lands its section 96px down, its heading focused with no ring; Enter on one keeps the ring', async () => {
-  // What has focus, whether its ring shows (drawn behind a heading), and where the heading is.
+test('a tap on a menu link, made as Safari makes it, shuts the menu and lands its section 96px down, its heading focused and marked as a pointer’s jump, with no ring; Enter on one keeps the ring, unmarked', async () => {
+  // Safari, and every browser on an iPhone, doesn't focus a link as it is tapped, and so counts
+  // the heading's focus as the keyboard's; Chrome focuses the link, which hides the ring by
+  // itself. So each tap here is made as Safari makes it: the link's focus on mousedown cancelled.
+  const safari = `document.addEventListener('mousedown', (e) => { if (e.target.closest('a')) e.preventDefault() }, true); true`
+  // What has focus, whether its ring shows (drawn behind a heading), whether lib/jumps.ts marked
+  // its jump as a pointer's, and where the heading is.
   const landed = `(() => {
     const focused = document.activeElement
     const top = Math.round(focused.getBoundingClientRect().top)
@@ -1344,6 +1356,7 @@ test('a tap on a menu link shuts the menu and lands its section 96px down, its h
       open: document.querySelector('.ab-drawer').open,
       focus: focused.id,
       ring: focused.matches(':focus-visible') && getComputedStyle(focused, '::before').content !== 'none',
+      jump: focused.dataset.jump ?? 'unmarked',
       at: top === 96 ? '96px down' : atEnd && top > 96 ? '96px down or lower, at the end of the page' : top + 'px down',
       hash: location.hash,
     }
@@ -1355,6 +1368,7 @@ test('a tap on a menu link shuts the menu and lands its section 96px down, its h
       await browser.load({ ...PHONE, reduceMotion: true })
       assert.ok(await browser.titlesShown())
       await browser.landAll()
+      await browser.evaluate(safari)
       await tapOn('.ab-burger')
       assert.ok(await browser.waitFor(MENU_OPEN, 2000), `#${id}: the menu didn’t open`)
       await tapOn(`.ab-drawer a[href="#${id}"]`)
@@ -1369,16 +1383,21 @@ test('a tap on a menu link shuts the menu and lands its section 96px down, its h
     open: false,
     focus: id,
     ring: false,
+    jump: 'pointer',
     at,
     hash: `#${id}`,
   })
   const decades = (seen.decades as { at?: string } | undefined)?.at
-  assert.deepEqual(seen, {
-    'ab-trending': tapped('ab-trending'),
-    pull: tapped('pull'),
-    // Decades, the last section, may be too near the page's end to come up that far.
-    decades: tapped('decades', decades?.startsWith('96px down') ? decades : '96px down'),
-  })
+  assert.deepEqual(
+    seen,
+    {
+      'ab-trending': tapped('ab-trending'),
+      pull: tapped('pull'),
+      // Decades, the last section, may be too near the page's end to come up that far.
+      decades: tapped('decades', decades?.startsWith('96px down') ? decades : '96px down'),
+    },
+    'a tapped menu link landed its section wrong, or showed its heading’s ring',
+  )
   // From the keyboard: Enter on the menu button opens it on its first link, with its ring, and
   // Enter on Pull jumps there, the heading with its ring.
   await browser.load({ ...PHONE, reduceMotion: true })
@@ -1398,10 +1417,15 @@ test('a tap on a menu link shuts the menu and lands its section 96px down, its h
   await browser.press('Enter')
   await browser.waitFor(`!(${MENU_OPEN}) && document.activeElement.id === 'pull'`, 2000)
   await frames()
-  const keyed = await browser.evaluate<{ focus: string; ring: boolean; open: boolean }>(landed)
+  const keyed = await browser.evaluate<{
+    focus: string
+    ring: boolean
+    jump: string
+    open: boolean
+  }>(landed)
   assert.deepEqual(
-    { open: keyed.open, focus: keyed.focus, ring: keyed.ring },
-    { open: false, focus: 'pull', ring: true },
+    { open: keyed.open, focus: keyed.focus, ring: keyed.ring, jump: keyed.jump },
+    { open: false, focus: 'pull', ring: true, jump: 'unmarked' },
     'Enter on Pull',
   )
 })
@@ -1959,8 +1983,8 @@ test('on a phone the header stays on the screen: it hides once the page has gone
     ['12px down', 1004],
     ['further down', 1500],
     ['8px up again', 1492],
-    ['back near the top, from hidden', 1600],
-    ['60px down', 60],
+    ['hidden again, further down', 1600],
+    ['back near the top, 60px down, from hidden', 60],
   ] as const) {
     await scrollAndSettle(y)
     seen[step] = where(await browser.evaluate<Top>(TOP))
@@ -1977,8 +2001,8 @@ test('on a phone the header stays on the screen: it hides once the page has gone
     '12px down': hidden,
     'further down': hidden,
     '8px up again': shown,
-    'back near the top, from hidden': hidden,
-    '60px down': shown,
+    'hidden again, further down': hidden,
+    'back near the top, 60px down, from hidden': shown,
   })
   await browser.load({ width: 900, height: 900, reduceMotion: true })
   assert.ok(await browser.titlesShown())
