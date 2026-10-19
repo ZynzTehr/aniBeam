@@ -1177,6 +1177,16 @@ img[data-broken] {
   transform: translateX(var(--drag, 0px));
 }
 
+/* Pinched bigger (data-zoomed, SiteHeader), a finger's sideways drag on the header or the menu
+   pans the page, as anywhere else, so a visitor zoomed in to read can bring its edge into view:
+   the swipes wait until the page is pinched back out. The menu's contain kept a drag in it from
+   panning the page back to its left edge. */
+[data-zoomed] .ab-top,
+[data-zoomed] .ab-drawer {
+  overscroll-behavior: auto;
+  touch-action: auto;
+}
+
 .ab-drawer,
 .ab-drawer::backdrop {
   transition:

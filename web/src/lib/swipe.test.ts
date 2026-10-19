@@ -31,6 +31,21 @@ test('a mouse never swipes; a finger and a pen do', () => {
   assert.ok(swipeStart({ ...at(0, 0, 0), pointerType: 'pen' }))
 })
 
+test('zoomed in by a pinch, a finger starts no swipe, so it pans the page; at the page’s own scale, or a hair over it, it does', () => {
+  const swipeAt = (scale: number) => {
+    Object.assign(globalThis, { visualViewport: { scale } })
+    try {
+      return swipeStart({ ...at(0, 0, 0), pointerType: 'touch' })
+    } finally {
+      Reflect.deleteProperty(globalThis, 'visualViewport')
+    }
+  }
+  assert.equal(swipeAt(2.5), null, 'at 2.5 times')
+  assert.equal(swipeAt(1.02), null, 'at 1.02 times')
+  assert.ok(swipeAt(1), 'at the page’s own scale')
+  assert.ok(swipeAt(1.005), 'what a pinch back out can leave')
+})
+
 test('the way is decided once the finger has gone 10px, and kept', () => {
   assert.equal(drag([[109, 300, 16]]).axis, undefined)
   assert.equal(drag([[110, 300, 16]]).axis, 'x')
@@ -106,6 +121,19 @@ test('a drag of the menu shuts it past 30% of its width left, or on a flick left
     ),
     false,
     'a flick back right',
+  )
+  // Still left of where it started, but the last of it a quick flick right: 60px left, then 50px
+  // back in 50 ms. Only a flick left shuts it.
+  assert.equal(
+    shuts(
+      drag([
+        [0, 300, 300],
+        [40, 300, 350],
+      ]),
+      320,
+    ),
+    false,
+    'dragged left, then flicked back right',
   )
 })
 

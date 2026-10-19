@@ -1,7 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { confirmsWord, searchable } from '../lib/ime.ts'
 import { keyboardAfter, keyboardAt, oneLine, oneLineCaret, rowsShown } from '../lib/searchBox.ts'
-import { afterSwipe, EDGE, opens, swipeMoved, swipeStart, type Swipe } from '../lib/swipe.ts'
+import {
+  afterSwipe,
+  EDGE,
+  opens,
+  swipeMoved,
+  swipeStart,
+  zoomed,
+  type Swipe,
+} from '../lib/swipe.ts'
 import { MenuDrawer } from './MenuDrawer.tsx'
 import { openMenu } from './openMenu.ts'
 
@@ -62,6 +70,21 @@ export function SiteHeader({
     }
   }, [])
 
+  // Zoomed in, a finger's sideways drag on the header or the menu pans the page (see zoomed):
+  // data-zoomed hands those drags back to the browser (components.css).
+  useEffect(() => {
+    const view = window.visualViewport
+    const root = document.documentElement
+    if (!view) return
+    const zoom = () => root.toggleAttribute('data-zoomed', zoomed())
+    zoom()
+    view.addEventListener('resize', zoom)
+    return () => {
+      view.removeEventListener('resize', zoom)
+      root.removeAttribute('data-zoomed')
+    }
+  }, [])
+
   const open = (byKey: boolean) => {
     if (openMenu(menu.current, burger.current, byKey)) setMenuOpen(true)
   }
@@ -69,6 +92,9 @@ export function SiteHeader({
     swipe.current = null
     element.style.removeProperty('--pull')
   }
+  // Only the swiping finger's lift or cancel ends its swipe, as in the menu's drag.
+  const lifted = (e: { pointerId: number; currentTarget: HTMLElement }) =>
+    e.pointerId === swipe.current?.id && unpull(e.currentTarget)
 
   return (
     <>
@@ -76,6 +102,8 @@ export function SiteHeader({
         ref={header}
         className="ab-top"
         onPointerDown={(e) => {
+          // A second finger leaves the first one's swipe be.
+          if (swipe.current && !e.isPrimary) return
           const narrow = !matchMedia('(min-width: 900px)').matches
           const clear = !(e.target as Element).closest('.ab-bubble-field')
           swipe.current = narrow && clear && e.clientX >= EDGE ? swipeStart(e) : null
@@ -94,8 +122,8 @@ export function SiteHeader({
             open(false)
           }
         }}
-        onPointerUp={(e) => unpull(e.currentTarget)}
-        onPointerCancel={(e) => unpull(e.currentTarget)}
+        onPointerUp={lifted}
+        onPointerCancel={lifted}
         onClickCapture={(e) => {
           if (!afterSwipe(swiped.current, e.timeStamp)) return
           e.preventDefault()

@@ -1941,6 +1941,231 @@ test('under reduced motion, the device’s or the site’s, the menu doesn’t f
   assert.deepEqual(seen, { 'reduced on the device': still, 'reduced on the site': still })
 })
 
+type Finger = { id: number; x: number; y: number }
+
+/**
+ * Two fingers' touches in turn: each step its kind, the fingers down after it (for a lift, the
+ * finger lifted, or none for all of them) and its time in ms, stamped as swipe() stamps them, so
+ * the page reads the same speeds.
+ */
+async function touches(steps: [string, Finger[], number][]) {
+  const base = Date.now() / 1000 - steps[steps.length - 1][2] / 1000
+  for (const [type, touchPoints, ms] of steps)
+    await browser.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints,
+      timestamp: base + ms / 1000,
+    })
+}
+
+/** The first finger from (x, y), `dx` across in 8 moves 80 ms apart, the last at 640 ms. */
+const firstFinger = (x: number, y: number, dx: number): [string, Finger[], number][] =>
+  Array.from({ length: 9 }, (_, i) => [
+    i ? 'touchMove' : 'touchStart',
+    [{ id: 1, x: x + (dx * i) / 8, y }],
+    i * 80,
+  ])
+
+test('a second finger laid on the open menu as the first drags it changes nothing: the panel springs back or shuts as the first finger leaves it, whichever lifts first; on the header, a tap of a second finger mid-swipe leaves the swipe to open the menu, the bars upright after', async () => {
+  await browser.load(PHONE)
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.animationsDone()
+  const settled = () =>
+    browser.waitFor(`document.querySelector('.ab-drawer').getAnimations().length === 0`, 2000)
+  const drawer = `(() => {
+    const dialog = document.querySelector('.ab-drawer')
+    return {
+      open: dialog.open,
+      shift: ${PANEL_SHIFT},
+      dragging: dialog.classList.contains('is-dragging'),
+      drag: dialog.style.getPropertyValue('--drag'),
+    }
+  })()`
+  const seen: Record<string, unknown> = {}
+  await withTouch(async () => {
+    for (const [how, dx, firstUp] of [
+      ['72px left, the second finger lifted first', -72, false],
+      ['72px left, the first finger lifted first', -72, true],
+      ['150px left, the second finger lifted first', -150, false],
+      ['150px left, the first finger lifted first', -150, true],
+    ] as const) {
+      if (!(await browser.evaluate(MENU_OPEN))) {
+        await sleep(550)
+        await tapOn('.ab-burger')
+        assert.ok(await browser.waitFor(MENU_OPEN, 2000), 'the menu didn’t open')
+      }
+      await settled()
+      // The first finger drags, the second touches down lower on the panel and both stay still
+      // (so no pinch), then one lifts, and the other 200 ms later: no speed left, so only how
+      // far the first finger went decides.
+      const first = { id: 1, x: 250 + dx, y: 400 }
+      const second = { id: 2, x: 200, y: 600 }
+      await touches([
+        ...firstFinger(250, 400, dx),
+        ['touchStart', [first, second], 700],
+        ['touchEnd', [firstUp ? first : second], 800],
+        ['touchEnd', [], 1000],
+      ])
+      await settled()
+      await frames()
+      seen[how] = await browser.evaluate(drawer)
+    }
+    if (await browser.evaluate(MENU_OPEN))
+      await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+    await browser.waitFor(MENU_SHUT, 2000)
+    await sleep(550)
+    // On the header: the first finger goes 30px right from AniBeam, short of the 48px that
+    // opens the menu, a second taps the air beside the search, then the first goes on to 80px.
+    const { logo, air } = await browser.evaluate<{ logo: number; air: number }>(`(() => {
+      const box = (sel) => document.querySelector(sel).getBoundingClientRect()
+      return { logo: box('.ab-logo').left + box('.ab-logo').width / 2, air: (box('.ab-logo').right + box('.ab-bubble-field').left) / 2 }
+    })()`)
+    const at = (dx: number) => [{ id: 1, x: logo + dx, y: 39 }]
+    await touches([
+      ['touchStart', at(0), 0],
+      ['touchMove', at(10), 80],
+      ['touchMove', at(20), 160],
+      ['touchMove', at(30), 240],
+      ['touchStart', [...at(30), { id: 2, x: air, y: 39 }], 300],
+      ['touchEnd', [{ id: 2, x: air, y: 39 }], 360],
+      ['touchMove', at(55), 440],
+      ['touchMove', at(80), 520],
+      ['touchEnd', [], 560],
+    ])
+    await browser.waitFor(MENU_OPEN, 1000)
+    seen['a swipe on the header, a second finger tapping mid-way'] = {
+      open: await browser.evaluate(MENU_OPEN),
+      pull: await browser.evaluate(
+        `document.querySelector('.ab-top').style.getPropertyValue('--pull')`,
+      ),
+    }
+    await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+  })
+  const back = { open: true, shift: 0, dragging: false, drag: '' }
+  const shut = { open: false, shift: 0, dragging: false, drag: '' }
+  assert.deepEqual(
+    seen,
+    {
+      '72px left, the second finger lifted first': back,
+      '72px left, the first finger lifted first': back,
+      '150px left, the second finger lifted first': shut,
+      '150px left, the first finger lifted first': shut,
+      'a swipe on the header, a second finger tapping mid-way': { open: true, pull: '' },
+    },
+    'a second finger left the menu stuck partway, or took the swipe from the first',
+  )
+})
+
+/**
+ * Pinches the page by `scale` about the middle of what the screen shows, as two fingers would.
+ * Zoomed in, Chrome takes a touch's place, and a pinch's, in CSS px from the zoomed screen's
+ * corner, so the checks below place them by the page less that corner.
+ */
+async function pinch(scale: number) {
+  const { x, y } = await browser.evaluate<{ x: number; y: number }>(
+    `({ x: visualViewport.width / 2, y: visualViewport.height / 2 })`,
+  )
+  await browser.send('Input.synthesizePinchGesture', {
+    x,
+    y,
+    scaleFactor: scale,
+    gestureSourceType: 'touch',
+  })
+  await sleep(300)
+}
+
+// The zoomed page: its scale, and how far across and down the screen's corner is on the page.
+const VIEW = `(({ scale, offsetLeft, offsetTop }) => ({ scale: Math.round(scale * 100) / 100, left: Math.round(offsetLeft), top: Math.round(offsetTop) }))(visualViewport)`
+
+test('pinch-zoomed in on a phone, a finger’s sideways drag pans the page from the header and inside the open menu, which neither opens nor shuts by a swipe; the menu button and Esc still work, and pinched back out the swipes come back', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const touchAction = `['.ab-top', '.ab-drawer'].map((sel) => getComputedStyle(document.querySelector(sel)).touchAction)`
+  const view = () => browser.evaluate<{ scale: number; left: number; top: number }>(VIEW)
+  // A slow drag of 100px across, held still before it lifts, so it doesn't fling, and how far
+  // across it panned the page: 100px, give or take the few that Chrome waits for before a pan
+  // starts, counts as 100.
+  const across = async (x: number, y: number, dx: number) => {
+    const before = await view()
+    await swipe(line(x, y, dx, 0, 600), { hold: 200 })
+    await sleep(400)
+    const panned = (await view()).left - before.left
+    return Math.abs(Math.abs(panned) - 100) <= 10 ? Math.sign(panned) * 100 : panned
+  }
+  const seen: Record<string, unknown> = {}
+  await withTouch(async () => {
+    await pinch(2.5)
+    // To the page's top left corner, by drags below the header, so the header is in view, 2.5
+    // times its size, from the menu button to the middle of AniBeam.
+    await swipe(line(78, 20, 0, 300, 600), { hold: 200 })
+    await swipe(line(10, 200, 140, 0, 600), { hold: 200 })
+    await sleep(400)
+    seen.zoomed = { ...(await view()), touch: await browser.evaluate(touchAction) }
+    // On AniBeam, 100px left, then 100px back right, as far as a swipe that opens the menu.
+    seen['a drag left on the header'] = { panned: await across(120, 39, -100) }
+    seen['a drag right on the header'] = {
+      panned: await across(40, 39, 100),
+      open: await browser.evaluate(MENU_OPEN),
+    }
+    if (await browser.evaluate(MENU_OPEN))
+      await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+    await sleep(550)
+    // The menu button, tapped where it shows on the zoomed screen.
+    const burger = await browser.evaluate<{ x: number; y: number }>(`(() => {
+      const box = document.querySelector('.ab-burger').getBoundingClientRect()
+      return { x: box.left + box.width / 2 - visualViewport.offsetLeft, y: box.top + box.height / 2 - visualViewport.offsetTop }
+    })()`)
+    await tap(burger.x, burger.y)
+    seen['the menu button'] = { open: await browser.waitFor(MENU_OPEN, 2000) }
+    // Across the panel: 100px right (the menu, focusing its first link, has brought it into
+    // view, well right of the page's edge), then 100px left, slowly, past the 30% of its 320px
+    // that shuts the menu.
+    seen['a drag right in the menu'] = {
+      panned: await across(40, 250, 100),
+      open: await browser.evaluate(MENU_OPEN),
+    }
+    seen['a drag left in the menu'] = {
+      panned: await across(140, 250, -100),
+      open: await browser.evaluate(MENU_OPEN),
+    }
+    await browser.press('Escape')
+    seen.Esc = { shut: await browser.waitFor(MENU_SHUT, 2000) }
+    // Pinched back out, the header's row and the menu take sideways drags as theirs again.
+    await pinch(0.4)
+    await sleep(550)
+    const logo = await browser.evaluate<number>(
+      `(({ left, width }) => left + width / 2)(document.querySelector('.ab-logo').getBoundingClientRect())`,
+    )
+    await swipe(line(logo, 39, 80, 0, 400))
+    seen['pinched back out'] = {
+      scale: (await view()).scale,
+      touch: await browser.evaluate(touchAction),
+      'a swipe opens the menu': await browser.waitFor(MENU_OPEN, 2000),
+    }
+    await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+  })
+  assert.deepEqual(
+    seen,
+    {
+      zoomed: { scale: 2.5, left: 0, top: 0, touch: ['auto', 'auto'] },
+      'a drag left on the header': { panned: 100 },
+      'a drag right on the header': { panned: -100, open: false },
+      'the menu button': { open: true },
+      'a drag right in the menu': { panned: -100, open: true },
+      'a drag left in the menu': { panned: 100, open: true },
+      Esc: { shut: true },
+      'pinched back out': {
+        scale: 1,
+        touch: ['pan-y pinch-zoom', 'pan-y pinch-zoom'],
+        'a swipe opens the menu': true,
+      },
+    },
+    'zoomed in, a sideways drag on the header or the menu didn’t pan the page, or swiped the menu',
+  )
+})
+
 // ---------- Phones: the header hides on a scroll down, and comes back on a scroll up ----------
 
 // The header: whether the page has it hidden, where it is drawn on the screen, and the scroll.
