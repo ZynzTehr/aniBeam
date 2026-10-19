@@ -313,7 +313,7 @@ export function startSectionNav({
       onCurrent(next)
     }
     // The links, once the page has said whether it has an intro. Under 900px the header scrolls
-    // away, so the buttons never dock: the header's links show only with no intro (a search).
+    // away, so the buttons never dock (and neither set is drawn there: the menu holds the links).
     const fromFocus = scrolledByFocus
     scrolledByFocus = false
     if (actions === undefined) {
@@ -360,7 +360,6 @@ export function startSectionNav({
         wide &&
         actions &&
         set !== shown &&
-        (set === 'header' || set === 'intro') &&
         (shown === 'header' || shown === 'intro') &&
         byVisitor &&
         !fromFocus &&

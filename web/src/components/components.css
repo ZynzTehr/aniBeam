@@ -66,8 +66,8 @@
    lib/sectionNav.ts): from 900px the header's wait hidden in their place while the intro's
    buttons are on the screen, and the buttons hide in theirs once they have docked. Hidden, not
    taken out: both keep their room, so nothing moves, and neither can be reached or read. My List
-   stays. Under 900px the buttons never dock: the header's links show only while searching. With
-   no data-links (the gallery), both show. */
+   stays. Under 900px neither is drawn (the menu holds the links, see MenuDrawer). With no
+   data-links (the gallery), both show. */
 .ab-app:is([data-links='intro'], [data-links='none']) .ab-top .ab-nav a,
 .ab-app:is([data-links='header'], [data-links='none']) .ab-intro-actions {
   visibility: hidden;
@@ -139,8 +139,8 @@
   transform: translate(-2px, -2px);
 }
 
-.ab-nav a:hover,
-.ab-nav a:active {
+:is(.ab-nav, .ab-drawer nav) a:hover,
+:is(.ab-nav, .ab-drawer nav) a:active {
   background: var(--ink);
   color: #fff;
 }
@@ -753,14 +753,47 @@ img[data-broken] {
 }
 
 @media (max-width: 899px) {
-  /* Relative, not static: the header still scrolls away with the page, but its z-index works
-     again, so the intro's speed lines stay under it, as on desktop. */
+  /* Phones: one row, the hamburger, the logo, and the search on the far side. Relative, not
+     static: the header still scrolls away with the page, but its z-index works again, so the
+     intro's speed lines stay under it, as on desktop. */
   .ab-top {
     position: relative;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    gap: 8px;
   }
 
+  /* The menu holds the section links: the header's and the intro's aren't drawn. The intro's
+     stay in the page, for the dock from 900px. */
+  .ab-top .ab-nav,
+  .ab-intro .ab-intro-actions {
+    display: none;
+  }
+
+  .ab-top .ab-burger {
+    display: grid;
+  }
+
+  .ab-logo {
+    display: grid;
+    min-height: 50px;
+    flex: none;
+    align-content: center;
+  }
+
+  /* The search takes the rest of the row, its bubble at the far end. Only the bubble takes taps:
+     a tap on the air between it and the logo doesn't send focus to the box. */
   .ab-search {
-    flex: 1 1 100%;
+    display: flex;
+    height: 50px;
+    min-width: 0;
+    flex: 1 1 0;
+    justify-content: flex-end;
+    pointer-events: none;
+  }
+
+  .ab-bubble-field {
+    pointer-events: auto;
   }
 
   /* Half-width phone panels: a shorter caption so the art stays visible. */
@@ -783,6 +816,12 @@ img[data-broken] {
   .ab-bubble {
     padding: 7px 10px 6px;
     font-size: 14px;
+  }
+}
+
+@media (max-width: 413px) {
+  .ab-logo {
+    font-size: 20px;
   }
 }
 
@@ -894,16 +933,233 @@ img[data-broken] {
   white-space: pre;
 }
 
-/* Phones: it pops out to the full width of its row. */
+/* Phones: it pops out to all the room the logo leaves. The text is 16px, so iOS doesn't zoom the
+   page as the box takes focus. Beside the hamburger and the logo there is no room for Chrome's
+   clear button, which takes its 14px even while hidden, so the box has none (Esc still clears
+   it) and at rest the bubble sits 52px wider than its text: the border, the padding and 18px of
+   air. */
 @media (max-width: 899px) {
+  .ab-bubble-field {
+    width: calc(var(--text-w, 104px) + 52px);
+  }
+
   .ab-bubble-field:focus-within,
   .ab-bubble-field:has(input:not(:placeholder-shown)) {
     width: 100%;
   }
+
+  .ab-search input,
+  .ab-search input:focus-visible {
+    padding: 0 14px;
+  }
+
+  .ab-search input::-webkit-search-cancel-button {
+    display: none;
+  }
+
+  .ab-search :is(input, .ab-search-mirror) {
+    font-size: 16px;
+  }
 }
 
-/* Keep the page still while a title card is open. */
-body:has(.ab-card[open]) {
+/* ---------- The phone menu (MenuDrawer): an inked hamburger, and a manga panel from the left ---- */
+/* An inked stamp, like the site's chips. Its middle bar is shorter and pushed right, so the three
+   read as speed lines. Drawn only under 900px. */
+.ab-burger {
+  display: none;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  margin-top: 3px;
+  place-items: center;
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 3px 3px 0 var(--ink);
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ab-burger svg {
+  width: 24px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 3;
+}
+
+.ab-burger:active {
+  background: var(--sun);
+  box-shadow: none;
+}
+
+.ab-burger:focus-visible {
+  outline: 4px solid var(--hot);
+  outline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .ab-burger:hover {
+    background: var(--sun);
+  }
+}
+
+/* A printed page laid over the page: a denser screentone, inked on its open edge with a hard
+   shadow, as tall as the screen, min(84vw, 320px) wide. 24px more of it waits off the left edge,
+   for the spring's overshoot as it slides in (see the motion gate at the end). Reduced motion: it
+   fades in and out over 150 ms, as the title card does. */
+.ab-drawer {
+  position: fixed;
+  z-index: 60;
+  width: calc(min(84vw, 320px) + 24px);
+  max-width: none;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  padding: 0 0 0 24px;
+  overflow-y: auto;
+  border: 0;
+  border-right: var(--border) solid var(--ink);
+  background: var(--paper) radial-gradient(rgb(0 0 0 / 0.1) 1.2px, transparent 1.5px) 0 0 / 6px 6px;
+  box-shadow: 8px 0 0 var(--ink);
+  color: var(--ink);
+  inset: 0 auto 0 -24px;
+  overscroll-behavior: contain;
+}
+
+.ab-drawer,
+.ab-drawer::backdrop {
+  transition:
+    opacity 0.15s linear,
+    display 0.15s allow-discrete,
+    overlay 0.15s allow-discrete;
+}
+
+.ab-drawer:not([open]) {
+  pointer-events: none;
+}
+
+.ab-drawer:not([open]),
+.ab-drawer:not([open])::backdrop {
+  opacity: 0;
+}
+
+@starting-style {
+  .ab-drawer[open],
+  .ab-drawer[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+/* The page behind, dimmed through a halftone. */
+.ab-drawer::backdrop {
+  background:
+    radial-gradient(rgb(20 20 20 / 0.5) 1.2px, transparent 1.6px) 0 0 / 5px 5px,
+    rgb(20 20 20 / 0.35);
+}
+
+.ab-drawer-page {
+  position: relative;
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px 32px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+/* A sound-effect burst in the panel's corner. */
+.ab-drawer-page::after {
+  position: absolute;
+  z-index: -1;
+  right: -70px;
+  bottom: -70px;
+  width: 240px;
+  aspect-ratio: 1;
+  background: repeating-conic-gradient(var(--sun) 0deg 7deg, transparent 7deg 18deg);
+  content: '';
+  mask: radial-gradient(circle, #000 25%, transparent 70%);
+}
+
+.ab-drawer-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin: 4px 60px 10px 0;
+  font: 400 32px/1 var(--display);
+}
+
+.ab-drawer-title span {
+  display: inline-block;
+  color: var(--sun);
+  font-size: 0.5em;
+  -webkit-text-stroke: 2px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: 3px 3px 0 var(--ink);
+  transform: rotate(-9deg);
+}
+
+.ab-drawer nav {
+  display: grid;
+  gap: 14px;
+}
+
+/* Each link a panel pasted on the page, a little askew; My List, to come, dashed. */
+.ab-drawer nav a,
+.ab-drawer .ab-soon {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 16px;
+  border: 3px solid var(--ink);
+  border-radius: 4px;
+  font: 400 22px var(--display);
+}
+
+.ab-drawer nav a {
+  background: #fff;
+  box-shadow: 4px 4px 0 var(--ink);
+  color: var(--ink);
+  text-decoration: none;
+  transform: rotate(-0.8deg);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ab-drawer nav a:nth-child(even) {
+  transform: rotate(0.6deg);
+}
+
+.ab-drawer nav a span {
+  font: 800 11px var(--body);
+  letter-spacing: 0.1em;
+  opacity: 0.7;
+}
+
+/* The section the visitor is in, as the header marks it: yellow, raised, and a thick ink edge,
+   a cue that isn't color. */
+.ab-drawer a[aria-current='location'] {
+  border-left-width: 12px;
+  background: var(--sun);
+  box-shadow: 6px 6px 0 var(--ink);
+}
+
+.ab-drawer .ab-soon {
+  border-style: dashed;
+}
+
+@media (forced-colors: active) {
+  .ab-drawer-page::after {
+    content: none;
+  }
+}
+
+/* Keep the page still while a title card or the menu is open. */
+body:has(.ab-card[open], .ab-drawer[open]) {
   overflow: hidden;
 }
 
@@ -2213,8 +2469,7 @@ body:has(.ab-card[open]) {
       'art'
       'kicker'
       'title'
-      'lede'
-      'actions';
+      'lede';
     grid-template-columns: 1fr;
   }
 
@@ -2242,16 +2497,6 @@ body:has(.ab-card[open]) {
 
   .ab-intro-cover {
     --cover-w: 92px;
-  }
-
-  .ab-intro-actions {
-    gap: 8px;
-  }
-
-  .ab-intro-actions .ab-btn {
-    min-height: 44px;
-    padding: 0 14px;
-    font-size: 14px;
   }
 }
 
@@ -2594,14 +2839,15 @@ body:has(.ab-card[open]) {
 }
 
 /* Contrast themes (forced colors) drop the chosen chip's yellow fill and its shadow, so it
-   looked like the others, and so did the header's link to the section the visitor is in. It takes the theme's selection colors instead, and keeps its lift as
-   a shadow in the theme's text color. forced-color-adjust: none stops Chrome painting a plate in
-   the page's color behind the label, which would hide it. It also stops Chrome recoloring the
-   focus ring, which would keep the color written for it (white, or brand hot on the decades),
-   so here it takes the theme's text color. That rule ties with the decade chips' brand ring, so
-   it has to come after it. */
+   looked like the others, and so did the header's and the menu's link to the section the
+   visitor is in. It takes the theme's selection colors instead, and keeps its lift as a shadow in
+   the theme's text color. forced-color-adjust: none stops Chrome painting a plate in the page's
+   color behind the label, which would hide it. It also stops Chrome recoloring the focus ring,
+   which would keep the color written for it (white, or brand hot on the decades), so here it
+   takes the theme's text color. That rule ties with the decade chips' brand ring, so it has to
+   come after it. */
 @media (forced-colors: active) {
-  .ab-nav a[aria-current='location'],
+  :is(.ab-nav, .ab-drawer nav) a[aria-current='location'],
   .ab-chip input:checked + span {
     border-color: Highlight;
     background: Highlight;
@@ -2610,7 +2856,7 @@ body:has(.ab-card[open]) {
     forced-color-adjust: none;
   }
 
-  .ab-nav a[aria-current='location']:focus-visible,
+  :is(.ab-nav, .ab-drawer nav) a[aria-current='location']:focus-visible,
   .ab-chip input:checked:focus-visible + span {
     outline-color: CanvasText;
   }
@@ -2732,5 +2978,54 @@ body:has(.ab-card[open]) {
     .ab-btn:hover {
       transform: translate(-3px, -3px);
     }
+  }
+}
+
+/* The phone menu, with motion allowed. The hamburger stamps into the paper as it is pressed. The
+   menu slams in from the left with the dock flight's overshoot, hidden by the 24px of panel off
+   the screen, and goes out quickly; its links slap down as it lands. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(:root:not([data-motion='reduce'])) {
+    .ab-burger:active {
+      transform: translate(3px, 3px);
+    }
+
+    .ab-drawer {
+      opacity: 1;
+      transition:
+        transform 0.32s cubic-bezier(0.2, 1.35, 0.35, 1),
+        display 0.32s allow-discrete,
+        overlay 0.32s allow-discrete;
+    }
+
+    .ab-drawer:not([open]) {
+      opacity: 1;
+      transform: translateX(calc(-100% - 12px));
+      transition-duration: 0.2s;
+      transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+    }
+
+    @starting-style {
+      .ab-drawer[open] {
+        opacity: 1;
+        transform: translateX(calc(-100% - 12px));
+      }
+    }
+
+    .ab-drawer[open] nav > * {
+      animation: ab-slap 0.3s var(--spring) backwards 0.12s;
+    }
+
+    .ab-drawer nav a:active {
+      box-shadow: 1px 1px 0 var(--ink);
+      transform: translate(3px, 3px);
+    }
+  }
+}
+
+@keyframes ab-slap {
+  from {
+    opacity: 0;
+    transform: translateX(-28px) rotate(-6deg) scale(0.9);
   }
 }

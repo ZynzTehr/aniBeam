@@ -332,18 +332,21 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // change that needs more raises its number here and says why. The CSS rose to 8,502 B with the
 // layout and keyboard work (the status tags, the room kept for focus rings, the title card's own
 // ring in two tones), then past 9,000 B with the page's section links (the header's links waiting
-// hidden, the current section in yellow: 9,016 B), so its budget is 9,500 B. The JS every visit
-// loads passed 78,500 B with the scroll slam's landing (lib/landing.ts, 78,954 B with its
-// follow-ups), then 79,000 B with the request for one title on its own (titleQuery, for title
-// addresses: 79,019 B), 79,500 B with opening a title at its address (lib/route.ts, the note in
-// place of a card: 79,519 B), 80,000 B with the title addresses' review fixes (the note's fade-out
-// among them: 80,043 B), 80,500 B with the section links (lib/sectionNav.ts, docking the intro's
-// buttons: 80,741 B), 81,000 B with a phone's bar of them (SectionBar: 81,118 B), and 81,500 B
-// with the buttons' flight into the header and back (82,032 B), so its budget is 82,500 B. The fonts in web/public are copied as they
-// are, outside the build, so this doesn't weigh them.
+// hidden, the current section in yellow: 9,016 B), and past 9,500 B with a phone's one-row header
+// and its menu (the hamburger, the manga-panel menu and its slide: 10,013 B), so its budget is
+// 10,500 B. The JS every visit loads passed 78,500 B with the scroll slam's landing
+// (lib/landing.ts, 78,954 B with its follow-ups), then 79,000 B with the request for one title on
+// its own (titleQuery, for title addresses: 79,019 B), 79,500 B with opening a title at its
+// address (lib/route.ts, the note in place of a card: 79,519 B), 80,000 B with the title
+// addresses' review fixes (the note's fade-out among them: 80,043 B), 80,500 B with the section
+// links (lib/sectionNav.ts, docking the intro's buttons: 80,741 B), 81,000 B with a phone's bar of
+// them (81,118 B, since taken out), 81,500 B with the buttons' flight into the header and back
+// (82,032 B), and 82,500 B with the phone's menu in the bar's place (MenuDrawer, the hamburger:
+// 82,508 B), so its budget is 83,000 B. The fonts in web/public are copied as they are, outside
+// the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 82_500,
-  'the CSS': 9_500,
+  'the JS every visit loads': 83_000,
+  'the CSS': 10_500,
   'the JS loaded only when needed': 3_500,
   'every other file': 500,
 }

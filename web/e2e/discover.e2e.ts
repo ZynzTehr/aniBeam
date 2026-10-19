@@ -1473,13 +1473,20 @@ describe('desktop (1440x900)', () => {
           `${width}px: the bubble is ${Math.round(held.bubble.width)}px wide, not the ${Math.round(held.room)}px the links leave`,
         )
     }
-    // Below 900px the header stacks, and the bubble fills a row of its own.
+    // Below 900px the header is one row of its own, the menu button, the logo and the search,
+    // and the bubble fills the room the logo leaves.
     await resize(834)
-    const stacked = await measure()
-    const row = stacked.right - stacked.left
-    if (Math.abs(stacked.bubble.width - row) > 2)
+    const narrow = await measure()
+    const beside =
+      narrow.right -
+      (await browser.evaluate<number>(
+        `document.querySelector('.ab-logo').getBoundingClientRect().right + parseFloat(getComputedStyle(document.querySelector('.ab-top')).columnGap)`,
+      ))
+    if (Math.abs(narrow.height - rest) > 1)
+      problems.push(`834px: the header is ${Math.round(narrow.height)}px tall, not ${rest}px`)
+    if (Math.abs(narrow.bubble.width - beside) > 2)
       problems.push(
-        `834px: the bubble is ${Math.round(stacked.bubble.width)}px wide, not the row’s ${Math.round(row)}px`,
+        `834px: the bubble is ${Math.round(narrow.bubble.width)}px wide, not the ${Math.round(beside)}px the logo leaves`,
       )
     // Empty and at rest, it still sits at the header's right end.
     await resize(1024)
@@ -1660,7 +1667,7 @@ describe('desktop (1440x900)', () => {
     const jump = async (href: string) => {
       // From the top of the page; where the header's section links wait hidden there (while the
       // intro's buttons show), from its end, where the buttons have docked; under 900px, where
-      // they never dock, by the intro's button to the same place, from the top.
+      // neither is drawn, by the menu's link to the same place, from the top.
       await browser.evaluate(`(() => {
         history.replaceState(null, '', location.pathname)
         scrollTo(0, 0)
@@ -1687,10 +1694,11 @@ describe('desktop (1440x900)', () => {
       // would pass without pressing it.
       const used = await browser.evaluate<string>(`(() => {
         const header = document.querySelector('.ab-nav a[href="${href}"]')
-        if (getComputedStyle(header).visibility !== 'hidden') return header.focus(), 'header'
+        if (header.checkVisibility({ visibilityProperty: true })) return header.focus(), 'header'
         scrollTo(0, 0)
-        document.querySelector('.ab-intro-actions a[href="${href}"]').focus()
-        return 'intro'
+        document.querySelector('.ab-burger').click()
+        document.querySelector('.ab-drawer a[href="${href}"]').focus()
+        return 'menu'
       })()`)
       const wide = await browser.evaluate<boolean>(`innerWidth >= 900`)
       assert.ok(
@@ -4863,12 +4871,23 @@ describe('phone (390x844)', () => {
   })
 
   test('every menu item fits on screen without squeezing', async () => {
-    const menu = await browser.evaluate<{ right: number; soonHeight: number }>(`({
-      right: Math.max(...[...document.querySelectorAll('.ab-nav > *')].map((n) => n.getBoundingClientRect().right)),
-      soonHeight: document.querySelector('.ab-nav .ab-soon').getBoundingClientRect().height,
+    // The header's links aren't drawn on a phone: they are in the menu its button opens.
+    await browser.evaluate(`document.querySelector('.ab-burger').click(); true`)
+    assert.ok(await browser.waitFor(`document.querySelector('.ab-drawer').open`, 2000))
+    // Once its links have slapped down: tilted mid-way, their boxes reach further.
+    await browser.animationsDone()
+    const menu = await browser.evaluate<{ right: number; panel: number; heights: number[] }>(`({
+      right: Math.max(...[...document.querySelectorAll('.ab-drawer nav > *')].map((n) => n.getBoundingClientRect().right)),
+      panel: document.querySelector('.ab-drawer-page').getBoundingClientRect().right,
+      heights: [...document.querySelectorAll('.ab-drawer nav > *')].map((n) => n.offsetHeight),
     })`)
-    assert.ok(menu.right <= 374, `the menu ends at ${menu.right}px`)
-    assert.ok(menu.soonHeight <= 50, `the coming-soon pill is ${menu.soonHeight}px tall`)
+    await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+    assert.ok(menu.right <= menu.panel, `the menu's items end at ${menu.right}px, past its panel`)
+    assert.ok(menu.panel <= 374, `the menu ends at ${menu.panel}px`)
+    assert.ok(
+      menu.heights.length === 4 && menu.heights.every((h) => h >= 44 && h <= 64),
+      `the menu's items are ${menu.heights.join(', ')}px tall`,
+    )
   })
 
   test('on a 2x screen, decade covers load AniList’s 460px file where there is one', async () => {

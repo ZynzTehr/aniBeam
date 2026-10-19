@@ -225,17 +225,8 @@ test("each of the header's section links hands focus to its section's heading, a
   ]) {
     await browser.load({ ...screen, reduceMotion: true })
     assert.ok(await browser.titlesShown())
-    // The header's section links wait hidden while the intro's buttons are on the page: on a
-    // phone, they show while searching, as results take the intro's place.
-    if (screen.width < 900) {
-      await browser.search('frieren')
-      assert.ok(
-        await browser.waitFor(
-          `document.querySelector('.ab-results .ab-strip-panel[href]')`,
-          10_000,
-        ),
-      )
-    }
+    // On a phone the links are in the menu, which the menu button opens.
+    const phone = screen.width < 900
     for (const label of ['Trending', 'Pull', 'Decades']) {
       // From the top of the page; on a wide screen, from its end, where the intro's buttons have
       // docked and the header's links show.
@@ -245,8 +236,12 @@ test("each of the header's section links hands focus to its section's heading, a
       await browser.evaluate(
         'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
       )
+      if (phone) {
+        await browser.evaluate(`document.querySelector('.ab-burger').focus(); true`)
+        await browser.press('Enter')
+      }
       await browser.evaluate(`(() => {
-        ;[...document.querySelectorAll('.ab-nav a')].find((link) => link.textContent === '${label}').focus()
+        ;[...document.querySelectorAll('${phone ? '.ab-drawer nav a' : '.ab-nav a'}')].find((link) => link.firstChild.textContent === '${label}').focus()
         return true
       })()`)
       await browser.press('Enter')
@@ -290,8 +285,16 @@ const STOPS = [
 // The header's section links wait hidden while the intro's buttons are on the page (see
 // lib/sectionNav.ts), so a walk from the top meets only the buttons. On a wide screen, walking
 // back from the end, the buttons have docked in the header, so it meets the header's links
-// instead; on a phone they never dock, so it meets the buttons again.
+// instead.
 const STOPS_TOP = STOPS.filter((stop) => !['Trending', 'Pull', 'Decades'].includes(stop))
+// On a phone neither is drawn: the menu button opens the links, and the walk goes on to the page.
+const STOPS_PHONE = [
+  ...STOPS.slice(0, 2),
+  'Menu',
+  ...STOPS_TOP.filter(
+    (stop) => !['See what’s trending', 'Pull a random title', 'Browse by decade'].includes(stop),
+  ).slice(2),
+]
 const BACK_WIDE = [
   'Reduce motion',
   'a title in Browse by decade ×20',
@@ -422,7 +425,7 @@ test('Tab walks every stop of the page in order and Shift+Tab walks them back, e
   }
   assert.deepEqual(seen, {
     '1440px': { stops: STOPS_TOP, back: BACK_WIDE, problems: [] },
-    '390px': { stops: STOPS_TOP, back: 'the same, reversed', problems: [] },
+    '390px': { stops: STOPS_PHONE, back: 'the same, reversed', problems: [] },
   })
 })
 
@@ -459,7 +462,11 @@ test('by keyboard alone, Esc empties the search box, arrow keys choose a vibe an
       then: 'a title in Browse by decade',
     },
   }
-  assert.deepEqual(seen, { '1440px': expected, '390px': expected })
+  assert.deepEqual(seen, {
+    '1440px': expected,
+    // The intro's buttons aren't drawn on a phone: Tab goes on from the search to the titles.
+    '390px': { ...expected, search: { ...expected.search, then: 'a title in Trending now' } },
+  })
 })
 
 /**

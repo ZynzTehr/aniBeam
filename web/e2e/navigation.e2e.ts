@@ -363,8 +363,14 @@ test('a link that has focus never hides: the set holding it stays until focus le
   assert.equal((await browser.evaluate<{ links: string }>(SHOWN)).links, 'intro', 'once it left')
 })
 
-test('under 900px the header’s section links wait hidden while the intro is on the page, and show while searching; the header keeps its size', async () => {
-  const header = `(() => { const top = document.querySelector('.ab-top'); return [top.offsetHeight, getComputedStyle(top).position, document.querySelector('.ab-top .ab-soon').offsetLeft].join(' ') })()`
+test('under 900px neither the header’s section links nor the intro’s buttons are drawn, at the top, at the end or while searching; the header keeps its size', async () => {
+  // The menu holds the links there (see the phone menu's checks below). The intro's buttons stay
+  // in the page, for the dock from 900px.
+  const drawn = `({
+    header: document.querySelector('.ab-top .ab-nav').checkVisibility(),
+    intro: document.querySelector('.ab-intro-actions')?.checkVisibility() ?? 'no intro',
+  })`
+  const header = `(() => { const top = document.querySelector('.ab-top'); return [top.offsetHeight, getComputedStyle(top).position].join(' ') })()`
   for (const screen of [
     { width: 390, height: 844, phone: true },
     { width: 768, height: 1024, phone: true },
@@ -373,16 +379,22 @@ test('under 900px the header’s section links wait hidden while the intro is on
     await browser.load({ ...screen, reduceMotion: true })
     assert.ok(await browser.titlesShown())
     assert.deepEqual(
-      await browser.evaluate(SHOWN),
-      { links: 'intro', header: false, intro: true },
+      await browser.evaluate(drawn),
+      { header: false, intro: false },
       `${screen.width}px, at the top`,
+    )
+    assert.ok(
+      await browser.evaluate(
+        `Boolean(document.querySelector('.ab-intro-actions a[href="#pull"]'))`,
+      ),
+      `${screen.width}px: the intro’s buttons left the page`,
     )
     const atTop = await browser.evaluate<string>(header)
     await scrollAndSettle('document.documentElement.scrollHeight')
-    assert.equal(
-      (await browser.evaluate<{ links: string }>(SHOWN)).links,
-      'intro',
-      `${screen.width}px, at the end: they never dock`,
+    assert.deepEqual(
+      await browser.evaluate(drawn),
+      { header: false, intro: false },
+      `${screen.width}px, at the end`,
     )
     await scrollAndSettle(0)
     await browser.search('frieren')
@@ -390,8 +402,8 @@ test('under 900px the header’s section links wait hidden while the intro is on
       await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`, 10_000),
     )
     assert.deepEqual(
-      await browser.evaluate(SHOWN),
-      { links: 'header', header: true, intro: false },
+      await browser.evaluate(drawn),
+      { header: false, intro: 'no intro' },
       `${screen.width}px, searching`,
     )
     assert.equal(
@@ -399,7 +411,11 @@ test('under 900px the header’s section links wait hidden while the intro is on
       atTop,
       `${screen.width}px: the header changed`,
     )
-    assert.match(atTop, / relative /, `${screen.width}px: the header no longer scrolls away`)
+    assert.equal(
+      atTop,
+      '78 relative',
+      `${screen.width}px: the header isn’t one row that scrolls away`,
+    )
   }
 })
 
@@ -773,7 +789,7 @@ test('a tap or click on a section link focuses its heading with no ring, even wh
   assert.deepEqual({ id: keyed.id, ring: keyed.ring }, { id: 'pull', ring: true }, 'Enter')
 })
 
-test('the intro’s buttons are the landmark named Sections, read only while they show; the header’s, which holds My List too, is Site', async () => {
+test('the intro’s buttons are the landmark named Sections, read only while they show; the header’s, which holds My List too, is Site; on a phone the menu’s are Sections', async () => {
   const landmarks = async () => {
     const { nodes } = await browser.send('Accessibility.getFullAXTree')
     return (nodes as { ignored: boolean; role?: { value: string }; name?: { value: string } }[])
@@ -786,11 +802,20 @@ test('the intro’s buttons are the landmark named Sections, read only while the
   assert.deepEqual(await landmarks(), ['Sections', 'Site'], 'at the top')
   await scrollAndSettle(await browser.evaluate<number>(DOCK_AT))
   assert.deepEqual(await landmarks(), ['Site'], 'docked')
-  // On a phone the buttons never dock: scrolled to the end, both are still read.
-  await browser.load({ width: 390, height: 844, phone: true, reduceMotion: true })
+  // On a phone the links are in the menu: none is read until it opens, and then only its own,
+  // inside the menu, the page behind it shut away.
+  await browser.load({ ...PHONE, reduceMotion: true })
   assert.ok(await browser.titlesShown())
   await scrollAndSettle('document.documentElement.scrollHeight')
-  assert.deepEqual(await landmarks(), ['Sections', 'Site'], 'a phone, at the end')
+  assert.deepEqual(await landmarks(), [], 'a phone, at the end')
+  await openMenuByKey()
+  assert.deepEqual(await landmarks(), ['Sections'], 'a phone, the menu open')
+  assert.ok(
+    await browser.evaluate(
+      `Boolean(document.querySelector('dialog.ab-drawer[open] nav[aria-label="Sections"]'))`,
+    ),
+    'the menu’s Sections aren’t inside the open menu',
+  )
 })
 
 test('mid-flight both sets hide, each copy starts where it leaves, its labels cross the right way, and only a dock lands yellow', async () => {
@@ -950,4 +975,498 @@ test('focus moved mid-flight by a script lands the flight first', async () => {
   await frames()
   assert.equal(await browser.evaluate(FLIGHT_LEFT), 0, 'still flying')
   assert.notEqual((await browser.evaluate<{ links: string }>(SHOWN)).links, 'none')
+})
+
+// ---------- Phones: one header row, and the menu that holds the section links ----------
+
+const PHONE = { width: 390, height: 844, phone: true }
+
+/** The middle of what `selector` finds, on the screen; a check fails if nothing matches. */
+async function middleOf(selector: string) {
+  const at = await browser.evaluate<{ x: number; y: number } | null>(`(() => {
+    const el = document.querySelector(${JSON.stringify(selector)})
+    if (!el) return null
+    const box = el.getBoundingClientRect()
+    return { x: box.left + box.width / 2, y: box.top + box.height / 2 }
+  })()`)
+  if (!at) assert.fail(`nothing on the page is ${selector}`)
+  return at
+}
+
+/** Clicks the middle of what `selector` finds with the mouse, as a visitor would. */
+async function clickAt(selector: string) {
+  const { x, y } = await middleOf(selector)
+  await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y })
+  for (const type of ['mousePressed', 'mouseReleased'])
+    await browser.send('Input.dispatchMouseEvent', { type, x, y, button: 'left', clickCount: 1 })
+}
+
+/** A finger's tap at a point on the screen (with touch emulation on). */
+async function tap(x: number, y: number) {
+  await browser.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] })
+  await browser.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+}
+const tapOn = async (selector: string) => {
+  const { x, y } = await middleOf(selector)
+  await tap(x, y)
+}
+
+const MENU_OPEN = `document.querySelector('.ab-drawer')?.open === true`
+// Shut, and the menu button says so.
+const MENU_SHUT = `!document.querySelector('.ab-drawer').open && document.querySelector('.ab-burger').getAttribute('aria-expanded') === 'false'`
+
+/** Opens the phone menu with a click on its button, at the top of the page, and waits for it. */
+async function openMenuByClick() {
+  await clickAt('.ab-burger')
+  assert.ok(await browser.waitFor(MENU_OPEN, 2000), 'the menu didn’t open')
+}
+
+/**
+ * Opens the phone menu from the keyboard, wherever the page is: the header scrolls away with the
+ * page on a phone, so a click can't reach its button down the page.
+ */
+async function openMenuByKey() {
+  await browser.evaluate(
+    `document.querySelector('.ab-burger').focus({ preventScroll: true }); true`,
+  )
+  await browser.press('Enter')
+  assert.ok(await browser.waitFor(MENU_OPEN, 2000), 'the menu didn’t open')
+}
+
+// The text of what has focus, or of `el`, without what is drawn and not read (katakana).
+const TEXT = `const text = (el) => { const copy = el.cloneNode(true); copy.querySelectorAll('[aria-hidden="true"], rt').forEach((n) => n.remove()); return copy.textContent.replace(/\\s+/g, ' ').trim() }`
+
+test('under 900px the header is one 78px row: the menu button and AniBeam at the left, the search bubble at the right gutter, nothing overlapping or scrolling sideways', async () => {
+  const row = `(() => {
+    const box = (sel) => {
+      const el = document.querySelector(sel)
+      if (!el || !el.checkVisibility()) return null
+      const { left, right, top, bottom } = el.getBoundingClientRect()
+      return { left, right, top, bottom }
+    }
+    const top = document.querySelector('.ab-top')
+    const input = document.querySelector('.ab-search input')
+    const style = getComputedStyle(input)
+    const measure = document.createElement('canvas').getContext('2d')
+    measure.font = style.font
+    return {
+      height: top.offsetHeight,
+      gutter: parseFloat(getComputedStyle(top).paddingLeft),
+      header: box('.ab-top'),
+      burger: box('.ab-burger'),
+      logo: box('.ab-logo'),
+      bubble: box('.ab-bubble-field'),
+      placeholder: input.placeholder,
+      // Room for the placeholder in the box, against the placeholder's width in the box's font.
+      room: input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - measure.measureText(input.placeholder).width,
+      sideways: document.documentElement.scrollWidth - innerWidth,
+    }
+  })()`
+  type Box = { left: number; right: number; top: number; bottom: number }
+  const searchName = async () => {
+    const { nodes } = await browser.send('Accessibility.getFullAXTree')
+    return (nodes as { ignored: boolean; role?: { value: string }; name?: { value: string } }[])
+      .filter((n) => !n.ignored && n.role?.value === 'searchbox')
+      .map((n) => n.name?.value)
+  }
+  const problems: string[] = []
+  for (const width of [320, 359, 360, 375, 390, 414, 430, 768, 899]) {
+    await browser.load({ width, height: 844, phone: width < 768, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    const seen = await browser.evaluate<{
+      height: number
+      gutter: number
+      header: Box
+      burger: Box | null
+      logo: Box
+      bubble: Box
+      placeholder: string
+      room: number
+      sideways: number
+    }>(row)
+    const at = `${width}px`
+    const { header, burger, logo, bubble, gutter } = seen
+    if (seen.height !== 78) problems.push(`${at}: the header is ${seen.height}px tall, not one row`)
+    if (!burger) {
+      problems.push(`${at}: no menu button is drawn`)
+      continue
+    }
+    if (Math.abs(burger.left - gutter) > 0.5)
+      problems.push(
+        `${at}: the menu button starts at ${burger.left}px, not at the ${gutter}px gutter`,
+      )
+    if (logo.left < burger.right + 4 || logo.left > burger.right + 12)
+      problems.push(`${at}: AniBeam starts ${logo.left - burger.right}px after the menu button`)
+    if (bubble.left < logo.right + 8)
+      problems.push(`${at}: the search bubble starts ${bubble.left - logo.right}px after AniBeam`)
+    if (Math.abs(bubble.right - (width - gutter)) > 0.5)
+      problems.push(`${at}: the search bubble ends at ${bubble.right}px, not at the right gutter`)
+    for (const [name, box] of [
+      ['the menu button', burger],
+      ['AniBeam', logo],
+      ['the search bubble', bubble],
+    ] as const)
+      if (box.top < header.top || box.bottom > header.bottom - 4)
+        problems.push(`${at}: ${name} sticks out of the header’s row`)
+    const placeholder = width < 360 ? 'Search' : 'Search titles'
+    if (seen.placeholder !== placeholder)
+      problems.push(`${at}: the box says "${seen.placeholder}", not "${placeholder}"`)
+    if (seen.room < 0) problems.push(`${at}: the placeholder is cut by ${-seen.room}px`)
+    const names = await searchName()
+    if (names.join() !== 'Search titles')
+      problems.push(`${at}: the search box is read as ${JSON.stringify(names)}`)
+    if (seen.sideways > 0) problems.push(`${at}: the page scrolls ${seen.sideways}px sideways`)
+  }
+  // From 900px the header keeps its links, and has no menu button.
+  for (const width of [900, 1440]) {
+    await browser.load({ width, height: 900, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    if (await browser.evaluate(`Boolean(document.querySelector('.ab-burger')?.checkVisibility())`))
+      problems.push(`${width}px: the menu button is drawn`)
+  }
+  assert.deepEqual(problems, [], 'the phone header’s row')
+})
+
+test('on a phone the menu button opens the menu, a modal panel from the left with the three section links and My List, Soon, last, focus on the first link and the page held still', async () => {
+  await browser.watchLayoutShifts()
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const button = `(() => {
+    const b = document.querySelector('.ab-burger')
+    return b && { name: b.getAttribute('aria-label'), expanded: b.getAttribute('aria-expanded'), controls: b.getAttribute('aria-controls'), popup: b.getAttribute('aria-haspopup') }
+  })()`
+  assert.deepEqual(
+    await browser.evaluate(button),
+    { name: 'Menu', expanded: 'false', controls: 'ab-menu', popup: 'dialog' },
+    'the menu button, shut',
+  )
+  const shift = (await browser.layoutShift()).value
+  await openMenuByClick()
+  assert.equal(
+    (await browser.evaluate<{ expanded: string }>(button)).expanded,
+    'true',
+    'the menu button, open',
+  )
+  const menu = await browser.evaluate(`(() => {
+    ${TEXT}
+    const dialog = document.querySelector('.ab-drawer')
+    const panel = dialog.getBoundingClientRect()
+    return {
+      id: dialog.id,
+      modal: dialog.matches(':modal'),
+      left: Math.round(dialog.querySelector('.ab-drawer-page').getBoundingClientRect().left),
+      right: Math.round(panel.right),
+      top: Math.round(panel.top),
+      height: Math.round(panel.height),
+      items: [...dialog.querySelectorAll('nav > *')].map((el) => text(el) + (el.matches('a[href]') ? ' (a link)' : el.getAttribute('aria-disabled') === 'true' ? ' (disabled)' : '')),
+      soon: getComputedStyle(dialog.querySelector('.ab-soon')).borderTopStyle,
+      focus: text(document.activeElement),
+      ring: document.activeElement.matches(':focus-visible'),
+      locked: getComputedStyle(document.body).overflow,
+    }
+  })()`)
+  assert.deepEqual(menu, {
+    id: 'ab-menu',
+    modal: true,
+    left: 0,
+    right: 320,
+    top: 0,
+    height: 844,
+    items: ['Trending (a link)', 'Pull (a link)', 'Decades (a link)', 'My List Soon (disabled)'],
+    soon: 'dashed',
+    focus: 'Trending',
+    ring: false,
+    locked: 'hidden',
+  })
+  const { nodes } = await browser.send('Accessibility.getFullAXTree')
+  const dialogs = (
+    nodes as { ignored: boolean; role?: { value: string }; name?: { value: string } }[]
+  )
+    .filter((n) => !n.ignored && n.role?.value === 'dialog')
+    .map((n) => n.name?.value)
+  assert.deepEqual(dialogs, ['Menu'], 'the menu, as screen readers name it')
+  // A wheel and a finger's scroll over the dimmed page leave the page where it was.
+  await browser.send('Input.dispatchMouseEvent', {
+    type: 'mouseWheel',
+    x: 370,
+    y: 500,
+    deltaX: 0,
+    deltaY: 400,
+  })
+  await browser.send('Input.synthesizeScrollGesture', {
+    x: 370,
+    y: 700,
+    yDistance: -400,
+    speed: 2000,
+    gestureSourceType: 'touch',
+  })
+  await frames()
+  assert.equal(await browser.evaluate('scrollY'), 0, 'the page scrolled under the menu')
+  await browser.press('Escape')
+  assert.ok(await browser.waitFor(MENU_SHUT, 2000), 'Esc left the menu open')
+  assert.equal((await browser.layoutShift()).value, shift, 'the menu moved the page')
+})
+
+test('on a phone the menu shuts on its X, on a tap on the dimmed page and on Esc, handing focus back to the menu button, with no ring after a tap, and the page where it was', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
+  try {
+    const seen: Record<string, unknown> = {}
+    for (const how of ['its X', 'a tap on the dimmed page', 'Esc']) {
+      await scrollAndSettle(0)
+      await tapOn('.ab-burger')
+      assert.ok(await browser.waitFor(MENU_OPEN, 2000), `${how}: the menu didn’t open`)
+      if (how === 'its X') await tapOn('.ab-drawer .ab-close')
+      else if (how === 'Esc') await browser.press('Escape')
+      else await tap(375, 600)
+      await browser.waitFor(MENU_SHUT, 2000)
+      await frames()
+      seen[how] = await browser.evaluate(`({
+        open: document.querySelector('.ab-drawer').open,
+        expanded: document.querySelector('.ab-burger').getAttribute('aria-expanded'),
+        focus: document.activeElement.getAttribute('aria-label'),
+        ring: document.activeElement.matches(':focus-visible'),
+        y: scrollY,
+        locked: getComputedStyle(document.body).overflow === 'hidden',
+      })`)
+    }
+    const shut = {
+      open: false,
+      expanded: 'false',
+      focus: 'Menu',
+      ring: false,
+      y: 0,
+      locked: false,
+    }
+    assert.deepEqual(seen, {
+      'its X': shut,
+      'a tap on the dimmed page': shut,
+      // A key shut it: the button shows its ring, for the keyboard.
+      Esc: { ...shut, ring: true },
+    })
+  } finally {
+    await browser.send('Emulation.setTouchEmulationEnabled', { enabled: false })
+  }
+})
+
+test('a tap on a menu link shuts the menu and lands its section 96px down, its heading focused with no ring; Enter on one keeps the ring', async () => {
+  // What has focus, whether its ring shows (drawn behind a heading), and where the heading is.
+  const landed = `(() => {
+    const focused = document.activeElement
+    const top = Math.round(focused.getBoundingClientRect().top)
+    const atEnd = scrollY + innerHeight >= document.documentElement.scrollHeight - 1
+    return {
+      open: document.querySelector('.ab-drawer').open,
+      focus: focused.id,
+      ring: focused.matches(':focus-visible') && getComputedStyle(focused, '::before').content !== 'none',
+      at: top === 96 ? '96px down' : atEnd && top > 96 ? '96px down or lower, at the end of the page' : top + 'px down',
+      hash: location.hash,
+    }
+  })()`
+  const seen: Record<string, unknown> = {}
+  await browser.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
+  try {
+    for (const id of ['ab-trending', 'pull', 'decades']) {
+      await browser.load({ ...PHONE, reduceMotion: true })
+      assert.ok(await browser.titlesShown())
+      await browser.landAll()
+      await tapOn('.ab-burger')
+      assert.ok(await browser.waitFor(MENU_OPEN, 2000), `#${id}: the menu didn’t open`)
+      await tapOn(`.ab-drawer a[href="#${id}"]`)
+      await browser.waitFor(`!(${MENU_OPEN}) && document.activeElement.id === '${id}'`, 2000)
+      await frames()
+      seen[id] = await browser.evaluate(landed)
+    }
+  } finally {
+    await browser.send('Emulation.setTouchEmulationEnabled', { enabled: false })
+  }
+  const tapped = (id: string, at = '96px down') => ({
+    open: false,
+    focus: id,
+    ring: false,
+    at,
+    hash: `#${id}`,
+  })
+  const decades = (seen.decades as { at?: string } | undefined)?.at
+  assert.deepEqual(seen, {
+    'ab-trending': tapped('ab-trending'),
+    pull: tapped('pull'),
+    // Decades, the last section, may be too near the page's end to come up that far.
+    decades: tapped('decades', decades?.startsWith('96px down') ? decades : '96px down'),
+  })
+  // From the keyboard: Enter on the menu button opens it on its first link, with its ring, and
+  // Enter on Pull jumps there, the heading with its ring.
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.evaluate(`document.querySelector('.ab-burger').focus(); true`)
+  await browser.press('Enter')
+  assert.ok(await browser.waitFor(MENU_OPEN, 2000), 'Enter didn’t open the menu')
+  assert.deepEqual(
+    await browser.evaluate(
+      `(() => { ${TEXT}; return { focus: text(document.activeElement), ring: document.activeElement.matches(':focus-visible') } })()`,
+    ),
+    { focus: 'Trending', ring: true },
+    'opened with Enter',
+  )
+  await browser.press('Tab')
+  await browser.press('Enter')
+  await browser.waitFor(`!(${MENU_OPEN}) && document.activeElement.id === 'pull'`, 2000)
+  await frames()
+  const keyed = await browser.evaluate<{ focus: string; ring: boolean; open: boolean }>(landed)
+  assert.deepEqual(
+    { open: keyed.open, focus: keyed.focus, ring: keyed.ring },
+    { open: false, focus: 'pull', ring: true },
+    'Enter on Pull',
+  )
+})
+
+test('the menu marks the section the visitor is in, in yellow, and opens on its link', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.evaluate(
+    `document.getElementById('pull').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
+  )
+  await frames()
+  await openMenuByKey()
+  assert.deepEqual(
+    await browser.evaluate(`(() => {
+      const current = [...document.querySelectorAll('.ab-drawer a[aria-current="location"]')]
+      return {
+        current: current.map((a) => a.getAttribute('href')),
+        fill: current[0] && getComputedStyle(current[0]).backgroundColor,
+        others: [...document.querySelectorAll('.ab-drawer nav a:not([aria-current])')].map((a) => getComputedStyle(a).backgroundColor),
+        focus: document.activeElement.getAttribute('href'),
+      }
+    })()`),
+    {
+      current: ['#pull'],
+      fill: 'rgb(255, 212, 0)',
+      others: ['rgb(255, 255, 255)', 'rgb(255, 255, 255)'],
+      focus: '#pull',
+    },
+  )
+})
+
+test('with motion allowed the menu slides in from the left and back out; under reduced motion, the device’s or the site’s, it fades in and out in 150 ms without moving', async () => {
+  // The menu's own transitions under way, of what moves it or fades it.
+  const moving = `document.querySelector('.ab-drawer').getAnimations().filter((a) => ['transform', 'opacity'].includes(a.transitionProperty)).map((a) => a.transitionProperty + ' ' + a.effect.getTiming().duration).sort().join(', ')`
+  const seen: Record<string, unknown> = {}
+  for (const motion of ['allowed', 'reduced on the device', 'reduced on the site']) {
+    await browser.load({ ...PHONE, reduceMotion: motion === 'reduced on the device' })
+    assert.ok(await browser.titlesShown())
+    if (motion === 'reduced on the site')
+      await browser.evaluate(`document.documentElement.dataset.motion = 'reduce'; true`)
+    await browser.animationsDone()
+    await clickAt('.ab-burger')
+    const opening = await browser.evaluate<string>(moving)
+    await browser.waitFor(`document.querySelector('.ab-drawer').getAnimations().length === 0`, 2000)
+    await browser.press('Escape')
+    const closing = await browser.evaluate<string>(moving)
+    await browser.waitFor(`document.querySelector('.ab-drawer').getAnimations().length === 0`, 2000)
+    seen[motion] = { opening, closing }
+  }
+  const still = { opening: 'opacity 150', closing: 'opacity 150' }
+  assert.deepEqual(seen, {
+    allowed: { opening: 'transform 320', closing: 'transform 200' },
+    'reduced on the device': still,
+    'reduced on the site': still,
+  })
+})
+
+test('in contrast themes the menu button and the menu keep their edges, and the menu marks the current link in the theme’s selection colors', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.evaluate(
+    `document.getElementById('pull').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
+  )
+  await frames()
+  await browser.send('Emulation.setEmulatedMedia', {
+    features: [
+      { name: 'forced-colors', value: 'active' },
+      { name: 'prefers-reduced-motion', value: 'reduce' },
+    ],
+  })
+  try {
+    await frames()
+    const burger = await browser.evaluate<string>(
+      `getComputedStyle(document.querySelector('.ab-burger')).borderTopStyle`,
+    )
+    await openMenuByKey()
+    const seen = await browser.evaluate(`(() => {
+      const probe = document.body.appendChild(document.createElement('div'))
+      probe.style.cssText = 'forced-color-adjust: none; background: Highlight'
+      const highlight = getComputedStyle(probe).backgroundColor
+      probe.remove()
+      const dialog = document.querySelector('.ab-drawer')
+      const style = (sel) => getComputedStyle(dialog.querySelector(sel))
+      return {
+        edge: getComputedStyle(dialog).borderRightStyle,
+        current: style('a[aria-current="location"]').backgroundColor === highlight,
+        other: style('a[href="#decades"]').backgroundColor === highlight,
+        links: [...dialog.querySelectorAll('nav > *')].map((el) => getComputedStyle(el).borderTopStyle),
+        burst: getComputedStyle(dialog.querySelector('.ab-drawer-page'), '::after').content,
+      }
+    })()`)
+    assert.deepEqual(
+      { burger, ...(seen as object) },
+      {
+        burger: 'solid',
+        edge: 'solid',
+        current: true,
+        other: false,
+        links: ['solid', 'solid', 'solid', 'dashed'],
+        burst: 'none',
+      },
+    )
+  } finally {
+    await browser.send('Emulation.setEmulatedMedia', {
+      features: [{ name: 'forced-colors', value: 'none' }],
+    })
+  }
+})
+
+test('the menu shuts as the page widens to 900px, on Back, and as the address goes to a section', async () => {
+  const shut = `({ open: document.querySelector('.ab-drawer').open, locked: getComputedStyle(document.body).overflow === 'hidden', expanded: document.querySelector('.ab-burger').getAttribute('aria-expanded') })`
+  const seen: Record<string, unknown> = {}
+  // Widened: the menu button is gone, so focus goes to the logo.
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await openMenuByClick()
+  await browser.send('Emulation.setDeviceMetricsOverride', {
+    width: 1024,
+    height: 844,
+    deviceScaleFactor: 1,
+    mobile: false,
+  })
+  await browser.waitFor(MENU_SHUT, 2000)
+  seen.widened = {
+    ...(await browser.evaluate<object>(shut)),
+    focus: await browser.evaluate(`document.activeElement.className`),
+  }
+  // Back.
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.evaluate(`history.pushState(history.state, '', location.href); true`)
+  await openMenuByClick()
+  await browser.evaluate(`history.back(); true`)
+  await browser.waitFor(MENU_SHUT, 2000)
+  seen.back = await browser.evaluate(shut)
+  // A change of address to a section.
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await openMenuByClick()
+  await browser.evaluate(`location.hash = '#decades'; true`)
+  await browser.waitFor(MENU_SHUT, 2000)
+  seen.address = await browser.evaluate(shut)
+  const closed = { open: false, locked: false, expanded: 'false' }
+  assert.deepEqual(seen, {
+    widened: { ...closed, focus: 'ab-logo' },
+    back: closed,
+    address: closed,
+  })
 })

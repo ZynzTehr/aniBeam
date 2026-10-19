@@ -1,5 +1,7 @@
-import { useLayoutEffect, useRef } from 'react'
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { searchable } from '../lib/ime.ts'
+import { MenuDrawer } from './MenuDrawer.tsx'
+import { openMenu } from './openMenu.ts'
 
 /**
  * A section link. `soon` marks a feature from a later phase: shown with a tag, not a link.
@@ -9,10 +11,11 @@ import { searchable } from '../lib/ime.ts'
 export type NavLink = { href: string; label: string; current?: boolean; soon?: boolean }
 
 /**
- * The logo, the section links and the title search. It publishes its own height as --top-h
- * on <html>, so the intro can fill exactly the rest of the first screen (one row on desktop,
- * three on phones), and so what its links jump to lands below it from 900px, where it stays
- * on screen, even when it takes a second row (see components.css).
+ * The logo, the section links and the title search. Under 900px it is one row: a hamburger that
+ * opens the menu of the section links (MenuDrawer), the logo, and the search on the far side. It
+ * publishes its own height as --top-h on <html>, so the intro can fill exactly the rest of the
+ * first screen, and so what its links jump to lands below it from 900px, where it stays on screen,
+ * even when it takes a second row (see components.css).
  */
 export function SiteHeader({
   links,
@@ -30,13 +33,16 @@ export function SiteHeader({
   currentHref?: string | null
 }) {
   const header = useRef<HTMLElement>(null)
+  const burger = useRef<HTMLButtonElement>(null)
+  const menu = useRef<HTMLDialogElement>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
   useLayoutEffect(() => {
     const element = header.current
     if (!element) return
     const root = document.documentElement.style
     const publish = () => root.setProperty('--top-h', `${element.offsetHeight}px`)
     // At once, before the first paint: the observer's first report can come a frame late, and
-    // that frame sized the intro by the CSS fallback, so on a phone the headline jumped 67px.
+    // that frame sized the intro by the CSS fallback, so on a phone the headline jumped.
     publish()
     const observer = new ResizeObserver(publish)
     observer.observe(element)
@@ -47,38 +53,74 @@ export function SiteHeader({
   }, [])
 
   return (
-    <header ref={header} className="ab-top">
-      <a className="ab-logo" href={homeHref}>
-        <ruby>
-          AniBeam<rt>アニビーム</rt>
-        </ruby>
-      </a>
-      {/* "Site": it holds My List too, and shows beside the intro's "Sections". */}
-      <nav className="ab-nav" aria-label="Site">
-        {links.map((link) =>
-          link.soon ? (
-            <span key={link.href} className="ab-soon" aria-disabled="true">
-              {link.label} <small>Soon</small>
-            </span>
-          ) : (
-            <a
-              key={link.href}
-              href={link.href}
-              aria-current={
-                link.current ? 'page' : link.href === currentHref ? 'location' : undefined
-              }
-            >
-              {link.label}
-            </a>
-          ),
-        )}
-      </nav>
-      <SearchBubble value={search} onChange={onSearch} />
-    </header>
+    <>
+      <header ref={header} className="ab-top">
+        <button
+          ref={burger}
+          type="button"
+          className="ab-burger"
+          aria-label="Menu"
+          aria-expanded={menuOpen}
+          aria-controls="ab-menu"
+          aria-haspopup="dialog"
+          // A click a key fired (Enter, Space) has no pointer type.
+          onClick={(e) => {
+            openMenu(
+              menu.current,
+              burger.current,
+              (e.nativeEvent as PointerEvent).pointerType === '',
+            )
+            setMenuOpen(true)
+          }}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M3 6h18M6 12h15M3 18h18" />
+          </svg>
+        </button>
+        <a className="ab-logo" href={homeHref}>
+          <ruby>
+            AniBeam<rt>アニビーム</rt>
+          </ruby>
+        </a>
+        {/* "Site": it holds My List too, and shows beside the intro's "Sections". Under 900px it
+            isn't drawn: the menu holds the links. */}
+        <nav className="ab-nav" aria-label="Site">
+          {links.map((link) =>
+            link.soon ? (
+              <span key={link.href} className="ab-soon" aria-disabled="true">
+                {link.label} <small>Soon</small>
+              </span>
+            ) : (
+              <a
+                key={link.href}
+                href={link.href}
+                aria-current={
+                  link.current ? 'page' : link.href === currentHref ? 'location' : undefined
+                }
+              >
+                {link.label}
+              </a>
+            ),
+          )}
+        </nav>
+        <SearchBubble value={search} onChange={onSearch} />
+      </header>
+      <MenuDrawer links={links} currentHref={currentHref} dialogRef={menu} onToggle={setMenuOpen} />
+    </>
   )
 }
 
 const PLACEHOLDER = 'Search titles'
+// On the narrowest phones, beside the hamburger and the logo, only "Search" fits whole. Followed
+// live, as a phone turns. The box is still named "Search titles", by its label.
+const NARROW = '(max-width: 359px)'
+const watchNarrow = (onChange: () => void) => {
+  const list = matchMedia(NARROW)
+  list.addEventListener('change', onChange)
+  return () => list.removeEventListener('change', onChange)
+}
+const usePlaceholder = () =>
+  useSyncExternalStore(watchNarrow, () => (matchMedia(NARROW).matches ? 'Search' : PLACEHOLDER))
 
 // A manga speech bubble: snug around "Search titles" at rest, popping out to fit what's typed.
 // A hidden copy of the text, in the same font, is watched for size changes (each keystroke, and
@@ -95,6 +137,7 @@ function SearchBubble({
   const field = useRef<HTMLLabelElement>(null)
   const mirror = useRef<HTMLSpanElement>(null)
   const placeholderMirror = useRef<HTMLSpanElement>(null)
+  const placeholder = usePlaceholder()
   // What the box held when an input method began composing (see searchable).
   const before = useRef('')
   useLayoutEffect(() => {
@@ -135,14 +178,14 @@ function SearchBubble({
           onCompositionEnd={(event) =>
             onChange(event.currentTarget.value, event.currentTarget.value)
           }
-          placeholder={PLACEHOLDER}
+          placeholder={placeholder}
         />
       </span>
       <span ref={mirror} className="ab-search-mirror" aria-hidden="true">
-        {value || PLACEHOLDER}
+        {value || placeholder}
       </span>
       <span ref={placeholderMirror} className="ab-search-mirror" aria-hidden="true">
-        {PLACEHOLDER}
+        {placeholder}
       </span>
     </label>
   )

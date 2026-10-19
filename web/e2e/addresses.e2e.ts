@@ -95,7 +95,7 @@ test('closing a card opened at its address, by its button or Esc, puts / in the 
     // Set on this page: still there after closing, so the page didn't load again.
     await browser.evaluate(`window.__stayed = history.length; true`)
     if (how === 'button')
-      await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+      await browser.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
     else await browser.press('Escape')
     assert.ok(
       await browser.waitFor(`!document.querySelector('dialog[open]')`, 5000),
@@ -223,7 +223,7 @@ test('a first visit to a title’s address moves nothing on the page, with AniLi
         assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 15_000))
         await browser.animationsDone()
         // On past Close, as the page's lists, held while the card was open, arrive behind it.
-        await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+        await browser.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
         assert.ok(await browser.titlesShown(), 'the lists never came once the card closed')
         await browser.animationsDone()
         await sleep(1000)
@@ -257,7 +257,7 @@ test('a first visit to a title’s address asks AniList for that title alone, an
     // Long enough for the lists to have asked, had they not waited.
     await sleep(1500)
     assert.deepEqual(asked, ['title 154587'], 'while the card is open')
-    await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+    await browser.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
     assert.ok(await browser.titlesShown(), 'the lists never loaded once the card closed')
     assert.deepEqual(asked, ['title 154587', 'trending + 1990s'], 'once it closed')
   } finally {
@@ -271,7 +271,7 @@ test('the tab shows the open card’s title, and the site’s again once it clos
   await browser.load({ ...DESKTOP, reduceMotion: true, url: at('/anime/154587') })
   assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000))
   assert.equal(await browser.evaluate(`document.title`), 'Frieren: Beyond Journey’s End · AniBeam')
-  await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+  await browser.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
   assert.ok(await browser.waitFor(`!document.querySelector('dialog[open]')`, 5000))
   assert.ok(
     await browser.waitFor(`document.title === ${JSON.stringify(PAGE)}`, 2000),
@@ -387,7 +387,7 @@ test('Close or Esc on a title opened on the page goes Back, so the next Back lea
     assert.equal(await entry(), start + 1, 'opening added no history entry')
     await browser.animationsDone()
     if (how === 'button')
-      await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+      await browser.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
     else await browser.press('Escape')
     assert.ok(
       await browser.waitFor(
@@ -422,11 +422,14 @@ test('after a link to a section, a title closed by Close, Esc or Back leaves the
     assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
     await browser.animationsDone()
     if (how === 'button')
-      await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+      await browser.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
     else if (how === 'Esc') await browser.press('Escape')
     else await browser.evaluate(`history.back(); true`)
     assert.ok(
-      await browser.waitFor(`!document.querySelector('dialog') && location.pathname === '/'`, 5000),
+      await browser.waitFor(
+        `!document.querySelector('dialog:not(.ab-drawer)') && location.pathname === '/'`,
+        5000,
+      ),
       how,
     )
     await sleep(300)
@@ -445,13 +448,19 @@ test('focus returns to what opened a title however its card goes: Back, or Esc o
   await browser.press('Enter')
   assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
   await browser.evaluate(`history.back(); true`)
-  assert.ok(await browser.waitFor(`!document.querySelector('dialog')`, 5000), 'Back left the card')
+  assert.ok(
+    await browser.waitFor(`!document.querySelector('dialog:not(.ab-drawer)')`, 5000),
+    'Back left the card',
+  )
   assert.ok(await browser.waitFor(`document.activeElement === ${link}`, 1000), 'Back lost focus')
   await browser.evaluate(`history.forward(); true`)
   assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000), 'Forward opened no card')
   await browser.animationsDone()
   await browser.press('Escape')
-  assert.ok(await browser.waitFor(`!document.querySelector('dialog')`, 5000), 'Esc left the card')
+  assert.ok(
+    await browser.waitFor(`!document.querySelector('dialog:not(.ab-drawer)')`, 5000),
+    'Esc left the card',
+  )
   assert.ok(await browser.waitFor(`document.activeElement === ${link}`, 1000), 'Esc lost focus')
 })
 
@@ -510,9 +519,12 @@ test('closing a title opened on the page asks AniList for nothing, even with the
   try {
     await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
     assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
-    await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+    await browser.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
     assert.ok(
-      await browser.waitFor(`!document.querySelector('dialog') && location.pathname === '/'`, 5000),
+      await browser.waitFor(
+        `!document.querySelector('dialog:not(.ab-drawer)') && location.pathname === '/'`,
+        5000,
+      ),
     )
     await sleep(1500)
     assert.deepEqual(asked, [], 'opening and closing a card asked AniList')
@@ -537,9 +549,12 @@ test('a title clicked while a shared one still loads takes its place, so closing
     await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
     assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
     assert.doesNotMatch(await browser.evaluate<string>(CARD), /Frieren/)
-    await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+    await browser.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
     assert.ok(
-      await browser.waitFor(`!document.querySelector('dialog') && location.pathname === '/'`, 5000),
+      await browser.waitFor(
+        `!document.querySelector('dialog:not(.ab-drawer)') && location.pathname === '/'`,
+        5000,
+      ),
       'closing left the page elsewhere',
     )
     // Long enough for Frieren's held answer to have come.
@@ -569,7 +584,7 @@ test('after a reload, closing a title opened on the page puts / in its place rat
   await browser.animationsDone()
   // Set on this page: still there after closing, so the site didn't load again.
   await browser.evaluate(`window.__stayed = true; true`)
-  await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+  await browser.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
   assert.ok(
     await browser.waitFor(
       `!document.querySelector('dialog[open]') && location.pathname === '/'`,
@@ -643,9 +658,12 @@ test('the same title opened again grows from where its panel is now, and a share
     })`)
   await browser.evaluate(`${link}.click(); true`)
   assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
-  await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+  await browser.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
   assert.ok(
-    await browser.waitFor(`!document.querySelector('dialog') && location.pathname === '/'`, 5000),
+    await browser.waitFor(
+      `!document.querySelector('dialog:not(.ab-drawer)') && location.pathname === '/'`,
+      5000,
+    ),
   )
   // Scrolled after it closed, the panel is somewhere else.
   await browser.evaluate(`scrollBy(0, 200); true`)
@@ -667,14 +685,14 @@ test('Back hands focus to the title’s link elsewhere on the page when what ope
   await browser.press('Enter')
   assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
   await browser.evaluate(`history.back(); true`)
-  assert.ok(await browser.waitFor(`!document.querySelector('dialog')`, 5000))
+  assert.ok(await browser.waitFor(`!document.querySelector('dialog:not(.ab-drawer)')`, 5000))
   // The search cleared: its results, and what opened the title, leave the page.
   await browser.search('')
   assert.ok(await browser.waitFor(`!document.querySelector('.ab-results')`, 5000))
   await browser.evaluate(`history.forward(); true`)
   assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000), 'Forward opened no card')
   await browser.evaluate(`history.back(); true`)
-  assert.ok(await browser.waitFor(`!document.querySelector('dialog')`, 5000))
+  assert.ok(await browser.waitFor(`!document.querySelector('dialog:not(.ab-drawer)')`, 5000))
   assert.ok(
     await browser.waitFor(`document.activeElement?.getAttribute('href') === '/anime/21'`, 1000),
     'focus fell to the page',
@@ -719,9 +737,12 @@ test('two different titles opened one after another on the page each open their 
     await browser.evaluate(`document.querySelectorAll('.ab-grid .ab-link')[${n}].click(); true`)
     assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000), `title ${n + 1} opened no card`)
     named.push(await browser.evaluate<string>(CARD))
-    await browser.evaluate(`document.querySelector('.ab-close').click(); true`)
+    await browser.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
     assert.ok(
-      await browser.waitFor(`!document.querySelector('dialog') && location.pathname === '/'`, 5000),
+      await browser.waitFor(
+        `!document.querySelector('dialog:not(.ab-drawer)') && location.pathname === '/'`,
+        5000,
+      ),
     )
   }
   assert.notEqual(named[0], named[1], 'the second card named the first title')
