@@ -1,6 +1,6 @@
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { confirmsWord, searchable } from '../lib/ime.ts'
-import { oneLine, oneLineCaret, rowsShown } from '../lib/searchBox.ts'
+import { keyboardAfter, keyboardAt, oneLine, oneLineCaret, rowsShown } from '../lib/searchBox.ts'
 import { afterSwipe, EDGE, opens, swipeMoved, swipeStart, type Swipe } from '../lib/swipe.ts'
 import { MenuDrawer } from './MenuDrawer.tsx'
 import { openMenu } from './openMenu.ts'
@@ -186,8 +186,34 @@ function SearchBubble({
   const rows = useRef<HTMLSpanElement>(null)
   const box = useRef<HTMLTextAreaElement>(null)
   const placeholder = usePlaceholder()
-  // What the box held when an input method began composing (see searchable).
+  // What the box held when an input method began composing (see searchable), and whether it
+  // still is.
   const before = useRef('')
+  const composing = useRef(false)
+  // Android's Back puts a touch keyboard away but leaves focus in the box, whose ring then holds
+  // a phone's header on the screen, with the grown bubble hanging over the results. So the screen
+  // the page shows growing back as the keyboard goes takes focus out, as the Search key does (see
+  // keyboardAfter). Not while an input method is converting a word: that is the input method's.
+  useEffect(() => {
+    const view = window.visualViewport
+    const typed = box.current
+    if (!view || !typed) return
+    const screen = () => ({ width: view.width * view.scale, height: view.height * view.scale })
+    let keyboard = keyboardAt(screen())
+    const focused = () => (keyboard = keyboardAt(screen()))
+    const resized = () => {
+      if (typed !== document.activeElement) return
+      const next = keyboardAfter(keyboard, screen())
+      keyboard = next
+      if (next.away && !composing.current && matchMedia('(pointer: coarse)').matches) typed.blur()
+    }
+    typed.addEventListener('focus', focused)
+    view.addEventListener('resize', resized)
+    return () => {
+      typed.removeEventListener('focus', focused)
+      view.removeEventListener('resize', resized)
+    }
+  }, [])
   useLayoutEffect(() => {
     const label = field.current
     const copy = mirror.current
@@ -255,7 +281,10 @@ function SearchBubble({
             // Folded back to one row as focus leaves (on a phone), it shows the first; from
             // 900px, a long query shows its start, as a search input's did.
             onBlur={(event) => (event.currentTarget.scrollTop = event.currentTarget.scrollLeft = 0)}
-            onCompositionStart={(event) => (before.current = event.currentTarget.value)}
+            onCompositionStart={(event) => {
+              before.current = event.currentTarget.value
+              composing.current = true
+            }}
             onChange={(event) => {
               const box = event.target
               const text = oneLine(box.value)
@@ -281,6 +310,7 @@ function SearchBubble({
             // Chrome sends the finished word just before this, still marked as composing; Safari
             // sends it just after.
             onCompositionEnd={(event) => {
+              composing.current = false
               const text = oneLine(event.currentTarget.value)
               onChange(text, text)
             }}

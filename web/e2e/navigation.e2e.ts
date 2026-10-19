@@ -2553,6 +2553,76 @@ test('on a phone, with a long title in the box and focus gone, the header hiding
   )
 })
 
+test('on a touch screen, putting the keyboard away without its Search key, as Android’s Back does, takes focus from the search box, so the bubble folds to one row and the header hides on a scroll down; not mid-conversion, nor with a mouse', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  // A phone's keyboard coming up takes the bottom of the screen from the page, and going away
+  // gives it back.
+  const screen = (height: number) =>
+    browser.send('Emulation.setDeviceMetricsOverride', {
+      width: PHONE.width,
+      height,
+      deviceScaleFactor: 2,
+      mobile: true,
+    })
+  const keyboard = async (up: boolean) => {
+    await screen(up ? 480 : PHONE.height)
+    await twoFrames()
+  }
+  const seen: Record<string, unknown> = {}
+  try {
+    await withTouch(async () => {
+      await browser.search(LONG_TITLE)
+      assert.ok(
+        await browser.waitFor(
+          `document.querySelector('#results')?.textContent.includes('Laid-Off')`,
+        ),
+        'the long title was never searched',
+      )
+      await keyboard(true)
+      const up = await bubbleNow()
+      seen['the keyboard up'] = { focused: up.focused, rows: up.bubble > 50 ? 'more than one' : 1 }
+      await keyboard(false)
+      const away = await bubbleNow()
+      seen['the keyboard put away'] = { focused: away.focused, bubble: away.bubble }
+      await scrollAndSettle(1000)
+      seen['then a scroll down'] = where(await browser.evaluate<Top>(TOP))
+      // Put away while an input method is still converting a word: the word is the input
+      // method's, and the box keeps focus.
+      await scrollAndSettle(0)
+      await browser.evaluate(`${BOX}.focus(); true`)
+      await keyboard(true)
+      await browser.send('Input.imeSetComposition', {
+        text: 'しん',
+        selectionStart: 2,
+        selectionEnd: 2,
+      })
+      await keyboard(false)
+      seen['put away mid-conversion'] = (await bubbleNow()).focused
+      await browser.send('Input.insertText', { text: 'しん' })
+    })
+    // A window on a laptop made shorter and taller again, with a mouse: focus stays.
+    await browser.evaluate(`${BOX}.focus(); true`)
+    await keyboard(true)
+    await keyboard(false)
+    seen['a mouse, the window shorter and taller'] = (await bubbleNow()).focused
+  } finally {
+    await screen(PHONE.height)
+  }
+  assert.deepEqual(
+    seen,
+    {
+      'the keyboard up': { focused: true, rows: 'more than one' },
+      'the keyboard put away': { focused: false, bubble: 50 },
+      'then a scroll down': where({ hidden: true, top: -78, y: 0 }),
+      'put away mid-conversion': true,
+      'a mouse, the window shorter and taller': true,
+    },
+    'putting the keyboard away left the box as it was',
+  )
+})
+
 test('on a phone a finger’s scroll that starts on the search bubble scrolls the page, empty or holding a word', async () => {
   const seen: Record<string, number> = {}
   for (const width of [320, 390]) {
