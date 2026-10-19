@@ -315,8 +315,8 @@ const BACK_WIDE = [
 // whole, its ring too, on the screen, clear of the sticky header and of anything that clips it,
 // and not see-through. A chip's or the switch's input is see-through, so for those it is the pill
 // that shows; the search box's focus shows as its bubble's lift, so for it, the bubble, which on
-// a phone clips the box as it grows. A ring reaches its outline's width and offset beyond what it rings, or 7px (the
-// rings drawn as a frame, such as a heading's).
+// a phone clips the box as it grows. A ring reaches its outline's width and offset beyond what it
+// rings, or 7px (the rings drawn as a frame, such as a heading's).
 const STOP = `(() => {
   const focused = document.activeElement
   if (!focused || focused === document.body) return null

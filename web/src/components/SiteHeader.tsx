@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { confirmsWord, searchable } from '../lib/ime.ts'
-import { oneLine, rowsShown } from '../lib/searchBox.ts'
+import { oneLine, oneLineCaret, rowsShown } from '../lib/searchBox.ts'
 import { afterSwipe, EDGE, opens, swipeMoved, swipeStart, type Swipe } from '../lib/swipe.ts'
 import { MenuDrawer } from './MenuDrawer.tsx'
 import { openMenu } from './openMenu.ts'
@@ -242,6 +242,13 @@ function SearchBubble({
             onChange={(event) => {
               const box = event.target
               const text = oneLine(box.value)
+              // A pasted line break becomes a space here, in the box itself, before React would
+              // put the shorter text back and the caret at the end, away from the paste.
+              if (text !== box.value) {
+                const caret = oneLineCaret(box.value, box.selectionEnd)
+                box.value = text
+                box.setSelectionRange(caret, caret)
+              }
               // As the box takes a new row the browser scrolls the row into view before the box
               // has grown: back to the top, so the text holds still as the bubble grows. Past
               // three rows, typing at the end, the last three show whole. In whole rows: the box
@@ -256,9 +263,10 @@ function SearchBubble({
             }}
             // Chrome sends the finished word just before this, still marked as composing; Safari
             // sends it just after.
-            onCompositionEnd={(event) =>
-              onChange(event.currentTarget.value, event.currentTarget.value)
-            }
+            onCompositionEnd={(event) => {
+              const text = oneLine(event.currentTarget.value)
+              onChange(text, text)
+            }}
             placeholder={placeholder}
           />
         </span>

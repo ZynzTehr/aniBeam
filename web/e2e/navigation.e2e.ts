@@ -2372,6 +2372,14 @@ test('on a phone Enter adds no new line and on a touch screen puts the keyboard 
     'the pasted search never showed its results',
   )
   seen.pasted = (await bubbleNow()).value
+  // A paste of line breaks over the space in the middle: they become the space again, and the
+  // caret stays where the paste left it, after them, not at the end.
+  await browser.evaluate(`${BOX}.setSelectionRange(3, 4); true`)
+  await browser.send('Input.insertText', { text: '\n\n' })
+  await twoFrames()
+  seen.pastedInside = await browser.evaluate(
+    `({ value: ${BOX}.value, caret: ${BOX}.selectionStart + ' to ' + ${BOX}.selectionEnd })`,
+  )
   await browser.press('Escape')
   seen.escaped = (await bubbleNow()).value
   assert.deepEqual(seen, {
@@ -2379,6 +2387,7 @@ test('on a phone Enter adds no new line and on a touch screen puts the keyboard 
     entered: { bubble: 50, scrolled: 0, overflow: 'hidden', focused: false, value: LONG_TITLE },
     mouse: { focused: true, value: LONG_TITLE },
     pasted: 'one piece',
+    pastedInside: { value: 'one piece', caret: '4 to 4' },
     escaped: '',
   })
 })
@@ -2469,6 +2478,13 @@ test('from 900px the search keeps to one line as before, and while it holds a qu
     const clear = document.querySelector('.ab-clear')
     const drawn = clear?.checkVisibility() ? clear.getBoundingClientRect() : null
     const style = getComputedStyle(box)
+    // Where the text ends on the screen, the caret after it: its width in the box's font, from
+    // the box's padding, less how far the box has scrolled sideways to keep the caret in view.
+    const pen = document.createElement('canvas').getContext('2d')
+    pen.font = style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily
+    const end =
+      box.getBoundingClientRect().left + box.clientLeft + parseFloat(style.paddingLeft) +
+      pen.measureText(box.value).width - box.scrollLeft
     return {
       bubble: Math.round(field.height),
       header: document.querySelector('.ab-top').offsetHeight,
@@ -2478,16 +2494,18 @@ test('from 900px the search keeps to one line as before, and while it holds a qu
         name: clear.getAttribute('aria-label'),
         tabStop: clear.tabIndex >= 0,
         inside: drawn.right <= field.right - 3 && drawn.left >= field.left,
-        clearOfText: box.getBoundingClientRect().right - parseFloat(style.paddingRight) <= drawn.left,
+        textEnds: end <= drawn.left ? 'before it' : 'under it, ' + Math.round(end - drawn.left) + 'px past its left edge',
       },
       value: box.value,
       focused: document.activeElement === box,
     }
   })()`
+  // Far past the 566px the bubble stops at, so the box scrolls sideways to keep the caret, at
+  // the end of its last word, in view.
   const long =
-    'a very long search that keeps going and going past the width of the bubble and the screen '.repeat(
-      2,
-    )
+    'a very long search that keeps going and going past the width of the bubble and the screen '
+      .repeat(2)
+      .trim()
   const seen: Record<string, unknown> = {}
   for (const width of [900, 1440]) {
     await browser.load({ width, height: 900, reduceMotion: true })
@@ -2523,7 +2541,7 @@ test('from 900px the search keeps to one line as before, and while it holds a qu
       name: 'Clear search',
       tabStop: false,
       inside: true,
-      clearOfText: true,
+      textEnds: 'before it',
     },
     value: long,
     focused: true,

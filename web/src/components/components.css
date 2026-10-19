@@ -947,7 +947,9 @@ img[data-broken] {
 }
 
 /* The clear button the search input had, from 900px, in the room the bubble keeps at its end.
-   The box's text stops short of it. */
+   The box's text stops short of it: that room is the frame's, not the box's own padding, which
+   Chrome leaves out of what a one-line textarea scrolls, so a long query scrolled to its end
+   would run under the button. */
 .ab-clear {
   display: none;
 }
@@ -982,8 +984,12 @@ img[data-broken] {
     stroke-width: 2.5;
   }
 
-  .ab-search textarea:not(:placeholder-shown) {
+  .ab-bubble-field:has(textarea:not(:placeholder-shown)) .ab-bubble-clip {
     padding-right: 40px;
+  }
+
+  .ab-search textarea:not(:placeholder-shown) {
+    padding-right: 0;
   }
 }
 
