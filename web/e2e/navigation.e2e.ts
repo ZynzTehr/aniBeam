@@ -481,6 +481,89 @@ const FLIGHT_NOW = `document.getAnimations().filter((a) => a.effect?.target?.clo
     changes: [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k).filter((p) => !['offset', 'easing', 'composite', 'computedOffset'].includes(p))))].join(',') }
 })`
 
+// How the intro's four buttons are laid out: how many sit in each row, whether two rows' buttons
+// line up in columns, which buttons touch a cover of the fan (each cover's box on the screen, which
+// holds the whole tilted cover, so this errs on the safe side), whether the fan is beside the
+// intro's text (its left edge past the end of every line of it), the headline's size, and whether
+// anything runs off the screen.
+const INTRO_LAYOUT = `(() => {
+  const buttons = [...document.querySelectorAll('.ab-intro-actions > *')].map((el) => el.getBoundingClientRect())
+  const tops = [...new Set(buttons.map((b) => Math.round(b.top)))]
+  const covers = [...document.querySelectorAll('.ab-intro-cover')].map((el) => el.getBoundingClientRect())
+  let textEnd = 0
+  for (const el of document.querySelectorAll('.ab-intro-kicker, .ab-intro-title, .ab-intro-lede')) {
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    for (const line of range.getClientRects()) textEnd = Math.max(textEnd, line.right)
+  }
+  return {
+    rows: tops.map((top) => buttons.filter((b) => Math.round(b.top) === top).length).join(' + '),
+    columns: tops.length === 2 && Math.abs(buttons[2].left - buttons[0].left) < 1 && Math.abs(buttons[3].left - buttons[1].left) < 1,
+    touching: buttons.flatMap((b, i) => covers.some((c) => b.left < c.right && c.left < b.right && b.top < c.bottom && c.top < b.bottom) ? [i + 1] : []),
+    beside: Math.min(...covers.map((c) => c.left)) > textEnd,
+    headline: parseFloat(getComputedStyle(document.querySelector('.ab-intro-title')).fontSize),
+    offScreen: buttons.some((b) => b.left < 0 || b.right > innerWidth) || document.documentElement.scrollWidth > innerWidth,
+  }
+})()`
+
+test('from 1100px the intro’s four buttons sit in one row, and from 900 to 1099px in two rows of two lined up in columns, never three and one; none touches the cover fan, still beside the text, the headline keeps its size, and nothing runs off the screen', async () => {
+  for (const [width, rows] of [
+    [900, '2 + 2'],
+    [1000, '2 + 2'],
+    [1099, '2 + 2'],
+    [1100, '4'],
+    [1280, '4'],
+    [1366, '4'],
+    [1440, '4'],
+    [1920, '4'],
+  ] as const) {
+    for (const height of [900, 768]) {
+      await browser.load({ width, height, reduceMotion: true })
+      assert.ok(await browser.titlesShown())
+      const layout = await browser.evaluate<{
+        rows: string
+        columns: boolean
+        touching: number[]
+        beside: boolean
+        headline: number
+        offScreen: boolean
+      }>(INTRO_LAYOUT)
+      assert.deepEqual(
+        {
+          ...layout,
+          headline: Math.abs(layout.headline - Math.min(92, Math.max(42, width * 0.062))) < 0.01,
+        },
+        {
+          rows,
+          columns: rows === '2 + 2',
+          touching: [],
+          beside: true,
+          headline: true,
+          offScreen: false,
+        },
+        `${width}x${height}: the intro's buttons in the wrong rows, out of line, over the covers or off the screen, or the headline resized`,
+      )
+    }
+  }
+  // With WCAG's widened text spacing too, the rows may wrap, but never run off the screen or
+  // under the covers.
+  for (const width of [900, 1100, 1366]) {
+    await browser.load({ width, height: 900, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    await browser.evaluate(TEXT_SPACING)
+    await frames()
+    const { touching, offScreen } = await browser.evaluate<{
+      touching: number[]
+      offScreen: boolean
+    }>(INTRO_LAYOUT)
+    assert.deepEqual(
+      { touching, offScreen },
+      { touching: [], offScreen: false },
+      `${width}px with text spacing`,
+    )
+  }
+})
+
 test('with motion allowed, the intro’s four buttons fly into the header as a scroll brings it to them, and back down, landing in place', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())
@@ -572,6 +655,64 @@ test('with motion allowed, the intro’s four buttons fly into the header as a s
     { links: 'intro', header: false, intro: true },
     'back down',
   )
+})
+
+test('from each layout of the intro’s buttons, two rows of two or one row, the four copies start on the buttons and land on the header’s links, and back down', async () => {
+  // Each copy at the start of its flight (all paused there) against where it leaves, and where it
+  // is drawn to land against where it lands: within a pixel, as [start, landing] for each copy.
+  const placed = (leaves: string, lands: string) => `(() => {
+    const animations = document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight'))
+    for (const a of animations) { a.pause(); a.currentTime = 0 }
+    const offset = getComputedStyle(document.querySelector('.ab-flight')).position === 'absolute' ? [scrollX, scrollY] : [0, 0]
+    const near = (a, b) => ['left', 'top', 'width', 'height'].every((side) => Math.abs(a[side] - b[side]) < 1)
+    return [...document.querySelectorAll('.ab-flight-chip')].map((chip, i) => {
+      const from = document.querySelectorAll('${leaves}')[i].getBoundingClientRect()
+      const to = document.querySelectorAll('${lands}')[i].getBoundingClientRect()
+      const drawn = { left: parseFloat(chip.style.left) - offset[0], top: parseFloat(chip.style.top) - offset[1], width: parseFloat(chip.style.width), height: parseFloat(chip.style.height) }
+      return (near(chip.querySelector('.ab-flight-pill').getBoundingClientRect(), from) ? 'starts' : 'starts off') + ', ' + (near(drawn, to) ? 'lands' : 'lands off')
+    })
+  })()`
+  const play = `document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight')).forEach((a) => a.play()); true`
+  const firstFrame = (y: number) =>
+    browser.evaluate(
+      `new Promise((resolve) => { scrollTo(0, ${y}); requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))) })`,
+    )
+  const fine = ['starts, lands', 'starts, lands', 'starts, lands', 'starts, lands']
+  for (const width of [1000, 1100, 1366]) {
+    await browser.load({ width, height: 900 })
+    assert.ok(await browser.titlesShown())
+    await browser.landAll()
+    await browser.animationsDone()
+    await firstFrame(await browser.evaluate<number>(DOCK_AT))
+    assert.deepEqual(
+      await browser.evaluate(placed('.ab-intro-actions > *', '.ab-top .ab-nav > *')),
+      fine,
+      `${width}px, docking: a copy doesn't start on its button or land on its link`,
+    )
+    await browser.evaluate(play)
+    await browser.animationsDone()
+    await frames()
+    assert.deepEqual(
+      await browser.evaluate(SHOWN),
+      { links: 'header', header: true, intro: false },
+      `${width}px, docked`,
+    )
+    const { top, bottom } = await browser.evaluate<{ top: number; bottom: number }>(GEOMETRY)
+    await firstFrame(top - Math.ceil(bottom + Math.min(200, top - bottom)))
+    assert.deepEqual(
+      await browser.evaluate(placed('.ab-top .ab-nav > *', '.ab-intro-actions > *')),
+      fine,
+      `${width}px, undocking: a copy doesn't start on its link or land on its button`,
+    )
+    await browser.evaluate(play)
+    await browser.animationsDone()
+    await frames()
+    assert.deepEqual(
+      await browser.evaluate(SHOWN),
+      { links: 'intro', header: false, intro: true },
+      `${width}px, back down`,
+    )
+  }
 })
 
 test('under reduced motion, from the device or the site’s switch, the sets swap at once, with no flight', async () => {

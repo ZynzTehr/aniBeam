@@ -2597,12 +2597,27 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   grid-area: lede;
 }
 
+/* The four buttons don't fit in one row beside the covers until 1100px, so up to there they sit
+   in two rows of two, lined up in columns: never three and one. */
 .ab-intro-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  justify-content: start;
+  justify-items: start;
   gap: 12px;
   margin-top: 28px;
   grid-area: actions;
+  grid-template-columns: repeat(2, max-content);
+}
+
+/* From 1100px they sit in one row, reaching under the covers' column, where the fan ends above
+   them with room to spare. They still wrap, rather than run off the screen, should a
+   reader's wider text spacing make them too long. */
+@media (min-width: 1100px) {
+  .ab-intro-actions {
+    display: flex;
+    flex-wrap: wrap;
+    grid-column: 1 / -1;
+  }
 }
 
 /* The intro's buttons are the page's section links (they dock in the header as it reaches them,
