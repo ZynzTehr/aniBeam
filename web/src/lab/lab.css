@@ -141,10 +141,72 @@
   text-wrap: pretty;
 }
 
+/* The dock: the current picks in a line above the card. On a phone, where the choices run to
+   about 3,000px above the card and the bar scrolls away, it stays at the foot of the screen with
+   a jump to each, so a choice is a tap away from the card it changes. */
+.ab-lab-dock {
+  display: grid;
+  gap: 8px;
+  margin-inline: var(--page-x);
+}
+
+.ab-lab-picks {
+  max-width: 80ch;
+  margin: 0;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.4;
+  text-wrap: pretty;
+}
+
+.ab-lab-jumps {
+  display: none;
+  gap: 8px;
+}
+
+.ab-lab-see.ab-lab-see-ink {
+  background: var(--ink);
+  color: #fff;
+}
+
+@media (max-width: 699px) {
+  .ab-lab {
+    padding-bottom: 120px;
+  }
+
+  .ab-lab-dock {
+    position: fixed;
+    z-index: 10;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    margin: 0;
+    padding: 8px var(--page-x) max(10px, env(safe-area-inset-bottom));
+    border-top: var(--border) solid var(--ink);
+    background: #fff;
+  }
+
+  .ab-lab-picks {
+    font-size: 13px;
+  }
+
+  .ab-lab-jumps {
+    display: flex;
+  }
+
+  .ab-lab-jumps .ab-lab-see {
+    flex: 1;
+    min-height: 44px;
+    font-size: 14px;
+  }
+}
+
 /* The stage: the card in the page, on its wipe, still. The wipe fills the stage instead of the
-   screen. */
-.ab-lab-stage {
-  scroll-margin-top: 80px;
+   screen. It comes into view below the bar where the bar stays at the top. */
+@media (min-width: 700px) {
+  .ab-lab-stage {
+    scroll-margin-top: 80px;
+  }
 }
 
 .ab-lab-screen {

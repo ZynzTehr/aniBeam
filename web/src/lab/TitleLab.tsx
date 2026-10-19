@@ -68,6 +68,19 @@ export default function TitleLab() {
     setChoicesOpen(true)
     requestAnimationFrame(() => document.getElementById('ab-lab-choices')?.focus())
   }
+  // The dock's two jumps, for a phone, where the choices run to about 3,000px above the card.
+  const toChoices = () => {
+    setChoicesOpen(true)
+    requestAnimationFrame(() => {
+      const choices = document.getElementById('ab-lab-choices')
+      choices?.scrollIntoView({ block: 'start' })
+      choices?.focus({ preventScroll: true })
+    })
+  }
+  const toCard = () => {
+    showStage()
+    document.getElementById('ab-lab-stage')?.focus({ preventScroll: true })
+  }
 
   return (
     <div className="ab-lab">
@@ -166,6 +179,19 @@ export default function TitleLab() {
             </p>
           </section>
         </section>
+        <nav className="ab-lab-dock" aria-label="The lab">
+          <p className="ab-lab-picks">
+            <b>Picked:</b> {picksOf(options)}
+          </p>
+          <div className="ab-lab-jumps">
+            <button type="button" className="ab-lab-see" onClick={toChoices}>
+              Choices
+            </button>
+            <button type="button" className="ab-lab-see ab-lab-see-ink" onClick={toCard}>
+              See the card
+            </button>
+          </div>
+        </nav>
         <p className="ab-lab-case" aria-live="polite">
           <b>{labCase.label}:</b> {labCase.note} {bannerLine(title.bannerImage, title.bannerBytes)}
         </p>
@@ -202,6 +228,13 @@ const FAST_3G_MS: Record<number, number> = {
   1: 2320,
   207329: 1340,
   21: 2780,
+}
+
+/** The current picks in a line ("Band · strip · top · …"), the phone choice only with the band. */
+function picksOf(options: Options) {
+  return CHOICES.filter(({ needs }) => !needs || options[needs.key] === needs.value)
+    .map(({ key, options: each }) => each.find(({ value }) => value === options[key])?.short)
+    .join(' · ')
 }
 
 const kb = (bytes: number) => `${Math.round(bytes / 1000)} KB`
