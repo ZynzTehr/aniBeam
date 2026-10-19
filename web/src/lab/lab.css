@@ -156,3 +156,147 @@
   position: absolute;
   z-index: -1;
 }
+
+/* ---------- The choices ---------- */
+.ab-lab-choice {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 14px 0 0;
+  border: 0;
+  border-top: 3px solid var(--ink);
+}
+
+.ab-lab-choice legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  font: 400 20px / 1.1 var(--display);
+}
+
+.ab-lab-choice:disabled {
+  color: rgb(20 20 20 / 0.7);
+}
+
+.ab-lab-choice:disabled .ab-chip span {
+  border-style: dashed;
+  background: transparent;
+  box-shadow: none;
+  transform: none;
+  cursor: not-allowed;
+}
+
+.ab-lab-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* The chips' white focus ring is for dark ground: here they sit on white. */
+.ab-lab-options .ab-chip input:focus-visible + span {
+  outline-color: var(--hot);
+}
+
+.ab-lab-options .ab-chip span {
+  gap: 8px;
+}
+
+.ab-lab-rec {
+  display: inline-block;
+  padding: 1px 7px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ab-lab-why {
+  max-width: 80ch;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.ab-lab-weights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+  list-style: none;
+}
+
+/* ---------- The banner band ---------- */
+/* The sheet's padding, which the band spans to sit flush in its ink frame: as components.css
+   sets it, on desktop and on phones. */
+.ab-lab-banded {
+  --ab-lab-pad: clamp(28px, 4vw, 60px);
+
+  padding-top: 0;
+}
+
+.ab-lab-banded .ab-close {
+  z-index: 2;
+}
+
+/* The impact frame is the band's own background, so it shows wherever no banner covers it: no
+   banner, a banner that fails to load (a background that fails paints nothing), or a phone with
+   "Impact frame only". Speed lines from the middle and the page's screentone, in the title's
+   color, as the wipe draws them; no blur. */
+.ab-lab-band {
+  position: relative;
+  height: clamp(200px, 25vw, 420px);
+  margin: 0 calc(-1 * var(--ab-lab-pad));
+  overflow: hidden;
+  border-bottom: 5px solid var(--ink);
+  background-color: var(--anime-accent);
+  background-image:
+    radial-gradient(ellipse at 50% 50%, rgb(255 255 255 / 0.85) 0 6%, transparent 34%),
+    radial-gradient(rgb(20 20 20 / 0.2) 1.1px, transparent 1.5px),
+    repeating-conic-gradient(
+      from 0deg at 50% 50%,
+      transparent 0deg 5deg,
+      rgb(255 255 255 / 0.4) 5deg 7deg
+    );
+  background-size:
+    auto,
+    6px 6px,
+    auto;
+  grid-column: 1 / -1;
+}
+
+.ab-lab-banner {
+  position: absolute;
+  background: var(--ab-lab-banner) 50% 50% / cover no-repeat;
+  inset: 0;
+}
+
+@media (max-width: 820px) {
+  .ab-lab-banded {
+    --ab-lab-pad: 20px;
+  }
+
+  /* On phones the band is a strip as wide as the sheet, 19:4, the banner's own shape. */
+  .ab-lab-band {
+    height: auto;
+    aspect-ratio: 19 / 4;
+  }
+
+  /* "Impact frame only": hidden, the banner is never downloaded. */
+  .ab-lab-frame-on-phones .ab-lab-banner {
+    display: none;
+  }
+}
+
+/* The Japanese title stands above the cover (see .ab-native): clear of the band's ink line. */
+.ab-lab-banded .ab-sheet-art {
+  padding-top: 24px;
+}

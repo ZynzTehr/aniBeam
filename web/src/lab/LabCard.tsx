@@ -3,6 +3,7 @@ import { markBroken, markLoaded } from '../components/cover.ts'
 import { cssVars } from '../components/cssVars.ts'
 import { formatOf, nextEpisode, seasonOf, studioOf, titleOf } from '../features/anime/format.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
+import type { Options } from './choices.ts'
 import type { LabTitle } from './types.ts'
 
 /**
@@ -14,11 +15,13 @@ import type { LabTitle } from './types.ts'
  */
 export function LabCard({
   title,
+  options,
   mode,
   from,
   onClose,
 }: {
   title: LabTitle
+  options: Options
   mode: 'inline' | 'card'
   /** Where the wipe starts, as the card. */
   from?: DOMRect
@@ -29,8 +32,10 @@ export function LabCard({
   const name = titleOf(title)
   const size = name.length > 44 ? 'ab-xl' : name.length > 22 ? 'ab-l' : ''
   const next = nextEpisode(title)
+  const band = options.hero === 'band'
+  const frameOnPhones = options.phone === 'frame'
   const sheet = (
-    <article className="ab-sheet">
+    <article className={band ? 'ab-sheet ab-lab-banded' : 'ab-sheet'}>
       <button
         type="button"
         className="ab-close"
@@ -48,6 +53,25 @@ export function LabCard({
           <i />
         </span>
       </button>
+      {band && (
+        // The band: the banner in an ink frame, over the impact frame, which shows where there is
+        // no banner or it fails to load. The banner is a background, not an img: a phone with
+        // "Impact frame only" hides it, and a hidden background is never downloaded, where React
+        // sets an img's src before a <picture> could stop it.
+        <div
+          className={['ab-lab-band', frameOnPhones && 'ab-lab-frame-on-phones']
+            .filter(Boolean)
+            .join(' ')}
+          aria-hidden="true"
+        >
+          {title.bannerImage && (
+            <div
+              className="ab-lab-banner"
+              style={cssVars({ '--ab-lab-banner': `url("${title.bannerImage}")` })}
+            />
+          )}
+        </div>
+      )}
       <div className="ab-sheet-art">
         {title.title.native && (
           <p className="ab-native" lang="ja" aria-hidden="true">
