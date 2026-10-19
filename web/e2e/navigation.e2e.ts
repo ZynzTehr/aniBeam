@@ -1470,3 +1470,345 @@ test('the menu shuts as the page widens to 900px, on Back, and as the address go
     address: closed,
   })
 })
+
+// ---------- Phones: the menu's swipes ----------
+
+/**
+ * A finger's swipe through `path` ([x, y, ms] each: where it touches down, then each move), lifted
+ * `hold` ms after the last. Each touch is stamped with its time, so the page reads the same speed
+ * however fast the browser takes them: the last stamped now, the rest before it. `mid` runs at the
+ * middle move, with the finger still down.
+ */
+async function swipe(path: [number, number, number][], { hold = 0, mid = async () => {} } = {}) {
+  const end = path[path.length - 1][2] + hold
+  const base = Date.now() / 1000 - end / 1000
+  const point = ([x, y]: [number, number, number]) => [{ x, y }]
+  await browser.send('Input.dispatchTouchEvent', {
+    type: 'touchStart',
+    touchPoints: point(path[0]),
+    timestamp: base + path[0][2] / 1000,
+  })
+  for (let i = 1; i < path.length; i++) {
+    await browser.send('Input.dispatchTouchEvent', {
+      type: 'touchMove',
+      touchPoints: point(path[i]),
+      timestamp: base + path[i][2] / 1000,
+    })
+    if (i === Math.ceil((path.length - 1) / 2)) await mid()
+  }
+  await browser.send('Input.dispatchTouchEvent', {
+    type: 'touchEnd',
+    touchPoints: [],
+    timestamp: base + end / 1000,
+  })
+}
+
+/** A straight swipe from (x, y), `dx` across and `dy` down over `ms`, in `steps` even moves. */
+const line = (x: number, y: number, dx: number, dy: number, ms: number, steps = 8) =>
+  Array.from(
+    { length: steps + 1 },
+    (_, i) =>
+      [x + (dx * i) / steps, y + (dy * i) / steps, (ms * i) / steps] as [number, number, number],
+  )
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/** Turns on touch for the check, and off again after it, whatever happens. */
+async function withTouch(check: () => Promise<void>) {
+  await browser.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
+  try {
+    await check()
+  } finally {
+    await browser.send('Emulation.setTouchEmulationEnabled', { enabled: false })
+  }
+}
+
+// The menu's state, what has focus and whether it shows its ring.
+const MENU_STATE = `(() => {
+  ${TEXT}
+  return {
+    open: document.querySelector('.ab-drawer').open,
+    expanded: document.querySelector('.ab-burger').getAttribute('aria-expanded'),
+    focus: document.activeElement === document.body ? 'the page' : document.activeElement.getAttribute('aria-label') ?? text(document.activeElement),
+    ring: document.activeElement.matches(':focus-visible'),
+  }
+})()`
+// How far across the menu's panel is drawn from where it rests, in whole pixels.
+const PANEL_SHIFT = `Math.round(new DOMMatrix(getComputedStyle(document.querySelector('.ab-drawer')).transform).e)`
+
+test('on a phone a rightward swipe that starts on the header row opens the menu, from the menu button, AniBeam or the air beside the search, far and slow or short and quick', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const header = await browser.evaluate<{
+    y: number
+    air: number
+    logo: number
+    burger: number
+  }>(`(() => {
+    const box = (sel) => document.querySelector(sel).getBoundingClientRect()
+    const top = box('.ab-top')
+    return {
+      y: top.top + 39,
+      air: (box('.ab-logo').right + box('.ab-bubble-field').left) / 2,
+      logo: box('.ab-logo').left + box('.ab-logo').width / 2,
+      burger: box('.ab-burger').left + box('.ab-burger').width / 2,
+    }
+  })()`)
+  const { y } = header
+  const seen: Record<string, unknown> = {}
+  await withTouch(async () => {
+    for (const [how, path] of [
+      ['80px from the menu button, slowly', line(header.burger, y, 80, 0, 400)],
+      ['80px from AniBeam, slowly', line(header.logo, y, 80, 0, 400)],
+      ['80px from the air beside the search, slowly', line(header.air, y, 80, 0, 400)],
+      ['a quick 30px flick from AniBeam', line(header.logo, y, 30, 0, 45, 3)],
+    ] as const) {
+      await swipe([...path])
+      await browser.waitFor(MENU_OPEN, 1000)
+      await frames()
+      seen[how] = await browser.evaluate(MENU_STATE)
+      await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+      await browser.waitFor(MENU_SHUT, 1000)
+      // Past the 500 ms in which a click is taken for the swipe's own.
+      await sleep(550)
+    }
+  })
+  // Opened by a finger: on the first link, with no ring.
+  const opened = { open: true, expanded: 'true', focus: 'Trending', ring: false }
+  assert.deepEqual(seen, {
+    '80px from the menu button, slowly': opened,
+    '80px from AniBeam, slowly': opened,
+    '80px from the air beside the search, slowly': opened,
+    'a quick 30px flick from AniBeam': opened,
+  })
+})
+
+test('a swipe never opens the menu from the screen’s left edge, the search bubble, a short slow drag, a slant, a drag up the screen (which scrolls the page), below the header, with a mouse, or from 900px', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const at = await browser.evaluate<{ logo: number; bubble: number }>(`(() => {
+    const box = (sel) => document.querySelector(sel).getBoundingClientRect()
+    return { logo: box('.ab-logo').left + box('.ab-logo').width / 2, bubble: box('.ab-bubble-field').left + 20 }
+  })()`)
+  // The header's row leaves sideways drags to the page's script, and up and down drags and pinch
+  // zoom to the browser; so does the menu.
+  const touch = await browser.evaluate(
+    `['.ab-top', '.ab-drawer'].map((sel) => getComputedStyle(document.querySelector(sel)).touchAction)`,
+  )
+  const seen: Record<string, unknown> = {}
+  await withTouch(async () => {
+    for (const [how, path] of [
+      ['from 12px in', line(12, 39, 100, 0, 300)],
+      ['from 22px in', line(22, 39, 100, 0, 300)],
+      ['from the search bubble', line(at.bubble, 39, 100, 0, 300)],
+      ['a slow 30px drag', line(at.logo, 39, 30, 0, 600)],
+      ['a slant, 60px across and 40px down', line(at.logo, 20, 60, 40, 200)],
+      ['a drag up the screen', line(at.logo, 70, 10, -60, 200)],
+      ['below the header', line(100, 300, 100, 0, 300)],
+    ] as const) {
+      await scrollAndSettle(0)
+      await swipe([...path])
+      await sleep(300)
+      seen[how] = {
+        open: await browser.evaluate(MENU_OPEN),
+        scrolled: (await browser.evaluate<number>('scrollY')) > 0,
+      }
+      await browser.evaluate(
+        `document.querySelector('.ab-drawer').close(); document.activeElement.blur(); true`,
+      )
+    }
+  })
+  // A mouse drag across the air beside the search, as a laptop with a narrow window might make.
+  // (From the air, not AniBeam: a mouse drags a link away, as a link to drop somewhere.)
+  await scrollAndSettle(0)
+  const air = await browser.evaluate<number>(
+    `(document.querySelector('.ab-logo').getBoundingClientRect().right + document.querySelector('.ab-bubble-field').getBoundingClientRect().left) / 2`,
+  )
+  await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: air, y: 39 })
+  await browser.send('Input.dispatchMouseEvent', {
+    type: 'mousePressed',
+    x: air,
+    y: 39,
+    button: 'left',
+    clickCount: 1,
+  })
+  for (let i = 1; i <= 8; i++)
+    await browser.send('Input.dispatchMouseEvent', {
+      type: 'mouseMoved',
+      x: air + i * 10,
+      y: 39,
+      button: 'left',
+      buttons: 1,
+    })
+  await browser.send('Input.dispatchMouseEvent', {
+    type: 'mouseReleased',
+    x: air + 80,
+    y: 39,
+    button: 'left',
+    clickCount: 1,
+  })
+  await sleep(300)
+  seen['with a mouse'] = { open: await browser.evaluate(MENU_OPEN), scrolled: false }
+  // From 900px, where the header holds the links and no menu button.
+  await browser.load({ width: 1024, height: 768, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await withTouch(async () => {
+    await swipe(line(200, 40, 120, 0, 300))
+    await sleep(300)
+  })
+  seen['at 1024px'] = { open: await browser.evaluate(MENU_OPEN), scrolled: false }
+  const still = { open: false, scrolled: false }
+  assert.deepEqual(
+    { touch, ...seen },
+    {
+      touch: ['pan-y pinch-zoom', 'pan-y pinch-zoom'],
+      'from 12px in': still,
+      'from 22px in': still,
+      'from the search bubble': still,
+      'a slow 30px drag': still,
+      'a slant, 60px across and 40px down': still,
+      'a drag up the screen': { open: false, scrolled: true },
+      'below the header': still,
+      'with a mouse': still,
+      'at 1024px': still,
+    },
+  )
+})
+
+test('a click straight after the swipe that opened the menu, where the finger lifted, does nothing; a tap a moment later works as ever', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const logo = await browser.evaluate<number>(
+    `(({ left, width }) => left + width / 2)(document.querySelector('.ab-logo').getBoundingClientRect())`,
+  )
+  await browser.evaluate(`window.__beforeClick = true`)
+  const seen: Record<string, unknown> = {}
+  await withTouch(async () => {
+    await swipe(line(logo, 39, 80, 0, 160))
+    // The click a browser may send where the finger lifted: on AniBeam, a link to the page's top.
+    await browser.evaluate(`document.querySelector('.ab-logo').click(); true`)
+    await sleep(300)
+    seen.straight = {
+      open: await browser.evaluate(MENU_OPEN),
+      samePage: await browser.evaluate(`window.__beforeClick === true`),
+    }
+    await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+    await sleep(600)
+    await tapOn('.ab-burger')
+    seen.later = { open: await browser.waitFor(MENU_OPEN, 1000) }
+  })
+  assert.deepEqual(seen, {
+    straight: { open: true, samePage: true },
+    later: { open: true },
+  })
+})
+
+test('dragging the open menu left moves it with the finger, and only a little to the right; a short slow drag springs back, and past 30% of its width or on a quick flick it shuts, focus going back to the menu button with no ring', async () => {
+  await browser.load(PHONE)
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.animationsDone()
+  const seen: Record<string, unknown> = {}
+  const open = async () => {
+    await tapOn('.ab-burger')
+    assert.ok(await browser.waitFor(MENU_OPEN, 2000), 'the menu didn’t open')
+    await browser.waitFor(`document.querySelector('.ab-drawer').getAnimations().length === 0`, 2000)
+  }
+  const settle = () =>
+    browser.waitFor(`document.querySelector('.ab-drawer').getAnimations().length === 0`, 2000)
+  await withTouch(async () => {
+    await open()
+    // Sampled halfway: 40px left of 80, then 50px right of 100.
+    let left = 0
+    let right = 0
+    await swipe(line(250, 400, -80, 0, 800), {
+      mid: async () => {
+        await frames()
+        left = await browser.evaluate<number>(PANEL_SHIFT)
+      },
+    })
+    await settle()
+    await swipe(line(150, 400, 100, 0, 400), {
+      mid: async () => {
+        await frames()
+        right = await browser.evaluate<number>(PANEL_SHIFT)
+      },
+    })
+    await settle()
+    seen.following = {
+      left,
+      right: right > 0 && right < 30 ? 'a little' : right,
+      open: await browser.evaluate(MENU_OPEN),
+    }
+    // 40px over 600 ms, let go: back where it rests.
+    await swipe(line(250, 400, -40, 0, 600))
+    await settle()
+    seen['a short slow drag'] = {
+      open: await browser.evaluate(MENU_OPEN),
+      shift: await browser.evaluate(PANEL_SHIFT),
+      drag: await browser.evaluate(
+        `document.querySelector('.ab-drawer').style.getPropertyValue('--drag')`,
+      ),
+    }
+    // Up and down in the panel: it stays.
+    await swipe(line(200, 600, 5, -200, 300))
+    await settle()
+    seen['a drag up and down'] = { open: await browser.evaluate(MENU_OPEN) }
+    // 120px of its 320 over 800 ms, and 60px in 60 ms.
+    for (const [how, path] of [
+      ['past 30%, slowly', line(250, 400, -120, 0, 800)],
+      ['a quick 60px flick', line(250, 400, -60, 0, 60, 4)],
+    ] as const) {
+      await swipe([...path])
+      await browser.waitFor(MENU_SHUT, 2000)
+      await settle()
+      await frames()
+      seen[how] = await browser.evaluate(MENU_STATE)
+      await open()
+    }
+    await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+  })
+  const shut = { open: false, expanded: 'false', focus: 'Menu', ring: false }
+  assert.deepEqual(seen, {
+    following: { left: -40, right: 'a little', open: true },
+    'a short slow drag': { open: true, shift: 0, drag: '' },
+    'a drag up and down': { open: true },
+    'past 30%, slowly': shut,
+    'a quick 60px flick': shut,
+  })
+})
+
+test('under reduced motion, the device’s or the site’s, the menu doesn’t follow the finger, but a swipe on the header still opens it and a drag left still shuts it', async () => {
+  const seen: Record<string, unknown> = {}
+  for (const motion of ['reduced on the device', 'reduced on the site']) {
+    await browser.load({ ...PHONE, reduceMotion: motion === 'reduced on the device' })
+    assert.ok(await browser.titlesShown())
+    if (motion === 'reduced on the site')
+      await browser.evaluate(`document.documentElement.dataset.motion = 'reduce'; true`)
+    await browser.landAll()
+    const logo = await browser.evaluate<number>(
+      `(({ left, width }) => left + width / 2)(document.querySelector('.ab-logo').getBoundingClientRect())`,
+    )
+    await withTouch(async () => {
+      await swipe(line(logo, 39, 80, 0, 400))
+      const opened = await browser.waitFor(MENU_OPEN, 1000)
+      await browser.waitFor(
+        `document.querySelector('.ab-drawer').getAnimations().length === 0`,
+        2000,
+      )
+      let shift: unknown = null
+      await swipe(line(250, 400, -150, 0, 800), {
+        mid: async () => {
+          await frames()
+          shift = await browser.evaluate(PANEL_SHIFT)
+        },
+      })
+      seen[motion] = { opened, shift, shut: await browser.waitFor(MENU_SHUT, 2000) }
+    })
+  }
+  const still = { opened: true, shift: 0, shut: true }
+  assert.deepEqual(seen, { 'reduced on the device': still, 'reduced on the site': still })
+})

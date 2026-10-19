@@ -341,11 +341,12 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // addresses' review fixes (the note's fade-out among them: 80,043 B), 80,500 B with the section
 // links (lib/sectionNav.ts, docking the intro's buttons: 80,741 B), 81,000 B with a phone's bar of
 // them (81,118 B, since taken out), 81,500 B with the buttons' flight into the header and back
-// (82,032 B), and 82,500 B with the phone's menu in the bar's place (MenuDrawer, the hamburger:
-// 82,508 B), so its budget is 83,000 B. The fonts in web/public are copied as they are, outside
-// the build, so this doesn't weigh them.
+// (82,032 B), 82,500 B with the phone's menu in the bar's place (MenuDrawer, the hamburger:
+// 82,508 B), and 83,000 B with its swipes (lib/swipe.ts, a swipe across the header to open it and
+// a drag that it follows to shut it: 83,262 B), so its budget is 83,500 B. The fonts in
+// web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 83_000,
+  'the JS every visit loads': 83_500,
   'the CSS': 10_500,
   'the JS loaded only when needed': 3_500,
   'every other file': 500,

@@ -1,5 +1,6 @@
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { searchable } from '../lib/ime.ts'
+import { afterSwipe, EDGE, opens, swipeMoved, swipeStart, type Swipe } from '../lib/swipe.ts'
 import { MenuDrawer } from './MenuDrawer.tsx'
 import { openMenu } from './openMenu.ts'
 
@@ -12,10 +13,10 @@ export type NavLink = { href: string; label: string; current?: boolean; soon?: b
 
 /**
  * The logo, the section links and the title search. Under 900px it is one row: a hamburger that
- * opens the menu of the section links (MenuDrawer), the logo, and the search on the far side. It
- * publishes its own height as --top-h on <html>, so the intro can fill exactly the rest of the
- * first screen, and so what its links jump to lands below it from 900px, where it stays on screen,
- * even when it takes a second row (see components.css).
+ * opens the menu of the section links (MenuDrawer), as a rightward swipe across the row does, the
+ * logo, and the search on the far side. It publishes its own height as --top-h on <html>, so the
+ * intro can fill exactly the rest of the first screen, and so what its links jump to lands below
+ * it from 900px, where it stays on screen, even when it takes a second row (see components.css).
  */
 export function SiteHeader({
   links,
@@ -36,6 +37,12 @@ export function SiteHeader({
   const burger = useRef<HTMLButtonElement>(null)
   const menu = useRef<HTMLDialogElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  // A rightward swipe across the header opens the menu: not from the screen's left edge, the
+  // system's Back, and not on the search bubble, where a drag selects text.
+  const swipe = useRef<Swipe | null>(null)
+  // When a swipe last opened the menu: a click straight after it (on the logo, say, where the
+  // finger lifted) does nothing (see afterSwipe).
+  const swiped = useRef(-Infinity)
   useLayoutEffect(() => {
     const element = header.current
     if (!element) return
@@ -52,9 +59,46 @@ export function SiteHeader({
     }
   }, [])
 
+  const open = (byKey: boolean) => {
+    if (openMenu(menu.current, burger.current, byKey)) setMenuOpen(true)
+  }
+  const unpull = (element: HTMLElement) => {
+    swipe.current = null
+    element.style.removeProperty('--pull')
+  }
+
   return (
     <>
-      <header ref={header} className="ab-top">
+      <header
+        ref={header}
+        className="ab-top"
+        onPointerDown={(e) => {
+          const narrow = !matchMedia('(min-width: 900px)').matches
+          const clear = !(e.target as Element).closest('.ab-bubble-field')
+          swipe.current = narrow && clear && e.clientX >= EDGE ? swipeStart(e) : null
+        }}
+        onPointerMove={(e) => {
+          // Sideways only if more than twice as far across as down: a page scroll that drifts
+          // never opens it.
+          const s = swipe.current && swipeMoved(swipe.current, e, 2)
+          swipe.current = s?.axis === 'y' ? null : s
+          if (s?.axis !== 'x') return
+          // The hamburger's bars lean into the swipe (components.css).
+          e.currentTarget.style.setProperty('--pull', String(Math.min(Math.max(s.dx / 48, 0), 1)))
+          if (opens(s)) {
+            unpull(e.currentTarget)
+            swiped.current = e.timeStamp
+            open(false)
+          }
+        }}
+        onPointerUp={(e) => unpull(e.currentTarget)}
+        onPointerCancel={(e) => unpull(e.currentTarget)}
+        onClickCapture={(e) => {
+          if (!afterSwipe(swiped.current, e.timeStamp)) return
+          e.preventDefault()
+          e.stopPropagation()
+        }}
+      >
         <button
           ref={burger}
           type="button"
@@ -64,14 +108,7 @@ export function SiteHeader({
           aria-controls="ab-menu"
           aria-haspopup="dialog"
           // A click a key fired (Enter, Space) has no pointer type.
-          onClick={(e) => {
-            openMenu(
-              menu.current,
-              burger.current,
-              (e.nativeEvent as PointerEvent).pointerType === '',
-            )
-            setMenuOpen(true)
-          }}
+          onClick={(e) => open((e.nativeEvent as PointerEvent).pointerType === '')}
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M3 6h18M6 12h15M3 18h18" />

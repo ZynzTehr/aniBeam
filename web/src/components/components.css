@@ -755,12 +755,14 @@ img[data-broken] {
 @media (max-width: 899px) {
   /* Phones: one row, the hamburger, the logo, and the search on the far side. Relative, not
      static: the header still scrolls away with the page, but its z-index works again, so the
-     intro's speed lines stay under it, as on desktop. */
+     intro's speed lines stay under it, as on desktop. Sideways drags on it are left to the swipe
+     that opens the menu (SiteHeader); up and down still scroll the page, and pinches zoom. */
   .ab-top {
     position: relative;
     flex-wrap: nowrap;
     align-items: flex-start;
     gap: 8px;
+    touch-action: pan-y pinch-zoom;
   }
 
   /* The menu holds the section links: the header's and the intro's aren't drawn. The intro's
@@ -1007,8 +1009,10 @@ img[data-broken] {
 
 /* A printed page laid over the page: a denser screentone, inked on its open edge with a hard
    shadow, as tall as the screen, min(84vw, 320px) wide. 24px more of it waits off the left edge,
-   for the spring's overshoot as it slides in (see the motion gate at the end). Reduced motion: it
-   fades in and out over 150 ms, as the title card does. */
+   for the spring's overshoot as it slides in (see the motion gate at the end). --drag is how far a
+   finger has pulled it (MenuDrawer), whose sideways drags are its own: without touch-action, the
+   browser took them for a scroll and cancelled them 17px in. Reduced motion: it fades in and out
+   over 150 ms, as the title card does, and --drag is never set. */
 .ab-drawer {
   position: fixed;
   z-index: 60;
@@ -1026,6 +1030,8 @@ img[data-broken] {
   color: var(--ink);
   inset: 0 auto 0 -24px;
   overscroll-behavior: contain;
+  touch-action: pan-y pinch-zoom;
+  transform: translateX(var(--drag, 0px));
 }
 
 .ab-drawer,
@@ -2981,11 +2987,16 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   }
 }
 
-/* The phone menu, with motion allowed. The hamburger stamps into the paper as it is pressed. The
-   menu slams in from the left with the dock flight's overshoot, hidden by the 24px of panel off
-   the screen, and goes out quickly; its links slap down as it lands. */
+/* The phone menu, with motion allowed. The hamburger's bars lean into a swipe across the header
+   (--pull, SiteHeader), and it stamps into the paper as it is pressed. The menu slams in from the
+   left with the dock flight's overshoot, hidden by the 24px of panel off the screen, and goes out
+   quickly; a finger dragging it moves it at once; its links slap down as it lands. */
 @media (prefers-reduced-motion: no-preference) {
   :where(:root:not([data-motion='reduce'])) {
+    .ab-burger svg {
+      transform: translateX(calc(var(--pull, 0) * 6px));
+    }
+
     .ab-burger:active {
       transform: translate(3px, 3px);
     }
@@ -3010,6 +3021,10 @@ body:has(.ab-card[open], .ab-drawer[open]) {
         opacity: 1;
         transform: translateX(calc(-100% - 12px));
       }
+    }
+
+    .ab-drawer.is-dragging {
+      transition: none;
     }
 
     .ab-drawer[open] nav > * {
