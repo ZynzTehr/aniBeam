@@ -1098,6 +1098,26 @@ img[data-broken] {
   }
 }
 
+/* Narrower than 320px, as on a phone zoomed to 125% or more, the room beside the hamburger and
+   the logo would cut even "Search": the search takes a row of its own under them, as it did
+   before the menu, its bubble at the start. The header grows by the row and publishes its height
+   (--top-h, see SiteHeader), so the intro still fills the rest of the screen and what a link
+   jumps to still lands below it; the bubble still hangs from its slot as it grows. */
+@media (max-width: 319px) {
+  .ab-top {
+    flex-wrap: wrap;
+  }
+
+  .ab-search {
+    flex-basis: 100%;
+  }
+
+  .ab-bubble-field {
+    right: auto;
+    left: 0;
+  }
+}
+
 /* The text is 16px wherever a touch keyboard is likely, so iOS doesn't zoom the page as the box
    takes focus: under 900px, and on a touch screen at any width, such as a big iPhone held
    sideways, which gets the desktop header. The copies that measure it keep to the same size. */

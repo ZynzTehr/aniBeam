@@ -1116,7 +1116,7 @@ async function openMenuByKey() {
 // The text of what has focus, or of `el`, without what is drawn and not read (katakana).
 const TEXT = `const text = (el) => { const copy = el.cloneNode(true); copy.querySelectorAll('[aria-hidden="true"], rt').forEach((n) => n.remove()); return copy.textContent.replace(/\\s+/g, ' ').trim() }`
 
-test('under 900px the header is one 78px row: the menu button and AniBeam at the left, the search bubble at the right gutter, nothing overlapping or scrolling sideways', async () => {
+test('from 320 to 899px the header is one 78px row: the menu button and AniBeam at the left, the search bubble at the right gutter, saying Search titles where it fits whole and Search where it doesn’t, with WCAG text spacing too, nothing overlapping or scrolling sideways', async () => {
   const row = `(() => {
     const box = (sel) => {
       const el = document.querySelector(sel)
@@ -1127,8 +1127,12 @@ test('under 900px the header is one 78px row: the menu button and AniBeam at the
     const top = document.querySelector('.ab-top')
     const input = document.querySelector('.ab-search textarea')
     const style = getComputedStyle(input)
+    // The width of a text in the box's font, at the spacing a reader may have widened.
     const measure = document.createElement('canvas').getContext('2d')
     measure.font = style.font
+    measure.letterSpacing = style.letterSpacing
+    measure.wordSpacing = style.wordSpacing
+    const width = (text) => measure.measureText(text).width
     return {
       height: top.offsetHeight,
       gutter: parseFloat(getComputedStyle(top).paddingLeft),
@@ -1138,7 +1142,11 @@ test('under 900px the header is one 78px row: the menu button and AniBeam at the
       bubble: box('.ab-bubble-field'),
       placeholder: input.placeholder,
       // Room for the placeholder in the box, against the placeholder's width in the box's font.
-      room: input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - measure.measureText(input.placeholder).width,
+      room: input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - width(input.placeholder),
+      // The room the logo leaves the search, and the bubble Search titles needs at rest: its
+      // border, padding and 18px of air, 52px in all, around the text (components.css).
+      slot: document.querySelector('.ab-search').getBoundingClientRect().width,
+      whole: width('Search titles') + 52,
       sideways: document.documentElement.scrollWidth - innerWidth,
     }
   })()`
@@ -1153,9 +1161,19 @@ test('under 900px the header is one 78px row: the menu button and AniBeam at the
     )
   }
   const problems: string[] = []
-  for (const width of [320, 359, 360, 375, 390, 414, 430, 768, 899]) {
+  // And with WCAG 1.4.12's text spacing, where at 360 and 375px the room beside the logo no
+  // longer holds Search titles, the box's only visible label: it was cut to Search.
+  for (const [width, spacing] of [
+    ...[320, 359, 360, 375, 390, 414, 430, 768, 899].map((width) => [width, false] as const),
+    ...[320, 360, 375].map((width) => [width, true] as const),
+  ]) {
     await browser.load({ width, height: 844, phone: width < 768, reduceMotion: true })
     assert.ok(await browser.titlesShown())
+    if (spacing) {
+      await browser.evaluate(TEXT_SPACING)
+      await twoFrames()
+      await twoFrames()
+    }
     const seen = await browser.evaluate<{
       height: number
       gutter: number
@@ -1165,9 +1183,11 @@ test('under 900px the header is one 78px row: the menu button and AniBeam at the
       bubble: Box
       placeholder: string
       room: number
+      slot: number
+      whole: number
       sideways: number
     }>(row)
-    const at = `${width}px`
+    const at = `${width}px${spacing ? ', text spacing' : ''}`
     const { header, burger, logo, bubble, gutter } = seen
     if (seen.height !== 78) problems.push(`${at}: the header is ${seen.height}px tall, not one row`)
     if (!burger) {
@@ -1191,9 +1211,13 @@ test('under 900px the header is one 78px row: the menu button and AniBeam at the
     ] as const)
       if (box.top < header.top || box.bottom > header.bottom - 4)
         problems.push(`${at}: ${name} sticks out of the header’s row`)
-    const placeholder = width < 360 ? 'Search' : 'Search titles'
+    // Search titles wherever the room holds its bubble, and Search only where it doesn't.
+    const fits = seen.slot >= seen.whole
+    const placeholder = fits ? 'Search titles' : 'Search'
     if (seen.placeholder !== placeholder)
-      problems.push(`${at}: the box says "${seen.placeholder}", not "${placeholder}"`)
+      problems.push(
+        `${at}: the box says "${seen.placeholder}", not "${placeholder}", with ${Math.round(seen.slot)}px beside AniBeam for the ${Math.round(seen.whole)}px Search titles needs`,
+      )
     if (seen.room < 0) problems.push(`${at}: the placeholder is cut by ${-seen.room}px`)
     const names = await searchName()
     if (names.join() !== 'Search titles')
@@ -1208,6 +1232,144 @@ test('under 900px the header is one 78px row: the menu button and AniBeam at the
       problems.push(`${width}px: the menu button is drawn`)
   }
   assert.deepEqual(problems, [], 'the phone header’s row')
+})
+
+test('below 320px, as on a phone zoomed to 125% or more, the search takes a row of its own under the menu button and AniBeam, showing its whole placeholder, with WCAG text spacing too; nothing overlaps, the header publishes its height, and nothing shifts as it loads, as a long title is typed, or as the screen turns across 320px', async () => {
+  // Safari's page zoom narrows the page: a 375pt iPhone at 125% is 300px wide, a 390pt one at
+  // 150% is 260px. Beside the menu button and AniBeam the bubble then had 99px and 59px, and
+  // cut its placeholder, the box's only visible label, to "Searc" and "Se".
+  await browser.watchLayoutShifts()
+  type Box = { left: number; right: number; top: number; bottom: number }
+  const look = `(() => {
+    const box = (sel) => {
+      const { left, right, top, bottom } = document.querySelector(sel).getBoundingClientRect()
+      return { left, right, top, bottom }
+    }
+    const top = document.querySelector('.ab-top')
+    const input = ${BOX}
+    const style = getComputedStyle(input)
+    const measure = document.createElement('canvas').getContext('2d')
+    measure.font = style.font
+    measure.letterSpacing = style.letterSpacing
+    measure.wordSpacing = style.wordSpacing
+    return {
+      height: top.offsetHeight,
+      topH: document.documentElement.style.getPropertyValue('--top-h'),
+      gutter: parseFloat(getComputedStyle(top).paddingLeft),
+      header: box('.ab-top'),
+      burger: box('.ab-burger'),
+      logo: box('.ab-logo'),
+      bubble: box('.ab-bubble-field'),
+      main: Math.round(document.querySelector('#main').getBoundingClientRect().top),
+      placeholder: input.placeholder,
+      room: input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - measure.measureText(input.placeholder).width,
+      sideways: document.documentElement.scrollWidth - innerWidth,
+    }
+  })()`
+  type Look = {
+    height: number
+    topH: string
+    gutter: number
+    header: Box
+    burger: Box
+    logo: Box
+    bubble: Box
+    main: number
+    placeholder: string
+    room: number
+    sideways: number
+  }
+  const problems: string[] = []
+  for (const [width, spacing] of [
+    [319, false],
+    [300, false],
+    [260, false],
+    [300, true],
+    [260, true],
+  ] as const) {
+    await browser.load({ width, height: 640, phone: true, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    const at = `${width}px${spacing ? ', text spacing' : ''}`
+    if (spacing) {
+      await browser.evaluate(TEXT_SPACING)
+      await twoFrames()
+      await twoFrames()
+    } else {
+      const shift = await browser.layoutShift()
+      if (shift.value > 0)
+        problems.push(
+          `${at}: the page shifted ${shift.value} as it loaded: ${JSON.stringify(shift)}`,
+        )
+    }
+    const seen = await browser.evaluate<Look>(look)
+    const { header, burger, logo, bubble, gutter } = seen
+    const firstRow = Math.max(burger.bottom, logo.bottom)
+    if (bubble.top < firstRow + 4)
+      problems.push(
+        `${at}: the search bubble starts ${bubble.top - firstRow}px below the menu button and AniBeam, not on a row of its own`,
+      )
+    if (Math.abs(bubble.left - gutter) > 0.5)
+      problems.push(
+        `${at}: the search bubble starts at ${bubble.left}px, not at the ${gutter}px gutter`,
+      )
+    if (bubble.right > width - gutter + 0.5)
+      problems.push(`${at}: the search bubble ends at ${bubble.right}px, past the right gutter`)
+    if (logo.left < burger.right + 4 || logo.right > width - gutter)
+      problems.push(
+        `${at}: AniBeam runs from ${logo.left} to ${logo.right}px, over the menu button or the gutter`,
+      )
+    for (const [name, box] of [
+      ['the menu button', burger],
+      ['AniBeam', logo],
+      ['the search bubble', bubble],
+    ] as const)
+      if (box.top < header.top || box.bottom > header.bottom - 4)
+        problems.push(`${at}: ${name} sticks out of the header`)
+    if (seen.placeholder !== 'Search titles')
+      problems.push(`${at}: the box says "${seen.placeholder}", not "Search titles"`)
+    if (seen.room < 0) problems.push(`${at}: the placeholder is cut by ${-seen.room}px`)
+    if (seen.topH !== `${seen.height}px`)
+      problems.push(
+        `${at}: the header is ${seen.height}px tall, but publishes --top-h ${seen.topH}`,
+      )
+    if (seen.sideways > 0) problems.push(`${at}: the page scrolls ${seen.sideways}px sideways`)
+    // The bubble still hangs over the page as it grows: the header and the page hold still.
+    if (spacing) continue
+    await browser.evaluate(`${BOX}.focus(); true`)
+    await browser.send('Input.insertText', { text: LONG_TITLE })
+    await twoFrames()
+    const typed = await browser.evaluate<Look>(look)
+    if (typed.height !== seen.height || typed.topH !== seen.topH || typed.main !== seen.main)
+      problems.push(
+        `${at}: typing a long title moved the header from ${seen.height} to ${typed.height}px (--top-h ${typed.topH}) and the page from ${seen.main} to ${typed.main}px`,
+      )
+    await browser.evaluate(`${BOX}.blur(); true`)
+  }
+  // Turned, the header takes its one row again at once, saying Search, and back its second.
+  await browser.load({ width: 300, height: 640, phone: true, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  const shift = (await browser.layoutShift()).value
+  for (const [width, rows, placeholder] of [
+    [340, 'one 78px row', 'Search'],
+    [300, 'two rows', 'Search titles'],
+  ] as const) {
+    await browser.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height: 640,
+      deviceScaleFactor: 2,
+      mobile: true,
+    })
+    await twoFrames()
+    const seen = await browser.evaluate<Look>(look)
+    const tall = width < 320 ? seen.height > 78 : seen.height === 78
+    if (!tall || seen.topH !== `${seen.height}px` || seen.placeholder !== placeholder)
+      problems.push(
+        `turned to ${width}px: the header is ${seen.height}px tall (--top-h ${seen.topH}) and says "${seen.placeholder}", not ${rows} saying "${placeholder}"`,
+      )
+  }
+  const turned = (await browser.layoutShift()).value - shift
+  if (turned > 0) problems.push(`the page shifted ${turned} as the screen turned`)
+  assert.deepEqual(problems, [], 'the narrowest header')
 })
 
 test('on a phone the menu button opens the menu, a modal panel from the left with the three section links and My List, Soon, last, focus on the first link and the page held still', async () => {

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { confirmsWord, searchable } from '../lib/ime.ts'
 import { keyboardAfter, keyboardAt, oneLine, oneLineCaret, rowsShown } from '../lib/searchBox.ts'
 import {
@@ -180,22 +180,16 @@ export function SiteHeader({
 }
 
 const PLACEHOLDER = 'Search titles'
-// On the narrowest phones, beside the hamburger and the logo, only "Search" fits whole. Followed
-// live, as a phone turns. The box is still named "Search titles", by its label.
-const NARROW = '(max-width: 359px)'
-const watchNarrow = (onChange: () => void) => {
-  const list = matchMedia(NARROW)
-  list.addEventListener('change', onChange)
-  return () => list.removeEventListener('change', onChange)
-}
-const usePlaceholder = () =>
-  useSyncExternalStore(watchNarrow, () => (matchMedia(NARROW).matches ? 'Search' : PLACEHOLDER))
 
 // A manga speech bubble: snug around "Search titles" at rest, popping out to fit what's typed.
 // A hidden copy of the text, in the same font, is watched for size changes (each keystroke, and
 // the web font finishing loading); its width goes to CSS, which animates the bubble to match.
 // A second copy always holds the placeholder, the box's only visible label, so CSS can keep the
 // bubble wide enough to show it, whatever is typed and however far a reader widens text spacing.
+// Where the room beside the hamburger and the logo can't hold that bubble at rest (the narrowest
+// phones, or wider text spacing), the box says only "Search", which fits, and the copy still
+// measures "Search titles" for when there is room again; the box is still named "Search
+// titles", by its label.
 // A third copy wraps as the box does, for under 900px, where the bubble grows a row at a time
 // while it has focus, hanging down over the page: the rows it shows go to CSS as --text-h, which
 // animates the bubble's height, and the height of one as --row. The box is a textarea, as an
@@ -213,7 +207,8 @@ function SearchBubble({
   const placeholderMirror = useRef<HTMLSpanElement>(null)
   const rows = useRef<HTMLSpanElement>(null)
   const box = useRef<HTMLTextAreaElement>(null)
-  const placeholder = usePlaceholder()
+  const [whole, setWhole] = useState(true)
+  const placeholder = whole ? PLACEHOLDER : 'Search'
   // What the box held when an input method began composing (see searchable), and whether it
   // still is.
   const before = useRef('')
@@ -249,9 +244,15 @@ function SearchBubble({
     const wrapped = rows.current
     const typed = box.current
     if (!label || !copy || !placeholderCopy || !wrapped || !typed) return
+    // The bubble at rest is 52px wider than its text (components.css).
+    const choose = () =>
+      setWhole(label.getBoundingClientRect().width >= placeholderCopy.offsetWidth + 52)
+    // At once, so the first frame drawn says the right one.
+    choose()
     const observer = new ResizeObserver(() => {
       label.style.setProperty('--text-w', `${copy.offsetWidth}px`)
       label.style.setProperty('--placeholder-w', `${placeholderCopy.offsetWidth}px`)
+      choose()
       // A row is 20px, or more where a reader widens text spacing.
       const row = parseFloat(getComputedStyle(wrapped).lineHeight)
       const shown = rowsShown(wrapped.offsetHeight, row)
@@ -265,6 +266,7 @@ function SearchBubble({
       if (typed === document.activeElement && typed.selectionStart === typed.value.length)
         typed.scrollLeft = typed.scrollWidth
     })
+    observer.observe(label)
     observer.observe(copy)
     observer.observe(placeholderCopy)
     observer.observe(wrapped)
@@ -374,7 +376,7 @@ function SearchBubble({
         {value || placeholder}
       </span>
       <span ref={placeholderMirror} className="ab-search-mirror" aria-hidden="true">
-        {placeholder}
+        {PLACEHOLDER}
       </span>
     </div>
   )
