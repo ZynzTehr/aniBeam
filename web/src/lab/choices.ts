@@ -20,6 +20,8 @@ export type Choice = {
     /** The option in a word or two, for the line of current picks (see Picks in TitleLab). */
     short: string
     recommended?: boolean
+    /** Not a choice the plan leaves open: it does this in PR 12 whatever else is picked. */
+    planned?: boolean
   }[]
   /** What the choice weighs, in a sentence or two. */
   note: string
@@ -51,10 +53,10 @@ export const CHOICES: Choice[] = [
     key: 'align',
     legend: 'Alignment',
     options: [
-      { value: 'top', label: 'Top', short: 'top' },
+      { value: 'top', label: 'Top', short: 'top', planned: true },
       { value: 'center', label: 'Centered (today)', short: 'centered' },
     ],
-    note: 'The plan top-aligns the sheet in PR 12 whichever hero you pick, with the synopsis, tags and credits last: they come in a request of their own (PR 13), and a centered sheet moves the cover and title when they arrive. “Details arrive late” replays that.',
+    note: 'Not an open choice: the plan top-aligns the sheet in PR 12 whichever hero you pick, with the synopsis, tags and credits last: they come in a request of their own (PR 13), and a centered sheet moves the cover and title when they arrive. “Details arrive late” replays that.',
   },
   {
     key: 'synopsis',

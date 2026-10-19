@@ -40,7 +40,7 @@ export const CASES: LabCase[] = [
     key: 'tokyo',
     label: 'Ten Tokyo Warriors',
     from: 1052,
-    note: 'No banner, no trailer and no tags, and its cover is the small 230px one. No Director among its 5 saved credits.',
+    note: 'No trailer and no tags, and its cover is the small 230px one. No Director among its 5 saved credits.',
   },
   {
     key: 'long',

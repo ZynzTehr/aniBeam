@@ -601,4 +601,17 @@
   .ab-lab-kanji p {
     color: CanvasText;
   }
+
+  /* A contrast theme drops gradients, which would leave the impact frame an empty box: the band
+     keeps its speed lines and screentone, drawn in the theme's own text color on its ground.
+     (PR 12 needs a rule like this one, or a band that shrinks when there is no banner.) */
+  .ab-lab-band {
+    background-color: Canvas;
+    background-image:
+      radial-gradient(ellipse at 50% 50%, Canvas 0 6%, transparent 34%),
+      radial-gradient(CanvasText 1px, transparent 1.4px),
+      repeating-conic-gradient(from 0deg at 50% 50%, transparent 0deg 5deg, CanvasText 5deg 6deg);
+    border-bottom-color: CanvasText;
+    forced-color-adjust: none;
+  }
 }

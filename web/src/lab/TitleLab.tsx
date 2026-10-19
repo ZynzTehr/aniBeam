@@ -133,7 +133,9 @@ export default function TitleLab() {
             research, so this page asks AniList for nothing. Pick a title above, then switch each
             choice and look at the card below; <b>Open as the card</b> opens it full screen, with
             its opening. Every choice stays in the address, so a link shows the same card. Options
-            marked <span className="ab-lab-rec">Recommended</span> are the plan&rsquo;s.
+            marked <span className="ab-lab-rec">Recommended</span> are the plan&rsquo;s; one marked{' '}
+            <span className="ab-lab-rec">Planned</span> is what the plan does whatever else is
+            picked.
           </p>
           {CHOICES.map((choice) => (
             <ChoiceSet
@@ -263,7 +265,7 @@ function ChoiceSet({
     <fieldset className="ab-lab-choice" disabled={off}>
       <legend>{choice.legend}</legend>
       <div className="ab-lab-options">
-        {choice.options.map(({ value, label, recommended }) => (
+        {choice.options.map(({ value, label, recommended, planned }) => (
           <label key={value} className="ab-chip">
             <input
               type="radio"
@@ -275,6 +277,7 @@ function ChoiceSet({
             <span>
               {label}
               {recommended && <small className="ab-lab-rec">Recommended</small>}
+              {planned && <small className="ab-lab-rec">Planned</small>}
             </span>
           </label>
         ))}
