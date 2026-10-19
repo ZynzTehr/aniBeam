@@ -334,10 +334,12 @@ export function startSectionNav({
       if (look.yellow) pill.classList.add('is-current')
       if (soon) pill.classList.add('is-soon')
       // Its labels, in a box clipped to the pill as it grows or shrinks: what each end shows, My
-      // List's Soon tag too.
+      // List's Soon tag too. My List reads the same at both ends, so it has one label, which stays:
+      // fading it out and the same words back in would leave the pill empty halfway.
       const text = chip.appendChild(document.createElement('span'))
       text.className = 'ab-flight-text'
-      const [leaving, arriving] = [button, link].map((source) => {
+      const same = button.textContent === link.textContent
+      const [leaving, arriving] = (same ? [button] : [button, link]).map((source) => {
         const label = text.appendChild(document.createElement('span'))
         label.className = soon ? 'ab-flight-label is-soon' : 'ab-flight-label'
         label.append(...[...source.childNodes].map((node) => node.cloneNode(true)))
@@ -359,8 +361,12 @@ export function startSectionNav({
         shadow.animate(frames.pill, moving),
         shadow.animate(frames.shadow, timing),
         text.animate(frames.text, moving),
-        (toHeader ? leaving : arriving).animate(frames.leaving, timing),
-        (toHeader ? arriving : leaving).animate(frames.arriving, timing),
+        ...(same
+          ? []
+          : [
+              (toHeader ? leaving : arriving).animate(frames.leaving, timing),
+              (toHeader ? arriving : leaving).animate(frames.arriving, timing),
+            ]),
       ]
     })
     const landing = flight
@@ -382,12 +388,17 @@ export function startSectionNav({
     return null
   }
 
+  // Whether focus shows its ring, as components.css draws it: a heading a tapped link focused is
+  // marked (lib/jumps.ts) and shows none, though an iPhone counts its focus as the keyboard's.
+  const ringShown = (focused: Element) =>
+    focused.matches(':focus-visible:not([data-jump="pointer"])')
+
   // Whether what has focus, showing its ring, is where a phone's header would cover it: its box,
   // and its ring (7px out, 2px more for a raised pill), reach above the header's bottom while on
   // the screen. A tap shows no ring, and leaves the header be.
   const focusUnder = () => {
     const focused = document.activeElement as HTMLElement | null
-    if (!focused || header.contains(focused) || !focused.matches(':focus-visible')) return false
+    if (!focused || header.contains(focused) || !ringShown(focused)) return false
     const box = focused.getBoundingClientRect()
     return box.bottom > 0 && box.top < header.offsetHeight + 9
   }
@@ -398,7 +409,7 @@ export function startSectionNav({
   // tap or a swipe, shows none, and lets it hide.
   const focusInTop = () => {
     const focused = document.activeElement
-    return Boolean(focused && header.contains(focused) && focused.matches(':focus-visible'))
+    return Boolean(focused && header.contains(focused) && ringShown(focused))
   }
 
   const evaluate = () => {

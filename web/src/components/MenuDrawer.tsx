@@ -1,6 +1,6 @@
 import { useEffect, useRef, type RefObject } from 'react'
 import { reducedMotion } from '../lib/motion.ts'
-import { dragOffset, shuts, swipeMoved, swipeStart, type Swipe } from '../lib/swipe.ts'
+import { dragOffset, shuts, swipeMoved, swipeStart, zoomed, type Swipe } from '../lib/swipe.ts'
 import { isPlainClick } from './plainClick.ts'
 import type { NavLink } from './SiteHeader.tsx'
 
@@ -48,9 +48,10 @@ export function MenuDrawer({
     // moves the page under the menu: the menu shuts too.
     const wentBack = () => dialog.open && dialog.close()
     // Safari can scroll the page under the menu despite the page's overflow: hidden (WebKit
-    // 240859). With nothing in the panel to scroll, one finger's move scrolls nothing at all.
+    // 240859). With nothing in the panel to scroll, one finger's move scrolls nothing at all;
+    // zoomed in, it pans the page, as anywhere else.
     const pinned = (event: TouchEvent) => {
-      if (event.touches.length === 1 && dialog.scrollHeight <= dialog.clientHeight)
+      if (event.touches.length === 1 && !zoomed() && dialog.scrollHeight <= dialog.clientHeight)
         event.preventDefault()
     }
     wide.addEventListener('change', widened)
@@ -85,6 +86,10 @@ export function MenuDrawer({
         else if (e.target === e.currentTarget && e.clientX > box.right) e.currentTarget.close()
       }}
       onPointerDown={(e) => {
+        // A second finger laid down mid-drag leaves the drag to the first, whose lift alone
+        // settles the panel: taken over, the panel stayed where the two fingers left it. A first
+        // finger (isPrimary, none other down) always starts anew, should a lift have gone astray.
+        if (swipe.current && !e.isPrimary) return
         dragged.current = false
         swipe.current = swipeStart(e)
       }}
@@ -102,12 +107,13 @@ export function MenuDrawer({
         if (!reducedMotion()) dialog.style.setProperty('--drag', `${dragOffset(s.dx)}px`)
       }}
       onPointerUp={(e) => {
-        const s = swipe.current && swipeMoved(swipe.current, e)
         const dialog = e.currentTarget
+        if (e.pointerId !== swipe.current?.id) return
+        const s = swipeMoved(swipe.current, e)
         swipe.current = null
-        if (s?.axis !== 'x') return
-        dragged.current = true
         settle(dialog)
+        if (s.axis !== 'x') return
+        dragged.current = true
         // Shut, the panel slides off from where the finger left it; else it springs back. Its
         // width is the page's, without the 24px waiting off the screen.
         const page = dialog.firstElementChild as HTMLElement
@@ -122,6 +128,7 @@ export function MenuDrawer({
         back.focus({ preventScroll: true, focusVisible: false })
       }}
       onPointerCancel={(e) => {
+        if (e.pointerId !== swipe.current?.id) return
         swipe.current = null
         settle(e.currentTarget)
       }}

@@ -1227,6 +1227,10 @@ describe('desktop (1440x900)', () => {
     const added = await browser.evaluate<{ heading?: string; frieren: boolean }>(
       `({ heading: document.getElementById('results')?.firstChild?.textContent, frieren: /Frieren/i.test(${resultTitles}) })`,
     )
+    // Esc while the word is being converted is the input method's, to undo the conversion: the
+    // box keeps what it holds, where Esc otherwise empties it.
+    await browser.press('Escape')
+    const escaped = await browser.evaluate<string>(`${box}.value`)
     await compose('') // cancels the word
 
     // Android keyboards compose Latin words too: those are searched while still composing.
@@ -1249,6 +1253,7 @@ describe('desktop (1440x900)', () => {
       { heading: 'Results for “frieren”', frieren: true },
       'a word being converted replaced the search before it',
     )
+    assert.equal(escaped, 'frieren しん', 'Esc during a conversion emptied the box')
     assert.ok(composing, 'Latin letters still being composed were not searched')
     assert.ok(mixed, 'a Latin word composed after a Japanese one was not searched as typed')
   })
@@ -1507,9 +1512,10 @@ describe('desktop (1440x900)', () => {
     // the links take more of the header, and from 900 to about 965px the bubble shrank into the
     // room they left, cutting it to "Search t". It must stay wide enough to show it, even if the
     // search then needs a second row, which WCAG allows. Chrome draws the placeholder in a box
-    // of its own inside the input, beside the room it keeps for its clear button. That box is
-    // out of the page's reach (in a user-agent shadow root) but not of CDP's, so this reads it:
-    // the text is cut when it is wider than the box. The second row must be needed, though. The
+    // of its own inside the textarea, as wide as the textarea's text, which takes in the 14px
+    // the bubble keeps at its end for the Clear search button (components.css). That box is out
+    // of the page's reach (in a user-agent shadow root) but not of CDP's, so this reads it: the
+    // text is cut when it is wider than the box. The second row must be needed, though. The
     // search used to take it up to 978px, when from about 966px the room beside the links
     // already held the bubble with its whole placeholder.
     await browser.search('') // the placeholder shows only while the box is empty

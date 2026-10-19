@@ -964,7 +964,8 @@ img[data-broken] {
 /* The clear button the search input had, from 900px, in the room the bubble keeps at its end.
    The box's text stops short of it: that room is the frame's, not the box's own padding, which
    Chrome leaves out of what a one-line textarea scrolls, so a long query scrolled to its end
-   would run under the button. */
+   would run under the button. The 18px at the box's start is the frame's too: a textarea scrolls
+   its padding there away with its text, which then ran into the bubble's left edge. */
 .ab-clear {
   display: none;
 }
@@ -997,6 +998,16 @@ img[data-broken] {
     stroke: currentColor;
     stroke-linecap: round;
     stroke-width: 2.5;
+  }
+
+  .ab-bubble-clip {
+    padding-left: 18px;
+  }
+
+  /* Square, so its rounded corners don't cut the text now at its edge. */
+  .ab-search textarea {
+    padding-left: 0;
+    border-radius: 0;
   }
 
   .ab-bubble-field:has(textarea:not(:placeholder-shown)) .ab-bubble-clip {
@@ -1037,9 +1048,8 @@ img[data-broken] {
    at a time as what is typed wraps, up to three (--text-h), then scrolls. It hangs from its slot
    in the header over the page, so nothing else moves, and folds back to one row as focus leaves,
    so it never sits over what the page shows, and a hidden header takes it all off the screen.
-   The text is 16px, so iOS doesn't zoom the page as the box takes focus. With no clear button to
-   keep room for, it sits 52px wider than its text at rest: the border, the padding and 18px of
-   air. */
+   With no clear button to keep room for, it sits 52px wider than its text at rest: the border,
+   the padding and 18px of air. */
 @media (max-width: 899px) {
   .ab-bubble-field {
     position: absolute;
@@ -1086,7 +1096,32 @@ img[data-broken] {
   .ab-search-rows {
     inset-inline: 14px;
   }
+}
 
+/* Narrower than 320px, as on a phone zoomed to 125% or more, the room beside the hamburger and
+   the logo would cut even "Search": the search takes a row of its own under them, as it did
+   before the menu, its bubble at the start. The header grows by the row and publishes its height
+   (--top-h, see SiteHeader), so the intro still fills the rest of the screen and what a link
+   jumps to still lands below it; the bubble still hangs from its slot as it grows. */
+@media (max-width: 319px) {
+  .ab-top {
+    flex-wrap: wrap;
+  }
+
+  .ab-search {
+    flex-basis: 100%;
+  }
+
+  .ab-bubble-field {
+    right: auto;
+    left: 0;
+  }
+}
+
+/* The text is 16px wherever a touch keyboard is likely, so iOS doesn't zoom the page as the box
+   takes focus: under 900px, and on a touch screen at any width, such as a big iPhone held
+   sideways, which gets the desktop header. The copies that measure it keep to the same size. */
+@media (max-width: 899px), (pointer: coarse) {
   .ab-search :is(textarea, .ab-search-rows, .ab-search-mirror) {
     font-size: 16px;
   }
@@ -1160,6 +1195,16 @@ img[data-broken] {
   overscroll-behavior: contain;
   touch-action: pan-y pinch-zoom;
   transform: translateX(var(--drag, 0px));
+}
+
+/* Pinched bigger (data-zoomed, SiteHeader), a finger's sideways drag on the header or the menu
+   pans the page, as anywhere else, so a visitor zoomed in to read can bring its edge into view:
+   the swipes wait until the page is pinched back out. The menu's contain kept a drag in it from
+   panning the page back to its left edge. */
+[data-zoomed] .ab-top,
+[data-zoomed] .ab-drawer {
+  overscroll-behavior: auto;
+  touch-action: auto;
 }
 
 .ab-drawer,
@@ -2552,12 +2597,27 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   grid-area: lede;
 }
 
+/* The four buttons don't fit in one row beside the covers until 1100px, so up to there they sit
+   in two rows of two, lined up in columns: never three and one. */
 .ab-intro-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  justify-content: start;
+  justify-items: start;
   gap: 12px;
   margin-top: 28px;
   grid-area: actions;
+  grid-template-columns: repeat(2, max-content);
+}
+
+/* From 1100px they sit in one row, reaching under the covers' column, where the fan ends above
+   them with room to spare. They still wrap, rather than run off the screen, should a
+   reader's wider text spacing make them too long. */
+@media (min-width: 1100px) {
+  .ab-intro-actions {
+    display: flex;
+    flex-wrap: wrap;
+    grid-column: 1 / -1;
+  }
 }
 
 /* The intro's buttons are the page's section links (they dock in the header as it reaches them,

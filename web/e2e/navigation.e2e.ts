@@ -481,6 +481,89 @@ const FLIGHT_NOW = `document.getAnimations().filter((a) => a.effect?.target?.clo
     changes: [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k).filter((p) => !['offset', 'easing', 'composite', 'computedOffset'].includes(p))))].join(',') }
 })`
 
+// How the intro's four buttons are laid out: how many sit in each row, whether two rows' buttons
+// line up in columns, which buttons touch a cover of the fan (each cover's box on the screen, which
+// holds the whole tilted cover, so this errs on the safe side), whether the fan is beside the
+// intro's text (its left edge past the end of every line of it), the headline's size, and whether
+// anything runs off the screen.
+const INTRO_LAYOUT = `(() => {
+  const buttons = [...document.querySelectorAll('.ab-intro-actions > *')].map((el) => el.getBoundingClientRect())
+  const tops = [...new Set(buttons.map((b) => Math.round(b.top)))]
+  const covers = [...document.querySelectorAll('.ab-intro-cover')].map((el) => el.getBoundingClientRect())
+  let textEnd = 0
+  for (const el of document.querySelectorAll('.ab-intro-kicker, .ab-intro-title, .ab-intro-lede')) {
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    for (const line of range.getClientRects()) textEnd = Math.max(textEnd, line.right)
+  }
+  return {
+    rows: tops.map((top) => buttons.filter((b) => Math.round(b.top) === top).length).join(' + '),
+    columns: tops.length === 2 && Math.abs(buttons[2].left - buttons[0].left) < 1 && Math.abs(buttons[3].left - buttons[1].left) < 1,
+    touching: buttons.flatMap((b, i) => covers.some((c) => b.left < c.right && c.left < b.right && b.top < c.bottom && c.top < b.bottom) ? [i + 1] : []),
+    beside: Math.min(...covers.map((c) => c.left)) > textEnd,
+    headline: parseFloat(getComputedStyle(document.querySelector('.ab-intro-title')).fontSize),
+    offScreen: buttons.some((b) => b.left < 0 || b.right > innerWidth) || document.documentElement.scrollWidth > innerWidth,
+  }
+})()`
+
+test('from 1100px the intro’s four buttons sit in one row, and from 900 to 1099px in two rows of two lined up in columns, never three and one; none touches the cover fan, still beside the text, the headline keeps its size, and nothing runs off the screen', async () => {
+  for (const [width, rows] of [
+    [900, '2 + 2'],
+    [1000, '2 + 2'],
+    [1099, '2 + 2'],
+    [1100, '4'],
+    [1280, '4'],
+    [1366, '4'],
+    [1440, '4'],
+    [1920, '4'],
+  ] as const) {
+    for (const height of [900, 768]) {
+      await browser.load({ width, height, reduceMotion: true })
+      assert.ok(await browser.titlesShown())
+      const layout = await browser.evaluate<{
+        rows: string
+        columns: boolean
+        touching: number[]
+        beside: boolean
+        headline: number
+        offScreen: boolean
+      }>(INTRO_LAYOUT)
+      assert.deepEqual(
+        {
+          ...layout,
+          headline: Math.abs(layout.headline - Math.min(92, Math.max(42, width * 0.062))) < 0.01,
+        },
+        {
+          rows,
+          columns: rows === '2 + 2',
+          touching: [],
+          beside: true,
+          headline: true,
+          offScreen: false,
+        },
+        `${width}x${height}: the intro's buttons in the wrong rows, out of line, over the covers or off the screen, or the headline resized`,
+      )
+    }
+  }
+  // With WCAG's widened text spacing too, the rows may wrap, but never run off the screen or
+  // under the covers.
+  for (const width of [900, 1100, 1366]) {
+    await browser.load({ width, height: 900, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    await browser.evaluate(TEXT_SPACING)
+    await frames()
+    const { touching, offScreen } = await browser.evaluate<{
+      touching: number[]
+      offScreen: boolean
+    }>(INTRO_LAYOUT)
+    assert.deepEqual(
+      { touching, offScreen },
+      { touching: [], offScreen: false },
+      `${width}px with text spacing`,
+    )
+  }
+})
+
 test('with motion allowed, the intro’s four buttons fly into the header as a scroll brings it to them, and back down, landing in place', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())
@@ -572,6 +655,64 @@ test('with motion allowed, the intro’s four buttons fly into the header as a s
     { links: 'intro', header: false, intro: true },
     'back down',
   )
+})
+
+test('from each layout of the intro’s buttons, two rows of two or one row, the four copies start on the buttons and land on the header’s links, and back down', async () => {
+  // Each copy at the start of its flight (all paused there) against where it leaves, and where it
+  // is drawn to land against where it lands: within a pixel, as [start, landing] for each copy.
+  const placed = (leaves: string, lands: string) => `(() => {
+    const animations = document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight'))
+    for (const a of animations) { a.pause(); a.currentTime = 0 }
+    const offset = getComputedStyle(document.querySelector('.ab-flight')).position === 'absolute' ? [scrollX, scrollY] : [0, 0]
+    const near = (a, b) => ['left', 'top', 'width', 'height'].every((side) => Math.abs(a[side] - b[side]) < 1)
+    return [...document.querySelectorAll('.ab-flight-chip')].map((chip, i) => {
+      const from = document.querySelectorAll('${leaves}')[i].getBoundingClientRect()
+      const to = document.querySelectorAll('${lands}')[i].getBoundingClientRect()
+      const drawn = { left: parseFloat(chip.style.left) - offset[0], top: parseFloat(chip.style.top) - offset[1], width: parseFloat(chip.style.width), height: parseFloat(chip.style.height) }
+      return (near(chip.querySelector('.ab-flight-pill').getBoundingClientRect(), from) ? 'starts' : 'starts off') + ', ' + (near(drawn, to) ? 'lands' : 'lands off')
+    })
+  })()`
+  const play = `document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight')).forEach((a) => a.play()); true`
+  const firstFrame = (y: number) =>
+    browser.evaluate(
+      `new Promise((resolve) => { scrollTo(0, ${y}); requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))) })`,
+    )
+  const fine = ['starts, lands', 'starts, lands', 'starts, lands', 'starts, lands']
+  for (const width of [1000, 1100, 1366]) {
+    await browser.load({ width, height: 900 })
+    assert.ok(await browser.titlesShown())
+    await browser.landAll()
+    await browser.animationsDone()
+    await firstFrame(await browser.evaluate<number>(DOCK_AT))
+    assert.deepEqual(
+      await browser.evaluate(placed('.ab-intro-actions > *', '.ab-top .ab-nav > *')),
+      fine,
+      `${width}px, docking: a copy doesn't start on its button or land on its link`,
+    )
+    await browser.evaluate(play)
+    await browser.animationsDone()
+    await frames()
+    assert.deepEqual(
+      await browser.evaluate(SHOWN),
+      { links: 'header', header: true, intro: false },
+      `${width}px, docked`,
+    )
+    const { top, bottom } = await browser.evaluate<{ top: number; bottom: number }>(GEOMETRY)
+    await firstFrame(top - Math.ceil(bottom + Math.min(200, top - bottom)))
+    assert.deepEqual(
+      await browser.evaluate(placed('.ab-top .ab-nav > *', '.ab-intro-actions > *')),
+      fine,
+      `${width}px, undocking: a copy doesn't start on its link or land on its button`,
+    )
+    await browser.evaluate(play)
+    await browser.animationsDone()
+    await frames()
+    assert.deepEqual(
+      await browser.evaluate(SHOWN),
+      { links: 'intro', header: false, intro: true },
+      `${width}px, back down`,
+    )
+  }
 })
 
 test('under reduced motion, from the device or the site’s switch, the sets swap at once, with no flight', async () => {
@@ -888,7 +1029,7 @@ test('the intro’s buttons are the landmark named Sections, read only while the
   )
 })
 
-test('mid-flight both sets hide, each copy starts where it leaves, its labels cross the right way, only a dock lands yellow, and My List’s copy keeps the Soon look', async () => {
+test('mid-flight both sets hide, each copy starts where it leaves, its labels cross the right way, only a dock lands yellow, and My List’s copy keeps the Soon look, with one steady label', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())
   await browser.landAll()
@@ -896,20 +1037,20 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
   const dockAt = await browser.evaluate<number>(DOCK_AT)
   // Each copy: its labels' opacity at start and end, in the order the copy holds them (the
   // button's, then the link's), whether it is held at its start during its stagger, and its pill:
-  // My List's dashed and see-through, its labels greyed and marked Soon, as at both ends.
+  // My List's dashed and see-through, its one label greyed and marked Soon, as at both ends, and
+  // steady, as it reads the same at both.
   const copies = `(() => ({
     layer: getComputedStyle(document.querySelector('.ab-flight')).position,
     hidden: [...document.querySelectorAll('.ab-top .ab-nav > *, .ab-intro-actions > *')].every((el) => getComputedStyle(el).visibility === 'hidden'),
     copies: [...document.querySelectorAll('.ab-flight-chip')].map((chip) => ({
-      labels: [...chip.querySelectorAll('.ab-flight-label')].map((label) => label.getAnimations()[0].effect.getKeyframes().map((k) => Number(k.opacity)).filter((o, i, all) => i === 0 || i === all.length - 1).join(' to ')),
+      labels: [...chip.querySelectorAll('.ab-flight-label')].map((label) => label.getAnimations()[0]?.effect.getKeyframes().map((k) => Number(k.opacity)).filter((o, i, all) => i === 0 || i === all.length - 1).join(' to ') ?? 'steady'),
       held: getComputedStyle(chip).transform !== 'none',
       yellow: chip.querySelector('.ab-flight-pill').classList.contains('is-current'),
       look: (({ borderTopStyle, backgroundColor }) => borderTopStyle + ' ' + backgroundColor)(getComputedStyle(chip.querySelector('.ab-flight-pill'))) + ' | ' +
         [...chip.querySelectorAll('.ab-flight-label')].map((label) => label.textContent.replace(/\\s+/g, ' ').trim() + ' ' + getComputedStyle(label).color).join(' / '),
     })),
   }))()`
-  const SOON_COPY =
-    'dashed rgba(0, 0, 0, 0) | My List Soon rgba(20, 20, 20, 0.7) / My List Soon rgba(20, 20, 20, 0.7)'
+  const SOON_COPY = 'dashed rgba(0, 0, 0, 0) | My List Soon rgba(20, 20, 20, 0.7)'
   // The first frame after the scroll, read in the page with the flight paused there, so no time
   // passes between: the third copy's 90ms stagger hasn't run out, so it must wait at its start.
   const firstFrame = (y: number) =>
@@ -934,7 +1075,7 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
     {
       layer: 'fixed',
       hidden: true,
-      labels: ['1 to 0, 0 to 1', '1 to 0, 0 to 1', '1 to 0, 0 to 1', '1 to 0, 0 to 1'],
+      labels: ['1 to 0, 0 to 1', '1 to 0, 0 to 1', '1 to 0, 0 to 1', 'steady'],
       held: [true, true, true, true],
       yellow: [true, false, false, false],
       soon: [false, false, false, true],
@@ -965,7 +1106,7 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
     {
       layer: 'absolute',
       hidden: true,
-      labels: ['0 to 1, 1 to 0', '0 to 1, 1 to 0', '0 to 1, 1 to 0', '0 to 1, 1 to 0'],
+      labels: ['0 to 1, 1 to 0', '0 to 1, 1 to 0', '0 to 1, 1 to 0', 'steady'],
       yellow: [false, false, false, false],
       soon: [false, false, false, true],
     },
@@ -973,7 +1114,7 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
   )
 })
 
-test('throughout a flight of the four copies each one’s label sits on its middle, shows only inside its pill, crosses with the other without a pile-up, and one landed early holds its look', async () => {
+test('throughout a flight of the four copies each one’s label sits on its middle, shows only inside its pill, crosses with the other without a pile-up, or, reading the same at both ends as My List’s does, stays at full strength; and one landed early holds its look', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())
   await browser.landAll()
@@ -981,8 +1122,9 @@ test('throughout a flight of the four copies each one’s label sits on its midd
   // The paused flight stepped 20ms at a time from its start to just before the last copy lands
   // (all in one go in the page, so it can't land and go between steps), each step measured: what
   // shows of a label (its box, cut to its clip if it has one) must lie on the copy's middle and
-  // within its pill, the labels' strengths add up to one at most, and a copy past its own end
-  // shows the shadow it lands with.
+  // within its pill, the labels' strengths add up to one at most, a copy whose ends read the same
+  // (My List's) shows its label at full strength throughout, with nothing to cross to, and a copy
+  // past its own end shows the shadow it lands with.
   const stepped = `(() => {
     const animations = document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight'))
     const end = Math.max(...animations.map((a) => a.effect.getComputedTiming().endTime))
@@ -1000,10 +1142,12 @@ test('throughout a flight of the four copies each one’s label sits on its midd
         const middle = pill.left + pill.width / 2
         const clipper = chip.querySelector('.ab-flight-text')
         const clip = clipper ? insetOf(getComputedStyle(clipper).clipPath, clipper.getBoundingClientRect()) : null
-        let strength = 0
-        for (const label of chip.querySelectorAll('.ab-flight-label')) {
+        let strength = 0, strongest = 0
+        const labels = [...chip.querySelectorAll('.ab-flight-label')]
+        for (const label of labels) {
           const opacity = Number(getComputedStyle(label).opacity)
           strength += opacity
+          strongest = Math.max(strongest, opacity)
           if (opacity < 0.02) continue
           const box = label.getBoundingClientRect()
           const off = box.left + box.width / 2 - middle
@@ -1013,6 +1157,8 @@ test('throughout a flight of the four copies each one’s label sits on its midd
           if (right > left && (left < pill.left - 0.5 || right > pill.right + 0.5)) problems.push('t=' + t + ' copy ' + i + ': "' + label.textContent + '" shows outside its pill')
         }
         if (strength > 1.02) problems.push('t=' + t + ' copy ' + i + ': labels at ' + strength.toFixed(2) + ' together')
+        const texts = new Set(labels.map((label) => label.textContent.replace(/\\s+/g, ' ').trim()))
+        if (texts.size === 1 && strongest < 0.98) problems.push('t=' + t + ' copy ' + i + ': "' + [...texts][0] + '" reads the same at both ends, yet shows at ' + strongest.toFixed(2) + ' at most')
         const shadow = chip.querySelector('.ab-flight-shadow')
         const fade = animations.find((a) => a.effect.target === shadow && a.effect.getKeyframes().some((k) => 'opacity' in k))
         const { endTime } = fade.effect.getComputedTiming()
@@ -1116,7 +1262,7 @@ async function openMenuByKey() {
 // The text of what has focus, or of `el`, without what is drawn and not read (katakana).
 const TEXT = `const text = (el) => { const copy = el.cloneNode(true); copy.querySelectorAll('[aria-hidden="true"], rt').forEach((n) => n.remove()); return copy.textContent.replace(/\\s+/g, ' ').trim() }`
 
-test('under 900px the header is one 78px row: the menu button and AniBeam at the left, the search bubble at the right gutter, nothing overlapping or scrolling sideways', async () => {
+test('from 320 to 899px the header is one 78px row: the menu button and AniBeam at the left, the search bubble at the right gutter, saying Search titles where it fits whole and Search where it doesn’t, with WCAG text spacing too, nothing overlapping or scrolling sideways', async () => {
   const row = `(() => {
     const box = (sel) => {
       const el = document.querySelector(sel)
@@ -1127,8 +1273,12 @@ test('under 900px the header is one 78px row: the menu button and AniBeam at the
     const top = document.querySelector('.ab-top')
     const input = document.querySelector('.ab-search textarea')
     const style = getComputedStyle(input)
+    // The width of a text in the box's font, at the spacing a reader may have widened.
     const measure = document.createElement('canvas').getContext('2d')
     measure.font = style.font
+    measure.letterSpacing = style.letterSpacing
+    measure.wordSpacing = style.wordSpacing
+    const width = (text) => measure.measureText(text).width
     return {
       height: top.offsetHeight,
       gutter: parseFloat(getComputedStyle(top).paddingLeft),
@@ -1138,7 +1288,11 @@ test('under 900px the header is one 78px row: the menu button and AniBeam at the
       bubble: box('.ab-bubble-field'),
       placeholder: input.placeholder,
       // Room for the placeholder in the box, against the placeholder's width in the box's font.
-      room: input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - measure.measureText(input.placeholder).width,
+      room: input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - width(input.placeholder),
+      // The room the logo leaves the search, and the bubble Search titles needs at rest: its
+      // border, padding and 18px of air, 52px in all, around the text (components.css).
+      slot: document.querySelector('.ab-search').getBoundingClientRect().width,
+      whole: width('Search titles') + 52,
       sideways: document.documentElement.scrollWidth - innerWidth,
     }
   })()`
@@ -1153,9 +1307,19 @@ test('under 900px the header is one 78px row: the menu button and AniBeam at the
     )
   }
   const problems: string[] = []
-  for (const width of [320, 359, 360, 375, 390, 414, 430, 768, 899]) {
+  // And with WCAG 1.4.12's text spacing, where at 360 and 375px the room beside the logo no
+  // longer holds Search titles, the box's only visible label: it was cut to Search.
+  for (const [width, spacing] of [
+    ...[320, 359, 360, 375, 390, 414, 430, 768, 899].map((width) => [width, false] as const),
+    ...[320, 360, 375].map((width) => [width, true] as const),
+  ]) {
     await browser.load({ width, height: 844, phone: width < 768, reduceMotion: true })
     assert.ok(await browser.titlesShown())
+    if (spacing) {
+      await browser.evaluate(TEXT_SPACING)
+      await twoFrames()
+      await twoFrames()
+    }
     const seen = await browser.evaluate<{
       height: number
       gutter: number
@@ -1165,9 +1329,11 @@ test('under 900px the header is one 78px row: the menu button and AniBeam at the
       bubble: Box
       placeholder: string
       room: number
+      slot: number
+      whole: number
       sideways: number
     }>(row)
-    const at = `${width}px`
+    const at = `${width}px${spacing ? ', text spacing' : ''}`
     const { header, burger, logo, bubble, gutter } = seen
     if (seen.height !== 78) problems.push(`${at}: the header is ${seen.height}px tall, not one row`)
     if (!burger) {
@@ -1191,9 +1357,13 @@ test('under 900px the header is one 78px row: the menu button and AniBeam at the
     ] as const)
       if (box.top < header.top || box.bottom > header.bottom - 4)
         problems.push(`${at}: ${name} sticks out of the header’s row`)
-    const placeholder = width < 360 ? 'Search' : 'Search titles'
+    // Search titles wherever the room holds its bubble, and Search only where it doesn't.
+    const fits = seen.slot >= seen.whole
+    const placeholder = fits ? 'Search titles' : 'Search'
     if (seen.placeholder !== placeholder)
-      problems.push(`${at}: the box says "${seen.placeholder}", not "${placeholder}"`)
+      problems.push(
+        `${at}: the box says "${seen.placeholder}", not "${placeholder}", with ${Math.round(seen.slot)}px beside AniBeam for the ${Math.round(seen.whole)}px Search titles needs`,
+      )
     if (seen.room < 0) problems.push(`${at}: the placeholder is cut by ${-seen.room}px`)
     const names = await searchName()
     if (names.join() !== 'Search titles')
@@ -1208,6 +1378,144 @@ test('under 900px the header is one 78px row: the menu button and AniBeam at the
       problems.push(`${width}px: the menu button is drawn`)
   }
   assert.deepEqual(problems, [], 'the phone header’s row')
+})
+
+test('below 320px, as on a phone zoomed to 125% or more, the search takes a row of its own under the menu button and AniBeam, showing its whole placeholder, with WCAG text spacing too; nothing overlaps, the header publishes its height, and nothing shifts as it loads, as a long title is typed, or as the screen turns across 320px', async () => {
+  // Safari's page zoom narrows the page: a 375pt iPhone at 125% is 300px wide, a 390pt one at
+  // 150% is 260px. Beside the menu button and AniBeam the bubble then had 99px and 59px, and
+  // cut its placeholder, the box's only visible label, to "Searc" and "Se".
+  await browser.watchLayoutShifts()
+  type Box = { left: number; right: number; top: number; bottom: number }
+  const look = `(() => {
+    const box = (sel) => {
+      const { left, right, top, bottom } = document.querySelector(sel).getBoundingClientRect()
+      return { left, right, top, bottom }
+    }
+    const top = document.querySelector('.ab-top')
+    const input = ${BOX}
+    const style = getComputedStyle(input)
+    const measure = document.createElement('canvas').getContext('2d')
+    measure.font = style.font
+    measure.letterSpacing = style.letterSpacing
+    measure.wordSpacing = style.wordSpacing
+    return {
+      height: top.offsetHeight,
+      topH: document.documentElement.style.getPropertyValue('--top-h'),
+      gutter: parseFloat(getComputedStyle(top).paddingLeft),
+      header: box('.ab-top'),
+      burger: box('.ab-burger'),
+      logo: box('.ab-logo'),
+      bubble: box('.ab-bubble-field'),
+      main: Math.round(document.querySelector('#main').getBoundingClientRect().top),
+      placeholder: input.placeholder,
+      room: input.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) - measure.measureText(input.placeholder).width,
+      sideways: document.documentElement.scrollWidth - innerWidth,
+    }
+  })()`
+  type Look = {
+    height: number
+    topH: string
+    gutter: number
+    header: Box
+    burger: Box
+    logo: Box
+    bubble: Box
+    main: number
+    placeholder: string
+    room: number
+    sideways: number
+  }
+  const problems: string[] = []
+  for (const [width, spacing] of [
+    [319, false],
+    [300, false],
+    [260, false],
+    [300, true],
+    [260, true],
+  ] as const) {
+    await browser.load({ width, height: 640, phone: true, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    const at = `${width}px${spacing ? ', text spacing' : ''}`
+    if (spacing) {
+      await browser.evaluate(TEXT_SPACING)
+      await twoFrames()
+      await twoFrames()
+    } else {
+      const shift = await browser.layoutShift()
+      if (shift.value > 0)
+        problems.push(
+          `${at}: the page shifted ${shift.value} as it loaded: ${JSON.stringify(shift)}`,
+        )
+    }
+    const seen = await browser.evaluate<Look>(look)
+    const { header, burger, logo, bubble, gutter } = seen
+    const firstRow = Math.max(burger.bottom, logo.bottom)
+    if (bubble.top < firstRow + 4)
+      problems.push(
+        `${at}: the search bubble starts ${bubble.top - firstRow}px below the menu button and AniBeam, not on a row of its own`,
+      )
+    if (Math.abs(bubble.left - gutter) > 0.5)
+      problems.push(
+        `${at}: the search bubble starts at ${bubble.left}px, not at the ${gutter}px gutter`,
+      )
+    if (bubble.right > width - gutter + 0.5)
+      problems.push(`${at}: the search bubble ends at ${bubble.right}px, past the right gutter`)
+    if (logo.left < burger.right + 4 || logo.right > width - gutter)
+      problems.push(
+        `${at}: AniBeam runs from ${logo.left} to ${logo.right}px, over the menu button or the gutter`,
+      )
+    for (const [name, box] of [
+      ['the menu button', burger],
+      ['AniBeam', logo],
+      ['the search bubble', bubble],
+    ] as const)
+      if (box.top < header.top || box.bottom > header.bottom - 4)
+        problems.push(`${at}: ${name} sticks out of the header`)
+    if (seen.placeholder !== 'Search titles')
+      problems.push(`${at}: the box says "${seen.placeholder}", not "Search titles"`)
+    if (seen.room < 0) problems.push(`${at}: the placeholder is cut by ${-seen.room}px`)
+    if (seen.topH !== `${seen.height}px`)
+      problems.push(
+        `${at}: the header is ${seen.height}px tall, but publishes --top-h ${seen.topH}`,
+      )
+    if (seen.sideways > 0) problems.push(`${at}: the page scrolls ${seen.sideways}px sideways`)
+    // The bubble still hangs over the page as it grows: the header and the page hold still.
+    if (spacing) continue
+    await browser.evaluate(`${BOX}.focus(); true`)
+    await browser.send('Input.insertText', { text: LONG_TITLE })
+    await twoFrames()
+    const typed = await browser.evaluate<Look>(look)
+    if (typed.height !== seen.height || typed.topH !== seen.topH || typed.main !== seen.main)
+      problems.push(
+        `${at}: typing a long title moved the header from ${seen.height} to ${typed.height}px (--top-h ${typed.topH}) and the page from ${seen.main} to ${typed.main}px`,
+      )
+    await browser.evaluate(`${BOX}.blur(); true`)
+  }
+  // Turned, the header takes its one row again at once, saying Search, and back its second.
+  await browser.load({ width: 300, height: 640, phone: true, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  const shift = (await browser.layoutShift()).value
+  for (const [width, rows, placeholder] of [
+    [340, 'one 78px row', 'Search'],
+    [300, 'two rows', 'Search titles'],
+  ] as const) {
+    await browser.send('Emulation.setDeviceMetricsOverride', {
+      width,
+      height: 640,
+      deviceScaleFactor: 2,
+      mobile: true,
+    })
+    await twoFrames()
+    const seen = await browser.evaluate<Look>(look)
+    const tall = width < 320 ? seen.height > 78 : seen.height === 78
+    if (!tall || seen.topH !== `${seen.height}px` || seen.placeholder !== placeholder)
+      problems.push(
+        `turned to ${width}px: the header is ${seen.height}px tall (--top-h ${seen.topH}) and says "${seen.placeholder}", not ${rows} saying "${placeholder}"`,
+      )
+  }
+  const turned = (await browser.layoutShift()).value - shift
+  if (turned > 0) problems.push(`the page shifted ${turned} as the screen turned`)
+  assert.deepEqual(problems, [], 'the narrowest header')
 })
 
 test('on a phone the menu button opens the menu, a modal panel from the left with the three section links and My List, Soon, last, focus on the first link and the page held still', async () => {
@@ -1291,14 +1599,17 @@ test('on a phone the menu button opens the menu, a modal panel from the left wit
   assert.equal((await browser.layoutShift()).value, shift, 'the menu moved the page')
 })
 
-test('on a phone the menu shuts on its X, on a tap on the dimmed page and on Esc, handing focus back to the menu button, with no ring after a tap, and the page where it was', async () => {
+test('on a phone the menu shuts on its X, on a tap on the dimmed page and on Esc, handing focus back to the menu button, with no ring after a tap, and the page where it was, partway down it', async () => {
   await browser.load({ ...PHONE, reduceMotion: true })
   assert.ok(await browser.titlesShown())
+  await browser.landAll()
   await browser.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
   try {
     const seen: Record<string, unknown> = {}
     for (const how of ['its X', 'a tap on the dimmed page', 'Esc']) {
-      await scrollAndSettle(0)
+      // Partway down the page, its header back on a scroll up: a lock that put the page back at
+      // its top as the menu shut would throw the visitor there.
+      await headerBackAt(1200)
       await tapOn('.ab-burger')
       assert.ok(await browser.waitFor(MENU_OPEN, 2000), `${how}: the menu didn’t open`)
       if (how === 'its X') await tapOn('.ab-drawer .ab-close')
@@ -1320,22 +1631,31 @@ test('on a phone the menu shuts on its X, on a tap on the dimmed page and on Esc
       expanded: 'false',
       focus: 'Menu',
       ring: false,
-      y: 0,
+      y: 1200,
       locked: false,
     }
-    assert.deepEqual(seen, {
-      'its X': shut,
-      'a tap on the dimmed page': shut,
-      // A key shut it: the button shows its ring, for the keyboard.
-      Esc: { ...shut, ring: true },
-    })
+    assert.deepEqual(
+      seen,
+      {
+        'its X': shut,
+        'a tap on the dimmed page': shut,
+        // A key shut it: the button shows its ring, for the keyboard.
+        Esc: { ...shut, ring: true },
+      },
+      'the menu shut, but not as it should, or not with the page where it was',
+    )
   } finally {
     await browser.send('Emulation.setTouchEmulationEnabled', { enabled: false })
   }
 })
 
-test('a tap on a menu link shuts the menu and lands its section 96px down, its heading focused with no ring; Enter on one keeps the ring', async () => {
-  // What has focus, whether its ring shows (drawn behind a heading), and where the heading is.
+test('a tap on a menu link, made as Safari makes it, shuts the menu and lands its section 96px down, its heading focused and marked as a pointer’s jump, with no ring; Enter on one keeps the ring, unmarked', async () => {
+  // Safari, and every browser on an iPhone, doesn't focus a link as it is tapped, and so counts
+  // the heading's focus as the keyboard's; Chrome focuses the link, which hides the ring by
+  // itself. So each tap here is made as Safari makes it: the link's focus on mousedown cancelled.
+  const safari = `document.addEventListener('mousedown', (e) => { if (e.target.closest('a')) e.preventDefault() }, true); true`
+  // What has focus, whether its ring shows (drawn behind a heading), whether lib/jumps.ts marked
+  // its jump as a pointer's, and where the heading is.
   const landed = `(() => {
     const focused = document.activeElement
     const top = Math.round(focused.getBoundingClientRect().top)
@@ -1344,6 +1664,7 @@ test('a tap on a menu link shuts the menu and lands its section 96px down, its h
       open: document.querySelector('.ab-drawer').open,
       focus: focused.id,
       ring: focused.matches(':focus-visible') && getComputedStyle(focused, '::before').content !== 'none',
+      jump: focused.dataset.jump ?? 'unmarked',
       at: top === 96 ? '96px down' : atEnd && top > 96 ? '96px down or lower, at the end of the page' : top + 'px down',
       hash: location.hash,
     }
@@ -1355,6 +1676,7 @@ test('a tap on a menu link shuts the menu and lands its section 96px down, its h
       await browser.load({ ...PHONE, reduceMotion: true })
       assert.ok(await browser.titlesShown())
       await browser.landAll()
+      await browser.evaluate(safari)
       await tapOn('.ab-burger')
       assert.ok(await browser.waitFor(MENU_OPEN, 2000), `#${id}: the menu didn’t open`)
       await tapOn(`.ab-drawer a[href="#${id}"]`)
@@ -1369,16 +1691,21 @@ test('a tap on a menu link shuts the menu and lands its section 96px down, its h
     open: false,
     focus: id,
     ring: false,
+    jump: 'pointer',
     at,
     hash: `#${id}`,
   })
   const decades = (seen.decades as { at?: string } | undefined)?.at
-  assert.deepEqual(seen, {
-    'ab-trending': tapped('ab-trending'),
-    pull: tapped('pull'),
-    // Decades, the last section, may be too near the page's end to come up that far.
-    decades: tapped('decades', decades?.startsWith('96px down') ? decades : '96px down'),
-  })
+  assert.deepEqual(
+    seen,
+    {
+      'ab-trending': tapped('ab-trending'),
+      pull: tapped('pull'),
+      // Decades, the last section, may be too near the page's end to come up that far.
+      decades: tapped('decades', decades?.startsWith('96px down') ? decades : '96px down'),
+    },
+    'a tapped menu link landed its section wrong, or showed its heading’s ring',
+  )
   // From the keyboard: Enter on the menu button opens it on its first link, with its ring, and
   // Enter on Pull jumps there, the heading with its ring.
   await browser.load({ ...PHONE, reduceMotion: true })
@@ -1398,10 +1725,15 @@ test('a tap on a menu link shuts the menu and lands its section 96px down, its h
   await browser.press('Enter')
   await browser.waitFor(`!(${MENU_OPEN}) && document.activeElement.id === 'pull'`, 2000)
   await frames()
-  const keyed = await browser.evaluate<{ focus: string; ring: boolean; open: boolean }>(landed)
+  const keyed = await browser.evaluate<{
+    focus: string
+    ring: boolean
+    jump: string
+    open: boolean
+  }>(landed)
   assert.deepEqual(
-    { open: keyed.open, focus: keyed.focus, ring: keyed.ring },
-    { open: false, focus: 'pull', ring: true },
+    { open: keyed.open, focus: keyed.focus, ring: keyed.ring, jump: keyed.jump },
+    { open: false, focus: 'pull', ring: true, jump: 'unmarked' },
     'Enter on Pull',
   )
 })
@@ -1917,6 +2249,231 @@ test('under reduced motion, the device’s or the site’s, the menu doesn’t f
   assert.deepEqual(seen, { 'reduced on the device': still, 'reduced on the site': still })
 })
 
+type Finger = { id: number; x: number; y: number }
+
+/**
+ * Two fingers' touches in turn: each step its kind, the fingers down after it (for a lift, the
+ * finger lifted, or none for all of them) and its time in ms, stamped as swipe() stamps them, so
+ * the page reads the same speeds.
+ */
+async function touches(steps: [string, Finger[], number][]) {
+  const base = Date.now() / 1000 - steps[steps.length - 1][2] / 1000
+  for (const [type, touchPoints, ms] of steps)
+    await browser.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints,
+      timestamp: base + ms / 1000,
+    })
+}
+
+/** The first finger from (x, y), `dx` across in 8 moves 80 ms apart, the last at 640 ms. */
+const firstFinger = (x: number, y: number, dx: number): [string, Finger[], number][] =>
+  Array.from({ length: 9 }, (_, i) => [
+    i ? 'touchMove' : 'touchStart',
+    [{ id: 1, x: x + (dx * i) / 8, y }],
+    i * 80,
+  ])
+
+test('a second finger laid on the open menu as the first drags it changes nothing: the panel springs back or shuts as the first finger leaves it, whichever lifts first; on the header, a tap of a second finger mid-swipe leaves the swipe to open the menu, the bars upright after', async () => {
+  await browser.load(PHONE)
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.animationsDone()
+  const settled = () =>
+    browser.waitFor(`document.querySelector('.ab-drawer').getAnimations().length === 0`, 2000)
+  const drawer = `(() => {
+    const dialog = document.querySelector('.ab-drawer')
+    return {
+      open: dialog.open,
+      shift: ${PANEL_SHIFT},
+      dragging: dialog.classList.contains('is-dragging'),
+      drag: dialog.style.getPropertyValue('--drag'),
+    }
+  })()`
+  const seen: Record<string, unknown> = {}
+  await withTouch(async () => {
+    for (const [how, dx, firstUp] of [
+      ['72px left, the second finger lifted first', -72, false],
+      ['72px left, the first finger lifted first', -72, true],
+      ['150px left, the second finger lifted first', -150, false],
+      ['150px left, the first finger lifted first', -150, true],
+    ] as const) {
+      if (!(await browser.evaluate(MENU_OPEN))) {
+        await sleep(550)
+        await tapOn('.ab-burger')
+        assert.ok(await browser.waitFor(MENU_OPEN, 2000), 'the menu didn’t open')
+      }
+      await settled()
+      // The first finger drags, the second touches down lower on the panel and both stay still
+      // (so no pinch), then one lifts, and the other 200 ms later: no speed left, so only how
+      // far the first finger went decides.
+      const first = { id: 1, x: 250 + dx, y: 400 }
+      const second = { id: 2, x: 200, y: 600 }
+      await touches([
+        ...firstFinger(250, 400, dx),
+        ['touchStart', [first, second], 700],
+        ['touchEnd', [firstUp ? first : second], 800],
+        ['touchEnd', [], 1000],
+      ])
+      await settled()
+      await frames()
+      seen[how] = await browser.evaluate(drawer)
+    }
+    if (await browser.evaluate(MENU_OPEN))
+      await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+    await browser.waitFor(MENU_SHUT, 2000)
+    await sleep(550)
+    // On the header: the first finger goes 30px right from AniBeam, short of the 48px that
+    // opens the menu, a second taps the air beside the search, then the first goes on to 80px.
+    const { logo, air } = await browser.evaluate<{ logo: number; air: number }>(`(() => {
+      const box = (sel) => document.querySelector(sel).getBoundingClientRect()
+      return { logo: box('.ab-logo').left + box('.ab-logo').width / 2, air: (box('.ab-logo').right + box('.ab-bubble-field').left) / 2 }
+    })()`)
+    const at = (dx: number) => [{ id: 1, x: logo + dx, y: 39 }]
+    await touches([
+      ['touchStart', at(0), 0],
+      ['touchMove', at(10), 80],
+      ['touchMove', at(20), 160],
+      ['touchMove', at(30), 240],
+      ['touchStart', [...at(30), { id: 2, x: air, y: 39 }], 300],
+      ['touchEnd', [{ id: 2, x: air, y: 39 }], 360],
+      ['touchMove', at(55), 440],
+      ['touchMove', at(80), 520],
+      ['touchEnd', [], 560],
+    ])
+    await browser.waitFor(MENU_OPEN, 1000)
+    seen['a swipe on the header, a second finger tapping mid-way'] = {
+      open: await browser.evaluate(MENU_OPEN),
+      pull: await browser.evaluate(
+        `document.querySelector('.ab-top').style.getPropertyValue('--pull')`,
+      ),
+    }
+    await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+  })
+  const back = { open: true, shift: 0, dragging: false, drag: '' }
+  const shut = { open: false, shift: 0, dragging: false, drag: '' }
+  assert.deepEqual(
+    seen,
+    {
+      '72px left, the second finger lifted first': back,
+      '72px left, the first finger lifted first': back,
+      '150px left, the second finger lifted first': shut,
+      '150px left, the first finger lifted first': shut,
+      'a swipe on the header, a second finger tapping mid-way': { open: true, pull: '' },
+    },
+    'a second finger left the menu stuck partway, or took the swipe from the first',
+  )
+})
+
+/**
+ * Pinches the page by `scale` about the middle of what the screen shows, as two fingers would.
+ * Zoomed in, Chrome takes a touch's place, and a pinch's, in CSS px from the zoomed screen's
+ * corner, so the checks below place them by the page less that corner.
+ */
+async function pinch(scale: number) {
+  const { x, y } = await browser.evaluate<{ x: number; y: number }>(
+    `({ x: visualViewport.width / 2, y: visualViewport.height / 2 })`,
+  )
+  await browser.send('Input.synthesizePinchGesture', {
+    x,
+    y,
+    scaleFactor: scale,
+    gestureSourceType: 'touch',
+  })
+  await sleep(300)
+}
+
+// The zoomed page: its scale, and how far across and down the screen's corner is on the page.
+const VIEW = `(({ scale, offsetLeft, offsetTop }) => ({ scale: Math.round(scale * 100) / 100, left: Math.round(offsetLeft), top: Math.round(offsetTop) }))(visualViewport)`
+
+test('pinch-zoomed in on a phone, a finger’s sideways drag pans the page from the header and inside the open menu, which neither opens nor shuts by a swipe; the menu button and Esc still work, and pinched back out the swipes come back', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const touchAction = `['.ab-top', '.ab-drawer'].map((sel) => getComputedStyle(document.querySelector(sel)).touchAction)`
+  const view = () => browser.evaluate<{ scale: number; left: number; top: number }>(VIEW)
+  // A slow drag of 100px across, held still before it lifts, so it doesn't fling, and how far
+  // across it panned the page: 100px, give or take the few that Chrome waits for before a pan
+  // starts, counts as 100.
+  const across = async (x: number, y: number, dx: number) => {
+    const before = await view()
+    await swipe(line(x, y, dx, 0, 600), { hold: 200 })
+    await sleep(400)
+    const panned = (await view()).left - before.left
+    return Math.abs(Math.abs(panned) - 100) <= 10 ? Math.sign(panned) * 100 : panned
+  }
+  const seen: Record<string, unknown> = {}
+  await withTouch(async () => {
+    await pinch(2.5)
+    // To the page's top left corner, by drags below the header, so the header is in view, 2.5
+    // times its size, from the menu button to the middle of AniBeam.
+    await swipe(line(78, 20, 0, 300, 600), { hold: 200 })
+    await swipe(line(10, 200, 140, 0, 600), { hold: 200 })
+    await sleep(400)
+    seen.zoomed = { ...(await view()), touch: await browser.evaluate(touchAction) }
+    // On AniBeam, 100px left, then 100px back right, as far as a swipe that opens the menu.
+    seen['a drag left on the header'] = { panned: await across(120, 39, -100) }
+    seen['a drag right on the header'] = {
+      panned: await across(40, 39, 100),
+      open: await browser.evaluate(MENU_OPEN),
+    }
+    if (await browser.evaluate(MENU_OPEN))
+      await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+    await sleep(550)
+    // The menu button, tapped where it shows on the zoomed screen.
+    const burger = await browser.evaluate<{ x: number; y: number }>(`(() => {
+      const box = document.querySelector('.ab-burger').getBoundingClientRect()
+      return { x: box.left + box.width / 2 - visualViewport.offsetLeft, y: box.top + box.height / 2 - visualViewport.offsetTop }
+    })()`)
+    await tap(burger.x, burger.y)
+    seen['the menu button'] = { open: await browser.waitFor(MENU_OPEN, 2000) }
+    // Across the panel: 100px right (the menu, focusing its first link, has brought it into
+    // view, well right of the page's edge), then 100px left, slowly, past the 30% of its 320px
+    // that shuts the menu.
+    seen['a drag right in the menu'] = {
+      panned: await across(40, 250, 100),
+      open: await browser.evaluate(MENU_OPEN),
+    }
+    seen['a drag left in the menu'] = {
+      panned: await across(140, 250, -100),
+      open: await browser.evaluate(MENU_OPEN),
+    }
+    await browser.press('Escape')
+    seen.Esc = { shut: await browser.waitFor(MENU_SHUT, 2000) }
+    // Pinched back out, the header's row and the menu take sideways drags as theirs again.
+    await pinch(0.4)
+    await sleep(550)
+    const logo = await browser.evaluate<number>(
+      `(({ left, width }) => left + width / 2)(document.querySelector('.ab-logo').getBoundingClientRect())`,
+    )
+    await swipe(line(logo, 39, 80, 0, 400))
+    seen['pinched back out'] = {
+      scale: (await view()).scale,
+      touch: await browser.evaluate(touchAction),
+      'a swipe opens the menu': await browser.waitFor(MENU_OPEN, 2000),
+    }
+    await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+  })
+  assert.deepEqual(
+    seen,
+    {
+      zoomed: { scale: 2.5, left: 0, top: 0, touch: ['auto', 'auto'] },
+      'a drag left on the header': { panned: 100 },
+      'a drag right on the header': { panned: -100, open: false },
+      'the menu button': { open: true },
+      'a drag right in the menu': { panned: -100, open: true },
+      'a drag left in the menu': { panned: 100, open: true },
+      Esc: { shut: true },
+      'pinched back out': {
+        scale: 1,
+        touch: ['pan-y pinch-zoom', 'pan-y pinch-zoom'],
+        'a swipe opens the menu': true,
+      },
+    },
+    'zoomed in, a sideways drag on the header or the menu didn’t pan the page, or swiped the menu',
+  )
+})
+
 // ---------- Phones: the header hides on a scroll down, and comes back on a scroll up ----------
 
 // The header: whether the page has it hidden, where it is drawn on the screen, and the scroll.
@@ -1959,8 +2516,8 @@ test('on a phone the header stays on the screen: it hides once the page has gone
     ['12px down', 1004],
     ['further down', 1500],
     ['8px up again', 1492],
-    ['back near the top, from hidden', 1600],
-    ['60px down', 60],
+    ['hidden again, further down', 1600],
+    ['back near the top, 60px down, from hidden', 60],
   ] as const) {
     await scrollAndSettle(y)
     seen[step] = where(await browser.evaluate<Top>(TOP))
@@ -1977,8 +2534,8 @@ test('on a phone the header stays on the screen: it hides once the page has gone
     '12px down': hidden,
     'further down': hidden,
     '8px up again': shown,
-    'back near the top, from hidden': hidden,
-    '60px down': shown,
+    'hidden again, further down': hidden,
+    'back near the top, 60px down, from hidden': shown,
   })
   await browser.load({ width: 900, height: 900, reduceMotion: true })
   assert.ok(await browser.titlesShown())
@@ -2244,6 +2801,66 @@ test('on a phone the header never covers a focus ring: it goes up as focus with 
   })
 })
 
+test('on a phone the heading a tapped link focused, its ring hidden, neither pushes the header up nor keeps it away, though an iPhone counts its focus as the keyboard’s', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const header = async () => where(await browser.evaluate<Top>(TOP))
+  const heading = `document.getElementById('pull')`
+  // The header shown and Pull's heading 96px down, where a tapped link lands it. Then the heading
+  // focused as an iPhone leaves it after the tap: the browser counts the focus as the keyboard's
+  // (:focus-visible), and lib/jumps.ts has marked it as a pointer's, so its ring is hidden.
+  await headerBackAt(
+    await browser.evaluate<number>(`scrollY + ${heading}.getBoundingClientRect().top - 96`),
+  )
+  await browser.evaluate(
+    `${heading}.dataset.jump = 'pointer'; ${heading}.focus({ preventScroll: true, focusVisible: true }); true`,
+  )
+  await frames()
+  const seen: Record<string, unknown> = {
+    'focused 96px down': {
+      focus: await browser.evaluate(`document.activeElement.id`),
+      'counted as the keyboard’s': await browser.evaluate(
+        `document.activeElement.matches(':focus-visible')`,
+      ),
+      ring: await browser.evaluate(
+        `getComputedStyle(document.activeElement, '::before').content !== 'none'`,
+      ),
+      header: await header(),
+    },
+  }
+  const y = (await browser.evaluate<Top>(TOP)).y
+  // 10px down, short of the 12px that hides it, the heading 86px down: where a ring would be
+  // under the header.
+  await scrollAndSettle(y + 10)
+  seen['10px down, the heading under the header'] = await header()
+  // On down past the heading, and back up until it is 36px down, well under the header.
+  await scrollAndSettle(y + 600)
+  seen['far down, past the heading'] = await header()
+  await scrollAndSettle(y + 60)
+  seen['back up, the heading 36px down'] = await header()
+  seen['focus after'] = await browser.evaluate(
+    `document.activeElement.id + ' ' + document.activeElement.dataset.jump`,
+  )
+  const shown = where({ hidden: false, top: 0, y: 0 })
+  assert.deepEqual(
+    seen,
+    {
+      'focused 96px down': {
+        focus: 'pull',
+        'counted as the keyboard’s': true,
+        ring: false,
+        header: shown,
+      },
+      '10px down, the heading under the header': shown,
+      'far down, past the heading': where({ hidden: true, top: -78, y: 0 }),
+      'back up, the heading 36px down': shown,
+      'focus after': 'pull pointer',
+    },
+    'a heading with its ring hidden moved the header as a ring would',
+  )
+})
+
 test('on a phone, a part that shows only under the header, back on a scroll up, waits to land until it shows below it', async () => {
   // The pull machine, scrolled up into view with the header coming back: most of what shows of
   // it is under the header, and less than the 15% a part needs below it. The scroll slam counts
@@ -2493,6 +3110,76 @@ test('on a phone, with a long title in the box and focus gone, the header hiding
   )
 })
 
+test('on a touch screen, putting the keyboard away without its Search key, as Android’s Back does, takes focus from the search box, so the bubble folds to one row and the header hides on a scroll down; not mid-conversion, nor with a mouse', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  // A phone's keyboard coming up takes the bottom of the screen from the page, and going away
+  // gives it back.
+  const screen = (height: number) =>
+    browser.send('Emulation.setDeviceMetricsOverride', {
+      width: PHONE.width,
+      height,
+      deviceScaleFactor: 2,
+      mobile: true,
+    })
+  const keyboard = async (up: boolean) => {
+    await screen(up ? 480 : PHONE.height)
+    await twoFrames()
+  }
+  const seen: Record<string, unknown> = {}
+  try {
+    await withTouch(async () => {
+      await browser.search(LONG_TITLE)
+      assert.ok(
+        await browser.waitFor(
+          `document.querySelector('#results')?.textContent.includes('Laid-Off')`,
+        ),
+        'the long title was never searched',
+      )
+      await keyboard(true)
+      const up = await bubbleNow()
+      seen['the keyboard up'] = { focused: up.focused, rows: up.bubble > 50 ? 'more than one' : 1 }
+      await keyboard(false)
+      const away = await bubbleNow()
+      seen['the keyboard put away'] = { focused: away.focused, bubble: away.bubble }
+      await scrollAndSettle(1000)
+      seen['then a scroll down'] = where(await browser.evaluate<Top>(TOP))
+      // Put away while an input method is still converting a word: the word is the input
+      // method's, and the box keeps focus.
+      await scrollAndSettle(0)
+      await browser.evaluate(`${BOX}.focus(); true`)
+      await keyboard(true)
+      await browser.send('Input.imeSetComposition', {
+        text: 'しん',
+        selectionStart: 2,
+        selectionEnd: 2,
+      })
+      await keyboard(false)
+      seen['put away mid-conversion'] = (await bubbleNow()).focused
+      await browser.send('Input.insertText', { text: 'しん' })
+    })
+    // A window on a laptop made shorter and taller again, with a mouse: focus stays.
+    await browser.evaluate(`${BOX}.focus(); true`)
+    await keyboard(true)
+    await keyboard(false)
+    seen['a mouse, the window shorter and taller'] = (await bubbleNow()).focused
+  } finally {
+    await screen(PHONE.height)
+  }
+  assert.deepEqual(
+    seen,
+    {
+      'the keyboard up': { focused: true, rows: 'more than one' },
+      'the keyboard put away': { focused: false, bubble: 50 },
+      'then a scroll down': where({ hidden: true, top: -78, y: 0 }),
+      'put away mid-conversion': true,
+      'a mouse, the window shorter and taller': true,
+    },
+    'putting the keyboard away left the box as it was',
+  )
+})
+
 test('on a phone a finger’s scroll that starts on the search bubble scrolls the page, empty or holding a word', async () => {
   const seen: Record<string, number> = {}
   for (const width of [320, 390]) {
@@ -2562,13 +3249,17 @@ test('from 900px the search keeps to one line as before, and while it holds a qu
     // the box's padding, less how far the box has scrolled sideways to keep the caret in view.
     const pen = document.createElement('canvas').getContext('2d')
     pen.font = style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily
-    const end =
-      box.getBoundingClientRect().left + box.clientLeft + parseFloat(style.paddingLeft) +
-      pen.measureText(box.value).width - box.scrollLeft
+    const left = box.getBoundingClientRect().left + box.clientLeft
+    const end = left + parseFloat(style.paddingLeft) + pen.measureText(box.value).width - box.scrollLeft
+    // Where the text starts showing: as far in as the box's padding less its sideways scroll,
+    // but never left of the box, which cuts it there; how far that is inside the bubble's 3px
+    // border.
+    const starts = Math.max(left, left + parseFloat(style.paddingLeft) - box.scrollLeft)
     return {
       bubble: Math.round(field.height),
       header: document.querySelector('.ab-top').offsetHeight,
       oneLine: box.scrollHeight <= box.clientHeight,
+      textInset: Math.round(starts - field.left - 3),
       clear: drawn && {
         size: Math.round(drawn.width) + 'x' + Math.round(drawn.height),
         name: clear.getAttribute('aria-label'),
@@ -2599,7 +3290,33 @@ test('from 900px the search keeps to one line as before, and while it holds a qu
       'the long search never showed its results',
     )
     seen[`${width}px holding a long query`] = await browser.evaluate(STATE)
-    await clickAt('.ab-clear')
+    // As focus leaves, the box shows the query's start again, as the search input did.
+    await browser.evaluate(`${BOX}.blur(); true`)
+    seen[`${width}px, focus gone`] = await browser.evaluate(
+      `${BOX}.scrollLeft === 0 ? 'its start' : 'scrolled ' + Math.round(${BOX}.scrollLeft) + 'px along'`,
+    )
+    await browser.evaluate(`${BOX}.focus(); true`)
+    // Where focus is with the button held down, before the click's own refocus could hide a
+    // press that took it from the box (and blurred the box) for a moment.
+    const { x, y } = await middleOf('.ab-clear')
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y })
+    await browser.send('Input.dispatchMouseEvent', {
+      type: 'mousePressed',
+      x,
+      y,
+      button: 'left',
+      clickCount: 1,
+    })
+    seen[`${width}px, the button held down`] = await browser.evaluate(
+      `document.activeElement === ${BOX} ? 'focus in the box' : 'focus on ' + document.activeElement.outerHTML.slice(0, 40)`,
+    )
+    await browser.send('Input.dispatchMouseEvent', {
+      type: 'mouseReleased',
+      x,
+      y,
+      button: 'left',
+      clickCount: 1,
+    })
     await twoFrames()
     seen[`${width}px cleared`] = await browser.evaluate(STATE)
     await browser.search('naruto')
@@ -2611,11 +3328,39 @@ test('from 900px the search keeps to one line as before, and while it holds a qu
     await browser.press('Escape')
     seen[`${width}px, Esc`] = await browser.evaluate(`${BOX}.value`)
   }
-  const rest = { bubble: 50, header: 78, oneLine: true, clear: null, value: '', focused: false }
+  // A paste with motion allowed: the bubble springs past its new width and back, and the box,
+  // made narrower again as it settles, must still show the caret at the end, short of the button.
+  await browser.load(DESKTOP)
+  assert.ok(await browser.titlesShown())
+  await browser.animationsDone()
+  await browser.evaluate(`${BOX}.focus(); true`)
+  await browser.animationsDone()
+  await browser.send('Input.insertText', { text: long })
+  assert.ok(
+    await browser.waitFor(
+      `document.querySelector('#results')?.textContent.includes('keeps going')`,
+    ),
+    'the pasted search never showed its results',
+  )
+  await browser.animationsDone()
+  await twoFrames()
+  seen['1440px, pasted as the bubble springs'] = (
+    await browser.evaluate<{ clear: { textEnds: string } | null }>(STATE)
+  ).clear?.textEnds
+  const rest = {
+    bubble: 50,
+    header: 78,
+    oneLine: true,
+    textInset: 18,
+    clear: null,
+    value: '',
+    focused: false,
+  }
   const holding = {
     bubble: 50,
     header: 78,
     oneLine: true,
+    textInset: 18,
     clear: {
       size: '24x24',
       name: 'Clear search',
@@ -2627,16 +3372,134 @@ test('from 900px the search keeps to one line as before, and while it holds a qu
     focused: true,
   }
   const cleared = { ...rest, focused: true }
-  assert.deepEqual(seen, {
-    '900px at rest': rest,
-    '900px holding a long query': holding,
-    '900px cleared': cleared,
-    '900px, Tab from the box': 'on past it',
-    '900px, Esc': '',
-    '1440px at rest': rest,
-    '1440px holding a long query': holding,
-    '1440px cleared': cleared,
-    '1440px, Tab from the box': 'on past it',
-    '1440px, Esc': '',
+  assert.deepEqual(
+    seen,
+    {
+      '900px at rest': rest,
+      '900px holding a long query': holding,
+      '900px, focus gone': 'its start',
+      '900px, the button held down': 'focus in the box',
+      '900px cleared': cleared,
+      '900px, Tab from the box': 'on past it',
+      '900px, Esc': '',
+      '1440px at rest': rest,
+      '1440px holding a long query': holding,
+      '1440px, focus gone': 'its start',
+      '1440px, the button held down': 'focus in the box',
+      '1440px cleared': cleared,
+      '1440px, Tab from the box': 'on past it',
+      '1440px, Esc': '',
+      '1440px, pasted as the bubble springs': 'before it',
+    },
+    'the desktop search box at each step',
+  )
+})
+
+test('the search is a search landmark that holds the box, and the box is named Search titles alone, empty or holding a query, on a phone and from 900px', async () => {
+  // The box is a textarea, so that a phone's can wrap: read as a text box, not a search box. The
+  // landmark around it tells a screen reader it is the search. Its Clear search button, from
+  // 900px, sits beside the box's label, not in it, so it doesn't add its name to the box's.
+  type Node = {
+    nodeId: string
+    ignored: boolean
+    role?: { value: string }
+    name?: { value: string }
+    childIds?: string[]
+  }
+  const search = async () => {
+    const { nodes } = (await browser.send('Accessibility.getFullAXTree')) as { nodes: Node[] }
+    const byId = new Map(nodes.map((n) => [n.nodeId, n]))
+    const inside = (n: Node): Node[] =>
+      (n.childIds ?? []).flatMap((id) => {
+        const child = byId.get(id)
+        return child ? [child, ...inside(child)] : []
+      })
+    const boxes = (list: Node[]) =>
+      list.filter((n) => !n.ignored && n.role?.value === 'textbox').map((n) => n.name?.value)
+    const landmarks = nodes.filter((n) => !n.ignored && n.role?.value === 'search')
+    return {
+      landmarks: landmarks.length,
+      inLandmark: landmarks.flatMap((n) => boxes(inside(n))),
+      boxes: boxes(nodes),
+    }
+  }
+  const seen: Record<string, unknown> = {}
+  for (const [at, size] of [
+    ['a phone', PHONE],
+    ['1440px', DESKTOP],
+  ] as const) {
+    await browser.load({ ...size, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    seen[`${at}, empty`] = await search()
+    await browser.search('naruto')
+    assert.ok(
+      await browser.waitFor(`document.querySelector('#results')?.textContent.includes('“naruto”')`),
+      'naruto was never searched',
+    )
+    seen[`${at}, holding naruto`] = await search()
+  }
+  const one = { landmarks: 1, inLandmark: ['Search titles'], boxes: ['Search titles'] }
+  assert.deepEqual(
+    seen,
+    {
+      'a phone, empty': one,
+      'a phone, holding naruto': one,
+      '1440px, empty': one,
+      '1440px, holding naruto': one,
+    },
+    'the search landmark, the boxes inside it, and every text box on the page, by name',
+  )
+})
+
+test('the search box asks a phone’s keyboard not to capitalise or correct what is typed, so a title in romaji is searched as typed', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  assert.deepEqual(
+    await browser.evaluate(
+      `(({ autocapitalize, spellcheck }, box) => ({ autocapitalize, autocorrect: box.getAttribute('autocorrect'), spellcheck }))(${BOX}, ${BOX})`,
+    ),
+    { autocapitalize: 'none', autocorrect: 'off', spellcheck: false },
+    'what the box tells a touch keyboard',
+  )
+})
+
+test('the search box’s text is 16px wherever a touch keyboard is likely, under 900px and on a touch screen of any width, so iOS never zooms the page as it takes focus; with a mouse from 900px it keeps the header’s 15px', async () => {
+  // The box, and the copies that measure its text for the bubble's width and rows (SearchBubble),
+  // which must keep to the same size; and the room the bubble at rest leaves its placeholder.
+  const SIZES = `(() => {
+    const box = ${BOX}, style = getComputedStyle(box)
+    const pen = document.createElement('canvas').getContext('2d')
+    pen.font = style.fontWeight + ' ' + style.fontSize + ' ' + style.fontFamily
+    return {
+      sizes: [...new Set([box, ...document.querySelectorAll('.ab-search-rows, .ab-search-mirror')].map((el) => getComputedStyle(el).fontSize))].join(),
+      placeholderWhole: box.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) >= pen.measureText(box.placeholder).width,
+    }
+  })()`
+  const seen: Record<string, unknown> = {}
+  // An iPhone Plus or Pro Max held sideways is 926 to 956px wide: wide enough for the desktop
+  // header, under a finger.
+  await browser.load({ width: 932, height: 430, phone: true, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await withTouch(async () => {
+    await twoFrames()
+    seen['932px, a touch screen'] = await browser.evaluate(SIZES)
   })
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await withTouch(async () => {
+    await twoFrames()
+    seen['a phone'] = await browser.evaluate(SIZES)
+  })
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  seen['1440px, a mouse'] = await browser.evaluate(SIZES)
+  assert.deepEqual(
+    seen,
+    {
+      '932px, a touch screen': { sizes: '16px', placeholderWhole: true },
+      'a phone': { sizes: '16px', placeholderWhole: true },
+      '1440px, a mouse': { sizes: '15px', placeholderWhole: true },
+    },
+    'the text sizes of the box and its measuring copies, and whether the placeholder shows whole',
+  )
 })

@@ -1,7 +1,15 @@
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { confirmsWord, searchable } from '../lib/ime.ts'
-import { oneLine, oneLineCaret, rowsShown } from '../lib/searchBox.ts'
-import { afterSwipe, EDGE, opens, swipeMoved, swipeStart, type Swipe } from '../lib/swipe.ts'
+import { keyboardAfter, keyboardAt, oneLine, oneLineCaret, rowsShown } from '../lib/searchBox.ts'
+import {
+  afterSwipe,
+  EDGE,
+  opens,
+  swipeMoved,
+  swipeStart,
+  zoomed,
+  type Swipe,
+} from '../lib/swipe.ts'
 import { MenuDrawer } from './MenuDrawer.tsx'
 import { openMenu } from './openMenu.ts'
 
@@ -62,6 +70,21 @@ export function SiteHeader({
     }
   }, [])
 
+  // Zoomed in, a finger's sideways drag on the header or the menu pans the page (see zoomed):
+  // data-zoomed hands those drags back to the browser (components.css).
+  useEffect(() => {
+    const view = window.visualViewport
+    const root = document.documentElement
+    if (!view) return
+    const zoom = () => root.toggleAttribute('data-zoomed', zoomed())
+    zoom()
+    view.addEventListener('resize', zoom)
+    return () => {
+      view.removeEventListener('resize', zoom)
+      root.removeAttribute('data-zoomed')
+    }
+  }, [])
+
   const open = (byKey: boolean) => {
     if (openMenu(menu.current, burger.current, byKey)) setMenuOpen(true)
   }
@@ -69,6 +92,9 @@ export function SiteHeader({
     swipe.current = null
     element.style.removeProperty('--pull')
   }
+  // Only the swiping finger's lift or cancel ends its swipe, as in the menu's drag.
+  const lifted = (e: { pointerId: number; currentTarget: HTMLElement }) =>
+    e.pointerId === swipe.current?.id && unpull(e.currentTarget)
 
   return (
     <>
@@ -76,6 +102,8 @@ export function SiteHeader({
         ref={header}
         className="ab-top"
         onPointerDown={(e) => {
+          // A second finger leaves the first one's swipe be.
+          if (swipe.current && !e.isPrimary) return
           const narrow = !matchMedia('(min-width: 900px)').matches
           const clear = !(e.target as Element).closest('.ab-bubble-field')
           swipe.current = narrow && clear && e.clientX >= EDGE ? swipeStart(e) : null
@@ -94,8 +122,8 @@ export function SiteHeader({
             open(false)
           }
         }}
-        onPointerUp={(e) => unpull(e.currentTarget)}
-        onPointerCancel={(e) => unpull(e.currentTarget)}
+        onPointerUp={lifted}
+        onPointerCancel={lifted}
         onClickCapture={(e) => {
           if (!afterSwipe(swiped.current, e.timeStamp)) return
           e.preventDefault()
@@ -152,26 +180,21 @@ export function SiteHeader({
 }
 
 const PLACEHOLDER = 'Search titles'
-// On the narrowest phones, beside the hamburger and the logo, only "Search" fits whole. Followed
-// live, as a phone turns. The box is still named "Search titles", by its label.
-const NARROW = '(max-width: 359px)'
-const watchNarrow = (onChange: () => void) => {
-  const list = matchMedia(NARROW)
-  list.addEventListener('change', onChange)
-  return () => list.removeEventListener('change', onChange)
-}
-const usePlaceholder = () =>
-  useSyncExternalStore(watchNarrow, () => (matchMedia(NARROW).matches ? 'Search' : PLACEHOLDER))
 
 // A manga speech bubble: snug around "Search titles" at rest, popping out to fit what's typed.
 // A hidden copy of the text, in the same font, is watched for size changes (each keystroke, and
 // the web font finishing loading); its width goes to CSS, which animates the bubble to match.
 // A second copy always holds the placeholder, the box's only visible label, so CSS can keep the
 // bubble wide enough to show it, whatever is typed and however far a reader widens text spacing.
+// Where the room beside the hamburger and the logo can't hold that bubble at rest (the narrowest
+// phones, or wider text spacing), the box says only "Search", which fits, and the copy still
+// measures "Search titles" for when there is room again; the box is still named "Search
+// titles", by its label.
 // A third copy wraps as the box does, for under 900px, where the bubble grows a row at a time
 // while it has focus, hanging down over the page: the rows it shows go to CSS as --text-h, which
 // animates the bubble's height, and the height of one as --row. The box is a textarea, as an
-// input can't wrap.
+// input can't wrap; a textarea is read as a plain text box, so a search landmark around it says
+// it is the search.
 function SearchBubble({
   value,
   onChange,
@@ -179,23 +202,57 @@ function SearchBubble({
   value: string
   onChange: (shown: string, text: string) => void
 }) {
-  const field = useRef<HTMLLabelElement>(null)
+  const field = useRef<HTMLDivElement>(null)
   const mirror = useRef<HTMLSpanElement>(null)
   const placeholderMirror = useRef<HTMLSpanElement>(null)
   const rows = useRef<HTMLSpanElement>(null)
   const box = useRef<HTMLTextAreaElement>(null)
-  const placeholder = usePlaceholder()
-  // What the box held when an input method began composing (see searchable).
+  const [whole, setWhole] = useState(true)
+  const placeholder = whole ? PLACEHOLDER : 'Search'
+  // What the box held when an input method began composing (see searchable), and whether it
+  // still is.
   const before = useRef('')
+  const composing = useRef(false)
+  // Android's Back puts a touch keyboard away but leaves focus in the box, whose ring then holds
+  // a phone's header on the screen, with the grown bubble hanging over the results. So the screen
+  // the page shows growing back as the keyboard goes takes focus out, as the Search key does (see
+  // keyboardAfter). Not while an input method is converting a word: that is the input method's.
+  useEffect(() => {
+    const view = window.visualViewport
+    const typed = box.current
+    if (!view || !typed) return
+    const screen = () => ({ width: view.width * view.scale, height: view.height * view.scale })
+    let keyboard = keyboardAt(screen())
+    const focused = () => (keyboard = keyboardAt(screen()))
+    const resized = () => {
+      if (typed !== document.activeElement) return
+      const next = keyboardAfter(keyboard, screen())
+      keyboard = next
+      if (next.away && !composing.current && matchMedia('(pointer: coarse)').matches) typed.blur()
+    }
+    typed.addEventListener('focus', focused)
+    view.addEventListener('resize', resized)
+    return () => {
+      typed.removeEventListener('focus', focused)
+      view.removeEventListener('resize', resized)
+    }
+  }, [])
   useLayoutEffect(() => {
     const label = field.current
     const copy = mirror.current
     const placeholderCopy = placeholderMirror.current
     const wrapped = rows.current
-    if (!label || !copy || !placeholderCopy || !wrapped) return
+    const typed = box.current
+    if (!label || !copy || !placeholderCopy || !wrapped || !typed) return
+    // The bubble at rest is 52px wider than its text (components.css).
+    const choose = () =>
+      setWhole(label.getBoundingClientRect().width >= placeholderCopy.offsetWidth + 52)
+    // At once, so the first frame drawn says the right one.
+    choose()
     const observer = new ResizeObserver(() => {
       label.style.setProperty('--text-w', `${copy.offsetWidth}px`)
       label.style.setProperty('--placeholder-w', `${placeholderCopy.offsetWidth}px`)
+      choose()
       // A row is 20px, or more where a reader widens text spacing.
       const row = parseFloat(getComputedStyle(wrapped).lineHeight)
       const shown = rowsShown(wrapped.offsetHeight, row)
@@ -203,19 +260,27 @@ function SearchBubble({
       label.style.setProperty('--row', `${row}px`)
       // Only past three rows can the box scroll (components.css).
       label.toggleAttribute('data-over', shown.over)
+      // From 900px, typing at the end of a long query, the caret stays in view as the box
+      // narrows: the bubble's spring overshoots after a paste, and the browser, which scrolled
+      // to the caret in the wider box, wouldn't scroll back until the next key.
+      if (typed === document.activeElement && typed.selectionStart === typed.value.length)
+        typed.scrollLeft = typed.scrollWidth
     })
+    observer.observe(label)
     observer.observe(copy)
     observer.observe(placeholderCopy)
     observer.observe(wrapped)
+    observer.observe(typed)
     return () => observer.disconnect()
   }, [])
   return (
-    <label ref={field} className="ab-search">
-      <span className="sr-only">Search titles</span>
+    <div ref={field} className="ab-search" role="search">
       <span className="ab-bubble-field">
-        {/* Clips the box to the bubble as the bubble grows a row, so the new row is uncovered as
-            the outline reaches it. */}
-        <span className="ab-bubble-clip">
+        {/* The box's label, and its frame, so a press anywhere in the bubble's padding focuses
+            it. Clips the box to the bubble as the bubble grows a row, so the new row is
+            uncovered as the outline reaches it. */}
+        <label className="ab-bubble-clip">
+          <span className="sr-only">Search titles</span>
           {/* The box shows every keystroke, even one an input method is still converting, so it
               never fights the input method. Only the search waits for the finished word. */}
           <textarea
@@ -223,23 +288,33 @@ function SearchBubble({
             rows={1}
             enterKeyHint="search"
             autoComplete="off"
+            // A title in romaji is no word a phone's keyboard knows: it must not "correct" it.
+            autoCapitalize="none"
+            autoCorrect="off"
             spellCheck={false}
             value={value}
             onKeyDown={(event) => {
+              // A key an input method takes, Esc to undo a conversion or Enter to pick a word,
+              // is the input method's.
+              if (confirmsWord(event.nativeEvent)) return
               // Esc empties the box, as a search input's does.
               if (event.key === 'Escape' && value) {
                 event.preventDefault()
                 onChange('', '')
               }
-              if (event.key !== 'Enter' || confirmsWord(event.nativeEvent)) return
+              if (event.key !== 'Enter') return
               // No new line: the search is one line, wrapped to fit. On a touch screen, Enter
               // (the keyboard's Search key) puts the keyboard away, so the results show.
               event.preventDefault()
               if (matchMedia('(pointer: coarse)').matches) event.currentTarget.blur()
             }}
-            // Folded back to one row as focus leaves (on a phone), it shows the first.
-            onBlur={(event) => (event.currentTarget.scrollTop = 0)}
-            onCompositionStart={(event) => (before.current = event.currentTarget.value)}
+            // Folded back to one row as focus leaves (on a phone), it shows the first; from
+            // 900px, a long query shows its start, as a search input's did.
+            onBlur={(event) => (event.currentTarget.scrollTop = event.currentTarget.scrollLeft = 0)}
+            onCompositionStart={(event) => {
+              before.current = event.currentTarget.value
+              composing.current = true
+            }}
             onChange={(event) => {
               const box = event.target
               const text = oneLine(box.value)
@@ -265,15 +340,17 @@ function SearchBubble({
             // Chrome sends the finished word just before this, still marked as composing; Safari
             // sends it just after.
             onCompositionEnd={(event) => {
+              composing.current = false
               const text = oneLine(event.currentTarget.value)
               onChange(text, text)
             }}
             placeholder={placeholder}
           />
-        </span>
+        </label>
         {/* From 900px, the clear button the search input had (a textarea has none). Esc does the
             same from the keyboard, so, like the input's, it is no Tab stop; and a press on it
-            keeps focus in the box. */}
+            keeps focus in the box. Beside the label, not in it, so its name isn't read as part
+            of the box's. */}
         {value && (
           <button
             type="button"
@@ -299,8 +376,8 @@ function SearchBubble({
         {value || placeholder}
       </span>
       <span ref={placeholderMirror} className="ab-search-mirror" aria-hidden="true">
-        {placeholder}
+        {PLACEHOLDER}
       </span>
-    </label>
+    </div>
   )
 }

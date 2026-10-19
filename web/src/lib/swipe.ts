@@ -30,9 +30,16 @@ export type Swipe = {
 
 type Point = { pointerId: number; clientX: number; clientY: number; timeStamp: number }
 
-/** A swipe starting: a finger or a pen, never a mouse, which has its buttons. */
+/**
+ * Whether the visitor has pinched the page bigger than its own scale; a hair over counts for
+ * none, as a pinch back out can leave it there. Zoomed in, a finger's sideways drag pans the
+ * page, as anywhere else, for a visitor who zooms in to read: no swipe starts.
+ */
+export const zoomed = () => (globalThis.visualViewport?.scale ?? 1) > 1.01
+
+/** A swipe starting: a finger or a pen, never a mouse, which has its buttons, nor zoomed in. */
 export const swipeStart = (e: Point & { pointerType: string }): Swipe | null =>
-  e.pointerType === 'mouse'
+  e.pointerType === 'mouse' || zoomed()
     ? null
     : { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, trail: [[e.timeStamp, e.clientX]] }
 
