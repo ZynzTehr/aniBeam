@@ -85,9 +85,10 @@ test('a part out of view is one whose wait to land as a sliver ends', () => {
   assert.deepEqual(places(outOfSight([...entries, touching])), [1, 3, 4])
 })
 
-test('the observer starts below a header that stays on screen, rounded up, and at the top otherwise', () => {
+test('the observer starts below the header while it shows, rounded up, and at the top while it is hidden', () => {
   // At 960px with widened text spacing the header is 137.19px: the 0.19px under it isn't seen.
   assert.equal(coveredBy(137.1875, true), 138)
   assert.equal(coveredBy(78, true), 78)
-  assert.equal(coveredBy(230.4, false), 0)
+  // A phone's header hidden up the screen as the page scrolls down covers nothing.
+  assert.equal(coveredBy(78, false), 0)
 })

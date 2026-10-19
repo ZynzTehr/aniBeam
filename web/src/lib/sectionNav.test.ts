@@ -5,15 +5,18 @@ import {
   dockedAfter,
   FLIGHT,
   flightFrames,
+  HIDE_SLACK,
   linkSet,
   sectionLine,
+  SHOW_SLACK,
+  topAfter,
   UNDOCK_GAP,
 } from './sectionNav.ts'
 
 test('a section counts as reached two thirds of the way down the screen below the header', () => {
   // A 78px header on a 900px screen: 78 + (822 * 2/3).
   assert.equal(sectionLine(78, 900), 78 + 548)
-  // A header scrolled away (a phone's) leaves the whole screen.
+  // A header hidden up the screen (a phone's, as the page scrolls down) leaves the whole screen.
   assert.equal(sectionLine(-120, 844), (844 * 2) / 3)
   assert.equal(sectionLine(0, 600), 400)
 })
@@ -72,6 +75,82 @@ test('the set with focus stays shown; with no intro the header’s; else docking
   assert.equal(set(false, false, null), 'header')
   assert.equal(set(true, true, 'intro'), 'intro')
   assert.equal(set(true, false, 'header'), 'header')
+})
+
+// A phone scrolled to y, well past its header, focus on nothing in particular.
+const scrolledTo = (y: number, more: Partial<Parameters<typeof topAfter>[1]> = {}) => ({
+  y,
+  eligible: true,
+  focusInTop: false,
+  focusUnder: false,
+  fromFocus: false,
+  dialogOpen: false,
+  ...more,
+})
+
+test('a phone’s header hides on a scroll down of HIDE_SLACK from the highest point, and comes back on SHOW_SLACK up from the lowest', () => {
+  assert.equal(HIDE_SLACK, 12)
+  assert.equal(SHOW_SLACK, 8)
+  let top = { hidden: false, anchor: 1000 }
+  top = topAfter(top, scrolledTo(900))
+  assert.deepEqual(top, { hidden: false, anchor: 900 }, 'up: the highest point follows')
+  top = topAfter(top, scrolledTo(911))
+  assert.deepEqual(top, { hidden: false, anchor: 900 }, '11px down: not yet')
+  top = topAfter(top, scrolledTo(912))
+  assert.deepEqual(top, { hidden: true, anchor: 912 }, '12px down: hidden')
+  top = topAfter(top, scrolledTo(1500))
+  assert.deepEqual(top, { hidden: true, anchor: 1500 }, 'down: the lowest point follows')
+  top = topAfter(top, scrolledTo(1493))
+  assert.deepEqual(top, { hidden: true, anchor: 1500 }, '7px up: not yet')
+  top = topAfter(top, scrolledTo(1492))
+  assert.deepEqual(top, { hidden: false, anchor: 1492 }, '8px up: back')
+  assert.deepEqual(topAfter(top, scrolledTo(1492)), top, 'the same scroll changes nothing')
+})
+
+test('a phone’s header shows near the top of the page, and while focus with its ring is in it', () => {
+  const hidden = { hidden: true, anchor: 500 }
+  assert.deepEqual(topAfter(hidden, scrolledTo(60, { eligible: false })), {
+    hidden: false,
+    anchor: 60,
+  })
+  assert.deepEqual(topAfter(hidden, scrolledTo(900, { focusInTop: true })), {
+    hidden: false,
+    anchor: 900,
+  })
+  assert.deepEqual(
+    topAfter({ hidden: false, anchor: 500 }, scrolledTo(900, { focusInTop: true })),
+    {
+      hidden: false,
+      anchor: 900,
+    },
+  )
+})
+
+test('a dialog, a scroll focus made, or a change of size leaves a phone’s header as it is', () => {
+  const shown = { hidden: false, anchor: 500 }
+  const hidden = { hidden: true, anchor: 900 }
+  for (const more of [{ dialogOpen: true }, { fromFocus: true }, { settle: true }]) {
+    assert.deepEqual(topAfter(shown, scrolledTo(900, more)), { hidden: false, anchor: 900 })
+    assert.deepEqual(topAfter(hidden, scrolledTo(500, more)), { hidden: true, anchor: 500 })
+  }
+  // Not even near the top, or with focus in it: the page behind a dialog is held still.
+  assert.deepEqual(topAfter(hidden, scrolledTo(40, { dialogOpen: true, eligible: false })), {
+    hidden: true,
+    anchor: 40,
+  })
+})
+
+test('a phone’s header never covers a focus ring: it waits to come back, and goes up as one comes under it', () => {
+  const hidden = { hidden: true, anchor: 900 }
+  assert.deepEqual(topAfter(hidden, scrolledTo(880, { focusUnder: true })), hidden)
+  assert.deepEqual(topAfter(hidden, scrolledTo(880)), { hidden: false, anchor: 880 })
+  // Shown, with focus moved under it, by a script or a key, whether or not the page scrolled.
+  const shown = { hidden: false, anchor: 500 }
+  for (const more of [{}, { fromFocus: true }, { settle: true }])
+    assert.deepEqual(topAfter(shown, scrolledTo(500, { focusUnder: true, ...more })), {
+      hidden: true,
+      anchor: 500,
+    })
 })
 
 test('the flight is one 420 ms move with a slight overshoot, the buttons 45 ms apart', () => {

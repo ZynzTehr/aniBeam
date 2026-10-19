@@ -472,8 +472,8 @@ function SearchResults({
   const lastTerm = useRef(term)
   const box = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
-    // In view: a title ends below the header, or below the top of the screen once a phone's
-    // header has scrolled away. Each title's list item is measured, not its panel, which pops in
+    // In view: a title ends below the header, or below the top of the screen while a phone's
+    // header is hidden up it. Each title's list item is measured, not its panel, which pops in
     // from a smaller size.
     const header = document.querySelector('.ab-top')?.getBoundingClientRect().bottom ?? 0
     const titles = box.current?.querySelectorAll('.ab-strip-row:not([aria-hidden]) > li') ?? []

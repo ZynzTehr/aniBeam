@@ -94,11 +94,11 @@ export function outOfSight(
 }
 
 /**
- * How far down the screen the observer starts: below a header that stays on screen (sticky), and
- * rounded up, as its height can run to a fraction of a pixel and the sliver under it would count
- * as in view; at the top when the header scrolls away.
+ * How far down the screen the observer starts: below the header, which stays on screen at every
+ * width, rounded up, as its height can run to a fraction of a pixel and the sliver under it would
+ * count as in view; at the top while a phone's header is hidden up the screen (`shown` false).
  */
-export const coveredBy = (height: number, sticky: boolean) => (sticky ? Math.ceil(height) : 0)
+export const coveredBy = (height: number, shown: boolean) => (shown ? Math.ceil(height) : 0)
 
 // Node.DOCUMENT_POSITION_FOLLOWING, without needing a DOM to name it.
 const FOLLOWING = 4
@@ -162,17 +162,13 @@ export function startLanding(selector: string) {
   }
   const moved = () => [...lingering.keys()].forEach(linger)
   addEventListener('scroll', moved, { capture: true, passive: true })
-  // What is under the sticky header isn't seen, so from 900px wide, where it stays on screen, the
-  // screen the observer watches starts below it. Its height can change (a second row with wider
-  // text), so the observer is made again for the new height, watching the parts still waiting.
+  // What is under the sticky header isn't seen, so the screen the observer watches starts below
+  // it, or at the top while a phone's header is hidden (data-hide, see lib/sectionNav.ts). Its
+  // height can change (a second row with wider text), and a phone's header hides and comes back,
+  // so the observer is made again for the new top, watching the parts still waiting.
   const header = document.querySelector<HTMLElement>('.ab-top')
   const covered = () =>
-    header
-      ? coveredBy(
-          header.getBoundingClientRect().height,
-          getComputedStyle(header).position === 'sticky',
-        )
-      : 0
+    header ? coveredBy(header.getBoundingClientRect().height, !header.hasAttribute('data-hide')) : 0
   let top = covered()
   const watch = () =>
     new IntersectionObserver(report, {
@@ -180,15 +176,18 @@ export function startLanding(selector: string) {
       threshold: [0, LANDING_RATIO],
     })
   let observer = watch()
-  const headerSize = new ResizeObserver(() => {
+  const rebuild = () => {
     if (covered() === top) return
     top = covered()
     observer.disconnect()
     observer = watch()
     for (const part of document.querySelectorAll<HTMLElement>(selector))
       if (landOf(part) === 'wait') observer.observe(part)
-  })
+  }
+  const headerSize = new ResizeObserver(rebuild)
   if (header) headerSize.observe(header)
+  const headerShown = new MutationObserver(rebuild)
+  if (header) headerShown.observe(header, { attributes: true, attributeFilter: ['data-hide'] })
   // Waiting parts too, not only new ones: started again (as React's StrictMode does in
   // development), the parts the first start marked would otherwise never be watched.
   const find = () => {
@@ -216,6 +215,7 @@ export function startLanding(selector: string) {
   return () => {
     observer.disconnect()
     headerSize.disconnect()
+    headerShown.disconnect()
     arrivals.disconnect()
     document.removeEventListener('focusin', focused, true)
     removeEventListener('scroll', moved, { capture: true })

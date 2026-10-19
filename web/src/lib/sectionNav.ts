@@ -16,7 +16,7 @@ export const SECTIONS = ['ab-trending', 'pull', 'decades'] as const
 /**
  * Where a section counts as reached: two thirds of the way down the screen below the header, so a
  * section is the visitor's once it is well in view (Trending as soon as the intro has gone). A
- * header scrolled away (a phone's) leaves the whole screen.
+ * header hidden up the screen (a phone's, as the page scrolls down) leaves the whole screen.
  */
 export function sectionLine(headerBottom: number, viewportHeight: number) {
   const top = Math.max(0, headerBottom)
@@ -91,6 +91,61 @@ export function linkSet({
 }
 
 /**
+ * How far a phone's header waits before it hides (a scroll down from the highest point since it
+ * last showed) and comes back (a scroll up from the lowest point since it hid). Coming back is
+ * the helpful way, so it is the readier.
+ */
+export const HIDE_SLACK = 12
+export const SHOW_SLACK = 8
+
+/** A phone's header: whether it is hidden, and the scroll its last flip, or the farthest since, was at. */
+export type TopState = { hidden: boolean; anchor: number }
+
+/**
+ * A phone's header after the page has scrolled to `y` (under 900px; from 900px it always shows).
+ * A dialog open over the page leaves it as it is. It shows near the top of the page (`eligible`:
+ * scrolled past its own height) and while focus is in it with its ring showing (`focusInTop`).
+ * Shown, it hides when a focus ring is under it (`focusUnder`), which it would cover. A scroll
+ * that a move of focus made (`fromFocus`: Tab, a link's jump) or that no visitor made (`settle`:
+ * the page or the header changing size, a phone's toolbar or keyboard coming or going) leaves it
+ * as it is. Else it hides on a scroll down of HIDE_SLACK and comes back on a scroll up of
+ * SHOW_SLACK, but not over a focus ring.
+ */
+export function topAfter(
+  { hidden, anchor }: TopState,
+  {
+    y,
+    eligible,
+    focusInTop,
+    focusUnder,
+    fromFocus,
+    settle = false,
+    dialogOpen,
+  }: {
+    y: number
+    eligible: boolean
+    focusInTop: boolean
+    focusUnder: boolean
+    fromFocus: boolean
+    settle?: boolean
+    dialogOpen: boolean
+  },
+): TopState {
+  if (dialogOpen) return { hidden, anchor: y }
+  if (focusInTop || !eligible) return { hidden: false, anchor: y }
+  if (focusUnder && !hidden) return { hidden: true, anchor: y }
+  if (fromFocus || settle) return { hidden, anchor: y }
+  if (!hidden) {
+    if (y < anchor) return { hidden, anchor: y }
+    if (y - anchor >= HIDE_SLACK) return { hidden: true, anchor: y }
+    return { hidden, anchor }
+  }
+  if (y > anchor) return { hidden, anchor: y }
+  if (anchor - y >= SHOW_SLACK && !focusUnder) return { hidden: false, anchor: y }
+  return { hidden, anchor }
+}
+
+/**
  * The flight of the intro's buttons into the header and back down, as signed off from draft #22:
  * one 420 ms move with a slight overshoot, the buttons 45 ms apart.
  */
@@ -147,8 +202,10 @@ const layoutTop = (element: HTMLElement) => {
 /**
  * Follows the section the visitor is in as the page scrolls, resizes or changes, and hands its
  * link's address (#pull, say) to `onCurrent` each time it changes, null above the first section.
- * It also writes the set of section links that shows as data-links on `app`: from 900px, where the
- * header is sticky, the intro's buttons dock in it and undock; under 900px they never dock.
+ * It also writes the set of section links that shows as data-links on `app`: from 900px the
+ * intro's buttons dock in the header and undock; under 900px they never dock, and the header (one
+ * row there, its links in a menu) hides as the visitor scrolls down and comes back as they scroll
+ * up (data-hide, see topAfter).
  * `intro()` tells it the intro's buttons (their nav), or null while there is no intro (a search).
  * Returns them, and a stop.
  */
@@ -164,14 +221,20 @@ export function startSectionNav({
   let current: string | null | undefined
   let actions: HTMLElement | null | undefined
   let docked = false
+  let top: TopState = { hidden: false, anchor: scrollY }
+  const wideQuery = matchMedia('(min-width: 900px)')
   let frame = 0
   // A move of focus scrolls the page as it brings what took focus into view (Tab, a link's jump):
-  // such a scroll never flies the buttons. The scroll comes in the frame of the move, before
-  // the frame's own callbacks, so a flag set as focus moves and cleared a frame later tells it.
+  // such a scroll never flies the buttons, and leaves a phone's header as it is. The scroll comes
+  // in the frame of the move, before the frame's own callbacks, so a flag set as focus moves and
+  // cleared a frame later tells it.
   let focusMoved = false
   let scrolledByFocus = false
   // A scroll the visitor made since the last look: only such a scroll flies the buttons.
   let scrolledByVisitor = false
+  // A change of size since the last look (the page, the header, a phone's toolbar or keyboard),
+  // whose scroll is no visitor's: a phone's header takes it as its new starting point.
+  let settle = false
   // The set shown, and the flight under way, if any (its animations).
   let shown: LinkSet | undefined
   let flight: Animation[] | null = null
@@ -296,6 +359,25 @@ export function startSectionNav({
     return null
   }
 
+  // Whether what has focus, showing its ring, is where a phone's header would cover it: its box,
+  // and its ring (7px out, 2px more for a raised pill), reach above the header's bottom while on
+  // the screen. A tap shows no ring, and leaves the header be.
+  const focusUnder = () => {
+    const focused = document.activeElement as HTMLElement | null
+    if (!focused || header.contains(focused) || !focused.matches(':focus-visible')) return false
+    const box = focused.getBoundingClientRect()
+    return box.bottom > 0 && box.top < header.offsetHeight + 9
+  }
+
+  // Whether focus is in the header, showing its ring (a key took it there, or it is the search
+  // box, whose ring always shows): that holds the header on the screen, as components.css does.
+  // A tap that left focus there, or the menu handing it back to the hamburger as it shut after a
+  // tap or a swipe, shows none, and lets it hide.
+  const focusInTop = () => {
+    const focused = document.activeElement
+    return Boolean(focused && header.contains(focused) && focused.matches(':focus-visible'))
+  }
+
   const evaluate = () => {
     frame = 0
     const byVisitor = scrolledByVisitor
@@ -312,15 +394,32 @@ export function startSectionNav({
       current = next
       onCurrent(next)
     }
-    // The links, once the page has said whether it has an intro. Under 900px the header scrolls
-    // away, so the buttons never dock (and neither set is drawn there: the menu holds the links).
     const fromFocus = scrolledByFocus
     scrolledByFocus = false
+    const settled = settle
+    settle = false
+    const wide = wideQuery.matches
+    // A phone's header: hidden on a scroll down, back on a scroll up (see topAfter). The scroll is
+    // kept to the page, so a bounce past either end isn't taken for a scroll.
+    const y = Math.max(0, Math.min(scrollY, document.documentElement.scrollHeight - innerHeight))
+    top = wide
+      ? { hidden: false, anchor: y }
+      : topAfter(top, {
+          y,
+          eligible: y > header.offsetHeight,
+          focusInTop: focusInTop(),
+          focusUnder: focusUnder(),
+          fromFocus,
+          settle: settled,
+          dialogOpen: Boolean(document.querySelector('dialog[open]')),
+        })
+    header.toggleAttribute('data-hide', top.hidden)
+    // The links, once the page has said whether it has an intro. Under 900px the buttons never
+    // dock (and neither set is drawn there: the menu holds the links).
     if (actions === undefined) {
       delete app.dataset.links
       shown = undefined
     } else {
-      const wide = getComputedStyle(header).position === 'sticky'
       if (!wide) docked = false
       else if (actions) {
         // Where the header ends at the top of the page: where the page's main part starts, as
@@ -381,12 +480,15 @@ export function startSectionNav({
     else scrolledByVisitor = true
     soon()
   }
+  // Focus coming into a phone's hidden header (Shift+Tab back up) shows it in the same frame, by
+  // CSS (:has(:focus-visible), with no slide), before the browser would scroll to it.
   const focusCame = () => {
     // Focus moving mid-flight lands it first, so focus never meets a set hidden for it.
     finishFlight()
     focusMoved = true
     requestAnimationFrame(() => (focusMoved = false))
-    // And a look once it has landed, though nothing may scroll.
+    // And a look once it has landed, even with no scroll (focus moved by a script onto something
+    // under a phone's header).
     soon()
   }
   // Tab lands a flight before focus moves.
@@ -412,11 +514,12 @@ export function startSectionNav({
   let width = innerWidth
   const resized = () => {
     // Only a change of width moves what a flight was placed against: a browser's toolbar
-    // showing or hiding as the page scrolls changes only the height.
+    // showing or hiding as the page scrolls changes only the height, as a phone's keyboard does,
+    // and its scroll is no visitor's.
     if (innerWidth !== width) {
       width = innerWidth
       finishFlight()
-    }
+    } else settle = true
     soon()
   }
   addEventListener('resize', resized)
@@ -424,7 +527,10 @@ export function startSectionNav({
   document.addEventListener('focusin', focusCame, true)
   document.addEventListener('keydown', keyDown, true)
   // Sections change size as titles load and lists change, moving those below them.
-  const sizes = new ResizeObserver(soon)
+  const sizes = new ResizeObserver(() => {
+    settle = true
+    soon()
+  })
   sizes.observe(header)
   const main = document.querySelector('main')
   if (main) sizes.observe(main)
@@ -453,6 +559,7 @@ export function startSectionNav({
       sizes.disconnect()
       cancelAnimationFrame(frame)
       delete app.dataset.links
+      header.removeAttribute('data-hide')
     },
   }
 }

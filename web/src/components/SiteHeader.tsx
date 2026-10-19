@@ -14,9 +14,10 @@ export type NavLink = { href: string; label: string; current?: boolean; soon?: b
 /**
  * The logo, the section links and the title search. Under 900px it is one row: a hamburger that
  * opens the menu of the section links (MenuDrawer), as a rightward swipe across the row does, the
- * logo, and the search on the far side. It publishes its own height as --top-h on <html>, so the
- * intro can fill exactly the rest of the first screen, and so what its links jump to lands below
- * it from 900px, where it stays on screen, even when it takes a second row (see components.css).
+ * logo, and the search on the far side, hiding as the page scrolls down and coming back as it
+ * scrolls up (lib/sectionNav.ts). It publishes its own height as --top-h on <html>, so the intro
+ * can fill exactly the rest of the first screen, and so what its links jump to lands below it,
+ * even when it takes a second row (see components.css).
  */
 export function SiteHeader({
   links,

@@ -753,16 +753,23 @@ img[data-broken] {
 }
 
 @media (max-width: 899px) {
-  /* Phones: one row, the hamburger, the logo, and the search on the far side. Relative, not
-     static: the header still scrolls away with the page, but its z-index works again, so the
-     intro's speed lines stay under it, as on desktop. Sideways drags on it are left to the swipe
-     that opens the menu (SiteHeader); up and down still scroll the page, and pinches zoom. */
+  /* Phones: one row, the hamburger, the logo, and the search on the far side. Sticky, as on
+     desktop, it hides up the screen as the page scrolls down and comes back as it scrolls up
+     (data-hide, see lib/sectionNav.ts), but never while focus is in it with its ring showing:
+     Shift+Tab back up shows it in the same frame, so the browser has nothing to scroll to. A
+     tap's focus, or the hamburger the menu hands focus back to after a tap or a swipe, shows no
+     ring, and lets it hide. A transform, so nothing on the page moves. Sideways drags on it are
+     left to the swipe that opens the menu (SiteHeader); up and down still scroll the page, and
+     pinches zoom. */
   .ab-top {
-    position: relative;
     flex-wrap: nowrap;
     align-items: flex-start;
     gap: 8px;
     touch-action: pan-y pinch-zoom;
+  }
+
+  .ab-top[data-hide]:not(:has(:focus-visible)) {
+    transform: translateY(-100%);
   }
 
   /* The menu holds the section links: the header's and the intro's aren't drawn. The intro's
@@ -2288,42 +2295,33 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   }
 }
 
-/* What the header's and the intro's links jump to lands 18px below the header, with room for a
-   focused heading's ring: 96px from the top, under its one 78px row. From 900px the header
-   stays on screen, and widened text spacing (WCAG 1.4.12) can give it a second row, up to 138px
-   tall, where a fixed 96px would leave the top of the heading a link focuses under it. So there
-   the margin follows the header's measured height (--top-h, 78px until SiteHeader has measured
-   it). Below 900px the header scrolls away with the page. */
+/* What the header's, the intro's and the menu's links jump to lands 18px below the header, with
+   room for a focused heading's ring: 96px from the top, under its one 78px row. The header stays
+   on screen at every width (a phone's comes back as the page scrolls up, and stays as a link's
+   jump scrolls the page), and from 900px widened text spacing (WCAG 1.4.12) can give it a second
+   row, up to 138px tall, where a fixed 96px would leave the top of the heading a link focuses
+   under it. So the margin follows the header's measured height (--top-h, 78px until SiteHeader
+   has measured it). A phone's header hidden up the screen leaves 96px of air above. */
 .ab-app section[id],
 .ab-app section[aria-labelledby],
 .ab-app h1[id],
 .ab-app h2[id] {
-  scroll-margin-top: 96px;
+  scroll-margin-top: calc(var(--top-h, 78px) + 18px);
 }
 
 /* What the keyboard focuses in the page: the browser brings it just into view, at the screen's
    edge, where its focus ring (7px beyond it, and 2px more above and to the left of a chosen chip,
-   whose pill sits raised) fell off the screen. So it stops 10px in. */
+   whose pill sits raised) fell off the screen. So it stops 10px in, and at the top below the
+   header, as does the skip link's target: Shift+Tab back up the page left the lever or a panel
+   78px under it. Not as scroll padding for the whole page: Chrome then scrolled to the top as the
+   header's own search box took focus, its place counting as under the header. */
 .ab-app main :is(a, button, input) {
   scroll-margin-block: 10px;
 }
 
-@media (min-width: 900px) {
-  .ab-app section[id],
-  .ab-app section[aria-labelledby],
-  .ab-app h1[id],
-  .ab-app h2[id] {
-    scroll-margin-top: calc(var(--top-h, 78px) + 18px);
-  }
-
-  /* And from 900px, where the header stays on screen, at the top it stops below the header, as
-     does the skip link's target: Shift+Tab back up the page left the lever or a panel 78px under
-     it. Not as scroll padding for the whole page: Chrome then scrolled to the top as the
-     header's own search box took focus, its place counting as under the header. */
-  #main,
-  .ab-app main :is(a, button, input) {
-    scroll-margin-top: calc(var(--top-h, 78px) + 10px);
-  }
+#main,
+.ab-app main :is(a, button, input) {
+  scroll-margin-top: calc(var(--top-h, 78px) + 10px);
 }
 
 /* ---------- Intro: the first screen says what AniBeam is ---------- */
@@ -2987,12 +2985,29 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   }
 }
 
-/* The phone menu, with motion allowed. The hamburger's bars lean into a swipe across the header
-   (--pull, SiteHeader), and it stamps into the paper as it is pressed. The menu slams in from the
-   left with the dock flight's overshoot, hidden by the 24px of panel off the screen, and goes out
-   quickly; a finger dragging it moves it at once; its links slap down as it lands. */
+/* The phone's header and menu, with motion allowed. The header swishes up in 0.2s as it hides
+   and eases back down in 0.28s, with no slide while focus shows its ring in it, so Shift+Tab finds
+   it in place at once. Only under 900px: widening with it hidden doesn't slide it back. The
+   hamburger's bars lean into a swipe across the header (--pull, SiteHeader), and it stamps into
+   the paper as it is pressed. The menu slams in from the left with the dock flight's overshoot,
+   hidden by the 24px of panel off the screen, and goes out quickly; a finger dragging it moves it
+   at once; its links slap down as it lands. */
 @media (prefers-reduced-motion: no-preference) {
   :where(:root:not([data-motion='reduce'])) {
+    @media (max-width: 899px) {
+      .ab-top {
+        transition: transform 0.2s cubic-bezier(0.4, 0, 1, 1);
+      }
+
+      .ab-top:not([data-hide]) {
+        transition: transform 0.28s cubic-bezier(0.2, 0.9, 0.3, 1);
+      }
+
+      .ab-top:has(:focus-visible) {
+        transition: none;
+      }
+    }
+
     .ab-burger svg {
       transform: translateX(calc(var(--pull, 0) * 6px));
     }

@@ -413,8 +413,8 @@ test('under 900px neither the header’s section links nor the intro’s buttons
     )
     assert.equal(
       atTop,
-      '78 relative',
-      `${screen.width}px: the header isn’t one row that scrolls away`,
+      '78 sticky',
+      `${screen.width}px: the header isn’t one row that stays on the screen`,
     )
   }
 })
@@ -1022,8 +1022,8 @@ async function openMenuByClick() {
 }
 
 /**
- * Opens the phone menu from the keyboard, wherever the page is: the header scrolls away with the
- * page on a phone, so a click can't reach its button down the page.
+ * Opens the phone menu from the keyboard, wherever the page is: down the page a phone's header
+ * can be hidden up the screen, where a click can't reach its button.
  */
 async function openMenuByKey() {
   await browser.evaluate(
@@ -1832,4 +1832,357 @@ test('under reduced motion, the device’s or the site’s, the menu doesn’t f
   }
   const still = { opened: true, shift: 0, shut: true, focus: 'Menu', ring: false }
   assert.deepEqual(seen, { 'reduced on the device': still, 'reduced on the site': still })
+})
+
+// ---------- Phones: the header hides on a scroll down, and comes back on a scroll up ----------
+
+// The header: whether the page has it hidden, where it is drawn on the screen, and the scroll.
+const TOP = `(() => {
+  const top = document.querySelector('.ab-top')
+  const box = top.getBoundingClientRect()
+  return { hidden: top.hasAttribute('data-hide'), top: Math.round(box.top), y: Math.round(scrollY) }
+})()`
+type Top = { hidden: boolean; top: number; y: number }
+// Shown at the top of the screen, or hidden up it, as a word for a check's message.
+const where = ({ hidden, top }: Top) =>
+  `${hidden ? 'hidden' : 'shown'}, drawn at ${top === 0 ? 'the top' : top === -78 ? 'up out of sight' : `${top}px`}`
+
+/**
+ * Scrolls a phone to `y` from 60px below it, so its header shows there, as a visitor's scroll up
+ * brings it back.
+ */
+async function headerBackAt(y: number) {
+  await scrollAndSettle(y + 60)
+  await scrollAndSettle(y)
+}
+
+test('on a phone the header stays on the screen: it hides once the page has gone 12px down from its highest point, comes back once it has gone 8px up from its lowest, and shows near the top; from 900px it never hides', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  assert.equal(
+    await browser.evaluate(`getComputedStyle(document.querySelector('.ab-top')).position`),
+    'sticky',
+    'the header doesn’t stay at the top of the screen',
+  )
+  const seen: Record<string, string> = {}
+  for (const [step, y] of [
+    ['at the top', 0],
+    ['70px down, within its own height', 70],
+    ['far down', 1000],
+    ['7px up', 993],
+    ['8px up', 992],
+    ['11px down from there', 1003],
+    ['12px down', 1004],
+    ['further down', 1500],
+    ['8px up again', 1492],
+    ['back near the top, from hidden', 1600],
+    ['60px down', 60],
+  ] as const) {
+    await scrollAndSettle(y)
+    seen[step] = where(await browser.evaluate<Top>(TOP))
+  }
+  const shown = where({ hidden: false, top: 0, y: 0 })
+  const hidden = where({ hidden: true, top: -78, y: 0 })
+  assert.deepEqual(seen, {
+    'at the top': shown,
+    '70px down, within its own height': shown,
+    'far down': hidden,
+    '7px up': hidden,
+    '8px up': shown,
+    '11px down from there': shown,
+    '12px down': hidden,
+    'further down': hidden,
+    '8px up again': shown,
+    'back near the top, from hidden': hidden,
+    '60px down': shown,
+  })
+  await browser.load({ width: 900, height: 900, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  for (const y of [2000, 1990, 3000]) await scrollAndSettle(y)
+  assert.equal(where(await browser.evaluate<Top>(TOP)), shown, '900px, scrolled down')
+})
+
+test('with motion allowed the phone header slides up in 0.2s and back down in 0.28s, easing out; under reduced motion, the device’s or the site’s, it hides and comes back at once; nothing on the page moves', async () => {
+  // The header's own transitions under way: what each moves, how long and how it eases.
+  const sliding = `document.querySelector('.ab-top').getAnimations().map((a) => a.transitionProperty + ' ' + a.effect.getTiming().duration + ' ' + a.effect.getTiming().easing).join(', ')`
+  const seen: Record<string, unknown> = {}
+  for (const motion of ['allowed', 'reduced on the device', 'reduced on the site']) {
+    await browser.watchLayoutShifts()
+    await browser.load({ ...PHONE, reduceMotion: motion === 'reduced on the device' })
+    assert.ok(await browser.titlesShown())
+    if (motion === 'reduced on the site')
+      await browser.evaluate(`document.documentElement.dataset.motion = 'reduce'; true`)
+    await browser.landAll()
+    await browser.animationsDone()
+    const before = (await browser.layoutShift()).value
+    await scrollAndSettle(1000)
+    const hiding = await browser.evaluate<string>(sliding)
+    await browser.animationsDone()
+    const hidden = where(await browser.evaluate<Top>(TOP))
+    await scrollAndSettle(980)
+    const showing = await browser.evaluate<string>(sliding)
+    await browser.animationsDone()
+    const shown = where(await browser.evaluate<Top>(TOP))
+    const shift = (await browser.layoutShift()).value - before
+    seen[motion] = { hiding, hidden, showing, shown, moved: shift < 0.01 ? 'nothing' : shift }
+  }
+  const at = {
+    hidden: where({ hidden: true, top: -78, y: 0 }),
+    shown: where({ hidden: false, top: 0, y: 0 }),
+    moved: 'nothing',
+  }
+  assert.deepEqual(seen, {
+    allowed: {
+      ...at,
+      hiding: 'transform 200 cubic-bezier(0.4, 0, 1, 1)',
+      showing: 'transform 280 cubic-bezier(0.2, 0.9, 0.3, 1)',
+    },
+    'reduced on the device': { ...at, hiding: '', showing: '' },
+    'reduced on the site': { ...at, hiding: '', showing: '' },
+  })
+})
+
+test('on a phone, Shift+Tab back up into the hidden header shows it at once, with the page where it was, and focus with its ring in it keeps it on the screen', async () => {
+  // With motion allowed: a header still sliding down as focus reached it had the browser scroll
+  // the page up to it.
+  await browser.load(PHONE)
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.animationsDone()
+  await scrollAndSettle(1600)
+  await browser.animationsDone()
+  assert.equal(where(await browser.evaluate<Top>(TOP)), where({ hidden: true, top: -78, y: 0 }))
+  // From the page's first stop, at its top, out of sight: back one is the search box.
+  assert.ok(
+    await browser.evaluate(`(() => {
+      const first = [...document.querySelectorAll('main :is(a[href], button, input, [tabindex="0"])')].find((el) => el.checkVisibility())
+      first.focus({ preventScroll: true })
+      return document.activeElement === first && scrollY === 1600
+    })()`),
+    'focus didn’t go to the page’s first stop, or the page moved',
+  )
+  const seen: Record<string, unknown> = {}
+  const look = async () => {
+    const top = await browser.evaluate<Top>(TOP)
+    return {
+      focus: await browser.evaluate<string>(
+        `document.activeElement.getAttribute('aria-label') ?? document.activeElement.placeholder ?? document.activeElement.className`,
+      ),
+      header: where(top),
+      y: top.y,
+    }
+  }
+  await browser.press('Tab', true)
+  // In the same frame, before the page would have scrolled: the header is in place.
+  seen['Shift+Tab, at once'] = await browser.evaluate(`({
+    top: Math.round(document.querySelector('.ab-top').getBoundingClientRect().top),
+    y: Math.round(scrollY),
+  })`)
+  await frames()
+  seen['Shift+Tab onto the search box'] = await look()
+  await browser.press('Tab', true)
+  await frames()
+  seen['Shift+Tab onto AniBeam'] = await look()
+  await browser.evaluate(`scrollBy(0, 400); true`)
+  await frames()
+  seen['then 400px down'] = await look()
+  const shown = where({ hidden: false, top: 0, y: 0 })
+  assert.deepEqual(seen, {
+    'Shift+Tab, at once': { top: 0, y: 1600 },
+    'Shift+Tab onto the search box': { focus: 'Search titles', header: shown, y: 1600 },
+    'Shift+Tab onto AniBeam': { focus: 'ab-logo', header: shown, y: 1600 },
+    'then 400px down': { focus: 'ab-logo', header: shown, y: 2000 },
+  })
+})
+
+test('on a phone the header hides on the next scroll down after the menu shuts by its X, a tap on the dimmed page or a swipe, focus back on the menu button with no ring; after Esc, whose ring shows, it stays', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const seen: Record<string, unknown> = {}
+  await withTouch(async () => {
+    for (const how of ['its X', 'a tap on the dimmed page', 'a swipe to the left', 'Esc']) {
+      await scrollAndSettle(0)
+      await sleep(550)
+      await tapOn('.ab-burger')
+      assert.ok(await browser.waitFor(MENU_OPEN, 2000), `${how}: the menu didn’t open`)
+      if (how === 'its X') await tapOn('.ab-drawer .ab-close')
+      else if (how === 'Esc') await browser.press('Escape')
+      else if (how === 'a swipe to the left') await swipe(line(250, 400, -150, 0, 300))
+      else await tap(375, 600)
+      assert.ok(await browser.waitFor(MENU_SHUT, 2000), `${how}: the menu didn’t shut`)
+      await frames()
+      // A finger's scroll down the page.
+      await browser.send('Input.synthesizeScrollGesture', {
+        x: 195,
+        y: 700,
+        yDistance: -700,
+        speed: 1200,
+        gestureSourceType: 'touch',
+      })
+      await frames()
+      const { focus, ring } = await browser.evaluate<{ focus: string; ring: boolean }>(MENU_STATE)
+      const top = await browser.evaluate<Top>(TOP)
+      seen[how] = { focus, ring, header: where(top), scrolled: top.y > 500 }
+    }
+  })
+  const after = {
+    focus: 'Menu',
+    ring: false,
+    header: where({ hidden: true, top: -78, y: 0 }),
+    scrolled: true,
+  }
+  assert.deepEqual(seen, {
+    'its X': after,
+    'a tap on the dimmed page': after,
+    'a swipe to the left': after,
+    Esc: { ...after, ring: true, header: where({ hidden: false, top: 0, y: 0 }) },
+  })
+})
+
+test('on a phone a scroll that a move of focus makes leaves the header as it is: Tab down keeps it shown, Shift+Tab up keeps it hidden, and a menu link’s jump lands its heading 18px below it', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const panels = await browser.evaluate<number>(
+    `document.querySelectorAll('.ab-grid .ab-link').length`,
+  )
+  const panel = (i: number) => `document.querySelectorAll('.ab-grid .ab-link')[${i}]`
+  const seen: Record<string, unknown> = {}
+  // Shown near the page's top, focus on the last trending panel but one, out of sight below: Tab
+  // to the last brings it up from below.
+  await headerBackAt(200)
+  await browser.evaluate(`${panel(panels - 2)}.focus({ preventScroll: true }); true`)
+  await browser.press('Tab')
+  await frames()
+  let top = await browser.evaluate<Top>(TOP)
+  seen['Tab down the page'] = { header: where(top), scrolled: top.y > 600 ? 'down' : top.y }
+  // Hidden, far down, focus on the last panel: Shift+Tab to the one before brings it down from
+  // above.
+  await scrollAndSettle(`${panel(panels - 1)}.getBoundingClientRect().top + scrollY + 1200`)
+  await browser.evaluate(`${panel(panels - 1)}.focus({ preventScroll: true }); true`)
+  const from = (await browser.evaluate<Top>(TOP)).y
+  await browser.press('Tab', true)
+  await frames()
+  top = await browser.evaluate<Top>(TOP)
+  seen['Shift+Tab up the page'] = {
+    header: where(top),
+    scrolled: top.y < from - 600 ? 'up' : top.y - from,
+  }
+  // Shown near the top, the menu's Pull jumps down the page: the header stays, Pull under it.
+  await browser.evaluate(`document.activeElement.blur(); true`)
+  await headerBackAt(200)
+  await withTouch(async () => {
+    await sleep(550)
+    await tapOn('.ab-burger')
+    assert.ok(await browser.waitFor(MENU_OPEN, 2000), 'the menu didn’t open')
+    await tapOn('.ab-drawer a[href="#pull"]')
+    await browser.waitFor(`!(${MENU_OPEN}) && document.activeElement.id === 'pull'`, 2000)
+  })
+  await frames()
+  top = await browser.evaluate<Top>(TOP)
+  seen['the menu’s Pull'] = {
+    header: where(top),
+    pull: await browser.evaluate(
+      `Math.round(document.getElementById('pull').getBoundingClientRect().top - document.querySelector('.ab-top').getBoundingClientRect().bottom) + 'px below the header'`,
+    ),
+  }
+  const shown = where({ hidden: false, top: 0, y: 0 })
+  assert.deepEqual(seen, {
+    'Tab down the page': { header: shown, scrolled: 'down' },
+    'Shift+Tab up the page': { header: where({ hidden: true, top: -78, y: 0 }), scrolled: 'up' },
+    'the menu’s Pull': { header: shown, pull: '18px below the header' },
+  })
+})
+
+// A trending panel on a phone, placed `top` px below the screen's top with the header shown.
+async function panelUnderHeader(top: number) {
+  const panel = `document.querySelectorAll('.ab-grid .ab-link')[4]`
+  await browser.evaluate(`${panel}.scrollIntoView({ block: 'start', behavior: 'instant' }); true`)
+  await frames()
+  await headerBackAt(
+    await browser.evaluate<number>(`scrollY + ${panel}.getBoundingClientRect().top - ${top}`),
+  )
+  return panel
+}
+
+test('on a phone the header never covers a focus ring: it goes up as focus with its ring comes under it, and waits to come back while one is there; a tap’s focus, with no ring, leaves it be', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const header = async () => where(await browser.evaluate<Top>(TOP))
+  const shown = where({ hidden: false, top: 0, y: 0 })
+  const hidden = where({ hidden: true, top: -78, y: 0 })
+  const seen: Record<string, unknown> = {}
+  // Focus with its ring moved by a script, with no scroll, onto a panel just below the header with
+  // its ring (7px out) under it, and onto one well under it.
+  for (const top of [83, 20]) {
+    await browser.evaluate(`document.activeElement.blur(); true`)
+    const panel = await panelUnderHeader(top)
+    const before = await header()
+    await browser.evaluate(`${panel}.focus({ preventScroll: true, focusVisible: true }); true`)
+    await frames()
+    seen[`focus ${top}px down`] = {
+      before,
+      ring: await browser.evaluate(`document.activeElement.matches(':focus-visible')`),
+      after: await header(),
+    }
+  }
+  // Hidden, with that ring near the top: 20px up and it waits; once the panel is well down, back.
+  const y = (await browser.evaluate<Top>(TOP)).y
+  await scrollAndSettle(y - 20)
+  seen['20px up, the ring near the top'] = await header()
+  await scrollAndSettle(y - 300)
+  seen['300px up, the ring well down'] = await header()
+  // A tap on a panel's part below the header: focus with no ring, and the header stays.
+  await browser.evaluate(`document.activeElement.blur(); true`)
+  const panel = await panelUnderHeader(30)
+  const point = await browser.evaluate<{ x: number; y: number }>(`(() => {
+    const box = ${panel}.getBoundingClientRect()
+    return { x: box.left + box.width / 2, y: box.top + 80 }
+  })()`)
+  const press = { x: point.x, y: point.y, button: 'left', clickCount: 1 }
+  await browser.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...press })
+  await frames()
+  seen['a tap 30px down'] = {
+    ring: await browser.evaluate(`document.activeElement.matches(':focus-visible')`),
+    header: await header(),
+  }
+  await browser.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...press })
+  await browser.waitFor(`document.querySelector('.ab-card[open]')`, 2000)
+  await browser.evaluate(`document.querySelector('.ab-card[open]')?.close(); true`)
+  assert.deepEqual(seen, {
+    'focus 83px down': { before: shown, ring: true, after: hidden },
+    'focus 20px down': { before: shown, ring: true, after: hidden },
+    '20px up, the ring near the top': hidden,
+    '300px up, the ring well down': shown,
+    'a tap 30px down': { ring: false, header: shown },
+  })
+})
+
+test('on a phone, a part that shows only under the header, back on a scroll up, waits to land until it shows below it', async () => {
+  // The pull machine, scrolled up into view with the header coming back: most of what shows of
+  // it is under the header, and less than the 15% a part needs below it. The scroll slam counts
+  // the header as covering the top while it shows (lib/landing.ts).
+  await browser.load(PHONE)
+  assert.ok(await browser.titlesShown())
+  const { top, height } = await browser.evaluate<{ top: number; height: number }>(`(() => {
+    const machine = document.querySelector('.ab-machine')
+    let top = 0
+    for (let el = machine; el; el = el.offsetParent) top += el.offsetTop
+    return { top, height: machine.offsetHeight }
+  })()`)
+  assert.equal(await browser.evaluate(`document.querySelector('.ab-machine').dataset.land`), 'wait')
+  // Below the header, 10px short of 15% of it; above, under the header, 78px more.
+  const below = Math.floor(height * 0.15) - 10
+  const y = top - (78 + below - height)
+  await browser.evaluate(`scrollTo(0, ${y + 80}); true`)
+  await browser.evaluate(`new Promise((resolve) => requestAnimationFrame(() => resolve(true)))`)
+  await browser.evaluate(`scrollTo(0, ${y}); true`)
+  await frames()
+  const now = await browser.evaluate<{ hidden: boolean; land: string }>(
+    `({ hidden: document.querySelector('.ab-top').hasAttribute('data-hide'), land: document.querySelector('.ab-machine').dataset.land })`,
+  )
+  assert.deepEqual(now, { hidden: false, land: 'wait' }, 'it landed under the header')
 })

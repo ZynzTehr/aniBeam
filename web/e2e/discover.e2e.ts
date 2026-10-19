@@ -105,7 +105,7 @@ async function lateFirstAnswer(term: string) {
   const stopAnswering = await answerSearches({ [term]: 20 }, { held: true })
   const titles = `document.querySelectorAll('.ab-results .ab-strip-panel[href]').length`
   // The chip's pill (its radio button is see-through), and the view under the header, or under
-  // the top of the screen once a phone's header has scrolled away.
+  // the top of the screen while a phone's header is hidden up it.
   const chip = `(() => {
     const input = document.querySelector('.ab-eras input:checked'), r = input.nextElementSibling.getBoundingClientRect()
     const below = Math.max(0, document.querySelector('.ab-top').getBoundingClientRect().bottom)
@@ -1641,7 +1641,7 @@ describe('desktop (1440x900)', () => {
     // the header grows to 135 to 138px. A fixed 96px then left the top 46 to 49px of the
     // focused Trending heading, focus ring included, under the header, and 38 to 42px of the
     // Pull section. Without the spacing every target must still land at 96px, as it always
-    // has, and below 900px too, where the header scrolls away with the page.
+    // has, and below 900px too, where the header is one row, shown or hidden up the screen.
     // A resized window draws a frame before anyone can press a key, and only then does the
     // header's new height reach the page (SiteHeader's ResizeObserver sets --top-h). So each
     // resize waits two frames. Without them, on a fast machine, Enter came first at 899px: the
@@ -1728,7 +1728,7 @@ describe('desktop (1440x900)', () => {
     const problems: string[] = []
     try {
       // Without the spacing: on one row, at this describe's width and at 900px, and at 899px,
-      // where the header scrolls away.
+      // where the header is a phone's one row.
       for (const width of [1440, 900, 899]) {
         await resize(width)
         await browser.animationsDone()
@@ -1736,8 +1736,8 @@ describe('desktop (1440x900)', () => {
           const { top, hidden, ring } = await jump(href)
           if (Math.abs(top - 96) > 1)
             problems.push(`${width}px: ${name} lands at ${Math.round(top)}px, not 96px`)
-          // 96px is right only while the header is one row or scrolls away: at 899px a header
-          // that stuck to the top, two rows tall (134px), would hide the target at 96px.
+          // 96px is right only while the header is one row: at 899px a header two rows tall
+          // (134px), as it was, would hide the target at 96px.
           else if (hidden > 0)
             problems.push(
               `${width}px: ${hidden}px of ${name}${ring ? ' and its focus ring' : ''} is under the header`,
@@ -1840,10 +1840,11 @@ describe('desktop (1440x900)', () => {
 
   test('after a resize across 900px made far down the page, the intro still ends at the fold', async () => {
     // The intro fills the first screen under the header, by the header's height (--top-h), and
-    // the header changes rows at 900px: one 78px row from there up, 134px below, where it
-    // scrolls away with the page. A resize made with the header scrolled far off screen must
-    // still give the intro the header's new height, by the time the window has drawn two frames.
-    // Publishing the header's bottom edge (far negative while scrolled away) instead of its
+    // the header changes at 900px: a row of links and the search from there up, a phone's row
+    // below, which hides up the screen as the page scrolls down. A resize made far down the page
+    // must still give the intro the header's new height, by the time the window has drawn two
+    // frames. Publishing the header's bottom edge (far negative while it scrolled away, as it once
+    // did below 900px) instead of its
     // height left trending at 3024px; watching only the links, which keep their size, left it
     // 56px off; and publishing 100ms late went unseen by every other check.
     const frames = () =>
@@ -4779,9 +4780,8 @@ describe('phone (390x844)', () => {
   })
 
   test('the intro’s speed lines stay under the header', async () => {
-    // The intro's speed lines reach up behind the header. On a phone the header scrolls away
-    // with the page instead of sticking, but it should still cover them, as it does on
-    // desktop, so it looks the same with the lines hidden.
+    // The intro's speed lines reach up behind the header. On a phone it should cover them too,
+    // as it does on desktop, so it looks the same with the lines hidden.
     await browser.animationsDone()
     await browser.evaluate('scrollTo(0, 0); true')
     const header = await browser.evaluate<{ x: number; y: number; width: number; height: number }>(
@@ -4965,7 +4965,7 @@ describe('phone (390x844)', () => {
 
   test('on a phone, a new search’s first answer, arriving late, leaves the visitor’s place and focused chip where they were', async () => {
     // As on desktop, with another title: the answer for "macross" is saved, so it would show at
-    // once. Here the header scrolls away with the page. No request is sent.
+    // once. Here the header is one row that hides as the page scrolls down. No request is sent.
     assertPlaceKept(await lateFirstAnswer('patlabor'))
   })
 
