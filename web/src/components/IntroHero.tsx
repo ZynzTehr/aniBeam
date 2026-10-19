@@ -67,7 +67,7 @@ export function IntroHero({
         See what&rsquo;s trending this week, pull a random pick for your mood, or dig through past
         decades. Coming soon: chat with other fans about the shows, movies and OVAs you love.
       </p>
-      {/* Named as the header's and a phone's bar are: the same section links, one set at a time. */}
+      {/* "Sections": the page's section links. The header's, with My List too, are "Site". */}
       <nav ref={actionsRef} className="ab-intro-actions" aria-label="Sections">
         {actions.map((action) => (
           <a key={action.href} className="ab-btn" href={action.href}>

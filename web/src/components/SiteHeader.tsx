@@ -53,7 +53,7 @@ export function SiteHeader({
           AniBeam<rt>アニビーム</rt>
         </ruby>
       </a>
-      {/* "Site": it holds My List too, and shows beside the intro's or a phone bar's "Sections". */}
+      {/* "Site": it holds My List too, and shows beside the intro's "Sections". */}
       <nav className="ab-nav" aria-label="Site">
         {links.map((link) =>
           link.soon ? (

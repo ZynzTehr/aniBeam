@@ -309,14 +309,13 @@ test('a heading reached by a header link or an intro button booms as it takes fo
   })
 })
 
-test('a part coming down from above lands as it shows below the header from 900px, and on a phone at the screen’s top, or below the links bar', async () => {
+test('a part coming down from above lands as it shows below the header from 900px, and at the screen’s top on a phone', async () => {
   // The header stays on screen from 900px wide: what is under it isn't seen. So scrolled up from
   // the foot of the page, 10px a frame, each part must land once 15% of it shows below the header,
   // not while it is still under it, where a heading's boom would play unseen. At rest at the foot,
   // a part peeking in by less lands after a moment, but it too must show below the header. On a
   // phone the header scrolls away with the page: there a part lands as it shows at the top of the
-  // screen, or below the bar of the section links, which a scroll up brings in (lib/sectionNav.ts),
-  // so a part that lands with much more than 15% of it showing landed late.
+  // screen, so a part that lands with much more than 15% of it showing landed late.
   // And at 960px with WCAG's widened text spacing (1.4.12), put on once the page has loaded: the
   // header takes a second row, 137px, and what lands must follow its new height.
   const SPACING = `(async () => {
@@ -352,9 +351,7 @@ test('a part coming down from above lands as it shows below the header from 900p
         // Where its layout puts it: its slam's opening transform moves its box as it lands.
         let top = -scrollY
         for (let el = target; el; el = el.offsetParent) top += el.offsetTop
-        // Under the header, or a phone's bar of the section links while it is in.
-        const bar = document.querySelector('.ab-app').dataset.links === 'bar' ? document.querySelector('.ab-bar').getBoundingClientRect().bottom : 0
-        const height = target.offsetHeight, under = Math.max(header.getBoundingClientRect().bottom, bar)
+        const height = target.offsetHeight, under = header.getBoundingClientRect().bottom
         // What shows of it below the header, or the screen's top once the header has scrolled away.
         const below = Math.max(0, Math.min(top + height, innerHeight) - Math.max(top, under, 0)) / height
         // Late: more than 15% showing, give or take the 40px four frames scroll while the
@@ -624,9 +621,12 @@ test('every part is marked before the browser first draws it, and plays no load-
     await browser.evaluate(
       `document.getElementById('pull').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
     )
+    // Page.reload returns before the new page replaces the old one, which would answer at once,
+    // and the next look would meet the page mid-replacement: so the old one is marked.
+    await browser.evaluate(`window.__beforeReload = true; true`)
     await browser.send('Page.reload', {})
     await browser.waitFor(
-      `document.readyState === 'complete' && document.querySelector('#main')`,
+      `!window.__beforeReload && document.readyState === 'complete' && document.querySelector('#main')`,
       30_000,
     )
     assert.ok(await browser.titlesShown())

@@ -96,12 +96,9 @@ export function outOfSight(
 /**
  * How far down the screen the observer starts: below a header that stays on screen (sticky), and
  * rounded up, as its height can run to a fraction of a pixel and the sliver under it would count
- * as in view; with the header scrolled away, below a phone's bar of the section links while it is
- * in (`bar`, where its bottom rests, 0 while out; never taken as less than 0), and at the top
- * otherwise.
+ * as in view; at the top when the header scrolls away.
  */
-export const coveredBy = (height: number, sticky: boolean, bar = 0) =>
-  sticky ? Math.ceil(height) : Math.max(0, Math.ceil(bar))
+export const coveredBy = (height: number, sticky: boolean) => (sticky ? Math.ceil(height) : 0)
 
 // Node.DOCUMENT_POSITION_FOLLOWING, without needing a DOM to name it.
 const FOLLOWING = 4
@@ -166,19 +163,14 @@ export function startLanding(selector: string) {
   const moved = () => [...lingering.keys()].forEach(linger)
   addEventListener('scroll', moved, { capture: true, passive: true })
   // What is under the sticky header isn't seen, so from 900px wide, where it stays on screen, the
-  // screen the observer watches starts below it; on a phone, below its bar of the section links
-  // while that is in. Its height can change (a second row with wider
+  // screen the observer watches starts below it. Its height can change (a second row with wider
   // text), so the observer is made again for the new height, watching the parts still waiting.
   const header = document.querySelector<HTMLElement>('.ab-top')
-  const app = document.querySelector<HTMLElement>('.ab-app')
-  const bar = document.querySelector<HTMLElement>('.ab-bar')
   const covered = () =>
     header
       ? coveredBy(
           header.getBoundingClientRect().height,
           getComputedStyle(header).position === 'sticky',
-          // Where its bottom rests once in (it starts above the screen's top, and slides in).
-          bar && app?.dataset.links === 'bar' ? bar.offsetTop + bar.offsetHeight : 0,
         )
       : 0
   let top = covered()
@@ -188,19 +180,15 @@ export function startLanding(selector: string) {
       threshold: [0, LANDING_RATIO],
     })
   let observer = watch()
-  const rebuild = () => {
+  const headerSize = new ResizeObserver(() => {
     if (covered() === top) return
     top = covered()
     observer.disconnect()
     observer = watch()
     for (const part of document.querySelectorAll<HTMLElement>(selector))
       if (landOf(part) === 'wait') observer.observe(part)
-  }
-  const headerSize = new ResizeObserver(rebuild)
+  })
   if (header) headerSize.observe(header)
-  // A phone's bar coming in or going out (see lib/sectionNav.ts) moves the top too.
-  const barShown = new MutationObserver(rebuild)
-  if (app) barShown.observe(app, { attributes: true, attributeFilter: ['data-links'] })
   // Waiting parts too, not only new ones: started again (as React's StrictMode does in
   // development), the parts the first start marked would otherwise never be watched.
   const find = () => {
@@ -228,7 +216,6 @@ export function startLanding(selector: string) {
   return () => {
     observer.disconnect()
     headerSize.disconnect()
-    barShown.disconnect()
     arrivals.disconnect()
     document.removeEventListener('focusin', focused, true)
     removeEventListener('scroll', moved, { capture: true })

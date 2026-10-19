@@ -9,7 +9,6 @@ import { coverFan, COVERS } from '../components/coverFan.ts'
 import { IntroHero } from '../components/IntroHero.tsx'
 import { MangaPage, PANELS } from '../components/MangaPage.tsx'
 import { MotionSwitch } from '../components/MotionSwitch.tsx'
-import { SectionBar } from '../components/SectionBar.tsx'
 import { SiteHeader, type NavLink } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
@@ -86,7 +85,6 @@ export default function App() {
   const [currentHref, setCurrentHref] = useState<string | null>(null)
   const appRef = useRef<HTMLDivElement>(null)
   const actionsRef = useRef<HTMLElement>(null)
-  const barRef = useRef<HTMLElement>(null)
   const sectionNav = useRef<ReturnType<typeof startSectionNav>>(null)
   useLayoutEffect(() => {
     const header = document.querySelector<HTMLElement>('.ab-top')
@@ -94,7 +92,6 @@ export default function App() {
     const nav = startSectionNav({
       app: appRef.current,
       header,
-      bar: barRef.current,
       onCurrent: setCurrentHref,
     })
     sectionNav.current = nav
@@ -307,7 +304,6 @@ export default function App() {
         onSearch={(shown, text) => setSearch({ shown, text })}
         currentHref={currentHref}
       />
-      <SectionBar links={HEADER_LINKS} currentHref={currentHref} barRef={barRef} />
       <main id="main">
         <p role="status" className="sr-only">
           {announcement}

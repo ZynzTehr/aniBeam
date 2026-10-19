@@ -69,77 +69,25 @@ export function dockedAfter(
   return actionsTop < headerBottom + Math.min(Math.max(homeGap, 0), UNDOCK_GAP)
 }
 
-/** Which set of section links shows: the intro's buttons, the header's links, or a phone's bar. */
-export type LinkSet = 'intro' | 'header' | 'bar'
+/** Which set of section links shows: the intro's buttons or the header's links. */
+export type LinkSet = 'intro' | 'header'
 
 /**
- * Which set shows: the one that has focus, so that focus is never hidden; a phone's bar while it
- * is in; the header's with no intro on the page (while searching); otherwise the header's once
- * the buttons are docked.
+ * Which set shows: the one that has focus, so that focus is never hidden; the header's with no
+ * intro on the page (while searching); otherwise the header's once the buttons are docked.
  */
 export function linkSet({
   introOnPage,
   docked,
-  barIn,
   held,
 }: {
   introOnPage: boolean
   docked: boolean
-  barIn: boolean
   held: LinkSet | null
 }): LinkSet {
   if (held) return held
-  if (barIn) return 'bar'
   if (!introOnPage) return 'header'
   return docked ? 'header' : 'intro'
-}
-
-/** How far the page must scroll against the bar's way (up while out, down while in) to flip it. */
-export const BAR_SLACK = 8
-
-/** A phone's bar: whether it is in, and the scroll its last flip, or the farthest since, was at. */
-export type BarState = { barIn: boolean; anchor: number }
-
-/**
- * A phone's bar after the page has scrolled to `y`. It is in only once what it stands for has
- * scrolled away (`eligible`: the intro's buttons, or the header while searching), and never over
- * what has focus (`focusUnder`), unless focus is in it; a dialog open over the page leaves it as
- * it is, and so does a scroll that a move of focus made (`fromFocus`, as Tab and a link's jump
- * do), unless that left focus under it. Else it
- * comes in on a scroll up of BAR_SLACK or more, from the lowest point since it went out, and goes
- * out on a scroll down of as much, from the highest point since it came in, unless focus is in it.
- */
-export function barAfter(
-  { barIn, anchor }: BarState,
-  {
-    y,
-    eligible,
-    focusInBar,
-    focusUnder,
-    fromFocus,
-    dialogOpen,
-  }: {
-    y: number
-    eligible: boolean
-    focusInBar: boolean
-    focusUnder: boolean
-    fromFocus: boolean
-    dialogOpen: boolean
-  },
-): BarState {
-  if (dialogOpen) return { barIn, anchor: y }
-  // Never over what has focus, a scroll that a move of focus made included (Shift+Tab to
-  // something above the screen brings it in at the top, under the bar).
-  if (!focusInBar && (!eligible || focusUnder)) return { barIn: false, anchor: y }
-  if (fromFocus) return { barIn, anchor: y }
-  if (barIn) {
-    if (y < anchor) return { barIn, anchor: y }
-    if (y - anchor >= BAR_SLACK && !focusInBar) return { barIn: false, anchor: y }
-    return { barIn, anchor }
-  }
-  if (y > anchor) return { barIn, anchor: y }
-  if (anchor - y >= BAR_SLACK) return { barIn: true, anchor: y }
-  return { barIn, anchor }
 }
 
 /**
@@ -207,22 +155,18 @@ const layoutTop = (element: HTMLElement) => {
 export function startSectionNav({
   app,
   header,
-  bar,
   onCurrent,
 }: {
   app: HTMLElement
   header: HTMLElement
-  /** A phone's bar of the section links (SectionBar): inert while it isn't the set shown. */
-  bar: HTMLElement | null
   onCurrent: (href: string | null) => void
 }) {
   let current: string | null | undefined
   let actions: HTMLElement | null | undefined
   let docked = false
-  let barState: BarState = { barIn: false, anchor: scrollY }
   let frame = 0
   // A move of focus scrolls the page as it brings what took focus into view (Tab, a link's jump):
-  // such a scroll leaves a phone's bar as it is. The scroll comes in the frame of the move, before
+  // such a scroll never flies the buttons. The scroll comes in the frame of the move, before
   // the frame's own callbacks, so a flag set as focus moves and cleared a frame later tells it.
   let focusMoved = false
   let scrolledByFocus = false
@@ -242,7 +186,6 @@ export function startSectionNav({
   const apply = (set: LinkSet) => {
     shown = set
     app.dataset.links = set
-    if (bar) bar.inert = set !== 'bar'
   }
 
   // Ends a flight where it was going, at once: on landing, and as anything cuts it short (Tab, a
@@ -350,22 +293,7 @@ export function startSectionNav({
     if (!focused || focused === document.body) return null
     if (actions?.contains(focused)) return 'intro'
     if (focused.matches('.ab-top .ab-nav a')) return 'header'
-    if (bar?.contains(focused)) return 'bar'
     return null
-  }
-
-  // Whether what has focus is under a phone's bar, where it would hide it: its box, and its ring
-  // (7px out, 2px more for a raised pill), reach above the bar's bottom while on the screen.
-  const focusUnder = () => {
-    const focused = document.activeElement as HTMLElement | null
-    if (!bar || !focused || focused === document.body || bar.contains(focused)) return false
-    // Only focus that shows its ring: a tap that focuses something partly under the bar shows
-    // none, and shouldn't push the bar away.
-    if (!focused.matches(':focus-visible')) return false
-    const shown = focused.matches('label > input') ? focused.nextElementSibling : focused
-    const box = (shown ?? focused).getBoundingClientRect()
-    // The bar's bottom where it rests (it starts above the screen's top, for its overshoot).
-    return box.bottom > 0 && box.top < bar.offsetTop + bar.offsetHeight + 9
   }
 
   const evaluate = () => {
@@ -406,26 +334,10 @@ export function startSectionNav({
           scrollY,
         })
       }
-      // A phone's bar, once what it stands for has scrolled off the top: the intro's buttons, or,
-      // with no intro, the header.
-      const y = Math.max(0, Math.min(scrollY, document.documentElement.scrollHeight - innerHeight))
-      barState = wide
-        ? { barIn: false, anchor: y }
-        : barAfter(barState, {
-            y,
-            eligible: actions
-              ? layoutTop(actions) + actions.offsetHeight - scrollY <= 0
-              : headerBottom <= 0,
-            focusInBar: held() === 'bar',
-            focusUnder: focusUnder(),
-            fromFocus,
-            dialogOpen: Boolean(document.querySelector('dialog[open]')),
-          })
       const focusHeld = held()
       const set = linkSet({
         introOnPage: Boolean(actions),
         docked,
-        barIn: barState.barIn,
         held: focusHeld,
       })
       // The buttons fly between the intro and the header only as the visitor scrolls them past
@@ -475,8 +387,7 @@ export function startSectionNav({
     finishFlight()
     focusMoved = true
     requestAnimationFrame(() => (focusMoved = false))
-    // And a look once it has landed, even with no scroll and nothing left (Tab from the page's
-    // start onto something already under a phone's bar).
+    // And a look once it has landed, though nothing may scroll.
     soon()
   }
   // Tab lands a flight before focus moves.
@@ -495,49 +406,12 @@ export function startSectionNav({
   })
   // Focus leaving a set that it held: the set the page is at may now show, once focus has landed
   // (as it leaves, the page still reports it where it was), so a frame later.
-  const focusLeft = (event: FocusEvent) => {
-    soon()
-    // A phone's bar stops being drawn as the page widens past 900px, and the browser can drop
-    // focus from it before the resize is heard: then too, focus goes on to the header's link.
-    const left = event.target as HTMLElement | null
-    if (!event.relatedTarget && left && bar?.contains(left))
-      requestAnimationFrame(() => {
-        const nowhere = !document.activeElement || document.activeElement === document.body
-        if (nowhere && getComputedStyle(header).position === 'sticky') handOff(left)
-      })
-  }
+  const focusLeft = () => soon()
   addEventListener('scroll', scrolled, { passive: true })
-  // Hands focus from a link in a phone's bar on to the header's link to the same place, the
-  // header's links shown first: hidden, they couldn't take it.
-  const handOff = (from: HTMLElement) => {
-    apply('header')
-    header
-      .querySelector<HTMLElement>(`.ab-nav a[href="${from.getAttribute('href')}"]`)
-      ?.focus({ preventScroll: true })
-  }
   // A resize that changes the width lands a flight under way: its copies were placed for the page
-  // as it was. Widened past 900px with focus in a phone's bar, which isn't drawn there, focus goes
-  // on to the header's link to the same place: at once, before the browser drops it from the bar
-  // to the page's start.
+  // as it was.
   let width = innerWidth
   const resized = () => {
-    const focused = document.activeElement as HTMLElement | null
-    const sticky = getComputedStyle(header).position === 'sticky'
-    if (focused && bar?.contains(focused) && sticky) handOff(focused)
-    // And back: narrowed below 900px with focus on a header link the header has taken off the
-    // screen as it scrolled away, focus goes on to the bar's link to the same place.
-    else if (
-      bar &&
-      focused?.matches('.ab-top .ab-nav a') &&
-      !sticky &&
-      header.getBoundingClientRect().bottom <= 0
-    ) {
-      barState = { barIn: true, anchor: scrollY }
-      apply('bar')
-      bar
-        .querySelector<HTMLElement>(`a[href="${focused.getAttribute('href')}"]`)
-        ?.focus({ preventScroll: true })
-    }
     // Only a change of width moves what a flight was placed against: a browser's toolbar
     // showing or hiding as the page scrolls changes only the height.
     if (innerWidth !== width) {
@@ -577,7 +451,6 @@ export function startSectionNav({
       removeEventListener('resize', resized)
       document.removeEventListener('focusout', focusLeft, true)
       document.removeEventListener('focusin', focusCame, true)
-      if (bar) bar.inert = true
       sizes.disconnect()
       cancelAnimationFrame(frame)
       delete app.dataset.links

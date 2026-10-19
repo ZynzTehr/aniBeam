@@ -41,7 +41,6 @@
 }
 
 .ab-nav a,
-.ab-bar a,
 .ab-search input {
   display: inline-flex;
   min-height: 44px;
@@ -69,8 +68,8 @@
    taken out: both keep their room, so nothing moves, and neither can be reached or read. My List
    stays. Under 900px the buttons never dock: the header's links show only while searching. With
    no data-links (the gallery), both show. */
-.ab-app:is([data-links='intro'], [data-links='bar'], [data-links='none']) .ab-top .ab-nav a,
-.ab-app:is([data-links='header'], [data-links='bar'], [data-links='none']) .ab-intro-actions {
+.ab-app:is([data-links='intro'], [data-links='none']) .ab-top .ab-nav a,
+.ab-app:is([data-links='header'], [data-links='none']) .ab-intro-actions {
   visibility: hidden;
 }
 
@@ -129,68 +128,19 @@
   white-space: nowrap;
 }
 
-/* A phone's bar of the section links (SectionBar): fixed at the top, out of the page's flow, so
-   it moves nothing. Out of sight above the screen and hidden until it is the set shown, when it
-   comes down; inside the motion gate below, it slides, with the site's spring, which overshoots:
-   so it starts 12px above the screen's top, and what shows as it overshoots is more bar, never a
-   strip of the page above it. Not drawn from 900px, where the header stays on screen. */
-.ab-bar {
-  position: fixed;
-  z-index: 30;
-  top: -12px;
-  right: 0;
-  left: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: calc(9px + 12px) var(--page-x) 9px;
-  border-bottom: var(--border) solid var(--ink);
-  background: var(--paper);
-  transform: translateY(calc(-100% - 8px));
-  visibility: hidden;
-}
-
-.ab-app[data-links='bar'] .ab-bar {
-  transform: none;
-  visibility: visible;
-}
-
-@media (min-width: 900px) {
-  .ab-bar {
-    display: none;
-  }
-}
-
-/* With motion allowed, the bar slides down and back up, and is hidden only once it is up. */
-@media (prefers-reduced-motion: no-preference) {
-  :where(:root:not([data-motion='reduce'])) {
-    .ab-bar {
-      transition:
-        transform 0.22s var(--spring),
-        visibility 0s 0.22s;
-    }
-
-    .ab-app[data-links='bar'] .ab-bar {
-      transition:
-        transform 0.22s var(--spring),
-        visibility 0s;
-    }
-  }
-}
-
 /* The link to the section the visitor is in (aria-current="location", see lib/sectionNav.ts) is
    sound-effect yellow, raised with a hard shadow, as a picked chip is; hovered or pressed, it
    turns ink, as every header link does, so the two never look alike. The raise is a transform
    and a shadow, which take no room: the header keeps its size. */
-:is(.ab-nav, .ab-bar) a[aria-current='location'] {
+.ab-nav a[aria-current='location'] {
   background: var(--sun);
   box-shadow: 3px 3px 0 var(--ink);
   color: var(--ink);
   transform: translate(-2px, -2px);
 }
 
-:is(.ab-nav, .ab-bar) a:hover,
-:is(.ab-nav, .ab-bar) a:active {
+.ab-nav a:hover,
+.ab-nav a:active {
   background: var(--ink);
   color: #fff;
 }
@@ -2651,7 +2601,7 @@ body:has(.ab-card[open]) {
    so here it takes the theme's text color. That rule ties with the decade chips' brand ring, so
    it has to come after it. */
 @media (forced-colors: active) {
-  :is(.ab-nav, .ab-bar) a[aria-current='location'],
+  .ab-nav a[aria-current='location'],
   .ab-chip input:checked + span {
     border-color: Highlight;
     background: Highlight;
@@ -2660,7 +2610,7 @@ body:has(.ab-card[open]) {
     forced-color-adjust: none;
   }
 
-  :is(.ab-nav, .ab-bar) a[aria-current='location']:focus-visible,
+  .ab-nav a[aria-current='location']:focus-visible,
   .ab-chip input:checked:focus-visible + span {
     outline-color: CanvasText;
   }
