@@ -1688,7 +1688,8 @@ test('a click straight after the swipe that opened the menu, where the finger li
   const seen: Record<string, unknown> = {}
   await withTouch(async () => {
     await swipe(line(logo, 39, 80, 0, 160))
-    // The click a browser may send where the finger lifted: on AniBeam, a link to the page's top.
+    // Stands in for a click a browser may send where the finger lifted (Chrome sends none after a
+    // finger that moved, so a check can't make one): on AniBeam, a link to the page's top.
     await browser.evaluate(`document.querySelector('.ab-logo').click(); true`)
     await sleep(300)
     seen.straight = {
@@ -1720,6 +1721,21 @@ test('dragging the open menu left moves it with the finger, and only a little to
   const settle = () =>
     browser.waitFor(`document.querySelector('.ab-drawer').getAnimations().length === 0`, 2000)
   await withTouch(async () => {
+    // First, on the page as it loaded: opened by a swipe on the header, not a tap, then dragged
+    // shut. No tap anywhere yet, and still no ring on the menu button.
+    const logo = await browser.evaluate<number>(
+      `(({ left, width }) => left + width / 2)(document.querySelector('.ab-logo').getBoundingClientRect())`,
+    )
+    await swipe(line(logo, 39, 80, 0, 400))
+    assert.ok(await browser.waitFor(MENU_OPEN, 2000), 'the swipe didn’t open the menu')
+    await settle()
+    await swipe(line(250, 400, -120, 0, 800))
+    await browser.waitFor(MENU_SHUT, 2000)
+    await settle()
+    await frames()
+    seen['swiped open, dragged shut'] = await browser.evaluate(MENU_STATE)
+    // Past the 500 ms in which a click is taken for the swipe's own.
+    await sleep(550)
     await open()
     // Sampled halfway: 40px left of 80, then 50px right of 100.
     let left = 0
@@ -1778,6 +1794,7 @@ test('dragging the open menu left moves it with the finger, and only a little to
     'a drag up and down': { open: true },
     'past 30%, slowly': shut,
     'a quick 60px flick': shut,
+    'swiped open, dragged shut': shut,
   })
 })
 
@@ -1806,9 +1823,13 @@ test('under reduced motion, the device’s or the site’s, the menu doesn’t f
           shift = await browser.evaluate(PANEL_SHIFT)
         },
       })
-      seen[motion] = { opened, shift, shut: await browser.waitFor(MENU_SHUT, 2000) }
+      const shut = await browser.waitFor(MENU_SHUT, 2000)
+      await frames()
+      // Swiped open and dragged shut, no tap anywhere: focus back on Menu, with no ring.
+      const { focus, ring } = await browser.evaluate<{ focus: string; ring: boolean }>(MENU_STATE)
+      seen[motion] = { opened, shift, shut, focus, ring }
     })
   }
-  const still = { opened: true, shift: 0, shut: true }
+  const still = { opened: true, shift: 0, shut: true, focus: 'Menu', ring: false }
   assert.deepEqual(seen, { 'reduced on the device': still, 'reduced on the site': still })
 })

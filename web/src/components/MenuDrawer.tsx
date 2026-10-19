@@ -111,7 +111,15 @@ export function MenuDrawer({
         // Shut, the panel slides off from where the finger left it; else it springs back. Its
         // width is the page's, without the 24px waiting off the screen.
         const page = dialog.firstElementChild as HTMLElement
-        if (shuts(s, page.offsetWidth)) dialog.close()
+        if (!shuts(s, page.offsetWidth)) return
+        dialog.close()
+        // The dialog has handed focus back to the hamburger, and Chrome rings it when the menu
+        // was opened by a swipe, no tap having come first. A finger shut it, so no ring: focus
+        // goes again, this time without (a second focus() on the focused button does nothing).
+        const back = document.activeElement
+        if (!(back instanceof HTMLElement) || back === document.body) return
+        back.blur()
+        back.focus({ preventScroll: true, focusVisible: false })
       }}
       onPointerCancel={(e) => {
         swipe.current = null
