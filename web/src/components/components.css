@@ -2059,6 +2059,22 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     grid-template-columns: 1fr;
   }
 
+  /* Stacked, the art is as narrow as its cover, as it is beside the text, so the Japanese title
+     hangs off the cover's top-left as it does there. Stretched across the card, the art put it 6%
+     of the card's width out, far from the cover: on the card's border on a phone, and off the
+     card and the screen on a tablet in portrait. The cover is small here, so the column stands a
+     whole character out beside it, where 6% of it would show only a sliver. */
+  .ab-sheet-art {
+    justify-self: center;
+  }
+
+  /* Its fall (ab-fall) starts 16% of its height higher, up to 60px here, but only about 45px of
+     card stand above it, under the close button: its first frames poked out of the card's top. */
+  .ab-native {
+    --fall: -40px;
+    left: -1em;
+  }
+
   .ab-sheet-art img {
     width: min(56vw, 230px);
   }
@@ -2302,7 +2318,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 @keyframes ab-fall {
   from {
     opacity: 0;
-    transform: translateY(-16%);
+    transform: translateY(var(--fall, -16%));
   }
 }
 
@@ -2350,7 +2366,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 @keyframes ab-fall-back {
   from {
     opacity: 0;
-    transform: translateY(-16%);
+    transform: translateY(var(--fall, -16%));
   }
 }
 

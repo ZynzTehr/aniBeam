@@ -5100,6 +5100,129 @@ function switchOnPhoneChecks(width: number) {
   })
 }
 
+describe('the title card, from a small phone to a wide screen', () => {
+  // Phones and tablets get Chrome's mobile emulation, as a visitor's device would, desktops not.
+  const SCREENS = [
+    [320, 568],
+    [375, 667],
+    [390, 844],
+    [430, 932],
+    [768, 1024],
+    [820, 1180],
+    [834, 1112],
+    [1024, 768],
+    [1440, 900],
+  ] as const
+
+  /**
+   * Holds every animation the page starts from now on, from the moment `act` makes it start, for
+   * a check to play by hand (window.__held). Resolves to how many it held, or null if none started
+   * in 5 seconds. Opening the card starts its opening; closing it, its way back.
+   */
+  const holdWhat = (act: string) => `new Promise((resolve) => {
+    const running = new Set(document.getAnimations())
+    const watch = new MutationObserver(() => {
+      const started = document.getAnimations().filter((a) => !running.has(a))
+      if (!document.querySelector('dialog.ab-card')?.open || !started.length) return
+      watch.disconnect()
+      started.forEach((a) => a.pause())
+      window.__held = started
+      resolve(started.length)
+    })
+    watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open', 'class'] })
+    setTimeout(() => resolve(null), 5000)
+    ${act}
+  })`
+
+  /**
+   * Plays what holdWhat held, one 60 Hz frame at a time to its end, and says how far past the
+   * screen `width`px wide (its sides and top) and past the card's sheet the Japanese title ever
+   * stood while it showed at all, side by side, in px, rounded, and when it stood furthest; or
+   * null if it never did. `when` names the moment, for the message.
+   */
+  async function nativeOutside(width: number, when: string) {
+    return browser.evaluate<string | null>(`(async () => {
+      const end = Math.max(...window.__held.map((a) => a.effect.getComputedTiming().endTime))
+      const worst = new Map()
+      for (let at = 0; at < end + 1000 / 60; at += 1000 / 60) {
+        for (const a of window.__held) a.currentTime = Math.min(at, end)
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+        const native = document.querySelector('.ab-card .ab-native')
+        if (!native) break // closed: the card leaves as its way back ends
+        if (Number(getComputedStyle(native).opacity) === 0) continue
+        const n = native.getBoundingClientRect(), s = document.querySelector('.ab-sheet').getBoundingClientRect()
+        const past = {
+          'the left of the screen': -n.left,
+          'the right of the screen': n.right - ${width},
+          'the top of the screen': -n.top,
+          'the left of the sheet': s.left - n.left,
+          'the right of the sheet': n.right - s.right,
+          'the top of the sheet': s.top - n.top,
+          'the bottom of the sheet': n.bottom - s.bottom,
+        }
+        for (const [side, px] of Object.entries(past))
+          if (px > 0.5 && px > (worst.get(side)?.px ?? 0))
+            worst.set(side, { px, at: at > end ? 'at rest' : Math.round(at) + ' ms in' })
+      }
+      for (const a of window.__held) a.finish()
+      return worst.size ? ${JSON.stringify(when)} + ': ' + [...worst].map(([side, { px, at }]) => Math.round(px) + 'px past ' + side + ' (' + at + ')').join(', ') : null
+    })()`)
+  }
+
+  test('the Japanese title behind the cover stays whole on the screen and inside the card, as it opens, at rest and as it closes', async () => {
+    // The title's Japanese name stands in a tall ghost column behind the cover, hanging off its
+    // top-left (6% of the art's width out beside the text, a whole character out when stacked). On
+    // a phone or a tablet in portrait the card stacks, and the art used to stretch across the
+    // card with the cover in its middle, so 6% of the art put the
+    // column on the card's border on a phone, and 7 to 10px off the screen and 17 to 20px out of
+    // the card on a tablet in portrait, far from the cover. And the first frames of its fall
+    // poked up to 8px out of the card's top there. The first two trending titles are opened at
+    // each size, their opening and closing played by hand one 60 Hz frame at a time: wherever
+    // the column shows at all, it must lie on the screen and inside the card's sheet.
+    const off: string[] = []
+    for (const [width, height] of SCREENS) {
+      await browser.load({ width, height, phone: width < 900 })
+      assert.ok(await browser.titlesShown(), `at ${width}px wide, the titles never appeared`)
+      for (let panel = 0; panel < 2; panel++) {
+        const opening = await browser.evaluate<number | null>(
+          holdWhat(`document.querySelectorAll('.ab-grid .ab-link')[${panel}].click()`),
+        )
+        assert.ok(opening, `at ${width}px wide, trending title ${panel + 1}'s card did not open`)
+        await browser.evaluate(
+          `document.querySelector('dialog.ab-card img').decode().catch(() => {}).then(() => true)`,
+        )
+        const name = await browser.evaluate<string>(
+          `document.querySelector('#ab-card-title').textContent.replace(/\\s+/g, ' ').trim()`,
+        )
+        assert.ok(
+          await browser.evaluate(`Boolean(document.querySelector('.ab-card .ab-native'))`),
+          `${name} has no Japanese title to check`,
+        )
+        const where = `at ${width}x${height}, ${name}`
+        off.push((await nativeOutside(width, `${where}, opening`)) ?? '')
+        assert.ok(
+          await browser.waitFor(`document.querySelector('.ab-card.is-landed')`, 5000),
+          `${where}: the card never finished opening`,
+        )
+        const closing = await browser.evaluate<number | null>(
+          holdWhat(`document.querySelector('dialog.ab-card .ab-close').click()`),
+        )
+        assert.ok(closing, `${where}: the card did not start to close`)
+        off.push((await nativeOutside(width, `${where}, closing`)) ?? '')
+        assert.ok(
+          await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000),
+          `${where}: the card did not close`,
+        )
+      }
+    }
+    assert.deepEqual(
+      off.filter(Boolean),
+      [],
+      'how far the Japanese title behind the cover stood past the screen or the card, at each size, for each title, as its card opened and as it closed, at its furthest while it showed',
+    )
+  })
+})
+
 describe('Windows contrast themes (forced colors)', () => {
   // A contrast theme replaces the page's colors with a few the visitor picked (forced colors).
   // Chrome emulates one in a light palette and a dark one.
