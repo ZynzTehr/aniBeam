@@ -334,10 +334,12 @@ export function startSectionNav({
       if (look.yellow) pill.classList.add('is-current')
       if (soon) pill.classList.add('is-soon')
       // Its labels, in a box clipped to the pill as it grows or shrinks: what each end shows, My
-      // List's Soon tag too.
+      // List's Soon tag too. My List reads the same at both ends, so it has one label, which stays:
+      // fading it out and the same words back in would leave the pill empty halfway.
       const text = chip.appendChild(document.createElement('span'))
       text.className = 'ab-flight-text'
-      const [leaving, arriving] = [button, link].map((source) => {
+      const same = button.textContent === link.textContent
+      const [leaving, arriving] = (same ? [button] : [button, link]).map((source) => {
         const label = text.appendChild(document.createElement('span'))
         label.className = soon ? 'ab-flight-label is-soon' : 'ab-flight-label'
         label.append(...[...source.childNodes].map((node) => node.cloneNode(true)))
@@ -359,8 +361,12 @@ export function startSectionNav({
         shadow.animate(frames.pill, moving),
         shadow.animate(frames.shadow, timing),
         text.animate(frames.text, moving),
-        (toHeader ? leaving : arriving).animate(frames.leaving, timing),
-        (toHeader ? arriving : leaving).animate(frames.arriving, timing),
+        ...(same
+          ? []
+          : [
+              (toHeader ? leaving : arriving).animate(frames.leaving, timing),
+              (toHeader ? arriving : leaving).animate(frames.arriving, timing),
+            ]),
       ]
     })
     const landing = flight

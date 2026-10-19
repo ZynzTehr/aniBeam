@@ -888,7 +888,7 @@ test('the intro’s buttons are the landmark named Sections, read only while the
   )
 })
 
-test('mid-flight both sets hide, each copy starts where it leaves, its labels cross the right way, only a dock lands yellow, and My List’s copy keeps the Soon look', async () => {
+test('mid-flight both sets hide, each copy starts where it leaves, its labels cross the right way, only a dock lands yellow, and My List’s copy keeps the Soon look, with one steady label', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())
   await browser.landAll()
@@ -896,20 +896,20 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
   const dockAt = await browser.evaluate<number>(DOCK_AT)
   // Each copy: its labels' opacity at start and end, in the order the copy holds them (the
   // button's, then the link's), whether it is held at its start during its stagger, and its pill:
-  // My List's dashed and see-through, its labels greyed and marked Soon, as at both ends.
+  // My List's dashed and see-through, its one label greyed and marked Soon, as at both ends, and
+  // steady, as it reads the same at both.
   const copies = `(() => ({
     layer: getComputedStyle(document.querySelector('.ab-flight')).position,
     hidden: [...document.querySelectorAll('.ab-top .ab-nav > *, .ab-intro-actions > *')].every((el) => getComputedStyle(el).visibility === 'hidden'),
     copies: [...document.querySelectorAll('.ab-flight-chip')].map((chip) => ({
-      labels: [...chip.querySelectorAll('.ab-flight-label')].map((label) => label.getAnimations()[0].effect.getKeyframes().map((k) => Number(k.opacity)).filter((o, i, all) => i === 0 || i === all.length - 1).join(' to ')),
+      labels: [...chip.querySelectorAll('.ab-flight-label')].map((label) => label.getAnimations()[0]?.effect.getKeyframes().map((k) => Number(k.opacity)).filter((o, i, all) => i === 0 || i === all.length - 1).join(' to ') ?? 'steady'),
       held: getComputedStyle(chip).transform !== 'none',
       yellow: chip.querySelector('.ab-flight-pill').classList.contains('is-current'),
       look: (({ borderTopStyle, backgroundColor }) => borderTopStyle + ' ' + backgroundColor)(getComputedStyle(chip.querySelector('.ab-flight-pill'))) + ' | ' +
         [...chip.querySelectorAll('.ab-flight-label')].map((label) => label.textContent.replace(/\\s+/g, ' ').trim() + ' ' + getComputedStyle(label).color).join(' / '),
     })),
   }))()`
-  const SOON_COPY =
-    'dashed rgba(0, 0, 0, 0) | My List Soon rgba(20, 20, 20, 0.7) / My List Soon rgba(20, 20, 20, 0.7)'
+  const SOON_COPY = 'dashed rgba(0, 0, 0, 0) | My List Soon rgba(20, 20, 20, 0.7)'
   // The first frame after the scroll, read in the page with the flight paused there, so no time
   // passes between: the third copy's 90ms stagger hasn't run out, so it must wait at its start.
   const firstFrame = (y: number) =>
@@ -934,7 +934,7 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
     {
       layer: 'fixed',
       hidden: true,
-      labels: ['1 to 0, 0 to 1', '1 to 0, 0 to 1', '1 to 0, 0 to 1', '1 to 0, 0 to 1'],
+      labels: ['1 to 0, 0 to 1', '1 to 0, 0 to 1', '1 to 0, 0 to 1', 'steady'],
       held: [true, true, true, true],
       yellow: [true, false, false, false],
       soon: [false, false, false, true],
@@ -965,7 +965,7 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
     {
       layer: 'absolute',
       hidden: true,
-      labels: ['0 to 1, 1 to 0', '0 to 1, 1 to 0', '0 to 1, 1 to 0', '0 to 1, 1 to 0'],
+      labels: ['0 to 1, 1 to 0', '0 to 1, 1 to 0', '0 to 1, 1 to 0', 'steady'],
       yellow: [false, false, false, false],
       soon: [false, false, false, true],
     },
@@ -973,7 +973,7 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
   )
 })
 
-test('throughout a flight of the four copies each one’s label sits on its middle, shows only inside its pill, crosses with the other without a pile-up, and one landed early holds its look', async () => {
+test('throughout a flight of the four copies each one’s label sits on its middle, shows only inside its pill, crosses with the other without a pile-up, or, reading the same at both ends as My List’s does, stays at full strength; and one landed early holds its look', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())
   await browser.landAll()
@@ -981,8 +981,9 @@ test('throughout a flight of the four copies each one’s label sits on its midd
   // The paused flight stepped 20ms at a time from its start to just before the last copy lands
   // (all in one go in the page, so it can't land and go between steps), each step measured: what
   // shows of a label (its box, cut to its clip if it has one) must lie on the copy's middle and
-  // within its pill, the labels' strengths add up to one at most, and a copy past its own end
-  // shows the shadow it lands with.
+  // within its pill, the labels' strengths add up to one at most, a copy whose ends read the same
+  // (My List's) shows its label at full strength throughout, with nothing to cross to, and a copy
+  // past its own end shows the shadow it lands with.
   const stepped = `(() => {
     const animations = document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight'))
     const end = Math.max(...animations.map((a) => a.effect.getComputedTiming().endTime))
@@ -1000,10 +1001,12 @@ test('throughout a flight of the four copies each one’s label sits on its midd
         const middle = pill.left + pill.width / 2
         const clipper = chip.querySelector('.ab-flight-text')
         const clip = clipper ? insetOf(getComputedStyle(clipper).clipPath, clipper.getBoundingClientRect()) : null
-        let strength = 0
-        for (const label of chip.querySelectorAll('.ab-flight-label')) {
+        let strength = 0, strongest = 0
+        const labels = [...chip.querySelectorAll('.ab-flight-label')]
+        for (const label of labels) {
           const opacity = Number(getComputedStyle(label).opacity)
           strength += opacity
+          strongest = Math.max(strongest, opacity)
           if (opacity < 0.02) continue
           const box = label.getBoundingClientRect()
           const off = box.left + box.width / 2 - middle
@@ -1013,6 +1016,8 @@ test('throughout a flight of the four copies each one’s label sits on its midd
           if (right > left && (left < pill.left - 0.5 || right > pill.right + 0.5)) problems.push('t=' + t + ' copy ' + i + ': "' + label.textContent + '" shows outside its pill')
         }
         if (strength > 1.02) problems.push('t=' + t + ' copy ' + i + ': labels at ' + strength.toFixed(2) + ' together')
+        const texts = new Set(labels.map((label) => label.textContent.replace(/\\s+/g, ' ').trim()))
+        if (texts.size === 1 && strongest < 0.98) problems.push('t=' + t + ' copy ' + i + ': "' + [...texts][0] + '" reads the same at both ends, yet shows at ' + strongest.toFixed(2) + ' at most')
         const shadow = chip.querySelector('.ab-flight-shadow')
         const fade = animations.find((a) => a.effect.target === shadow && a.effect.getKeyframes().some((k) => 'opacity' in k))
         const { endTime } = fade.effect.getComputedTiming()
