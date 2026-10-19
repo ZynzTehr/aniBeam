@@ -4,6 +4,8 @@ import {
   afterSwipe,
   dragOffset,
   opens,
+  opensFrom,
+  rowScrolls,
   shuts,
   speed,
   swipeMoved,
@@ -149,4 +151,60 @@ test('a click within 500 ms of the swipe that opened the menu is the swipe’s o
   assert.equal(afterSwipe(1000, 1500), true, '500 ms on')
   assert.equal(afterSwipe(1000, 1501), false, '501 ms on')
   assert.equal(afterSwipe(-Infinity, 20), false, 'no swipe yet')
+})
+
+/** A stand-in for an element: the selectors it matches, and whether it scrolls sideways. */
+type Spot = {
+  parentElement: Spot | null
+  is: string[]
+  scrolls?: boolean
+  closest(s: string): unknown
+}
+function spot(is: string[], parentElement: Spot | null = null, scrolls = false): Spot {
+  const self: Spot = {
+    parentElement,
+    is,
+    scrolls,
+    // As Element.closest does: itself or an ancestor matching any of the selectors in the list.
+    closest(selectors) {
+      const wanted = selectors.split(',').map((s) => s.trim())
+      for (let at: Spot | null = self; at; at = at.parentElement)
+        if (at.is.some((s) => wanted.includes(s))) return at
+      return null
+    },
+  }
+  return self
+}
+const rowOf = (s: Spot) => Boolean(s.scrolls)
+
+test('a swipe opens the menu from anywhere on the page, but not the search bubble, a slider, a dialog or a row that scrolls sideways itself', () => {
+  const page = spot(['main'])
+  const panel = spot(['img'], spot(['.ab-panel'], page))
+  assert.equal(opensFrom(panel, rowOf), true, 'a trending panel')
+  assert.equal(opensFrom(page, rowOf), true, 'empty paper')
+  assert.equal(
+    opensFrom(spot(['textarea'], spot(['.ab-bubble-field'], page)), rowOf),
+    false,
+    'the search box',
+  )
+  assert.equal(opensFrom(spot(['input[type="range"]'], page), rowOf), false, 'a slider')
+  assert.equal(opensFrom(spot(['h2'], spot(['dialog'], page)), rowOf), false, 'the title card')
+  const strip = spot(['ol'], page, true)
+  assert.equal(
+    opensFrom(spot(['img'], spot(['li'], strip)), rowOf),
+    false,
+    'a panel in the decade strip',
+  )
+  assert.equal(opensFrom(strip, rowOf), false, 'the strip itself')
+  assert.equal(opensFrom(null, rowOf), false, 'nothing')
+})
+
+test('a row scrolls sideways itself only when it is wider inside than out and lets its overflow scroll', () => {
+  const row = { scrollWidth: 900, clientWidth: 374 }
+  assert.equal(rowScrolls(row, 'auto'), true)
+  assert.equal(rowScrolls(row, 'scroll'), true)
+  assert.equal(rowScrolls(row, 'hidden'), false, 'hidden: only a script scrolls it')
+  assert.equal(rowScrolls(row, 'clip'), false)
+  assert.equal(rowScrolls(row, 'visible'), false)
+  assert.equal(rowScrolls({ scrollWidth: 374, clientWidth: 374 }, 'auto'), false, 'all of it shows')
 })
