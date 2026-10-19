@@ -2244,6 +2244,66 @@ test('on a phone the header never covers a focus ring: it goes up as focus with 
   })
 })
 
+test('on a phone the heading a tapped link focused, its ring hidden, neither pushes the header up nor keeps it away, though an iPhone counts its focus as the keyboard’s', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const header = async () => where(await browser.evaluate<Top>(TOP))
+  const heading = `document.getElementById('pull')`
+  // The header shown and Pull's heading 96px down, where a tapped link lands it. Then the heading
+  // focused as an iPhone leaves it after the tap: the browser counts the focus as the keyboard's
+  // (:focus-visible), and lib/jumps.ts has marked it as a pointer's, so its ring is hidden.
+  await headerBackAt(
+    await browser.evaluate<number>(`scrollY + ${heading}.getBoundingClientRect().top - 96`),
+  )
+  await browser.evaluate(
+    `${heading}.dataset.jump = 'pointer'; ${heading}.focus({ preventScroll: true, focusVisible: true }); true`,
+  )
+  await frames()
+  const seen: Record<string, unknown> = {
+    'focused 96px down': {
+      focus: await browser.evaluate(`document.activeElement.id`),
+      'counted as the keyboard’s': await browser.evaluate(
+        `document.activeElement.matches(':focus-visible')`,
+      ),
+      ring: await browser.evaluate(
+        `getComputedStyle(document.activeElement, '::before').content !== 'none'`,
+      ),
+      header: await header(),
+    },
+  }
+  const y = (await browser.evaluate<Top>(TOP)).y
+  // 10px down, short of the 12px that hides it, the heading 86px down: where a ring would be
+  // under the header.
+  await scrollAndSettle(y + 10)
+  seen['10px down, the heading under the header'] = await header()
+  // On down past the heading, and back up until it is 36px down, well under the header.
+  await scrollAndSettle(y + 600)
+  seen['far down, past the heading'] = await header()
+  await scrollAndSettle(y + 60)
+  seen['back up, the heading 36px down'] = await header()
+  seen['focus after'] = await browser.evaluate(
+    `document.activeElement.id + ' ' + document.activeElement.dataset.jump`,
+  )
+  const shown = where({ hidden: false, top: 0, y: 0 })
+  assert.deepEqual(
+    seen,
+    {
+      'focused 96px down': {
+        focus: 'pull',
+        'counted as the keyboard’s': true,
+        ring: false,
+        header: shown,
+      },
+      '10px down, the heading under the header': shown,
+      'far down, past the heading': where({ hidden: true, top: -78, y: 0 }),
+      'back up, the heading 36px down': shown,
+      'focus after': 'pull pointer',
+    },
+    'a heading with its ring hidden moved the header as a ring would',
+  )
+})
+
 test('on a phone, a part that shows only under the header, back on a scroll up, waits to land until it shows below it', async () => {
   // The pull machine, scrolled up into view with the header coming back: most of what shows of
   // it is under the header, and less than the 15% a part needs below it. The scroll slam counts

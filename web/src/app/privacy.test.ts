@@ -345,10 +345,11 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // 82,508 B), 83,000 B with its swipes (lib/swipe.ts, a swipe across the header to open it and a
 // drag that it follows to shut it: 83,262 B), and 83,500 B with a phone's header hiding as the
 // page scrolls down and coming back as it scrolls up (topAfter in lib/sectionNav.ts, and the
-// landing observer following it: 83,529 B), so its budget is 84,000 B. The fonts in web/public
-// are copied as they are, outside the build, so this doesn't weigh them.
+// landing observer following it: 83,529 B), and 84,000 B with the phone header no longer moved
+// by a heading whose ring a tap hid (in lib/sectionNav.ts: 84,044 B), so its budget is 84,500 B.
+// The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 84_000,
+  'the JS every visit loads': 84_500,
   'the CSS': 10_500,
   'the JS loaded only when needed': 3_500,
   'every other file': 500,

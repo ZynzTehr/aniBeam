@@ -382,12 +382,17 @@ export function startSectionNav({
     return null
   }
 
+  // Whether focus shows its ring, as components.css draws it: a heading a tapped link focused is
+  // marked (lib/jumps.ts) and shows none, though an iPhone counts its focus as the keyboard's.
+  const ringShown = (focused: Element) =>
+    focused.matches(':focus-visible:not([data-jump="pointer"])')
+
   // Whether what has focus, showing its ring, is where a phone's header would cover it: its box,
   // and its ring (7px out, 2px more for a raised pill), reach above the header's bottom while on
   // the screen. A tap shows no ring, and leaves the header be.
   const focusUnder = () => {
     const focused = document.activeElement as HTMLElement | null
-    if (!focused || header.contains(focused) || !focused.matches(':focus-visible')) return false
+    if (!focused || header.contains(focused) || !ringShown(focused)) return false
     const box = focused.getBoundingClientRect()
     return box.bottom > 0 && box.top < header.offsetHeight + 9
   }
@@ -398,7 +403,7 @@ export function startSectionNav({
   // tap or a swipe, shows none, and lets it hide.
   const focusInTop = () => {
     const focused = document.activeElement
-    return Boolean(focused && header.contains(focused) && focused.matches(':focus-visible'))
+    return Boolean(focused && header.contains(focused) && ringShown(focused))
   }
 
   const evaluate = () => {
