@@ -338,6 +338,8 @@ export default function App() {
               },
               { href: '#pull', label: 'Pull a random title' },
               { href: '#decades', label: 'Browse by decade' },
+              // To come, as in the header: it docks there with the section links.
+              { href: '#my-list', label: 'My List', soon: true },
             ]}
           />
         )}

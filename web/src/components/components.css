@@ -64,10 +64,11 @@
 /* One set of the page's section links shows at a time (data-links on the page's root, see
    lib/sectionNav.ts): from 900px the header's wait hidden in their place while the intro's
    buttons are on the screen, and the buttons hide in theirs once they have docked. Hidden, not
-   taken out: both keep their room, so nothing moves, and neither can be reached or read. My List
-   stays. Under 900px neither is drawn (the menu holds the links, see MenuDrawer). With no
-   data-links (the gallery), both show. */
-.ab-app:is([data-links='intro'], [data-links='none']) .ab-top .ab-nav a,
+   taken out: both keep their room, so nothing moves, and neither can be reached or read. Each set
+   has My List, to come, which goes with it, so the header's whole nav hides, and isn't read as an
+   empty landmark. Under 900px neither is drawn (the menu holds the links, see MenuDrawer). With
+   no data-links (the gallery), both show. */
+.ab-app:is([data-links='intro'], [data-links='none']) .ab-top .ab-nav,
 .ab-app:is([data-links='header'], [data-links='none']) .ab-intro-actions {
   visibility: hidden;
 }
@@ -114,6 +115,13 @@
   background: var(--sun);
 }
 
+/* My List's copy, to come, dashed and see-through as it shows at both ends (see .ab-soon), its
+   label greyed beside its Soon tag. */
+.ab-flight-pill.is-soon {
+  border-style: dashed;
+  background: transparent;
+}
+
 /* Each label sits on the copy's middle, however much wider than the copy it is (a long intro label
    on a copy the size of a header link): drawn from the middle out, so it overflows both sides
    evenly and lines up with the real link's text at both ends. */
@@ -125,6 +133,13 @@
   font: 800 var(--text-label) var(--body);
   translate: -50% -50%;
   white-space: nowrap;
+}
+
+.ab-flight-label.is-soon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgb(20 20 20 / 0.7);
 }
 
 /* The link to the section the visitor is in (aria-current="location", see lib/sectionNav.ts) is
@@ -2538,6 +2553,12 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   color: #fff;
 }
 
+/* My List, to come, after them: a Soon item, the size of the buttons, as it docks with them. */
+.ab-intro-actions .ab-soon {
+  min-height: 48px;
+  padding: 0 18px;
+}
+
 .ab-intro-art {
   position: relative;
   display: flex;
@@ -2892,7 +2913,8 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   cursor: not-allowed;
 }
 
-.ab-soon small {
+.ab-soon small,
+.ab-flight-label small {
   padding: 2px 7px;
   border: 2px solid var(--ink);
   border-radius: 999px;

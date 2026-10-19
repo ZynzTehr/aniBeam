@@ -122,8 +122,9 @@ export function SiteHeader({
             AniBeam<rt>アニビーム</rt>
           </ruby>
         </a>
-        {/* "Site": it holds My List too, and shows beside the intro's "Sections". Under 900px it
-            isn't drawn: the menu holds the links. */}
+        {/* "Site": it holds My List too, as the intro's "Sections" does, and shows in their place
+            once the intro's buttons have docked. Under 900px it isn't drawn: the menu holds the
+            links. */}
         <nav className="ab-nav" aria-label="Site">
           {links.map((link) =>
             link.soon ? (

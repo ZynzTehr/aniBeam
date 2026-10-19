@@ -5,7 +5,8 @@ import { markBroken, markLoaded } from './cover.ts'
 import { coverFan } from './coverFan.ts'
 import { cssVars } from './cssVars.ts'
 
-export type IntroAction = { href: string; label: string }
+/** An intro button: a section link, or with `soon` a feature from a later phase (My List). */
+export type IntroAction = { href: string; label: string; soon?: boolean }
 
 /**
  * The first screen says what AniBeam is before anything else: a place for anime fans to keep
@@ -67,13 +68,20 @@ export function IntroHero({
         See what&rsquo;s trending this week, pull a random pick for your mood, or dig through past
         decades. Coming soon: chat with other fans about the shows, movies and OVAs you love.
       </p>
-      {/* "Sections": the page's section links. The header's, with My List too, are "Site". */}
+      {/* "Sections": the page's section links, and My List, to come, as the header's "Site" has
+          them. My List is shown as the header shows it, with a tag, not a link. */}
       <nav ref={actionsRef} className="ab-intro-actions" aria-label="Sections">
-        {actions.map((action) => (
-          <a key={action.href} className="ab-btn" href={action.href}>
-            {action.label}
-          </a>
-        ))}
+        {actions.map((action) =>
+          action.soon ? (
+            <span key={action.href} className="ab-soon" aria-disabled="true">
+              {action.label} <small>Soon</small>
+            </span>
+          ) : (
+            <a key={action.href} className="ab-btn" href={action.href}>
+              {action.label}
+            </a>
+          ),
+        )}
       </nav>
     </section>
   )

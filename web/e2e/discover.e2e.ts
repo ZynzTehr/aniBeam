@@ -4834,7 +4834,7 @@ describe('phone (390x844)', () => {
         const intro = document.querySelector('.ab-intro'), box = intro.getBoundingClientRect(), style = getComputedStyle(intro)
         const left = box.left + parseFloat(style.paddingLeft), right = box.right - parseFloat(style.paddingRight)
         const lost = []
-        for (const block of intro.querySelectorAll('.ab-intro-kicker, .ab-intro-title, .ab-intro-lede, .ab-intro-actions a')) {
+        for (const block of intro.querySelectorAll('.ab-intro-kicker, .ab-intro-title, .ab-intro-lede, .ab-intro-actions > *')) {
           const own = block.getBoundingClientRect(), text = document.createTreeWalker(block, NodeFilter.SHOW_TEXT)
           for (let node; (node = text.nextNode()); ) {
             if (node.parentElement.closest('[aria-hidden="true"]')) continue

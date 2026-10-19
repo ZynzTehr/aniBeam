@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
+  copyLook,
   currentSection,
   dockedAfter,
   FLIGHT,
@@ -195,4 +196,32 @@ test('a copy’s shadow fades from the look of the end it leaves to the end it l
     { opacity: 0 },
     { opacity: 1 },
   ])
+})
+
+test('a copy has its shadow as an intro button and as the current section’s link, lands yellow only on that link, and My List’s has neither, current or not', () => {
+  assert.deepEqual(copyLook({ toHeader: true, current: false, soon: false }), {
+    shadows: { from: true, to: false },
+    yellow: false,
+  })
+  assert.deepEqual(copyLook({ toHeader: true, current: true, soon: false }), {
+    shadows: { from: true, to: true },
+    yellow: true,
+  })
+  assert.deepEqual(copyLook({ toHeader: false, current: false, soon: false }), {
+    shadows: { from: false, to: true },
+    yellow: false,
+  })
+  assert.deepEqual(copyLook({ toHeader: false, current: true, soon: false }), {
+    shadows: { from: true, to: true },
+    yellow: false,
+  })
+  // My List has no address, so above the first section, where none is current, it matches "no
+  // section" as `current`: it still lands plain.
+  for (const toHeader of [true, false])
+    for (const current of [true, false])
+      assert.deepEqual(
+        copyLook({ toHeader, current, soon: true }),
+        { shadows: { from: false, to: false }, yellow: false },
+        `My List ${toHeader ? 'docking' : 'undocking'}${current ? ', taken for current' : ''}`,
+      )
 })

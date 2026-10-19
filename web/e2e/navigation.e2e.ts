@@ -22,10 +22,10 @@ afterEach(() => {
 
 const DESKTOP = { width: 1440, height: 900 }
 
-// Each of the intro's buttons: its label, fill and text color.
-const BUTTONS = `[...document.querySelectorAll('.ab-intro-actions .ab-btn')].map((b) => {
+// Each of the intro's buttons, My List too: its label, fill and text color.
+const BUTTONS = `[...document.querySelectorAll('.ab-intro-actions > *')].map((b) => {
   const style = getComputedStyle(b)
-  return { label: b.textContent.trim(), fill: style.backgroundColor, text: style.color }
+  return { label: b.textContent.replace(/\\s+/g, ' ').trim(), fill: style.backgroundColor, text: style.color }
 })`
 
 /** Moves the mouse to the middle of what `selector` finds, as a visitor pointing at it would. */
@@ -38,17 +38,21 @@ async function pointAt(selector: string) {
   return { x, y }
 }
 
-test('the intro’s three buttons share one look, and each turns ink as it is hovered or pressed', async () => {
+test('from 900px the intro has four buttons: the three section links share one look, white, each turning ink as it is hovered or pressed; My List, last, is greyed, dashed and marked Soon, the size of the others, no link and no Tab stop', async () => {
   await browser.load({ ...DESKTOP, reduceMotion: true })
   assert.ok(await browser.titlesShown())
   const white = 'rgb(255, 255, 255)'
   const ink = 'rgb(20, 20, 20)'
+  const buttons = await browser.evaluate<{ label: string; fill: string; text: string }[]>(BUTTONS)
   assert.deepEqual(
-    (await browser.evaluate<{ label: string; fill: string; text: string }[]>(BUTTONS)).map(
-      ({ fill, text }) => ({ fill, text }),
-    ),
+    buttons.map(({ label }) => label),
+    ['See what’s trending', 'Pull a random title', 'Browse by decade', 'My List Soon'],
+    'the intro’s buttons, in order',
+  )
+  assert.deepEqual(
+    buttons.slice(0, 3).map(({ fill, text }) => ({ fill, text })),
     [1, 2, 3].map(() => ({ fill: white, text: ink })),
-    'at rest',
+    'the section links at rest',
   )
   for (const n of [1, 2, 3]) {
     const button = `.ab-intro-actions .ab-btn:nth-child(${n})`
@@ -67,6 +71,36 @@ test('the intro’s three buttons share one look, and each turns ink as it is ho
     .filter((rule) => rule.selectorText?.split(',').some((s) => s.trim() === '.ab-intro-actions .ab-btn:active'))
     .map((rule) => rule.style.getPropertyValue('background') + ' / ' + rule.style.color)`)
   assert.deepEqual(pressed, ['var(--ink) / rgb(255, 255, 255)'], 'the rule for a pressed button')
+  // My List, to come: the look of the header's Soon item, at the intro buttons' size, at rest and
+  // hovered alike, and nothing to press or reach.
+  const soon = `(() => {
+    const el = document.querySelector('.ab-intro-actions > :last-child'), style = getComputedStyle(el)
+    const other = document.querySelector('.ab-intro-actions a').getBoundingClientRect()
+    return {
+      link: el.matches('a, [href]'), disabled: el.getAttribute('aria-disabled'), tabIndex: el.tabIndex,
+      tag: el.querySelector('small')?.textContent ?? 'no tag',
+      border: style.borderTopStyle, fill: style.backgroundColor, text: style.color, shadow: style.boxShadow,
+      height: Math.round(el.getBoundingClientRect().height) + ' of ' + Math.round(other.height),
+      padding: style.paddingLeft + ' ' + style.paddingRight,
+    }
+  })()`
+  const atRest = {
+    link: false,
+    disabled: 'true',
+    tabIndex: -1,
+    tag: 'Soon',
+    border: 'dashed',
+    fill: 'rgba(0, 0, 0, 0)',
+    text: 'rgba(20, 20, 20, 0.7)',
+    shadow: 'none',
+    height: '48 of 48',
+    padding: '18px 18px',
+  }
+  assert.deepEqual(await browser.evaluate(soon), atRest, 'My List, at rest')
+  await pointAt('.ab-intro-actions > :last-child')
+  const hoveredSoon = await browser.evaluate(soon)
+  await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 890 })
+  assert.deepEqual(hoveredSoon, atRest, 'My List, hovered')
 })
 
 // The header's link marked as the section the visitor is in, by its address, or '' with none.
@@ -76,17 +110,20 @@ const frames = () =>
     `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))`,
   )
 
-test('the header marks the section the visitor is in, one at a time, and none above the first', async () => {
+test('the header marks the section the visitor is in, one at a time, and none above the first; My List, to come, never', async () => {
   await browser.load({ ...DESKTOP, reduceMotion: true })
   assert.ok(await browser.titlesShown())
   await browser.landAll()
   assert.equal(await browser.evaluate(CURRENT), '', 'at the top')
+  // The header's My List: still marked Soon, with no fill, wherever the visitor is.
+  const myList = `(() => { const el = document.querySelector('.ab-nav .ab-soon'); return [el.getAttribute('aria-current') ?? 'unmarked', getComputedStyle(el).backgroundColor].join(' ') })()`
   for (const id of ['ab-trending', 'pull', 'decades']) {
     await browser.evaluate(
       `document.getElementById('${id}').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
     )
     await frames()
     assert.equal(await browser.evaluate(CURRENT), `#${id}`, `scrolled to #${id}`)
+    assert.equal(await browser.evaluate(myList), 'unmarked rgba(0, 0, 0, 0)', `My List at #${id}`)
   }
   await browser.evaluate(`scrollTo(0, 0); true`)
   await frames()
@@ -143,13 +180,16 @@ test('at the end of the page the last section is current, and while searching, a
   assert.equal(await browser.evaluate(CURRENT), '#ab-trending', 'scrolled down to trending')
 })
 
-// Which set of section links shows (data-links, see lib/sectionNav.ts), and whether each is drawn.
+// Which set of section links shows (data-links, see lib/sectionNav.ts), and whether each is drawn:
+// true or false for all of its items, My List with them, and 'partly' for some of them.
 const SHOWN = `(() => {
   const shown = (el) => Boolean(el) && getComputedStyle(el).visibility === 'visible'
+  const all = (items) =>
+    items.length && items.every(shown) ? true : items.some(shown) ? 'partly' : false
   return {
     links: document.querySelector('.ab-app').dataset.links ?? 'none',
-    header: [...document.querySelectorAll('.ab-top .ab-nav a')].every(shown),
-    intro: shown(document.querySelector('.ab-intro-actions')),
+    header: all([...document.querySelectorAll('.ab-top .ab-nav > *')]),
+    intro: all([...document.querySelectorAll('.ab-intro-actions > *')]),
   }
 })()`
 // Where the intro's buttons are laid out on the page, and the header's bottom: a fraction of a
@@ -171,7 +211,7 @@ const TEXT_SPACING = `(() => {
   return true
 })()`
 
-test('from 900px the header’s links wait hidden until the intro’s buttons reach the header, and swap back 200px later', async () => {
+test('from 900px the header’s links, My List too, wait hidden until the intro’s buttons reach the header, and swap back 200px later', async () => {
   for (const [screen, spacing] of [
     [DESKTOP, false],
     [{ width: 1024, height: 600 }, false],
@@ -232,7 +272,7 @@ test('swapping the links moves nothing: the header, its links and the intro’s 
   const boxes = `(() => {
     const box = (el) => [el.offsetLeft, el.offsetTop, el.offsetWidth, el.offsetHeight].join(',')
     return [document.querySelector('.ab-top').offsetHeight, getComputedStyle(document.documentElement).getPropertyValue('--top-h'),
-      ...[...document.querySelectorAll('.ab-top .ab-nav a, .ab-top .ab-soon, .ab-intro-actions .ab-btn')].map(box)].join(' | ')
+      ...[...document.querySelectorAll('.ab-top .ab-nav > *, .ab-intro-actions > *')].map(box)].join(' | ')
   })()`
   for (const [screen, spacing] of [
     [DESKTOP, false],
@@ -441,15 +481,15 @@ const FLIGHT_NOW = `document.getAnimations().filter((a) => a.effect?.target?.clo
     changes: [...new Set(a.effect.getKeyframes().flatMap((k) => Object.keys(k).filter((p) => !['offset', 'easing', 'composite', 'computedOffset'].includes(p))))].join(',') }
 })`
 
-test('with motion allowed, the intro’s buttons fly into the header as a scroll brings it to them, and back down, landing in place', async () => {
+test('with motion allowed, the intro’s four buttons fly into the header as a scroll brings it to them, and back down, landing in place', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())
   await browser.landAll()
   await browser.animationsDone()
   const dockAt = await browser.evaluate<number>(DOCK_AT)
-  // Where each copy is drawn to land, against where the link it lands as is.
+  // Where each copy is drawn to land, against where the link it lands as is: My List's too.
   const landing = `[...document.querySelectorAll('.ab-flight-chip')].map((chip, i) => {
-    const link = document.querySelectorAll(${JSON.stringify('.ab-top .ab-nav a[href^="#"]')})[i]
+    const link = document.querySelectorAll('.ab-top .ab-nav > *')[i]
     const to = link.getBoundingClientRect(), offset = getComputedStyle(document.querySelector('.ab-flight')).position === 'absolute' ? [scrollX, scrollY] : [0, 0]
     return [parseFloat(chip.style.left) - offset[0] - to.left, parseFloat(chip.style.top) - offset[1] - to.top, parseFloat(chip.style.width) - to.width].map((d) => Math.abs(d) < 1)
   }).flat().every(Boolean)`
@@ -467,6 +507,11 @@ test('with motion allowed, the intro’s buttons fly into the header as a scroll
     current: document.querySelector('.ab-flight-chip .ab-flight-pill').classList.contains('is-current'),
   })`)
   assert.deepEqual(mid, { links: 'none', hidden: true, inert: true, current: true }, 'mid-flight')
+  assert.equal(
+    await browser.evaluate(`document.querySelectorAll('.ab-flight-chip').length`),
+    4,
+    'the copies flying up',
+  )
   assert.equal(await browser.evaluate(landing), true, 'the copies don’t land on the header’s links')
   const flying =
     await browser.evaluate<
@@ -484,6 +529,7 @@ test('with motion allowed, the intro’s buttons fly into the header as a scroll
       '420 0 cubic-bezier(0.2, 1.35, 0.35, 1)',
       '420 45 cubic-bezier(0.2, 1.35, 0.35, 1)',
       '420 90 cubic-bezier(0.2, 1.35, 0.35, 1)',
+      '420 135 cubic-bezier(0.2, 1.35, 0.35, 1)',
     ],
   )
   // Transforms and opacity, and the clip that keeps the labels inside the pill, on their box only.
@@ -511,12 +557,12 @@ test('with motion allowed, the intro’s buttons fly into the header as a scroll
   )
   await frames()
   const back = `[...document.querySelectorAll('.ab-flight-chip')].map((chip, i) => {
-    const to = document.querySelectorAll('.ab-intro-actions a')[i].getBoundingClientRect()
+    const to = document.querySelectorAll('.ab-intro-actions > *')[i].getBoundingClientRect()
     return Math.abs(parseFloat(chip.style.left) - scrollX - to.left) < 1 && Math.abs(parseFloat(chip.style.top) - scrollY - to.top) < 1
   })`
   assert.deepEqual(
     await browser.evaluate(back),
-    [true, true, true],
+    [true, true, true, true],
     'the copies don’t land on the intro’s buttons',
   )
   await browser.animationsDone()
@@ -594,56 +640,72 @@ test('a jump by an intro button swaps the sets at once, with no flight', async (
   assert.equal(await browser.evaluate(CURRENT), '#pull')
 })
 
-test('each flying copy’s shadow fades to the look it lands on, and a dock starts below the header, not over it', async () => {
-  await browser.load(DESKTOP)
-  assert.ok(await browser.titlesShown())
-  await browser.landAll()
-  await browser.animationsDone()
-  const dockAt = await browser.evaluate<number>(DOCK_AT)
-  // Scrolled 30px past the line: the buttons are partly under the header as the flight starts.
-  await browser.evaluate(`scrollTo(0, ${dockAt + 30}); true`)
-  await frames()
-  const flight = `(() => {
-    const bottom = document.querySelector('.ab-top').getBoundingClientRect().bottom
-    return [...document.querySelectorAll('.ab-flight-chip')].map((chip) => {
-      const fade = chip.querySelector('.ab-flight-shadow').getAnimations().find((a) => a.effect.getKeyframes()[0].opacity !== undefined)
-      const move = chip.getAnimations()[0].effect.getKeyframes()[0].transform
-      const dy = parseFloat(/translate\\([^,]+,\\s*([-\\d.]+)px/.exec(move)[1])
-      const top = parseFloat(chip.style.top), height = parseFloat(chip.style.height)
-      return {
-        shadow: fade.effect.getKeyframes().map((k) => Number(k.opacity)).join(' to '),
-        current: chip.querySelector('.ab-flight-pill').classList.contains('is-current'),
-        // Where the copy starts: its landing box moved by the first keyframe, its start height
-        // the button's (a 48px button lands as a 44px link).
-        startsBelow: top + height / 2 + dy - document.querySelector('.ab-intro-actions a').offsetHeight / 2 >= bottom - 0.5,
-      }
-    })
-  })()`
-  const docking =
-    await browser.evaluate<{ shadow: string; current: boolean; startsBelow: boolean }[]>(flight)
-  assert.equal(docking.length, 3, 'no flight')
-  assert.deepEqual(
-    docking.map(({ shadow, current }) => `${current ? 'current' : 'plain'}: ${shadow}`),
-    ['current: 1 to 1', 'plain: 1 to 0', 'plain: 1 to 0'],
-    'docking',
-  )
-  assert.deepEqual(
-    docking.map(({ startsBelow }) => startsBelow),
-    [true, true, true],
-    'a copy started over the header',
-  )
-  await browser.animationsDone()
-  const { top, bottom } = await browser.evaluate<{ top: number; bottom: number }>(GEOMETRY)
-  await browser.evaluate(
-    `scrollTo(0, ${top - Math.ceil(bottom + Math.min(200, top - bottom))}); true`,
-  )
-  await frames()
-  const undocking = await browser.evaluate<{ shadow: string }[]>(flight)
-  assert.deepEqual(
-    undocking.map(({ shadow }) => shadow),
-    ['1 to 1', '0 to 1', '0 to 1'],
-    'undocking',
-  )
+test('each flying copy’s shadow fades to the look it lands on, My List’s never shows, no copy of it lands yellow, and a dock starts below the header, not over it', async () => {
+  // Twice: as the page is, where Trending is the section the visitor is in by the time the
+  // buttons dock, and with the sections pushed far down, so that none is yet.
+  for (const pushed of [false, true]) {
+    const at = pushed ? 'no section reached' : 'Trending reached'
+    await browser.load(DESKTOP)
+    assert.ok(await browser.titlesShown())
+    await browser.landAll()
+    await browser.animationsDone()
+    if (pushed) {
+      await browser.evaluate(
+        `document.head.appendChild(document.createElement('style')).textContent = '.ab-intro { margin-bottom: 3000px }'; true`,
+      )
+      await frames()
+    }
+    const dockAt = await browser.evaluate<number>(DOCK_AT)
+    // Scrolled 30px past the line: the buttons are partly under the header as the flight starts.
+    await browser.evaluate(`scrollTo(0, ${dockAt + 30}); true`)
+    await frames()
+    const flight = `(() => {
+      const bottom = document.querySelector('.ab-top').getBoundingClientRect().bottom
+      return [...document.querySelectorAll('.ab-flight-chip')].map((chip) => {
+        const fade = chip.querySelector('.ab-flight-shadow').getAnimations().find((a) => a.effect.getKeyframes()[0].opacity !== undefined)
+        const move = chip.getAnimations()[0].effect.getKeyframes()[0].transform
+        const dy = parseFloat(/translate\\([^,]+,\\s*([-\\d.]+)px/.exec(move)[1])
+        const top = parseFloat(chip.style.top), height = parseFloat(chip.style.height)
+        return {
+          shadow: fade.effect.getKeyframes().map((k) => Number(k.opacity)).join(' to '),
+          current: chip.querySelector('.ab-flight-pill').classList.contains('is-current'),
+          // Where the copy starts: its landing box moved by the first keyframe, its start height
+          // the button's (a 48px button lands as a 44px link).
+          startsBelow: top + height / 2 + dy - document.querySelector('.ab-intro-actions a').offsetHeight / 2 >= bottom - 0.5,
+        }
+      })
+    })()`
+    const docking =
+      await browser.evaluate<{ shadow: string; current: boolean; startsBelow: boolean }[]>(flight)
+    assert.equal(docking.length, 4, `${at}: not four copies flying up`)
+    assert.deepEqual(
+      docking.map(({ shadow, current }) => `${current ? 'current' : 'plain'}: ${shadow}`),
+      [
+        pushed ? 'plain: 1 to 0' : 'current: 1 to 1',
+        'plain: 1 to 0',
+        'plain: 1 to 0',
+        'plain: 0 to 0',
+      ],
+      `${at}, docking`,
+    )
+    assert.deepEqual(
+      docking.map(({ startsBelow }) => startsBelow),
+      [true, true, true, true],
+      `${at}: a copy started over the header`,
+    )
+    await browser.animationsDone()
+    const { top, bottom } = await browser.evaluate<{ top: number; bottom: number }>(GEOMETRY)
+    await browser.evaluate(
+      `scrollTo(0, ${top - Math.ceil(bottom + Math.min(200, top - bottom))}); true`,
+    )
+    await frames()
+    const undocking = await browser.evaluate<{ shadow: string }[]>(flight)
+    assert.deepEqual(
+      undocking.map(({ shadow }) => shadow),
+      [pushed ? '0 to 1' : '1 to 1', '0 to 1', '0 to 1', '0 to 0'],
+      `${at}, undocking`,
+    )
+  }
 })
 
 test('a change of width lands a flight under way at once, and a change of height alone doesn’t', async () => {
@@ -789,7 +851,7 @@ test('a tap or click on a section link focuses its heading with no ring, even wh
   assert.deepEqual({ id: keyed.id, ring: keyed.ring }, { id: 'pull', ring: true }, 'Enter')
 })
 
-test('the intro’s buttons are the landmark named Sections, read only while they show; the header’s, which holds My List too, is Site; on a phone the menu’s are Sections', async () => {
+test('the intro’s buttons are the landmark named Sections, read only while they show, and the header’s links are Site, read only once the buttons have docked, each with My List, to come; on a phone the menu’s are Sections', async () => {
   const landmarks = async () => {
     const { nodes } = await browser.send('Accessibility.getFullAXTree')
     return (nodes as { ignored: boolean; role?: { value: string }; name?: { value: string } }[])
@@ -799,9 +861,17 @@ test('the intro’s buttons are the landmark named Sections, read only while the
   }
   await browser.load({ ...DESKTOP, reduceMotion: true })
   assert.ok(await browser.titlesShown())
-  assert.deepEqual(await landmarks(), ['Sections', 'Site'], 'at the top')
+  // One set is read at a time: the header's waits unread, My List too, while the intro's shows.
+  assert.deepEqual(await landmarks(), ['Sections'], 'at the top')
   await scrollAndSettle(await browser.evaluate<number>(DOCK_AT))
   assert.deepEqual(await landmarks(), ['Site'], 'docked')
+  assert.deepEqual(
+    await browser.evaluate(
+      `['Sections', 'Site'].map((name) => document.querySelector('nav[aria-label="' + name + '"] > .ab-soon[aria-disabled="true"]')?.textContent.replace(/\\s+/g, ' ').trim() ?? 'none')`,
+    ),
+    ['My List Soon', 'My List Soon'],
+    'My List in each',
+  )
   // On a phone the links are in the menu: none is read until it opens, and then only its own,
   // inside the menu, the page behind it shut away.
   await browser.load({ ...PHONE, reduceMotion: true })
@@ -818,23 +888,28 @@ test('the intro’s buttons are the landmark named Sections, read only while the
   )
 })
 
-test('mid-flight both sets hide, each copy starts where it leaves, its labels cross the right way, and only a dock lands yellow', async () => {
+test('mid-flight both sets hide, each copy starts where it leaves, its labels cross the right way, only a dock lands yellow, and My List’s copy keeps the Soon look', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())
   await browser.landAll()
   await browser.animationsDone()
   const dockAt = await browser.evaluate<number>(DOCK_AT)
   // Each copy: its labels' opacity at start and end, in the order the copy holds them (the
-  // button's, then the link's), whether it is held at its start during its stagger, and its pill.
+  // button's, then the link's), whether it is held at its start during its stagger, and its pill:
+  // My List's dashed and see-through, its labels greyed and marked Soon, as at both ends.
   const copies = `(() => ({
     layer: getComputedStyle(document.querySelector('.ab-flight')).position,
-    hidden: [...document.querySelectorAll('.ab-top .ab-nav a, .ab-intro-actions')].every((el) => getComputedStyle(el).visibility === 'hidden'),
+    hidden: [...document.querySelectorAll('.ab-top .ab-nav > *, .ab-intro-actions > *')].every((el) => getComputedStyle(el).visibility === 'hidden'),
     copies: [...document.querySelectorAll('.ab-flight-chip')].map((chip) => ({
       labels: [...chip.querySelectorAll('.ab-flight-label')].map((label) => label.getAnimations()[0].effect.getKeyframes().map((k) => Number(k.opacity)).filter((o, i, all) => i === 0 || i === all.length - 1).join(' to ')),
       held: getComputedStyle(chip).transform !== 'none',
       yellow: chip.querySelector('.ab-flight-pill').classList.contains('is-current'),
+      look: (({ borderTopStyle, backgroundColor }) => borderTopStyle + ' ' + backgroundColor)(getComputedStyle(chip.querySelector('.ab-flight-pill'))) + ' | ' +
+        [...chip.querySelectorAll('.ab-flight-label')].map((label) => label.textContent.replace(/\\s+/g, ' ').trim() + ' ' + getComputedStyle(label).color).join(' / '),
     })),
   }))()`
+  const SOON_COPY =
+    'dashed rgba(0, 0, 0, 0) | My List Soon rgba(20, 20, 20, 0.7) / My List Soon rgba(20, 20, 20, 0.7)'
   // The first frame after the scroll, read in the page with the flight paused there, so no time
   // passes between: the third copy's 90ms stagger hasn't run out, so it must wait at its start.
   const firstFrame = (y: number) =>
@@ -845,7 +920,7 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
   const dock = await browser.evaluate<{
     layer: string
     hidden: boolean
-    copies: { labels: string[]; held: boolean; yellow: boolean }[]
+    copies: { labels: string[]; held: boolean; yellow: boolean; look: string }[]
   }>(copies)
   assert.deepEqual(
     {
@@ -854,13 +929,15 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
       labels: dock.copies.map((c) => c.labels.join(', ')),
       held: dock.copies.map((c) => c.held),
       yellow: dock.copies.map((c) => c.yellow),
+      soon: dock.copies.map((c) => c.look === SOON_COPY),
     },
     {
       layer: 'fixed',
       hidden: true,
-      labels: ['1 to 0, 0 to 1', '1 to 0, 0 to 1', '1 to 0, 0 to 1'],
-      held: [true, true, true],
-      yellow: [true, false, false],
+      labels: ['1 to 0, 0 to 1', '1 to 0, 0 to 1', '1 to 0, 0 to 1', '1 to 0, 0 to 1'],
+      held: [true, true, true, true],
+      yellow: [true, false, false, false],
+      soon: [false, false, false, true],
     },
     'docking',
   )
@@ -875,7 +952,7 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
   const undock = await browser.evaluate<{
     layer: string
     hidden: boolean
-    copies: { labels: string[]; yellow: boolean }[]
+    copies: { labels: string[]; yellow: boolean; look: string }[]
   }>(copies)
   assert.deepEqual(
     {
@@ -883,18 +960,20 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
       hidden: undock.hidden,
       labels: undock.copies.map((c) => c.labels.join(', ')),
       yellow: undock.copies.map((c) => c.yellow),
+      soon: undock.copies.map((c) => c.look === SOON_COPY),
     },
     {
       layer: 'absolute',
       hidden: true,
-      labels: ['0 to 1, 1 to 0', '0 to 1, 1 to 0', '0 to 1, 1 to 0'],
-      yellow: [false, false, false],
+      labels: ['0 to 1, 1 to 0', '0 to 1, 1 to 0', '0 to 1, 1 to 0', '0 to 1, 1 to 0'],
+      yellow: [false, false, false, false],
+      soon: [false, false, false, true],
     },
     'undocking',
   )
 })
 
-test('throughout a flight each copy’s label sits on its middle, shows only inside its pill, crosses with the other without a pile-up, and one landed early holds its look', async () => {
+test('throughout a flight of the four copies each one’s label sits on its middle, shows only inside its pill, crosses with the other without a pile-up, and one landed early holds its look', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())
   await browser.landAll()
@@ -947,8 +1026,9 @@ test('throughout a flight each copy’s label sits on its middle, shows only ins
     browser.evaluate(
       `new Promise((resolve) => { scrollTo(0, ${y}); requestAnimationFrame(() => requestAnimationFrame(() => { ${PAUSE_FLIGHT}; resolve(true) })) })`,
     )
+  const copies = `document.querySelectorAll('.ab-flight-chip').length`
   await firstFrame(await browser.evaluate<number>(DOCK_AT))
-  assert.ok((await browser.evaluate<number>(FLIGHT_LEFT)) > 0, 'no dock')
+  assert.equal(await browser.evaluate(copies), 4, 'not four copies docking')
   assert.deepEqual(await browser.evaluate<string[]>(stepped), [], 'docking')
   await browser.evaluate(
     `document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight')).forEach((a) => a.play()); true`,
@@ -957,7 +1037,7 @@ test('throughout a flight each copy’s label sits on its middle, shows only ins
   await frames()
   const { top, bottom } = await browser.evaluate<{ top: number; bottom: number }>(GEOMETRY)
   await firstFrame(top - Math.ceil(bottom + Math.min(200, top - bottom)))
-  assert.ok((await browser.evaluate<number>(FLIGHT_LEFT)) > 0, 'no undock')
+  assert.equal(await browser.evaluate(copies), 4, 'not four copies undocking')
   assert.deepEqual(await browser.evaluate<string[]>(stepped), [], 'undocking')
 })
 
