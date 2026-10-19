@@ -37,8 +37,9 @@ export const searchable = (text: string, composing: boolean, before: string) =>
   composing && CONVERTING.test(composed(text, before)) ? before : text
 
 /**
- * Whether an Enter key press confirms an input method's word rather than meaning Enter: Chrome
- * marks it composing; Safari ends the composition first, then sends the key as keyCode 229.
+ * Whether a key press is an input method's rather than its own, such as an Enter that confirms
+ * a word or an Esc that undoes a conversion: Chrome marks it composing; Safari ends the
+ * composition first, then sends the key as keyCode 229.
  */
 export const confirmsWord = (event: { isComposing: boolean; keyCode: number }) =>
   event.isComposing || event.keyCode === 229

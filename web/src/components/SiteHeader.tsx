@@ -171,7 +171,8 @@ const usePlaceholder = () =>
 // A third copy wraps as the box does, for under 900px, where the bubble grows a row at a time
 // while it has focus, hanging down over the page: the rows it shows go to CSS as --text-h, which
 // animates the bubble's height, and the height of one as --row. The box is a textarea, as an
-// input can't wrap.
+// input can't wrap; a textarea is read as a plain text box, so a search landmark around it says
+// it is the search.
 function SearchBubble({
   value,
   onChange,
@@ -179,7 +180,7 @@ function SearchBubble({
   value: string
   onChange: (shown: string, text: string) => void
 }) {
-  const field = useRef<HTMLLabelElement>(null)
+  const field = useRef<HTMLDivElement>(null)
   const mirror = useRef<HTMLSpanElement>(null)
   const placeholderMirror = useRef<HTMLSpanElement>(null)
   const rows = useRef<HTMLSpanElement>(null)
@@ -210,12 +211,13 @@ function SearchBubble({
     return () => observer.disconnect()
   }, [])
   return (
-    <label ref={field} className="ab-search">
-      <span className="sr-only">Search titles</span>
+    <div ref={field} className="ab-search" role="search">
       <span className="ab-bubble-field">
-        {/* Clips the box to the bubble as the bubble grows a row, so the new row is uncovered as
-            the outline reaches it. */}
-        <span className="ab-bubble-clip">
+        {/* The box's label, and its frame, so a press anywhere in the bubble's padding focuses
+            it. Clips the box to the bubble as the bubble grows a row, so the new row is
+            uncovered as the outline reaches it. */}
+        <label className="ab-bubble-clip">
+          <span className="sr-only">Search titles</span>
           {/* The box shows every keystroke, even one an input method is still converting, so it
               never fights the input method. Only the search waits for the finished word. */}
           <textarea
@@ -223,15 +225,21 @@ function SearchBubble({
             rows={1}
             enterKeyHint="search"
             autoComplete="off"
+            // A title in romaji is no word a phone's keyboard knows: it must not "correct" it.
+            autoCapitalize="none"
+            autoCorrect="off"
             spellCheck={false}
             value={value}
             onKeyDown={(event) => {
+              // A key an input method takes, Esc to undo a conversion or Enter to pick a word,
+              // is the input method's.
+              if (confirmsWord(event.nativeEvent)) return
               // Esc empties the box, as a search input's does.
               if (event.key === 'Escape' && value) {
                 event.preventDefault()
                 onChange('', '')
               }
-              if (event.key !== 'Enter' || confirmsWord(event.nativeEvent)) return
+              if (event.key !== 'Enter') return
               // No new line: the search is one line, wrapped to fit. On a touch screen, Enter
               // (the keyboard's Search key) puts the keyboard away, so the results show.
               event.preventDefault()
@@ -270,10 +278,11 @@ function SearchBubble({
             }}
             placeholder={placeholder}
           />
-        </span>
+        </label>
         {/* From 900px, the clear button the search input had (a textarea has none). Esc does the
             same from the keyboard, so, like the input's, it is no Tab stop; and a press on it
-            keeps focus in the box. */}
+            keeps focus in the box. Beside the label, not in it, so its name isn't read as part
+            of the box's. */}
         {value && (
           <button
             type="button"
@@ -301,6 +310,6 @@ function SearchBubble({
       <span ref={placeholderMirror} className="ab-search-mirror" aria-hidden="true">
         {placeholder}
       </span>
-    </label>
+    </div>
   )
 }

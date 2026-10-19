@@ -2599,7 +2599,27 @@ test('from 900px the search keeps to one line as before, and while it holds a qu
       'the long search never showed its results',
     )
     seen[`${width}px holding a long query`] = await browser.evaluate(STATE)
-    await clickAt('.ab-clear')
+    // Where focus is with the button held down, before the click's own refocus could hide a
+    // press that took it from the box (and blurred the box) for a moment.
+    const { x, y } = await middleOf('.ab-clear')
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y })
+    await browser.send('Input.dispatchMouseEvent', {
+      type: 'mousePressed',
+      x,
+      y,
+      button: 'left',
+      clickCount: 1,
+    })
+    seen[`${width}px, the button held down`] = await browser.evaluate(
+      `document.activeElement === ${BOX} ? 'focus in the box' : 'focus on ' + document.activeElement.outerHTML.slice(0, 40)`,
+    )
+    await browser.send('Input.dispatchMouseEvent', {
+      type: 'mouseReleased',
+      x,
+      y,
+      button: 'left',
+      clickCount: 1,
+    })
     await twoFrames()
     seen[`${width}px cleared`] = await browser.evaluate(STATE)
     await browser.search('naruto')
@@ -2630,13 +2650,83 @@ test('from 900px the search keeps to one line as before, and while it holds a qu
   assert.deepEqual(seen, {
     '900px at rest': rest,
     '900px holding a long query': holding,
+    '900px, the button held down': 'focus in the box',
     '900px cleared': cleared,
     '900px, Tab from the box': 'on past it',
     '900px, Esc': '',
     '1440px at rest': rest,
     '1440px holding a long query': holding,
+    '1440px, the button held down': 'focus in the box',
     '1440px cleared': cleared,
     '1440px, Tab from the box': 'on past it',
     '1440px, Esc': '',
   })
+})
+
+test('the search is a search landmark that holds the box, and the box is named Search titles alone, empty or holding a query, on a phone and from 900px', async () => {
+  // The box is a textarea, so that a phone's can wrap: read as a text box, not a search box. The
+  // landmark around it tells a screen reader it is the search. Its Clear search button, from
+  // 900px, sits beside the box's label, not in it, so it doesn't add its name to the box's.
+  type Node = {
+    nodeId: string
+    ignored: boolean
+    role?: { value: string }
+    name?: { value: string }
+    childIds?: string[]
+  }
+  const search = async () => {
+    const { nodes } = (await browser.send('Accessibility.getFullAXTree')) as { nodes: Node[] }
+    const byId = new Map(nodes.map((n) => [n.nodeId, n]))
+    const inside = (n: Node): Node[] =>
+      (n.childIds ?? []).flatMap((id) => {
+        const child = byId.get(id)
+        return child ? [child, ...inside(child)] : []
+      })
+    const boxes = (list: Node[]) =>
+      list.filter((n) => !n.ignored && n.role?.value === 'textbox').map((n) => n.name?.value)
+    const landmarks = nodes.filter((n) => !n.ignored && n.role?.value === 'search')
+    return {
+      landmarks: landmarks.length,
+      inLandmark: landmarks.flatMap((n) => boxes(inside(n))),
+      boxes: boxes(nodes),
+    }
+  }
+  const seen: Record<string, unknown> = {}
+  for (const [at, size] of [
+    ['a phone', PHONE],
+    ['1440px', DESKTOP],
+  ] as const) {
+    await browser.load({ ...size, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    seen[`${at}, empty`] = await search()
+    await browser.search('naruto')
+    assert.ok(
+      await browser.waitFor(`document.querySelector('#results')?.textContent.includes('“naruto”')`),
+      'naruto was never searched',
+    )
+    seen[`${at}, holding naruto`] = await search()
+  }
+  const one = { landmarks: 1, inLandmark: ['Search titles'], boxes: ['Search titles'] }
+  assert.deepEqual(
+    seen,
+    {
+      'a phone, empty': one,
+      'a phone, holding naruto': one,
+      '1440px, empty': one,
+      '1440px, holding naruto': one,
+    },
+    'the search landmark, the boxes inside it, and every text box on the page, by name',
+  )
+})
+
+test('the search box asks a phone’s keyboard not to capitalise or correct what is typed, so a title in romaji is searched as typed', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  assert.deepEqual(
+    await browser.evaluate(
+      `(({ autocapitalize, spellcheck }, box) => ({ autocapitalize, autocorrect: box.getAttribute('autocorrect'), spellcheck }))(${BOX}, ${BOX})`,
+    ),
+    { autocapitalize: 'none', autocorrect: 'off', spellcheck: false },
+    'what the box tells a touch keyboard',
+  )
 })
