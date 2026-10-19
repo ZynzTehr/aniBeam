@@ -1,9 +1,18 @@
-import { Fragment, useEffect, useId, useRef, type CSSProperties, type ReactNode } from 'react'
+import {
+  Fragment,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react'
 import { markBroken, markLoaded } from '../components/cover.ts'
 import { cssVars } from '../components/cssVars.ts'
 import { formatOf, nextEpisode, seasonOf, studioOf, titleOf } from '../features/anime/format.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
 import type { Options } from './choices.ts'
+import { LabDetails } from './LabDetails.tsx'
 import type { LabTitle } from './types.ts'
 
 /**
@@ -18,6 +27,7 @@ export function LabCard({
   options,
   mode,
   from,
+  late = false,
   onClose,
 }: {
   title: LabTitle
@@ -25,6 +35,8 @@ export function LabCard({
   mode: 'inline' | 'card'
   /** Where the wipe starts, as the card. */
   from?: DOMRect
+  /** The details not here yet, as while their request runs (see "Details arrive late"). */
+  late?: boolean
   /** The close button: closes the card, or, inline, goes back to the lab's choices. */
   onClose: () => void
 }) {
@@ -34,8 +46,19 @@ export function LabCard({
   const next = nextEpisode(title)
   const band = options.hero === 'band'
   const frameOnPhones = options.phone === 'frame'
+  // Only a YouTube trailer plays (PR 15 checks its id); Attack on Titan's saved id ends in a tab.
+  const trailer = title.trailer?.site === 'youtube' ? title.trailer.id.trim() : null
+  const [trailerOpen, setTrailerOpen] = useState(false)
+  const sheetClass = [
+    'ab-sheet',
+    band && 'ab-lab-banded',
+    options.align === 'top' && 'ab-lab-top',
+    options.kanji === 'now' && 'ab-lab-dela',
+  ]
+    .filter(Boolean)
+    .join(' ')
   const sheet = (
-    <article className={band ? 'ab-sheet ab-lab-banded' : 'ab-sheet'}>
+    <article className={sheetClass}>
       <button
         type="button"
         className="ab-close"
@@ -129,8 +152,15 @@ export function LabCard({
           <button type="button" className="ab-soon" disabled>
             Chat about it <small>Soon</small>
           </button>
+          {trailer && (
+            <button type="button" className="ab-btn" onClick={() => setTrailerOpen(true)}>
+              Watch trailer
+            </button>
+          )}
         </div>
+        {!late && <LabDetails title={title} options={options} />}
       </div>
+      {trailer && trailerOpen && <TrailerNote id={trailer} onClose={() => setTrailerOpen(false)} />}
     </article>
   )
   const style = {
@@ -183,6 +213,41 @@ function CardDialog({
     >
       <div className="ab-wipe" aria-hidden="true" />
       {children}
+    </dialog>
+  )
+}
+
+/**
+ * What "Watch trailer" opens in the lab: the trailer's own dialog comes in PR 15, so this one,
+ * in the title note's look, only shows its copy. It loads nothing from YouTube.
+ */
+function TrailerNote({ id, onClose }: { id: string; onClose: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null)
+  const headingId = useId()
+  useEffect(() => {
+    if (ref.current && !ref.current.open) ref.current.showModal()
+  }, [])
+  return (
+    <dialog ref={ref} className="ab-notice" aria-labelledby={headingId} onClose={onClose}>
+      <p id={headingId} className="ab-notice-text">
+        The trailer plays here from PR 15.
+      </p>
+      <p className="ab-lab-why">
+        Nothing loads from YouTube until it is pressed; if the video fails, this link shows:
+      </p>
+      <div className="ab-row-actions">
+        <a
+          className="ab-btn ab-btn-ink"
+          href={`https://www.youtube.com/watch?v=${encodeURIComponent(id)}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Open on YouTube
+        </a>
+        <button type="button" className="ab-btn" onClick={() => ref.current?.close()}>
+          Close
+        </button>
+      </div>
     </dialog>
   )
 }

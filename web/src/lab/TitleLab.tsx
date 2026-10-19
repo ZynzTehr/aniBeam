@@ -1,9 +1,18 @@
-import { useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
+import { NOT_FOUND } from '../app/status.ts'
+import { TitleNotice } from '../components/TitleNotice.tsx'
 import { CASES, titleOf } from './cases.ts'
 import { CHOICES, optionsIn, type Choice, type Options } from './choices.ts'
+import delaKanji from './dela-kanji.woff2?inline'
 import { LabCard } from './LabCard.tsx'
 import css from './lab.css?inline'
 import { TITLES } from './titles.ts'
+
+// Dela Gothic One's own glyphs for the 36 kanji and 7 marks in the saved titles' Japanese names,
+// 6.8 KB, cut from the font by Google Fonts' text= option on 2026-10-19 and kept here, so the lab
+// asks Google for nothing (OFL, as web/public/fonts/OFL.txt). Only "Now: Dela Gothic One's own"
+// uses it (see .ab-lab-dela in lab.css).
+const DELA_KANJI = `@font-face { font-family: 'AB Lab Dela Kanji'; src: url(${delaKanji}) format('woff2'); }`
 
 // What the lab shows, kept in the address (?proto=title&case=aot…), so a link opens the same view
 // and a reload keeps it.
@@ -24,6 +33,10 @@ export default function TitleLab() {
   const [opened, setOpened] = useState<DOMRect | null>(null)
   const [options, setOptions] = useState(() => optionsIn(params()))
   const title = titleOf(labCase)
+  // "Details arrive late": the details leave for 1.5 s, as while their request runs.
+  const [late, setLate] = useState(false)
+  const lateTimer = useRef(0)
+  const [noteOpen, setNoteOpen] = useState(false)
 
   const remember = (key: string, value: string) => {
     const search = params()
@@ -39,6 +52,18 @@ export default function TitleLab() {
     setOptions({ ...options, [key]: value })
     remember(key, value)
   }
+  const showStage = () =>
+    document.getElementById('ab-lab-stage')?.scrollIntoView({ block: 'start' })
+  const arriveLate = () => {
+    showStage()
+    setLate(true)
+    clearTimeout(lateTimer.current)
+    lateTimer.current = window.setTimeout(() => setLate(false), 1500)
+  }
+  const see = (key: string) => {
+    pick(key)
+    requestAnimationFrame(showStage)
+  }
   const backToChoices = () => {
     setChoicesOpen(true)
     requestAnimationFrame(() => document.getElementById('ab-lab-choices')?.focus())
@@ -47,7 +72,7 @@ export default function TitleLab() {
   return (
     <div className="ab-lab">
       <title>Title lab · AniBeam</title>
-      <style>{css}</style>
+      <style>{css + DELA_KANJI}</style>
       <a className="ab-skip" href="#ab-lab-stage">
         Skip to the title
       </a>
@@ -103,14 +128,55 @@ export default function TitleLab() {
               choice={choice}
               options={options}
               onChoose={(value) => choose(choice.key, value)}
-            />
+            >
+              {choice.key === 'kanji' && title.title.native && (
+                <KanjiSample native={title.title.native} />
+              )}
+              {choice.key === 'align' && (
+                <button type="button" className="ab-lab-button" onClick={arriveLate}>
+                  Details arrive late
+                </button>
+              )}
+            </ChoiceSet>
           ))}
+          <section className="ab-lab-choice" aria-labelledby="ab-lab-copy">
+            <h2 id="ab-lab-copy" className="ab-lab-legend">
+              New copy, to approve in one pass
+            </h2>
+            <ul className="ab-lab-copy">
+              <CopyLine text="Watch trailer" onSee={() => see('frieren')}>
+                The last button in the card, only for a title with a trailer (Ten Tokyo Warriors and
+                One Piece have none).
+              </CopyLine>
+              <CopyLine text="Open on YouTube" onSee={() => see('aot')}>
+                In the trailer&rsquo;s dialog, if the video fails: press Watch trailer.
+              </CopyLine>
+              <CopyLine text="Show spoiler tags" onSee={() => see('aot')}>
+                Under the tags, where a title has spoiler tags (Attack on Titan has 9).
+              </CopyLine>
+              <CopyLine text="Description unavailable." onSee={() => see('nodescription')}>
+                In place of the synopsis, when AniList has none.
+              </CopyLine>
+              <CopyLine text={NOT_FOUND} onSee={() => setNoteOpen(true)} seeLabel="Show the note">
+                The note for an address AniList can&rsquo;t give, on the site since #21.
+              </CopyLine>
+            </ul>
+            <p className="ab-lab-why">
+              Clamped, the synopsis also needs &ldquo;Read more&rdquo; and &ldquo;Show less&rdquo;.
+            </p>
+          </section>
         </section>
         <p className="ab-lab-case" aria-live="polite">
           <b>{labCase.label}:</b> {labCase.note} {bannerLine(title.bannerImage, title.bannerBytes)}
         </p>
         <div id="ab-lab-stage" className="ab-lab-stage" tabIndex={-1}>
-          <LabCard title={title} options={options} mode="inline" onClose={backToChoices} />
+          <LabCard
+            title={title}
+            options={options}
+            mode="inline"
+            late={late}
+            onClose={backToChoices}
+          />
         </div>
       </main>
       {opened && (
@@ -122,6 +188,7 @@ export default function TitleLab() {
           onClose={() => setOpened(null)}
         />
       )}
+      {noteOpen && <TitleNotice text={NOT_FOUND} onClose={() => setNoteOpen(false)} />}
     </div>
   )
 }
@@ -151,10 +218,12 @@ function ChoiceSet({
   choice,
   options,
   onChoose,
+  children,
 }: {
   choice: Choice
   options: Options
   onChoose: (value: string) => void
+  children?: ReactNode
 }) {
   const off = choice.needs && options[choice.needs.key] !== choice.needs.value
   return (
@@ -191,6 +260,54 @@ function ChoiceSet({
           ))}
         </ul>
       )}
+      {children}
     </fieldset>
+  )
+}
+
+/** A line of new copy, where it shows, and a button that shows it there. */
+function CopyLine({
+  text,
+  onSee,
+  seeLabel = 'See it',
+  children,
+}: {
+  text: string
+  onSee: () => void
+  seeLabel?: string
+  children: ReactNode
+}) {
+  return (
+    <li>
+      <q>{text}</q> <span>{children}</span>{' '}
+      <button
+        type="button"
+        className="ab-lab-see"
+        aria-label={`${seeLabel}: ${text}`}
+        onClick={onSee}
+      >
+        {seeLabel}
+      </button>
+    </li>
+  )
+}
+
+/**
+ * The title's Japanese name in both faces, side by side and large, as the watermark draws it:
+ * behind the cover, the card shows only a sliver of it.
+ */
+function KanjiSample({ native }: { native: string }) {
+  const sample = [...native].slice(0, 8).join('')
+  return (
+    <div className="ab-lab-kanji" lang="ja" aria-hidden="true">
+      <figure>
+        <p>{sample}</p>
+        <figcaption>Heavy system font (today)</figcaption>
+      </figure>
+      <figure className="ab-lab-dela">
+        <p>{sample}</p>
+        <figcaption>Dela Gothic One</figcaption>
+      </figure>
+    </div>
   )
 }

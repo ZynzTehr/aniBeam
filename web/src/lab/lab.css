@@ -98,6 +98,8 @@
 
 .ab-lab-pick select:focus-visible,
 .ab-lab-button:focus-visible,
+.ab-lab-more:focus-visible,
+.ab-lab-see:focus-visible,
 .ab-lab-choices:focus-visible,
 .ab-lab-stage:focus-visible {
   outline: 4px solid var(--hot);
@@ -168,10 +170,12 @@
   border-top: 3px solid var(--ink);
 }
 
-.ab-lab-choice legend {
+.ab-lab-choice legend,
+.ab-lab-legend {
   float: left;
   width: 100%;
   padding: 0;
+  margin: 0;
   font: 400 20px / 1.1 var(--display);
 }
 
@@ -299,4 +303,240 @@
 /* The Japanese title stands above the cover (see .ab-native): clear of the band's ink line. */
 .ab-lab-banded .ab-sheet-art {
   padding-top: 24px;
+}
+
+/* ---------- Layout and content choices ---------- */
+/* The band's row keeps its own height: grid rows sized auto would grow with the sheet's
+   min-height and, centered, drop the band from the sheet's top. */
+.ab-lab-banded {
+  grid-template-rows: min-content;
+}
+
+/* Top: the columns start at the top and stay there, so details that arrive late move nothing
+   above them. Centered (today's) centers them in the sheet's height and on each other. */
+.ab-sheet.ab-lab-top {
+  align-content: start;
+  align-items: start;
+}
+
+.ab-lab-details {
+  display: grid;
+  gap: 18px;
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 3px solid var(--ink);
+}
+
+.ab-lab-synopsis {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin: 0;
+}
+
+.ab-lab-text {
+  max-width: 68ch;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.ab-lab-text p {
+  margin: 0 0 0.8em;
+}
+
+.ab-lab-text p:last-child {
+  margin-bottom: 0;
+}
+
+/* Clamped: five lines, fading out into the paper. */
+.ab-lab-text.is-cut {
+  max-height: calc(5 * 1.6em);
+  overflow: hidden;
+  mask-image: linear-gradient(#000 55%, transparent);
+}
+
+.ab-lab-none {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.ab-lab-source {
+  margin: 0;
+  color: #3d3d3d;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.ab-lab-more,
+.ab-lab-see {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font: 800 14px var(--body);
+  cursor: pointer;
+}
+
+.ab-lab-more[aria-expanded='true'] {
+  background: var(--sun);
+}
+
+.ab-lab-see {
+  min-height: 32px;
+  padding: 0 12px;
+  border-width: 2px;
+  font-size: 13px;
+}
+
+.ab-lab-tag-set {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.ab-lab-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ab-lab-tags li {
+  padding: 3px 9px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ab-lab-tags small {
+  color: #3d3d3d;
+  font-size: 11px;
+}
+
+/* A spoiler tag, once shown, is marked as one. */
+.ab-lab-tags .is-spoiler {
+  border-style: dashed;
+  border-color: var(--hot-text);
+}
+
+.ab-lab-credits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin: 0;
+}
+
+.ab-lab-credits div {
+  display: grid;
+  gap: 2px;
+}
+
+.ab-lab-credits dt {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.ab-lab-credits dd {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+/* The lab's own notes in the card, dashed and tagged "Lab": not part of the design. */
+.ab-lab-note,
+.ab-lab-missing {
+  border: 2px dashed var(--ink);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ab-lab-note {
+  margin: 0;
+  padding: 5px 10px;
+}
+
+.ab-lab-missing {
+  padding: 1px 8px;
+}
+
+.ab-lab-note b,
+.ab-lab-missing b {
+  padding: 0 6px;
+  border-radius: 4px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* "Now: Dela Gothic One's own": the watermark in Dela, kanji from the lab's cut of it, kana from
+   the site's own subset. Dela has one weight. */
+.ab-lab-dela .ab-native,
+.ab-lab-kanji .ab-lab-dela p {
+  font-family: 'AB Lab Dela Kanji', var(--display);
+  font-weight: 400;
+}
+
+.ab-lab-copy {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.45;
+  list-style: none;
+}
+
+.ab-lab-copy q {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+/* The watermark's two faces side by side (see KanjiSample), drawn as .ab-native draws it. */
+.ab-lab-kanji {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 32px;
+}
+
+.ab-lab-kanji figure {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.ab-lab-kanji p {
+  margin: 0;
+  color: transparent;
+  font:
+    900 44px / 1.1 'Hiragino Sans',
+    'Yu Gothic',
+    'Noto Sans JP',
+    sans-serif;
+  -webkit-text-stroke: 2px var(--ink);
+}
+
+.ab-lab-kanji figcaption {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* Contrast themes keep text in their own color, without the stroke's outline. */
+@media (forced-colors: active) {
+  .ab-lab-kanji p {
+    color: CanvasText;
+  }
 }
