@@ -105,7 +105,7 @@ async function lateFirstAnswer(term: string) {
   const stopAnswering = await answerSearches({ [term]: 20 }, { held: true })
   const titles = `document.querySelectorAll('.ab-results .ab-strip-panel[href]').length`
   // The chip's pill (its radio button is see-through), and the view under the header, or under
-  // the top of the screen once a phone's header has scrolled away.
+  // the top of the screen while a phone's header is hidden up it.
   const chip = `(() => {
     const input = document.querySelector('.ab-eras input:checked'), r = input.nextElementSibling.getBoundingClientRect()
     const below = Math.max(0, document.querySelector('.ab-top').getBoundingClientRect().bottom)
@@ -115,7 +115,7 @@ async function lateFirstAnswer(term: string) {
     // Pasted, not typed letter by letter: a shorter search run on the way would put its titles on
     // screen to stand in for this one's, which would make this a refinement.
     await browser.evaluate(
-      `(() => { const input = document.querySelector('.ab-search input'); input.focus(); input.select(); return true })()`,
+      `(() => { const input = document.querySelector('.ab-search textarea'); input.focus(); input.select(); return true })()`,
     )
     await browser.send('Input.insertText', { text: term })
     assert.ok(
@@ -1147,7 +1147,7 @@ describe('desktop (1440x900)', () => {
       await own.load()
       await own.animationsDone()
       await recordHeadings(own)
-      await own.evaluate(`document.querySelector('.ab-search input').focus(); true`)
+      await own.evaluate(`document.querySelector('.ab-search textarea').focus(); true`)
       await own.stopClock()
       const type = async (text: string) => {
         for (const character of text) await own.send('Input.insertText', { text: character })
@@ -1173,7 +1173,7 @@ describe('desktop (1440x900)', () => {
     // A Japanese input method shows a word as kana, then as candidate words, until the visitor
     // picks one. Searching any of those would be searching for a word nobody typed. The checks
     // above searched "frieren", so only 進撃の巨人 and "進撃の巨人 final" need a recording each.
-    const box = `document.querySelector('.ab-search input')`
+    const box = `document.querySelector('.ab-search textarea')`
     // Each step is sent 100 ms after the one before: well within the 300 ms pause that starts a
     // search, while a run of steps lasts longer than that pause.
     let sent = 0
@@ -1319,7 +1319,7 @@ describe('desktop (1440x900)', () => {
     assert.ok(await browser.waitFor(retry), 'Try again did not come back')
     await goOffline(true)
     await browser.evaluate(
-      `document.querySelector('.ab-search input').focus(); ${retry}.click(); true`,
+      `document.querySelector('.ab-search textarea').focus(); ${retry}.click(); true`,
     )
     await goOffline(false)
     // The held refresh runs (the button goes) and is turned down (it comes back).
@@ -1337,7 +1337,7 @@ describe('desktop (1440x900)', () => {
       note: 'Offline: waiting for a connection.',
     })
     assert.ok(moved, 'focus fell off the button as it went')
-    assert.equal(elsewhere, 'INPUT', 'the button took focus from the search box as it went')
+    assert.equal(elsewhere, 'TEXTAREA', 'the button took focus from the search box as it went')
   })
 
   test('a mouse press on Try again leaves the page where it is', async () => {
@@ -1473,13 +1473,20 @@ describe('desktop (1440x900)', () => {
           `${width}px: the bubble is ${Math.round(held.bubble.width)}px wide, not the ${Math.round(held.room)}px the links leave`,
         )
     }
-    // Below 900px the header stacks, and the bubble fills a row of its own.
+    // Below 900px the header is one row of its own, the menu button, the logo and the search,
+    // and the bubble fills the room the logo leaves.
     await resize(834)
-    const stacked = await measure()
-    const row = stacked.right - stacked.left
-    if (Math.abs(stacked.bubble.width - row) > 2)
+    const narrow = await measure()
+    const beside =
+      narrow.right -
+      (await browser.evaluate<number>(
+        `document.querySelector('.ab-logo').getBoundingClientRect().right + parseFloat(getComputedStyle(document.querySelector('.ab-top')).columnGap)`,
+      ))
+    if (Math.abs(narrow.height - rest) > 1)
+      problems.push(`834px: the header is ${Math.round(narrow.height)}px tall, not ${rest}px`)
+    if (Math.abs(narrow.bubble.width - beside) > 2)
       problems.push(
-        `834px: the bubble is ${Math.round(stacked.bubble.width)}px wide, not the row’s ${Math.round(row)}px`,
+        `834px: the bubble is ${Math.round(narrow.bubble.width)}px wide, not the ${Math.round(beside)}px the logo leaves`,
       )
     // Empty and at rest, it still sits at the header's right end.
     await resize(1024)
@@ -1535,15 +1542,16 @@ describe('desktop (1440x900)', () => {
     // widths of the placeholder's box and of its text, and how far the bubble runs past the
     // header's right edge, where its room ends. Then how far below the links the bubble sits,
     // the room beside them, and the width the bubble needs there to show its whole placeholder:
-    // its own width around the placeholder's box, and the text's. A range gives the text's
-    // width; scrollWidth gives the box's while the box is the wider.
+    // its own width around the placeholder's box, the text's, and the 14px it keeps at its end
+    // for the clear button (components.css). A range gives the text's width; scrollWidth gives
+    // the box's while the box is the wider.
     const measure = async () => {
       await browser.evaluate(
         'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
       )
       await browser.animationsDone()
       const input = await browser.send('Runtime.evaluate', {
-        expression: `document.querySelector('.ab-search input')`,
+        expression: `document.querySelector('.ab-search textarea')`,
       })
       const { node } = await browser.send('DOM.describeNode', {
         objectId: input.result.objectId,
@@ -1551,7 +1559,7 @@ describe('desktop (1440x900)', () => {
         pierce: true,
       })
       const placeholder = placeholderIn(node)
-      assert.ok(placeholder, 'Chrome’s placeholder box was not found inside the search input')
+      assert.ok(placeholder, 'Chrome’s placeholder box was not found inside the search box')
       const { object } = await browser.send('DOM.resolveNode', {
         backendNodeId: placeholder.backendNodeId,
       })
@@ -1570,7 +1578,7 @@ describe('desktop (1440x900)', () => {
             past: Math.round(bubble.right - edge),
             below: Math.round(bubble.top - links.top),
             room: edge - links.right - parseFloat(style.columnGap),
-            need: bubble.width - this.getBoundingClientRect().width + range.getBoundingClientRect().width,
+            need: bubble.width - this.getBoundingClientRect().width + range.getBoundingClientRect().width + 14,
           }
         }`,
         returnByValue: true,
@@ -1590,7 +1598,7 @@ describe('desktop (1440x900)', () => {
         ['at rest', 'blur'],
         ['focused', 'focus'],
       ] as const) {
-        await browser.evaluate(`document.querySelector('.ab-search input').${focus}(); true`)
+        await browser.evaluate(`document.querySelector('.ab-search textarea').${focus}(); true`)
         // At 900px, and at 960, where the room beside the links is only a little too narrow,
         // and at 970 and 978, where it is a little wider than the bubble needs.
         for (const width of [900, 960, 970, 978]) {
@@ -1616,7 +1624,7 @@ describe('desktop (1440x900)', () => {
       // Back to the normal view, empty and at rest, on this describe's screen before anything is
       // asserted, even if measuring failed, so the checks after this one see the page they expect.
       await browser.evaluate(
-        `document.getElementById('text-spacing').remove(); document.querySelector('.ab-search input').blur(); true`,
+        `document.getElementById('text-spacing').remove(); document.querySelector('.ab-search textarea').blur(); true`,
       )
       await resize(1440)
     }
@@ -1634,7 +1642,7 @@ describe('desktop (1440x900)', () => {
     // the header grows to 135 to 138px. A fixed 96px then left the top 46 to 49px of the
     // focused Trending heading, focus ring included, under the header, and 38 to 42px of the
     // Pull section. Without the spacing every target must still land at 96px, as it always
-    // has, and below 900px too, where the header scrolls away with the page.
+    // has, and below 900px too, where the header is one row, shown or hidden up the screen.
     // A resized window draws a frame before anyone can press a key, and only then does the
     // header's new height reach the page (SiteHeader's ResizeObserver sets --top-h). So each
     // resize waits two frames. Without them, on a fast machine, Enter came first at 899px: the
@@ -1658,12 +1666,46 @@ describe('desktop (1440x900)', () => {
     // the page has jumped: the top of the link's target, and how much of it is under the header,
     // with its focus ring (4px, 3px out) when it took focus, as the headings do.
     const jump = async (href: string) => {
+      // From the top of the page; where the header's section links wait hidden there (while the
+      // intro's buttons show), from its end, where the buttons have docked; under 900px, where
+      // neither is drawn, by the menu's link to the same place, from the top.
       await browser.evaluate(`(() => {
         history.replaceState(null, '', location.pathname)
         scrollTo(0, 0)
-        document.querySelector('.ab-nav a[href="${href}"]').focus()
         return true
       })()`)
+      // Scrolling the intro's buttons past the header can fly them into it, or back down: both
+      // sets of links hide meanwhile, so it waits for the flight to land.
+      await browser.animationsDone()
+      await browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+      await browser.evaluate(`(() => {
+        const link = document.querySelector('.ab-nav a[href="${href}"]')
+        if (getComputedStyle(link).visibility === 'hidden') scrollTo(0, document.documentElement.scrollHeight)
+        return true
+      })()`)
+      // Scrolling the intro's buttons past the header can fly them into it, or back down: both
+      // sets of links hide meanwhile, so it waits for the flight to land.
+      await browser.animationsDone()
+      await browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+      // From 900px the header's link must show by now: a fall back to the intro's button there
+      // would pass without pressing it.
+      const used = await browser.evaluate<string>(`(() => {
+        const header = document.querySelector('.ab-nav a[href="${href}"]')
+        if (header.checkVisibility({ visibilityProperty: true })) return header.focus(), 'header'
+        scrollTo(0, 0)
+        document.querySelector('.ab-burger').click()
+        document.querySelector('.ab-drawer a[href="${href}"]').focus()
+        return 'menu'
+      })()`)
+      const wide = await browser.evaluate<boolean>(`innerWidth >= 900`)
+      assert.ok(
+        !wide || used === 'header',
+        `the header’s ${href} link didn’t show at the page’s end`,
+      )
       await browser.press('Enter')
       assert.ok(
         await browser.waitFor(`location.hash === '${href}'`, 5_000),
@@ -1687,7 +1729,7 @@ describe('desktop (1440x900)', () => {
     const problems: string[] = []
     try {
       // Without the spacing: on one row, at this describe's width and at 900px, and at 899px,
-      // where the header scrolls away.
+      // where the header is a phone's one row.
       for (const width of [1440, 900, 899]) {
         await resize(width)
         await browser.animationsDone()
@@ -1695,8 +1737,8 @@ describe('desktop (1440x900)', () => {
           const { top, hidden, ring } = await jump(href)
           if (Math.abs(top - 96) > 1)
             problems.push(`${width}px: ${name} lands at ${Math.round(top)}px, not 96px`)
-          // 96px is right only while the header is one row or scrolls away: at 899px a header
-          // that stuck to the top, two rows tall (134px), would hide the target at 96px.
+          // 96px is right only while the header is one row: at 899px a header two rows tall
+          // (134px), as it was, would hide the target at 96px.
           else if (hidden > 0)
             problems.push(
               `${width}px: ${hidden}px of ${name}${ring ? ' and its focus ring' : ''} is under the header`,
@@ -1799,10 +1841,11 @@ describe('desktop (1440x900)', () => {
 
   test('after a resize across 900px made far down the page, the intro still ends at the fold', async () => {
     // The intro fills the first screen under the header, by the header's height (--top-h), and
-    // the header changes rows at 900px: one 78px row from there up, 134px below, where it
-    // scrolls away with the page. A resize made with the header scrolled far off screen must
-    // still give the intro the header's new height, by the time the window has drawn two frames.
-    // Publishing the header's bottom edge (far negative while scrolled away) instead of its
+    // the header changes at 900px: a row of links and the search from there up, a phone's row
+    // below, which hides up the screen as the page scrolls down. A resize made far down the page
+    // must still give the intro the header's new height, by the time the window has drawn two
+    // frames. Publishing the header's bottom edge (far negative while it scrolled away, as it once
+    // did below 900px) instead of its
     // height left trending at 3024px; watching only the links, which keep their size, left it
     // 56px off; and publishing 100ms late went unseen by every other check.
     const frames = () =>
@@ -3721,6 +3764,40 @@ describe('tablet (834x1112, iPad Pro 11" portrait) and up', () => {
     })
     assert.deepEqual(wider, [], 'the page grew wider than the screen')
   })
+
+  test('stacked under the machine, the rarity sticker sits clear of it and its shadow, whatever its label', async () => {
+    const under: string[] = []
+    for (const [width, height, phone] of [
+      [320, 568, true],
+      [390, 844, true],
+      [430, 932, true],
+      [768, 1024, false],
+    ] as const) {
+      // Reduced motion: the capsule opens at once, and the sticker rests where it lands.
+      await browser.load({ width, height, phone, reduceMotion: true })
+      assert.ok(await browser.titlesShown())
+      await browser.landAll()
+      await browser.evaluate(
+        `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').click(); true`,
+      )
+      assert.ok(await browser.waitFor(`document.querySelector('.ab-result.is-open .ab-sfx-tier')`))
+      // Each label the sticker can have (see rarityOf in PullMachine), in turn on the one pulled,
+      // against the foot of the machine's drop shadow (its offset down, 8px, below the machine).
+      const reach = await browser.evaluate<string[]>(`(() => {
+        const body = document.querySelector('.ab-body')
+        const drop = parseFloat(getComputedStyle(body).boxShadow.match(/(-?[\\d.]+)px/g)[1])
+        const foot = body.getBoundingClientRect().bottom + drop
+        const sticker = document.querySelector('.ab-result.is-open .ab-sfx-tier')
+        return ['SSR!!', 'SR!', 'R', '!?'].flatMap((label) => {
+          sticker.textContent = label
+          const top = sticker.getBoundingClientRect().top
+          return top < foot ? [label + ' reaches ' + (foot - top).toFixed(1) + 'px under it'] : []
+        })
+      })()`)
+      for (const line of reach) under.push(`${width}px: ${line}`)
+    }
+    assert.deepEqual(under, [], 'stickers reaching under the machine')
+  })
 })
 
 // Visitors can ask for reduced motion on their device, or on the site itself, whose setting is
@@ -4704,9 +4781,8 @@ describe('phone (390x844)', () => {
   })
 
   test('the intro’s speed lines stay under the header', async () => {
-    // The intro's speed lines reach up behind the header. On a phone the header scrolls away
-    // with the page instead of sticking, but it should still cover them, as it does on
-    // desktop, so it looks the same with the lines hidden.
+    // The intro's speed lines reach up behind the header. On a phone it should cover them too,
+    // as it does on desktop, so it looks the same with the lines hidden.
     await browser.animationsDone()
     await browser.evaluate('scrollTo(0, 0); true')
     const header = await browser.evaluate<{ x: number; y: number; width: number; height: number }>(
@@ -4758,7 +4834,7 @@ describe('phone (390x844)', () => {
         const intro = document.querySelector('.ab-intro'), box = intro.getBoundingClientRect(), style = getComputedStyle(intro)
         const left = box.left + parseFloat(style.paddingLeft), right = box.right - parseFloat(style.paddingRight)
         const lost = []
-        for (const block of intro.querySelectorAll('.ab-intro-kicker, .ab-intro-title, .ab-intro-lede, .ab-intro-actions a')) {
+        for (const block of intro.querySelectorAll('.ab-intro-kicker, .ab-intro-title, .ab-intro-lede, .ab-intro-actions > *')) {
           const own = block.getBoundingClientRect(), text = document.createTreeWalker(block, NodeFilter.SHOW_TEXT)
           for (let node; (node = text.nextNode()); ) {
             if (node.parentElement.closest('[aria-hidden="true"]')) continue
@@ -4796,12 +4872,23 @@ describe('phone (390x844)', () => {
   })
 
   test('every menu item fits on screen without squeezing', async () => {
-    const menu = await browser.evaluate<{ right: number; soonHeight: number }>(`({
-      right: Math.max(...[...document.querySelectorAll('.ab-nav > *')].map((n) => n.getBoundingClientRect().right)),
-      soonHeight: document.querySelector('.ab-nav .ab-soon').getBoundingClientRect().height,
+    // The header's links aren't drawn on a phone: they are in the menu its button opens.
+    await browser.evaluate(`document.querySelector('.ab-burger').click(); true`)
+    assert.ok(await browser.waitFor(`document.querySelector('.ab-drawer').open`, 2000))
+    // Once its links have slapped down: tilted mid-way, their boxes reach further.
+    await browser.animationsDone()
+    const menu = await browser.evaluate<{ right: number; panel: number; heights: number[] }>(`({
+      right: Math.max(...[...document.querySelectorAll('.ab-drawer nav > *')].map((n) => n.getBoundingClientRect().right)),
+      panel: document.querySelector('.ab-drawer-page').getBoundingClientRect().right,
+      heights: [...document.querySelectorAll('.ab-drawer nav > *')].map((n) => n.offsetHeight),
     })`)
-    assert.ok(menu.right <= 374, `the menu ends at ${menu.right}px`)
-    assert.ok(menu.soonHeight <= 50, `the coming-soon pill is ${menu.soonHeight}px tall`)
+    await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+    assert.ok(menu.right <= menu.panel, `the menu's items end at ${menu.right}px, past its panel`)
+    assert.ok(menu.panel <= 374, `the menu ends at ${menu.panel}px`)
+    assert.ok(
+      menu.heights.length === 4 && menu.heights.every((h) => h >= 44 && h <= 64),
+      `the menu's items are ${menu.heights.join(', ')}px tall`,
+    )
   })
 
   test('on a 2x screen, decade covers load AniList’s 460px file where there is one', async () => {
@@ -4879,7 +4966,7 @@ describe('phone (390x844)', () => {
 
   test('on a phone, a new search’s first answer, arriving late, leaves the visitor’s place and focused chip where they were', async () => {
     // As on desktop, with another title: the answer for "macross" is saved, so it would show at
-    // once. Here the header scrolls away with the page. No request is sent.
+    // once. Here the header is one row that hides as the page scrolls down. No request is sent.
     assertPlaceKept(await lateFirstAnswer('patlabor'))
   })
 
@@ -5012,6 +5099,129 @@ function switchOnPhoneChecks(width: number) {
     }
   })
 }
+
+describe('the title card, from a small phone to a wide screen', () => {
+  // Phones and tablets get Chrome's mobile emulation, as a visitor's device would, desktops not.
+  const SCREENS = [
+    [320, 568],
+    [375, 667],
+    [390, 844],
+    [430, 932],
+    [768, 1024],
+    [820, 1180],
+    [834, 1112],
+    [1024, 768],
+    [1440, 900],
+  ] as const
+
+  /**
+   * Holds every animation the page starts from now on, from the moment `act` makes it start, for
+   * a check to play by hand (window.__held). Resolves to how many it held, or null if none started
+   * in 5 seconds. Opening the card starts its opening; closing it, its way back.
+   */
+  const holdWhat = (act: string) => `new Promise((resolve) => {
+    const running = new Set(document.getAnimations())
+    const watch = new MutationObserver(() => {
+      const started = document.getAnimations().filter((a) => !running.has(a))
+      if (!document.querySelector('dialog.ab-card')?.open || !started.length) return
+      watch.disconnect()
+      started.forEach((a) => a.pause())
+      window.__held = started
+      resolve(started.length)
+    })
+    watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open', 'class'] })
+    setTimeout(() => resolve(null), 5000)
+    ${act}
+  })`
+
+  /**
+   * Plays what holdWhat held, one 60 Hz frame at a time to its end, and says how far past the
+   * screen `width`px wide (its sides and top) and past the card's sheet the Japanese title ever
+   * stood while it showed at all, side by side, in px, rounded, and when it stood furthest; or
+   * null if it never did. `when` names the moment, for the message.
+   */
+  async function nativeOutside(width: number, when: string) {
+    return browser.evaluate<string | null>(`(async () => {
+      const end = Math.max(...window.__held.map((a) => a.effect.getComputedTiming().endTime))
+      const worst = new Map()
+      for (let at = 0; at < end + 1000 / 60; at += 1000 / 60) {
+        for (const a of window.__held) a.currentTime = Math.min(at, end)
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+        const native = document.querySelector('.ab-card .ab-native')
+        if (!native) break // closed: the card leaves as its way back ends
+        if (Number(getComputedStyle(native).opacity) === 0) continue
+        const n = native.getBoundingClientRect(), s = document.querySelector('.ab-sheet').getBoundingClientRect()
+        const past = {
+          'the left of the screen': -n.left,
+          'the right of the screen': n.right - ${width},
+          'the top of the screen': -n.top,
+          'the left of the sheet': s.left - n.left,
+          'the right of the sheet': n.right - s.right,
+          'the top of the sheet': s.top - n.top,
+          'the bottom of the sheet': n.bottom - s.bottom,
+        }
+        for (const [side, px] of Object.entries(past))
+          if (px > 0.5 && px > (worst.get(side)?.px ?? 0))
+            worst.set(side, { px, at: at > end ? 'at rest' : Math.round(at) + ' ms in' })
+      }
+      for (const a of window.__held) a.finish()
+      return worst.size ? ${JSON.stringify(when)} + ': ' + [...worst].map(([side, { px, at }]) => Math.round(px) + 'px past ' + side + ' (' + at + ')').join(', ') : null
+    })()`)
+  }
+
+  test('the Japanese title behind the cover stays whole on the screen and inside the card, as it opens, at rest and as it closes', async () => {
+    // The title's Japanese name stands in a tall ghost column behind the cover, hanging off its
+    // top-left (6% of the art's width out beside the text, a whole character out when stacked). On
+    // a phone or a tablet in portrait the card stacks, and the art used to stretch across the
+    // card with the cover in its middle, so 6% of the art put the
+    // column on the card's border on a phone, and 7 to 10px off the screen and 17 to 20px out of
+    // the card on a tablet in portrait, far from the cover. And the first frames of its fall
+    // poked up to 8px out of the card's top there. The first two trending titles are opened at
+    // each size, their opening and closing played by hand one 60 Hz frame at a time: wherever
+    // the column shows at all, it must lie on the screen and inside the card's sheet.
+    const off: string[] = []
+    for (const [width, height] of SCREENS) {
+      await browser.load({ width, height, phone: width < 900 })
+      assert.ok(await browser.titlesShown(), `at ${width}px wide, the titles never appeared`)
+      for (let panel = 0; panel < 2; panel++) {
+        const opening = await browser.evaluate<number | null>(
+          holdWhat(`document.querySelectorAll('.ab-grid .ab-link')[${panel}].click()`),
+        )
+        assert.ok(opening, `at ${width}px wide, trending title ${panel + 1}'s card did not open`)
+        await browser.evaluate(
+          `document.querySelector('dialog.ab-card img').decode().catch(() => {}).then(() => true)`,
+        )
+        const name = await browser.evaluate<string>(
+          `document.querySelector('#ab-card-title').textContent.replace(/\\s+/g, ' ').trim()`,
+        )
+        assert.ok(
+          await browser.evaluate(`Boolean(document.querySelector('.ab-card .ab-native'))`),
+          `${name} has no Japanese title to check`,
+        )
+        const where = `at ${width}x${height}, ${name}`
+        off.push((await nativeOutside(width, `${where}, opening`)) ?? '')
+        assert.ok(
+          await browser.waitFor(`document.querySelector('.ab-card.is-landed')`, 5000),
+          `${where}: the card never finished opening`,
+        )
+        const closing = await browser.evaluate<number | null>(
+          holdWhat(`document.querySelector('dialog.ab-card .ab-close').click()`),
+        )
+        assert.ok(closing, `${where}: the card did not start to close`)
+        off.push((await nativeOutside(width, `${where}, closing`)) ?? '')
+        assert.ok(
+          await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000),
+          `${where}: the card did not close`,
+        )
+      }
+    }
+    assert.deepEqual(
+      off.filter(Boolean),
+      [],
+      'how far the Japanese title behind the cover stood past the screen or the card, at each size, for each title, as its card opened and as it closed, at its furthest while it showed',
+    )
+  })
+})
 
 describe('Windows contrast themes (forced colors)', () => {
   // A contrast theme replaces the page's colors with a few the visitor picked (forced colors).

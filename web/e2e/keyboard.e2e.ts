@@ -90,7 +90,7 @@ test('from 900px, focus never lands under the sticky header, going back with Shi
     // whole page, the header's height had Chrome scroll to the top as its search box took focus.
     const moved = await browser.evaluate<number>(`(() => {
       scrollTo(0, 1500)
-      document.querySelector('.ab-search input').focus()
+      document.querySelector('.ab-search textarea').focus()
       return Math.round(scrollY) - 1500
     })()`)
     if (moved) seen.push(`${screen.width}px: focusing the search box moved the page ${moved}px`)
@@ -225,10 +225,23 @@ test("each of the header's section links hands focus to its section's heading, a
   ]) {
     await browser.load({ ...screen, reduceMotion: true })
     assert.ok(await browser.titlesShown())
+    // On a phone the links are in the menu, which the menu button opens.
+    const phone = screen.width < 900
     for (const label of ['Trending', 'Pull', 'Decades']) {
+      // From the top of the page; on a wide screen, from its end, where the intro's buttons have
+      // docked and the header's links show.
+      await browser.evaluate(
+        `scrollTo({ top: ${screen.width >= 900 ? 'document.documentElement.scrollHeight' : 0}, behavior: 'instant' }); true`,
+      )
+      await browser.evaluate(
+        'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+      )
+      if (phone) {
+        await browser.evaluate(`document.querySelector('.ab-burger').focus(); true`)
+        await browser.press('Enter')
+      }
       await browser.evaluate(`(() => {
-        scrollTo({ top: 0, behavior: 'instant' })
-        ;[...document.querySelectorAll('.ab-nav a')].find((link) => link.textContent === '${label}').focus()
+        ;[...document.querySelectorAll('${phone ? '.ab-drawer nav a' : '.ab-nav a'}')].find((link) => link.firstChild.textContent === '${label}').focus()
         return true
       })()`)
       await browser.press('Enter')
@@ -269,11 +282,41 @@ const STOPS = [
   'Reduce motion',
 ]
 
+// The header's section links wait hidden while the intro's buttons are on the page (see
+// lib/sectionNav.ts), so a walk from the top meets only the buttons. On a wide screen, walking
+// back from the end, the buttons have docked in the header, so it meets the header's links
+// instead.
+const STOPS_TOP = STOPS.filter((stop) => !['Trending', 'Pull', 'Decades'].includes(stop))
+// On a phone neither is drawn: the menu button opens the links, and the walk goes on to the page.
+const STOPS_PHONE = [
+  ...STOPS.slice(0, 2),
+  'Menu',
+  ...STOPS_TOP.filter(
+    (stop) => !['See what’s trending', 'Pull a random title', 'Browse by decade'].includes(stop),
+  ).slice(2),
+]
+const BACK_WIDE = [
+  'Reduce motion',
+  'a title in Browse by decade ×20',
+  'Decade: 1990s',
+  'Pull!',
+  'Pick a vibe: Any vibe',
+  'a title in Trending now ×9',
+  'Search titles',
+  'Decades',
+  'Pull',
+  'Trending',
+  'AniBeam',
+  'Skip to Reduce motion',
+  'Skip to content',
+]
+
 // The stop that has focus, and what is wrong with how it shows, read as Tab reaches it: it must be
 // whole, its ring too, on the screen, clear of the sticky header and of anything that clips it,
 // and not see-through. A chip's or the switch's input is see-through, so for those it is the pill
-// that shows. A ring reaches its outline's width and offset beyond what it rings, or 7px (the
-// rings drawn as a frame, such as a heading's).
+// that shows; the search box's focus shows as its bubble's lift, so for it, the bubble, which on
+// a phone clips the box as it grows. A ring reaches its outline's width and offset beyond what it
+// rings, or 7px (the rings drawn as a frame, such as a heading's).
 const STOP = `(() => {
   const focused = document.activeElement
   if (!focused || focused === document.body) return null
@@ -287,7 +330,7 @@ const STOP = `(() => {
     : focused.matches('fieldset input')
       ? text(focused.closest('fieldset').querySelector('legend')) + ': ' + text(focused.parentElement)
       : focused.getAttribute('aria-label') || (focused.matches('label > input') ? text(focused.parentElement) : text(focused) || focused.placeholder || focused.tagName.toLowerCase())
-  const shown = focused.matches('label > input') ? focused.nextElementSibling : focused
+  const shown = focused.matches('label > input') ? focused.nextElementSibling : focused.closest('.ab-bubble-field') ?? focused
   const style = getComputedStyle(shown)
   const reach = style.outlineStyle === 'none' ? 7 : parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset)
   const box = shown.getBoundingClientRect()
@@ -381,8 +424,10 @@ test('Tab walks every stop of the page in order and Shift+Tab walks them back, e
       problems,
     }
   }
-  const expected = { stops: STOPS, back: 'the same, reversed', problems: [] }
-  assert.deepEqual(seen, { '1440px': expected, '390px': expected })
+  assert.deepEqual(seen, {
+    '1440px': { stops: STOPS_TOP, back: BACK_WIDE, problems: [] },
+    '390px': { stops: STOPS_PHONE, back: 'the same, reversed', problems: [] },
+  })
 })
 
 test('by keyboard alone, Esc empties the search box, arrow keys choose a vibe and a decade, and Space pulls, opens a title card on its Close button and closes it', async () => {
@@ -418,7 +463,11 @@ test('by keyboard alone, Esc empties the search box, arrow keys choose a vibe an
       then: 'a title in Browse by decade',
     },
   }
-  assert.deepEqual(seen, { '1440px': expected, '390px': expected })
+  assert.deepEqual(seen, {
+    '1440px': expected,
+    // The intro's buttons aren't drawn on a phone: Tab goes on from the search to the titles.
+    '390px': { ...expected, search: { ...expected.search, then: 'a title in Trending now' } },
+  })
 })
 
 /**
@@ -456,7 +505,7 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
   await browser.press('Escape')
   await browser.waitFor(`document.querySelector('.ab-intro')`, 5_000)
   journey.search = {
-    box: await browser.evaluate<string>(`document.querySelector('.ab-search input').value`),
+    box: await browser.evaluate<string>(`document.querySelector('.ab-search textarea').value`),
     results: await browser.evaluate<boolean>(`Boolean(document.querySelector('.ab-results'))`),
     focus: await focus(),
     then: await next(),
@@ -569,7 +618,7 @@ async function focusShows() {
   }>(`(() => {
     const focused = document.activeElement
     window.__walked = focused
-    const shown = focused.matches('label > input') ? focused.nextElementSibling : focused
+    const shown = focused.matches('label > input') ? focused.nextElementSibling : focused.closest('.ab-bubble-field') ?? focused
     const box = shown.getBoundingClientRect()
     const left = Math.max(0, box.left - 10), top = Math.max(0, box.top - 10)
     const right = Math.min(innerWidth, box.right + 10), bottom = Math.min(innerHeight, box.bottom + 10)

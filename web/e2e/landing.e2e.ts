@@ -265,7 +265,9 @@ test('a part peeking in by less than 15% lands once it has stayed in view a mome
 test('a heading reached by a header link or an intro button booms as it takes focus', async () => {
   // Section headings take focus only from these links (they are out of the Tab order): a jump to
   // one lands it as if seen, so its sound effect booms there, rather than at once, as Tab lands
-  // what it reaches.
+  // what it reaches. The header's links wait hidden while the intro's buttons are on the screen
+  // (see lib/sectionNav.ts), so they are followed while searching, where results take the intro's
+  // place, and the sections below them haven't landed yet.
   const booms: Record<string, string> = {}
   for (const [from, label] of [
     ['.ab-nav a', 'Trending'],
@@ -275,6 +277,15 @@ test('a heading reached by a header link or an intro button booms as it takes fo
   ]) {
     await browser.load()
     assert.ok(await browser.titlesShown())
+    if (from === '.ab-nav a') {
+      await browser.search('frieren')
+      assert.ok(
+        await browser.waitFor(
+          `document.querySelector('.ab-results .ab-strip-panel[href]')`,
+          10_000,
+        ),
+      )
+    }
     await browser.evaluate(`(() => {
       window.__booms = []
       addEventListener('animationstart', (event) => {
@@ -298,13 +309,13 @@ test('a heading reached by a header link or an intro button booms as it takes fo
   })
 })
 
-test('a part coming down from above lands as it shows below the header from 900px, and at the screen’s top on a phone', async () => {
-  // The header stays on screen from 900px wide: what is under it isn't seen. So scrolled up from
-  // the foot of the page, 10px a frame, each part must land once 15% of it shows below the header,
-  // not while it is still under it, where a heading's boom would play unseen. At rest at the foot,
-  // a part peeking in by less lands after a moment, but it too must show below the header. On a
-  // phone the header scrolls away with the page: there a part lands as it shows at the top of the
-  // screen, so a part that lands with much more than 15% of it showing landed late.
+test('a part coming down from above lands as it shows below the header, on a phone too', async () => {
+  // The header stays on screen: what is under it isn't seen. So scrolled up from the foot of the
+  // page, 10px a frame, each part must land once 15% of it shows below the header, not while it
+  // is still under it, where a heading's boom would play unseen. At rest at the foot, a part
+  // peeking in by less lands after a moment, but it too must show below the header. On a phone
+  // the header comes back as the page scrolls up, and a part that lands with much more than 15%
+  // of it showing below it landed late.
   // And at 960px with WCAG's widened text spacing (1.4.12), put on once the page has loaded: the
   // header takes a second row, 137px, and what lands must follow its new height.
   const SPACING = `(async () => {
@@ -341,7 +352,7 @@ test('a part coming down from above lands as it shows below the header from 900p
         let top = -scrollY
         for (let el = target; el; el = el.offsetParent) top += el.offsetTop
         const height = target.offsetHeight, under = header.getBoundingClientRect().bottom
-        // What shows of it below the header, or the screen's top once the header has scrolled away.
+        // What shows of it below the header, or the screen's top while a phone's header is hidden.
         const below = Math.max(0, Math.min(top + height, innerHeight) - Math.max(top, under, 0)) / height
         // Late: more than 15% showing, give or take the 40px four frames scroll while the
         // observer's report is on its way.
@@ -610,9 +621,12 @@ test('every part is marked before the browser first draws it, and plays no load-
     await browser.evaluate(
       `document.getElementById('pull').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
     )
+    // Page.reload returns before the new page replaces the old one, which would answer at once,
+    // and the next look would meet the page mid-replacement: so the old one is marked.
+    await browser.evaluate(`window.__beforeReload = true; true`)
     await browser.send('Page.reload', {})
     await browser.waitFor(
-      `document.readyState === 'complete' && document.querySelector('#main')`,
+      `!window.__beforeReload && document.readyState === 'complete' && document.querySelector('#main')`,
       30_000,
     )
     assert.ok(await browser.titlesShown())

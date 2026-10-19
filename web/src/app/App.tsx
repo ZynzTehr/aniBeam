@@ -9,8 +9,7 @@ import { coverFan, COVERS } from '../components/coverFan.ts'
 import { IntroHero } from '../components/IntroHero.tsx'
 import { MangaPage, PANELS } from '../components/MangaPage.tsx'
 import { MotionSwitch } from '../components/MotionSwitch.tsx'
-import { NavFlight } from '../components/NavFlight.tsx'
-import { SiteHeader } from '../components/SiteHeader.tsx'
+import { SiteHeader, type NavLink } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
 import { TitleNotice } from '../components/TitleNotice.tsx'
@@ -28,14 +27,23 @@ import {
 } from '../features/anime/queries.ts'
 import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { isRateLimited } from '../lib/anilist.ts'
+import { markPointerJumps } from '../lib/jumps.ts'
 import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
 import { isOver, push, replace, titleIdFrom, titlePath, usePathname } from '../lib/route.ts'
+import { startSectionNav } from '../lib/sectionNav.ts'
 import { useSteadyList } from '../lib/steadyList.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
 import { noteFor, NOT_FOUND, sampleNote, searchStatus, titleNote } from './status.ts'
 
 const note = (query: UseQueryResult<Media[]>) => noteFor(query, isRateLimited())
+// The header's links: the page's three sections, and My List, to come.
+const HEADER_LINKS: NavLink[] = [
+  { href: '#ab-trending', label: 'Trending' },
+  { href: '#pull', label: 'Pull' },
+  { href: '#decades', label: 'Decades' },
+  { href: '#my-list', label: 'My List', soon: true },
+]
 // A Try again button when a section's last attempt failed (see App's retryFailed).
 const retryFor = (query: UseQueryResult<Media[]>, retryFailed: () => void) =>
   query.isError && !query.isFetching ? retryFailed : undefined
@@ -66,6 +74,32 @@ export default function App() {
   // Parts of the page land once as they scroll into view (see lib/landing.ts). Started before the
   // browser first draws the page, so no part shows, then hides, then lands.
   useLayoutEffect(() => startLanding(LANDING_PARTS), [])
+
+  // A section link's jump focuses its heading, with the keyboard's ring only when a key made it
+  // (see lib/jumps.ts).
+  useEffect(() => markPointerJumps(), [])
+
+  // The page's section links (see lib/sectionNav.ts): the header marks the section the visitor is
+  // in, and from 900px the intro's buttons dock in the header as it reaches them. Started before
+  // the browser first draws the page, so the right set of links shows from the first frame.
+  const [currentHref, setCurrentHref] = useState<string | null>(null)
+  const appRef = useRef<HTMLDivElement>(null)
+  const actionsRef = useRef<HTMLElement>(null)
+  const sectionNav = useRef<ReturnType<typeof startSectionNav>>(null)
+  useLayoutEffect(() => {
+    const header = document.querySelector<HTMLElement>('.ab-top')
+    if (!appRef.current || !header) return
+    const nav = startSectionNav({
+      app: appRef.current,
+      header,
+      onCurrent: setCurrentHref,
+    })
+    sectionNav.current = nav
+    return () => {
+      nav.stop()
+      sectionNav.current = null
+    }
+  }, [])
 
   // A Try again button when a section's last attempt failed. One press retries every failed
   // section on the page (see refetchFailed). The button hides while retries run, which may
@@ -244,13 +278,18 @@ export default function App() {
     return all.filter((media, i) => all.findIndex((other) => other.id === media.id) === i)
   }, [trendingShown, decadeShown])
 
+  // The intro's buttons, for the section links: none while searching, as results take its place.
+  useLayoutEffect(() => {
+    sectionNav.current?.intro(searching ? null : actionsRef.current)
+  }, [searching])
+
   // Search results take the intro's place at the top of the page; bring them into view.
   useEffect(() => {
     if (searching) window.scrollTo({ top: 0 })
   }, [searching])
 
   return (
-    <div className="ab-app">
+    <div ref={appRef} className="ab-app">
       <a className="ab-skip" href="#main">
         Skip to content
       </a>
@@ -260,14 +299,10 @@ export default function App() {
         Skip to Reduce motion
       </a>
       <SiteHeader
-        links={[
-          { href: '#ab-trending', label: 'Trending' },
-          { href: '#pull', label: 'Pull' },
-          { href: '#decades', label: 'Decades' },
-          { href: '#my-list', label: 'My List', soon: true },
-        ]}
+        links={HEADER_LINKS}
         search={search.shown}
         onSearch={(shown, text) => setSearch({ shown, text })}
+        currentHref={currentHref}
       />
       <main id="main">
         <p role="status" className="sr-only">
@@ -284,6 +319,7 @@ export default function App() {
           <IntroHero
             titles={trending.data ? introCovers : trendingSamples}
             coversRef={introRef}
+            actionsRef={actionsRef}
             // Not once a try has failed or the browser is offline: covers that aren't coming
             // would leave an empty band pushing the buttons off a phone's first screen. The
             // samples' covers are coming, though, until their file fails to load.
@@ -299,10 +335,11 @@ export default function App() {
                 // button that leads there says so too. The header's Trending link stays: it names
                 // the section's place in the page.
                 label: trendingSamples.length ? 'See fan favorites' : 'See what’s trending',
-                primary: true,
               },
               { href: '#pull', label: 'Pull a random title' },
               { href: '#decades', label: 'Browse by decade' },
+              // To come, as in the header: it docks there with the section links.
+              { href: '#my-list', label: 'My List', soon: true },
             ]}
           />
         )}
@@ -364,8 +401,6 @@ export default function App() {
           </fieldset>
         </Strip>
       </main>
-      {/* DRAFT PROTOTYPE: ?nav=a or ?nav=b (see NavFlight). */}
-      <NavFlight active={!searching} />
       <footer className="ab-foot">
         <MotionSwitch id="reduce-motion" />
         <p>Data from AniList. AniBeam is not affiliated with AniList.</p>
@@ -439,8 +474,8 @@ function SearchResults({
   const lastTerm = useRef(term)
   const box = useRef<HTMLDivElement>(null)
   useLayoutEffect(() => {
-    // In view: a title ends below the header, or below the top of the screen once a phone's
-    // header has scrolled away. Each title's list item is measured, not its panel, which pops in
+    // In view: a title ends below the header, or below the top of the screen while a phone's
+    // header is hidden up it. Each title's list item is measured, not its panel, which pops in
     // from a smaller size.
     const header = document.querySelector('.ab-top')?.getBoundingClientRect().bottom ?? 0
     const titles = box.current?.querySelectorAll('.ab-strip-row:not([aria-hidden]) > li') ?? []

@@ -32,7 +32,7 @@ export default function VariantD({ shows, classics }: VariantProps) {
         <IntroHero
           titles={shows}
           actions={[
-            { href: '#ab-trending', label: 'See what’s trending', primary: true },
+            { href: '#ab-trending', label: 'See what’s trending' },
             { href: '#pull', label: 'Pull a random title' },
             { href: '#ab-throwback', label: 'Browse the ’90s' },
           ]}

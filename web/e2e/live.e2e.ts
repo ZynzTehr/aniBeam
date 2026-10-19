@@ -281,7 +281,7 @@ test('AniList’s search still finds a trending title by its name', { skip: off 
   const name = wanted.title.romaji
   // Pasted in one go, so the app sends one search, for the whole name.
   await browser.evaluate(
-    `(() => { const input = document.querySelector('.ab-search input'); input.focus(); input.select(); return true })()`,
+    `(() => { const input = document.querySelector('.ab-search textarea'); input.focus(); input.select(); return true })()`,
   )
   await browser.send('Input.insertText', { text: name })
   const { seen, answer, page } = await sawRequest(2, `a search for ${JSON.stringify(name)}`)

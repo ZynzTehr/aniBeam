@@ -533,7 +533,7 @@ export class Browser {
   async search(text: string) {
     this.#typing = text
     await this.evaluate(
-      `(() => { const input = document.querySelector('.ab-search input'); input.focus(); input.select(); return true })()`,
+      `(() => { const input = document.querySelector('.ab-search textarea'); input.focus(); input.select(); return true })()`,
     )
     if (!text) await this.press('Backspace')
     for (const character of text) await this.send('Input.insertText', { text: character })

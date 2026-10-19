@@ -5,7 +5,8 @@ import { markBroken, markLoaded } from './cover.ts'
 import { coverFan } from './coverFan.ts'
 import { cssVars } from './cssVars.ts'
 
-export type IntroAction = { href: string; label: string; primary?: boolean }
+/** An intro button: a section link, or with `soon` a feature from a later phase (My List). */
+export type IntroAction = { href: string; label: string; soon?: boolean }
 
 /**
  * The first screen says what AniBeam is before anything else: a place for anime fans to keep
@@ -17,6 +18,7 @@ export function IntroHero({
   coversRef,
   loading = false,
   actions,
+  actionsRef,
 }: {
   titles: Media[]
   /** Gets the cover fan, so App can tell when it is on screen (see useSteadyList). */
@@ -24,6 +26,8 @@ export function IntroHero({
   /** Hold the covers' place while the first load runs (on phones, so the headline stays put). */
   loading?: boolean
   actions: IntroAction[]
+  /** The intro's buttons, the page's section links while they are on the screen (sectionNav). */
+  actionsRef?: Ref<HTMLElement>
 }) {
   // The same pick App's hold uses (see coverFan).
   const covers = coverFan(titles)
@@ -64,16 +68,20 @@ export function IntroHero({
         See what&rsquo;s trending this week, pull a random pick for your mood, or dig through past
         decades. Coming soon: chat with other fans about the shows, movies and OVAs you love.
       </p>
-      <nav className="ab-intro-actions" aria-label="Ways to find a title">
-        {actions.map((action) => (
-          <a
-            key={action.href}
-            className={action.primary ? 'ab-btn ab-btn-ink' : 'ab-btn'}
-            href={action.href}
-          >
-            {action.label}
-          </a>
-        ))}
+      {/* "Sections": the page's section links, and My List, to come, as the header's "Site" has
+          them. My List is shown as the header shows it, with a tag, not a link. */}
+      <nav ref={actionsRef} className="ab-intro-actions" aria-label="Sections">
+        {actions.map((action) =>
+          action.soon ? (
+            <span key={action.href} className="ab-soon" aria-disabled="true">
+              {action.label} <small>Soon</small>
+            </span>
+          ) : (
+            <a key={action.href} className="ab-btn" href={action.href}>
+              {action.label}
+            </a>
+          ),
+        )}
       </nav>
     </section>
   )

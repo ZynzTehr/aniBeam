@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { searchable } from './ime.ts'
+import { confirmsWord, searchable } from './ime.ts'
 
 test('kana, kanji and full-width letters an input method is still converting are not searched', () => {
   // Hiragana, katakana, kanji, a compatibility kanji (as in the name 山﨑), Taiwan's zhuyin
@@ -38,4 +38,10 @@ test('a Latin or Korean word is searched as typed even next to a Japanese one', 
     ['borutoナルト', 'ナルト'],
   ])
     assert.equal(searchable(text, true, before), text, `${text} was held, as if still converting`)
+})
+
+test('an Enter that confirms an input method’s word is not taken for Enter', () => {
+  assert.equal(confirmsWord({ isComposing: true, keyCode: 13 }), true, 'Chrome')
+  assert.equal(confirmsWord({ isComposing: false, keyCode: 229 }), true, 'Safari')
+  assert.equal(confirmsWord({ isComposing: false, keyCode: 13 }), false, 'an Enter')
 })

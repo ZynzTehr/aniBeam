@@ -669,3 +669,51 @@ test('no style prop sets a transition, an animation or scroll-behavior, which no
     'these style props set a transition, an animation or scroll-behavior, which an inline style can’t put in a motion gate, so neither the device’s setting nor the site’s can stop it: give the element an ab- class, and its motion a rule in a motion gate in components.css',
   )
 })
+
+// A script that moves something itself, with the Web Animations API (element.animate), plays
+// whatever the stylesheet's motion gates say: so it asks reducedMotion() first, in the same file,
+// before the call. Each call to .animate( in a file with no reducedMotion() call before it, as
+// `file:line: code`; lines that start like a comment are skipped.
+function animatesUnasked(text: string, file: string) {
+  const lines = text.split('\n')
+  const asked = lines.findIndex(
+    (line) => !/^\s*(\/\/|\/?\*)/.test(line) && /\breducedMotion\(\)/.test(line),
+  )
+  return lines.flatMap((line, i) =>
+    /^\s*(\/\/|\/?\*)/.test(line) || !/\.animate\(/.test(line) || (asked !== -1 && asked < i)
+      ? []
+      : [`${file}:${i + 1}: ${line.trim()}`],
+  )
+}
+
+test('the scan finds a script that animates without asking reducedMotion() first, however it is laid out', () => {
+  assert.deepEqual(animatesUnasked('el.animate(frames, timing)', 'a.ts'), [
+    'a.ts:1: el.animate(frames, timing)',
+  ])
+  assert.deepEqual(
+    animatesUnasked('chip.animate(a)\nif (reducedMotion()) return\npill.animate(b)', 'b.ts'),
+    ['b.ts:1: chip.animate(a)'],
+  )
+  assert.deepEqual(animatesUnasked('if (reducedMotion()) return\nel.animate(frames)', 'c.ts'), [])
+  // A comment naming either asks nothing and animates nothing.
+  assert.deepEqual(animatesUnasked('// reducedMotion()\nel.animate(frames)', 'd.ts'), [
+    'd.ts:2: el.animate(frames)',
+  ])
+  assert.deepEqual(animatesUnasked('// then el.animate(frames)', 'e.ts'), [])
+})
+
+test('every script that animates with element.animate asks reducedMotion() first', () => {
+  // So that a broken reading can't pass by finding nothing, it must find the flight's animations.
+  const animating = appFiles.filter(
+    (file) => /\.tsx?$/.test(file) && /\.animate\(/.test(readFileSync(join(web, file), 'utf8')),
+  )
+  assert.ok(
+    animating.includes('src/lib/sectionNav.ts'),
+    'the scan misses the section links’ flight',
+  )
+  assert.deepEqual(
+    animating.flatMap((file) => animatesUnasked(readFileSync(join(web, file), 'utf8'), file)),
+    [],
+    'these lines animate before their file asks reducedMotion(): ask it first, and swap at once under reduced motion',
+  )
+})
