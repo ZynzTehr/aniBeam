@@ -9,11 +9,17 @@ import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
 import type { Media } from '../features/anime/queries.ts'
 import { PullMachine } from '../features/mood/PullMachine.tsx'
-import type { VariantProps } from './data.ts'
+import type { Show, VariantProps } from './data.ts'
 
-export default function VariantD({ shows, classics }: VariantProps) {
+// The prototypes ask AniList for the fields they were drawn with (data.ts), with no synopsis,
+// running time or tags, so the title card shows none.
+const asMedia = (show: Show): Media => ({ ...show, description: null, duration: null, tags: [] })
+
+export default function VariantD(props: VariantProps) {
   const [opened, setOpened] = useState<{ media: Media; from: DOMRect } | null>(null)
   const [search, setSearch] = useState('')
+  const shows = useMemo(() => props.shows.map(asMedia), [props.shows])
+  const classics = useMemo(() => props.classics.map(asMedia), [props.classics])
   const pool = useMemo(() => [...shows, ...classics], [shows, classics])
   const open: OpenTitle = (media, from) => setOpened({ media, from: from.getBoundingClientRect() })
 

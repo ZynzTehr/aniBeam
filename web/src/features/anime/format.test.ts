@@ -29,6 +29,9 @@ const media = (overrides: Partial<Media> = {}): Media => ({
   seasonYear: 2023,
   studios: { nodes: [{ name: 'Madhouse' }] },
   nextAiringEpisode: null,
+  description: null,
+  duration: null,
+  tags: [],
   ...overrides,
 })
 

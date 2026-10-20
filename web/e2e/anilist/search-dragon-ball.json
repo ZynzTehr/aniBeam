@@ -1,6 +1,6 @@
 {
   "request": {
-    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } } } }",
     "variables": {
       "search": "dragon ball"
     }
@@ -36,7 +36,221 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Goku Son is a young boy who lives in the woods all alone—that is until a girl named Bulma runs into him in her search for a set of magical objects called the \"Dragon Balls.\" Since the artifacts are said to grant one wish to whoever collects all seven, Bulma hopes to gather them and wish for a perfect boyfriend. Goku happens to be in possession of a dragon ball, but unfortunately for Bulma, he refuses to part ways with it, so she makes him a deal: he can tag along on her journey if he lets her borrow the dragon ball's power. With that, the two set off on the journey of a lifetime.<br>\n<br>\nThey don't go on the journey alone. On the way, they meet the old Muten-Roshi and wannabe disciple Kuririn, with whom Goku trains to become a stronger martial artist for the upcoming World Martial Arts Tournament. However, it's not all fun and games; the ability to make any wish come true is a powerful one, and there are others who would do much worse than just wishing for a boyfriend. To stop those who would try to abuse the legendary power, they train to become stronger fighters, using their newfound strength to help the people around them along the way.<br>\n<br>\n(Source: MAL Rewrite)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 99,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 93,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coming of Age",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Battle Royale",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cultivation",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 78,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Anachronism",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Wuxia",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 63,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Time Skip",
+                "rank": 62,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Dinosaurs",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 57,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Revenge",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shapeshifting",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Adoption",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Robots",
+                "rank": 43,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tanned Skin",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kaiju",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Desert",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dissociative Identities",
+                "rank": 28,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ninja",
+                "rank": 28,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 813,
@@ -64,7 +278,235 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Goku is back with his new son, Gohan, but just when things are getting settled down, the adventures continue. Whether he is facing enemies such as Freeza, Cell, or Boo, Goku is proven to be an elite of his own and discovers his race, Saiyan. He meets many new people, gaining allies as well as enemies, as he still finds time to raise a family and be the happy-go-lucky Saiyan he is.<br><br>\n(Source: Anime News Network)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 94,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 89,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 89,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cultivation",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Space",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coming of Age",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Skip",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mythology",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Afterlife",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Battle Royale",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 45,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Robots",
+                "rank": 45,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 42,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Reincarnation",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Cyborg",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Anachronism",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gore",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gender Bending",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Body Swapping",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Revenge",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dinosaurs",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dissociative Identities",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Memory Manipulation",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ]
           },
           {
             "id": 21175,
@@ -92,7 +534,130 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "After 18 years, we have the newest Dragon Ball story from creator Akira Toriyama. With Majin Buu defeated, Goku has taken a completely new role as...a radish farmer?! With Earth at peace, our heroes have settled into normal lives. But they can’t get too comfortable. Far away, the powerful God of Destruction, Beerus, awakens to a prophecy revealing his demise at the hands of an even more formidable being. When his search for the Saiyan God brings him to Earth, can Goku and his friends take on their strongest foe yet?<br>\n<br>\n(Source: Crunchyroll)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Super Power",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 95,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 89,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Space",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Alternate Universe",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Battle Royale",
+                "rank": 69,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 52,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anti-Hero",
+                "rank": 51,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tomboy",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cyborg",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 225,
@@ -120,7 +685,95 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Emperor Pilaf finally has his hands on the Black Star Dragon Balls after years of searching, which are said to be twice as powerful as Earth's normal ones. Pilaf is about to make his wish for world domination when he is interrupted by Gokuu Son. As a result, Pilaf flubs his wish and accidentally turns Gokuu back into a child.<br>\n<br>\nAfter the wish is granted, the Black Star Dragon Balls scatter across the galaxy. However, Gokuu discovers that they will cause the Earth to explode unless they are all brought back within a year. Uniting with his granddaughter Pan and a young adult Trunks, Gokuu sets off on an adventure through the universe to find the Black Star Dragon Balls and save his planet from destruction.<br>\n<br>\n(Source: MAL Rewrite)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Aliens",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Age Regression",
+                "rank": 86,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Space",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Artificial Intelligence",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Magic",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Robot",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 6033,
@@ -148,7 +801,158 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Five years after the events of <i>Dragon Ball</i>, martial arts expert Gokuu is now a grown man married to his wife Chi-Chi, with a four-year old son named Gohan. While attending a reunion on Turtle Island with his old friends Master Roshi, Krillin, Bulma and others, the festivities are interrupted when a humanoid alien named Raditz not only reveals the truth behind Gokuu's past, but kidnaps Gohan as well.\n<br><br>\nWith Raditz displaying power beyond anything Gokuu has seen before, he is forced to team up with his old nemesis, Piccolo, in order to rescue his son. But when Gokuu and Piccolo reveal the secret of the seven mystical wish-granting Dragon Balls to Raditz, he informs the duo that there is more of his race, the Saiyans, and they won’t pass up an opportunity to seize the power of the Dragon Balls for themselves.\n<br><br>\nThese events begin the saga of <i>Dragon Ball Kai</i>, a story that finds Gokuu and his friends and family constantly defending the galaxy from increasingly more powerful threats. Bizarre, comical, heartwarming and threatening characters come together in a series of battles that push the powers and abilities of Gokuu and his friends beyond anything they have ever experienced.\n<br><br>\n(Source: MAL Rewrite)\n<br><br>\n<i>Note: A remastered version of Dragon Ball Z that adheres more to the manga's story. This version includes newly recorded dialog by the original voice actors, new sound effects, new OP/ED sequences, and a brand new HD video transfer.</i>",
+            "duration": 23,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 99,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 91,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Skip",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Artificial Intelligence",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Battle Royale",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 77,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Robots",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Space",
+                "rank": 74,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 74,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Travel",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cyborg",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cute Boys Doing Cute Things",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Alternate Universe",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Animals",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ]
           },
           {
             "id": 20635,
@@ -176,7 +980,151 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Since Cell's defeat Gohan has grown up and go to the university then she meets Videl which who has some adventures, then both and his new brother Goten are training for the new tournament, in which Goku came back from the dead for one day. In half of the tournament a misterious persons advice the group about the resurrection of the dangerous Majin Boo, but all plans fails and every one try new ways to stop The dangerous Majin Boo who gets stronger each time. Goku and his friends make everything for stopping them through fights.\n<br><br>\n(Source: Anime News Network, edited)\n<br><br>\n<i>Note: Remastered version of the Majin Boo arc that adheres more to the manga's story.</i>",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Super Power",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 93,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Superhero",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Battle Royale",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Slapstick",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tomboy",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cyborg",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 170083,
@@ -200,7 +1148,95 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Goku and company were living peaceful lives when they suddenly turned small due to a conspiracy! When they discover that the reason for this may lie in a world known as the \"Demon Realm\", a mysterious young Majin named Glorio appears before them.\n<br><br>\n(Source: Crunchyroll)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Demons",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 98,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Age Regression",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Child Cast",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 102352,
@@ -228,7 +1264,46 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "The July 2018 issue of Shueisha's V Jump magazine revealed that the Dragon Ball Heroes game series will get a promotional anime this summer. The anime will depict the story's \"Prison Planet\" arc from Super Dragon Ball Heroes: Universe Mission. The anime's \"first episode\" will get an advance screening at the \"Super Dragon Ball Heroes Universe Tour 2018\" tournament event for the game at Aeon Lake Town in Saitama prefecture on July 1.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 10,
+            "tags": [
+              {
+                "name": "Henshin",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 906,
@@ -256,7 +1331,60 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "The Z Warriors discover an unopenable music box and are told to open it with the dragon balls. The contents turn out to be a warrior named Tapion who had sealed himself inside along with a monster called Hildegarn. Goku must now perfect a new technique to defeat the evil monster.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 51,
+            "tags": [
+              {
+                "name": "Martial Arts",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 2520,
@@ -284,7 +1412,39 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Specials included with the original series.<br><br><strong>Goku no Koutsuuanzen</strong> (Goku's Traffic Safety)<br>\nGoku is heading to West City to attend Bulma's birthday party, and on the way he ends up learning the rules for getting through traffic. The movie was for children to watch so it would teach them how to get across a pedestrian crossing.<br><br><strong>Goku no Shouboutai</strong> (Goku's Fire Brigade)<br>\nAn episode for kids where Goku and the others work for the Fire brigade and explain how avoid problems with fire.",
+            "duration": 12,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Educational",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Firefighters",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 14837,
@@ -312,7 +1472,95 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Shortly after the defeat of Majin Buu, Bills, the God of Destruction, awakens after a long slumber. After hearing rumors of a Saiyan warrior who defeated Frieza, he tracks down that warrior, Son Goku. Excited at the prospect of a new challenge, Goku faces him in battle, only to be quickly overwhelmed by his power, and he is defeated shortly thereafter. Realizing the threat Bills poses to the entire universe, Goku and his friends must find a way to stop him before it's too late. <br><br>\n\n(Source: Anime News Network)",
+            "duration": 85,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 94,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 93,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 63,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Age Regression",
+                "rank": 51,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "CGI",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 6714,
@@ -340,7 +1588,32 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Dragon Ball Z - Atsumare! Goku Warudo is a Terebikko's videogame. In this OVA, Goku and his friends pose questions for the viewers about the Dragon Ball series.<br>",
+            "duration": 30,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 206814,
@@ -356,7 +1629,7 @@
             },
             "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/206814-ARuwrZJAGONN.jpg",
             "genres": ["Action", "Adventure", "Sci-Fi"],
-            "averageScore": 80,
+            "averageScore": 81,
             "format": "TV",
             "episodes": null,
             "season": "FALL",
@@ -369,9 +1642,90 @@
               ]
             },
             "nextAiringEpisode": {
-              "episode": 2,
-              "airingAt": 1792332960
-            }
+              "episode": 3,
+              "airingAt": 1792937760
+            },
+            "description": "Several years have passed since the fierce battle against Majin Buu, and Earth has finally regained a brief moment of peace. At the same time, Beerus, the God of Destruction, awakens from his long, deep sleep.<br>\nEven Kai and Supreme Kai, aware of Beerus's overwhelming power to destroy entire planets, watch his awakening with great fear… Meanwhile, Beerus hears rumors of a Saiyan who defeated Frieza—and suddenly appears before Goku.<br>\nTargeted by Beerus, the strongest being in the universe, Earth is in grave danger. Thus begins an earth-shattering cosmic battle between the God of Destruction and Goku and his alliesa—a conflict that will shake the entire universe.\n<br><br>\n(Source: Official Site)\n<br><br>\n<i>Note: “Enhanced” edition of Dragon Ball Super, featuring a large volume of newly added and redrawn cuts, a reconstructed narrative, and updated visuals for a more immersive and faithful representation of Akira Toriyama’s original manga.</i>",
+            "duration": 23,
+            "tags": [
+              {
+                "name": "Super Power",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 93,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 91,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Alternate Universe",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Angels",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Space",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 12231,
@@ -399,35 +1753,67 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
-          },
-          {
-            "id": 894,
-            "title": {
-              "romaji": "Dragon Ball Z: Ora no Gohan wo Kaese!!",
-              "english": "Dragon Ball Z: Dead Zone",
-              "native": "ドラゴンボールZ オラの悟飯をかえせッ!!"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/894-9eA7z7CyNMms.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/894-9eA7z7CyNMms.jpg",
-              "color": "#e4bb50"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/894-E53wr4IIwNuJ.jpg",
-            "genres": ["Action", "Adventure", "Sci-Fi"],
-            "averageScore": 62,
-            "format": "MOVIE",
-            "episodes": 1,
-            "season": "SUMMER",
-            "seasonYear": 1989,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "Toei Animation"
-                }
-              ]
-            },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Shown at Jump Festa 2012 hold in December, 2011.<br><br>\nBardock, Goku's father who was suppose to die when Freeza's attack hit him along with the Planet Vegeta, he was sent way back in time, where the planet was inhabited by a strange creatures. There, after a while he met Freeza's ancestor, a space pirate named Chilled and fought him to protect the planet. <br>",
+            "duration": 19,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 86,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Space",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Baseball",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 905,
@@ -455,7 +1841,169 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Not paying attention to his job, a young demon allows the evil cleansing machine to overflow and explode, turning the young demon into the infamous monster Janemba. Goku and Vegeta make solo attempts to defeat the monster, but realize their only option is fusion.<br><br>\n(Source: Anime News Network)",
+            "duration": 55,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Afterlife",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              }
+            ]
+          },
+          {
+            "id": 894,
+            "title": {
+              "romaji": "Dragon Ball Z: Ora no Gohan wo Kaese!!",
+              "english": "Dragon Ball Z: Dead Zone",
+              "native": "ドラゴンボールZ オラの悟飯をかえせッ!!"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/894-9eA7z7CyNMms.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/894-9eA7z7CyNMms.jpg",
+              "color": "#e4bb50"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/894-E53wr4IIwNuJ.jpg",
+            "genres": ["Action", "Adventure", "Sci-Fi"],
+            "averageScore": 62,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 1989,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Kami-sama's old nemesis's son has come to exact revenge on Kami-sama for winning the title of Earth's Guardian. After kidnapping Son Gohan and using the dragon balls to gain immortality, he has a final showdown with Goku.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 41,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dinosaurs",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 892,
@@ -483,7 +2031,53 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "A retelling of the meeting of Goku, Tenshinhan, and Chiaotzu. Also of the 23rd Tenkaichi Budokai.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 45,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Wuxia",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 502,
@@ -511,7 +2105,53 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "A retelling of <i>Dragon Ball</i>'s origins, this is a different version of the meeting of Goku, Bulma, Oolong, and Yamucha. They are all looking for the dragon balls for different reasons when they cross paths with an evil king named Gourmeth, who is also looking for the dragon balls.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 50,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 95,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aviation",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 101302,
@@ -539,27 +2179,108 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Earth is at peace after The Tournament of Power but Goku continues to train, knowing there are ever-stronger forces in the universe. With the arrival of a Saiyan warrior named Broly, Goku and Vegeta face their most dangerous challenge yet. The film also chronicles the history of the Saiyans and the background story of these three Saiyans with different destinies connected to the turbulent period of their now extinct race.",
+            "duration": 100,
+            "tags": [
+              {
+                "name": "Super Power",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 91,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 89,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cultivation",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 42,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "CGI",
+                "rank": 34,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
-            "id": 893,
+            "id": 898,
             "title": {
-              "romaji": "Dragon Ball: Saikyou e no Michi",
-              "english": "Dragon Ball: The Path to Power",
-              "native": "ドラゴンボール 最強への道"
+              "romaji": "Dragon Ball Z: Tobikkiri no Saikyou Tai Saikyou",
+              "english": "Dragon Ball Z: Cooler's Revenge",
+              "native": "ドラゴンボールZ とびっきりの最強対最強"
             },
             "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b893-bzc4Y5KYngZJ.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b893-bzc4Y5KYngZJ.jpg",
-              "color": "#e4a143"
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/898.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/898.jpg",
+              "color": "#f1bb35"
             },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/893-VvdQWCOh5Ipz.jpg",
-            "genres": ["Action", "Adventure", "Comedy", "Sci-Fi"],
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/898-Ml6RdkEYetsB.jpg",
+            "genres": ["Action", "Adventure", "Sci-Fi"],
             "averageScore": 68,
             "format": "MOVIE",
             "episodes": 1,
-            "season": "SPRING",
-            "seasonYear": 1996,
+            "season": "SUMMER",
+            "seasonYear": 1991,
             "studios": {
               "nodes": [
                 {
@@ -567,7 +2288,53 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "After defeating Freeza, Goku returns to Earth and goes on a camping trip with Gohan and Krillin. Everything is normal until Cooler - Freeza's brother - sends three henchmen after Goku. A long fight ensues between our heroes and Cooler, in which he transforms into the fourth stage of his evolution and has the edge in the fight...until Goku transforms into Super Saiyan.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 48,
+            "tags": [
+              {
+                "name": "Martial Arts",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           }
         ]
       }

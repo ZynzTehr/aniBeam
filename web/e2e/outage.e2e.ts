@@ -78,7 +78,8 @@ test('covers that can’t load show no broken-image icon, and each panel shows i
   try {
     await browser.load()
     assert.ok(await browser.titlesShown(), 'the titles never came')
-    // Lazy covers are asked for as they near the screen. A pull and a title card add one each.
+    // Lazy covers are asked for as they near the screen. A pull adds one, and a title card its
+    // cover and its banner: the first trending title, opened here, is recorded with one.
     const finished = (selector: string) =>
       `[...document.querySelectorAll('${selector}')].every((img) => img.complete)`
     await browser.evaluate(`document.querySelector('#ab-trending').scrollIntoView(); true`)
@@ -146,8 +147,8 @@ test('covers that can’t load show no broken-image icon, and each panel shows i
     await browser.press('Escape')
     assert.deepEqual(
       covers.failed,
-      ['ab-img', 'ab-intro-cover', 'ab-result-panel', 'ab-sheet-art', 'ab-strip-panel'],
-      'places where no cover failed to load, so they went unchecked',
+      ['ab-band', 'ab-img', 'ab-intro-cover', 'ab-result-panel', 'ab-sheet-art', 'ab-strip-panel'],
+      'places where no cover or banner failed to load, so they went unchecked',
     )
     assert.deepEqual(covers.shown, [], 'covers that failed to load still show, as broken images')
     assert.deepEqual(covers.faint, [], 'rank numbers that don’t stand out from their panel at 3:1')

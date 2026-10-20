@@ -41,7 +41,7 @@ const SOON = () => Math.floor(Date.now() / 1000) + (2 * 24 + 4) * 3600
 export const TITLE_CASES: TitleCase[] = [
   {
     label: 'No banner',
-    like: 'Black Clover Season 2 (55 of the 194 recorded titles have none)',
+    like: 'So What’s Wrong with Getting Reborn as a Goblin? (46 of the 181 recorded titles have none)',
     from: 154587,
     changes: { bannerImage: null },
   },
@@ -103,7 +103,7 @@ export const TITLE_CASES: TitleCase[] = [
   },
   {
     label: 'No native title',
-    like: 'none of the 194 recorded titles, but AniList allows it',
+    like: 'none of the 181 recorded titles, but AniList allows it',
     from: 199,
     changes: { title: { ...sample(199).title, native: null } },
   },

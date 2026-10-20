@@ -1,6 +1,6 @@
 {
   "request": {
-    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } } } }",
     "variables": {
       "search": "naruto"
     }
@@ -36,7 +36,249 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Naruto Uzumaki, a hyperactive and knuckle-headed ninja, lives in Konohagakure, the Hidden Leaf village. Moments prior to his birth, a huge demon known as the Kyuubi, the Nine-tailed Fox, attacked Konohagakure and wreaked havoc. In order to put an end to the Kyuubi's rampage, the leader of the village, the 4th Hokage, sacrificed his life and sealed the monstrous beast inside the newborn Naruto. <br><br>\nShunned because of the presence of the Kyuubi inside him, Naruto struggles to find his place in the village. He strives to become the Hokage of Konohagakure, and he meets many friends and foes along the way. <br><br>\n(Source: MAL Rewrite)",
+            "duration": 23,
+            "tags": [
+              {
+                "name": "Ninja",
+                "rank": 97,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 95,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coming of Age",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Criminal Organization",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Orphan",
+                "rank": 86,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Revenge",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Found Family",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Child Cast",
+                "rank": 77,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ensemble Cast",
+                "rank": 71,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shapeshifting",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kaiju",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Slapstick",
+                "rank": 63,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Bullying",
+                "rank": 63,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anachronism",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Unrequited Love",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Necromancy",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Travel",
+                "rank": 57,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Philosophy",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Battle Royale",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Teen Cast",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Assassins",
+                "rank": 49,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "LGBTQ+ Themes",
+                "rank": 49,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Estranged Family",
+                "rank": 47,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Death Game",
+                "rank": 45,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Gender Bending",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Love Triangle",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achronological Order",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 35,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Gambling",
+                "rank": 13,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ]
           },
           {
             "id": 10075,
@@ -60,7 +302,39 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "UNIQLO clothing stores throughout Japan will be offering a Naruto x UT Original DVD with all-new animation on January 1. The DVD will contain an original Naruto anime video set to an exclusive version of Mayonaka no Orchestra, the upcoming song by the Japanese rock band Aqua Timez. A limited number of the DVDs will be offered as presents to people who buy UNIQLO's Naruto graphic T-shirts online or in stores.\n<br><br>\n(Source: Anime News Network)\n<br>",
+            "duration": 6,
+            "tags": [
+              {
+                "name": "Ninja",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 162561,
@@ -88,7 +362,39 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "<i>\"I'm heading out on a mission for the ages, ya hear me?!\"</i>\n<br><br>\nTeam 7 members Naruto, Sasuke, and Sakura are given a mission by Kakashi.\nSince Kakashi cannot participate himself, Naruto is appointed acting leader.\nAs a result of this decision, Naruto is fully motivated to make the mission a success.\nHowever, on the way, Team 7 finds themselves lost in another world.<br><br>\nWhat appears before the bewildered trio is a boy with a face resembling a frog's, named Fūsuke.\nWhat awaits them in this strange new world?\n<br><br>\n(Source: NARUTO x NINKŪ Official Site) <br><br>\n<i>Note: The official website for the <i>NARUTO</i> anime franchise announced a new anime project: to air four \"brand-new\" episodes to celebrate the TV anime's 20th anniversary back in 2022. <br><br>(Source: Anime News Network, edited) </i>",
+            "duration": null,
+            "tags": [
+              {
+                "name": "Ninja",
+                "rank": 95,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Crossover",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 155348,
@@ -116,7 +422,53 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "A special animation made to commemorate the 20th anniversary of the <i>NARUTO</i> anime.",
+            "duration": 10,
+            "tags": [
+              {
+                "name": "Ninja",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anti-Hero",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 1735,
@@ -144,7 +496,256 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Naruto: Shippuuden is the continuation of the original animated TV series Naruto. The story revolves around an older and slightly more matured Uzumaki Naruto and his quest to save his friend Uchiha Sasuke from the grips of the snake-like Shinobi, Orochimaru. After 2 and a half years Naruto finally returns to his village of Konoha, and sets about putting his ambitions to work, though it will not be easy, as he has amassed a few (more dangerous) enemies, in the likes of the shinobi organization; Akatsuki. <br><br>\n(Source: Anime News Network)",
+            "duration": 23,
+            "tags": [
+              {
+                "name": "Ninja",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Criminal Organization",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 89,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Revenge",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Orphan",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coming of Age",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "War",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Conspiracy",
+                "rank": 78,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cultivation",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Fugitive",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ensemble Cast",
+                "rank": 67,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Skip",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Politics",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Necromancy",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Gods",
+                "rank": 61,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Terrorism",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Military",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achronological Order",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 58,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anti-Hero",
+                "rank": 58,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anachronism",
+                "rank": 57,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Philosophy",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kaiju",
+                "rank": 54,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Travel",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "LGBTQ+ Themes",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Unrequited Love",
+                "rank": 51,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 49,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Shapeshifting",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Slapstick",
+                "rank": 37,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gender Bending",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Estranged Family",
+                "rank": 28,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ]
           },
           {
             "id": 936,
@@ -172,7 +773,81 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Naruto, Shikamaru, and Sakura are executing their mission of delivering a lost pet to a certain village. However, right in the midst of things, troops led by the mysterious knight, Temujin, attack them. In the violent battle, the three become separated. Temujin challenges Naruto to a fight and at the end of the fierce battle, both fall together from a high cliff. Furthermore, Shikamaru, having been left behind, beholds a giant moving fortress as it appears before his very eyes. In order to get a grasp on the situation, he infiltrates the fortress by himself, however once there he witnesses a frightening sight...\n<br><br>\n(Source: Anime News Network)",
+            "duration": 97,
+            "tags": [
+              {
+                "name": "Ninja",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Lost Civilization",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Child Cast",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 10659,
@@ -196,7 +871,60 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Naruto discovers a genie's bottle while he and the gang are at a genin grill party. When everyone finds out about the genie's ability to grant wishes, the ultimate chase begins.<br>\n<br>\n<i>Note: Screened together with NARUTO: Shippuuden - The Lost Tower</i>",
+            "duration": 15,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Orphan",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ensemble Cast",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Child Cast",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 21579,
@@ -220,7 +948,32 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Bundled with the perfect limited edition DVD/BD Boruto: Naruto the Movie.",
+            "duration": 10,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Crossdressing",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 8246,
@@ -248,63 +1001,53 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
-          },
-          {
-            "id": 6325,
-            "title": {
-              "romaji": "NARUTO: Shippuuden - Hi no Ishi wo Tsugu Mono",
-              "english": "Naruto Shippuden the Movie: The Will of Fire",
-              "native": "劇場版 NARUTO -ナルト- 疾風伝 火の意志を継ぐ者"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx6325-WaJPWmdnzgiI.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx6325-WaJPWmdnzgiI.jpg",
-              "color": "#f1a15d"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/6325-DpxNXjgp7BPz.jpg",
-            "genres": ["Action", "Comedy"],
-            "averageScore": 71,
-            "format": "MOVIE",
-            "episodes": 1,
-            "season": "SUMMER",
-            "seasonYear": 2009,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "Studio Pierrot"
-                }
-              ]
-            },
-            "nextAiringEpisode": null
-          },
-          {
-            "id": 2472,
-            "title": {
-              "romaji": "NARUTO: Shippuuden Movie",
-              "english": "Naruto Shippuden the Movie",
-              "native": "劇場版 NARUTO -ナルト- 疾風伝"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx2472-mYApVxceStn5.png",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx2472-mYApVxceStn5.png",
-              "color": "#f1e450"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2472-yKoD8rvll5al.jpg",
-            "genres": ["Action", "Adventure", "Comedy", "Fantasy"],
-            "averageScore": 70,
-            "format": "MOVIE",
-            "episodes": 1,
-            "season": "SUMMER",
-            "seasonYear": 2007,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "Studio Pierrot"
-                }
-              ]
-            },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Assigned on a mission to capture Mukade, a missing-nin, Naruto Uzumaki sets out for the once glorious historic ruins of \"Ouran\", where he pursues and corners the rogue ninja. Mukade's goal is revealed to be a dormant leyline within the ruins; he unleashes the power of the leyline, causing a light to envelop Naruto, sending him into the past, 20 years before the series began. When Naruto awakens, he comes into contact with the Fourth Hokage, Minato Namikaze.<br><br>\n(Source: Wikipedia)",
+            "duration": 85,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ninja",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Robots",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 10589,
@@ -332,7 +1075,46 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "After being captured for attempting to assassinate the leader of Kumogakure, the Raikage, and killing Jounin from Kirigakure and Iwagakure, Naruto is imprisoned in Houzukijou, a criminal containment facility also known as the Blood Prison. <br><br>\nThe master of the castle, Mui, uses the ultimate imprisonment jutsu to steal power from the prisoners. In this place, something is aiming for Naruto's life. The battle to prove his innocence and uncover the truth has begun for Naruto and his friends.<br><br>\n(Source: AnimeAvenue)",
+            "duration": 102,
+            "tags": [
+              {
+                "name": "Ninja",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Crime",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 13667,
@@ -360,7 +1142,215 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Naruto and his friends are trapped in a Genjutsu created by the mysterious Masked Shinobi who is testing it for a greater plan. In this new world, or reality, everyone except Naruto and Sakura have their personalities changed to the opposite of their normal personality. Also, dead characters are now alive and roles are reversed. Naruto and Sakura must find a way to get out of this Genjutsu, and return things to normal.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 109,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ninja",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Alternate Universe",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Isekai",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Family Life",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
+          },
+          {
+            "id": 6325,
+            "title": {
+              "romaji": "NARUTO: Shippuuden - Hi no Ishi wo Tsugu Mono",
+              "english": "Naruto Shippuden the Movie: The Will of Fire",
+              "native": "劇場版 NARUTO -ナルト- 疾風伝 火の意志を継ぐ者"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx6325-WaJPWmdnzgiI.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx6325-WaJPWmdnzgiI.jpg",
+              "color": "#f1a15d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/6325-DpxNXjgp7BPz.jpg",
+            "genres": ["Action", "Comedy"],
+            "averageScore": 71,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2009,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Ninjas with bloodline limits begin disappearing in all the countries and blame points toward the fire nation. By Tsunade's order, Kakashi is sacrificed to prevent an all out war. After inheriting charms left by Kakashi, Naruto fights through friends and foes to prevent his death while changing the minds of those who've inherited the will of fire.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 95,
+            "tags": [
+              {
+                "name": "Ninja",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
+          },
+          {
+            "id": 2472,
+            "title": {
+              "romaji": "NARUTO: Shippuuden Movie",
+              "english": "Naruto Shippuden the Movie",
+              "native": "劇場版 NARUTO -ナルト- 疾風伝"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx2472-mYApVxceStn5.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx2472-mYApVxceStn5.png",
+              "color": "#f1e450"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2472-yKoD8rvll5al.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy"],
+            "averageScore": 70,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2007,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Demons that once almost destroyed the world, are revived by someone. To prevent the world from being destroyed, the demon has to be sealed and the only one who can do it is the shrine maiden Shion from the country of demons, who has two powers; one is sealing demons and the other is predicting the deaths of humans. This time Naruto's mission is to guard Shion, but she predicts Naruto's death. The only way to escape it, is to get away from Shion, which would leave her unguarded, then the demon, whose only goal is to kill Shion will do so, thus meaning the end of the world. Naruto decides to challenge this \"prediction of death\", but fails to prove Shion's prediction wrong and supposedly dies in vain.",
+            "duration": 94,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ninja",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shrine Maiden",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gender Bending",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ]
           },
           {
             "id": 21220,
@@ -388,7 +1378,88 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Boruto is the son of Naruto who completely rejects his father. Behind this, he has feelings of wanting to surpass Naruto, who is respected as a hero. He ends up meeting his father's friend Sasuke, and requests to become... his apprentice!? The curtain rises on the story of the new generation written by Masashi Kishimoto!<br>\n<br>\n(Source: Anime News Network)",
+            "duration": 95,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 97,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Family Life",
+                "rank": 95,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ninja",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Primarily Child Cast",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kaiju",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Drugs",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Gods",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Orphan",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Episodic",
+                "rank": 10,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 16870,
@@ -416,7 +1487,116 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "The moon is beginning to fall, and at the rate it's going, it is doomed to fall on the Earth. The countdown for the survival of the planet begins. Among the havoc, Hinata's younger sister Hanabi is captured by the mysterious enemy, Toneri Ootsutsuki. Naruto must overcome great danger on a mission to save Hanabi and the world along with Hinata, Sai, Shikamaru, and Sakura is their final story. \"The final story is a first love.\"\n<br><br>\n(Source: Anime News Network)",
+            "duration": 112,
+            "tags": [
+              {
+                "name": "Ninja",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 94,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 86,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Anachronism",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Space",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Lost Civilization",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kaiju",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ]
           },
           {
             "id": 594,
@@ -444,7 +1624,81 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "A routine rank-C mission turned into a full-blown battle as the Hidden Fall village is attacked by enemy ninjas. Now Naruto, Sasuke and Sakura must help the leader of the Hidden Fall, Shibuki, protect his village and show him what being a hero is all about.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 40,
+            "tags": [
+              {
+                "name": "Ninja",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Child Cast",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anti-Hero",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Bullying",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Assassins",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Crime",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ]
           },
           {
             "id": 4437,
@@ -472,7 +1726,60 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "A mysterious group of ninjas makes a surprise attack on the Konohagakure, which takes great damage. The nightmare of another Shinobi World War could become a reality. Sasuke, who left Konoha to kill his brother, Itachi, appears for the second time in front of Naruto at an unknown location to prevent it from coming to fruition.<br><br>\n(Source: Wikipedia)",
+            "duration": 92,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ninja",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Terrorism",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "War",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Steampunk",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Ships",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 10686,
@@ -496,7 +1803,39 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Naruto faces off against his old pupil Konohamaru in a tournament during the chuunin entrance exams.<br>\n<br>\n<i>Note: Screened together with NARUTO: Blood Prison</i>",
+            "duration": 14,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ninja",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 7367,
@@ -520,7 +1859,53 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "This year is the 10th anniversary of Naruto's serialization start. This work will feature an episode with Team Kakashi from Naruto's youth era. It will be surprisingly different from the TV series, don't miss it&#8252;",
+            "duration": 27,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ninja",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Full CGI",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Child Cast",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 97938,
@@ -548,7 +1933,144 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Naruto was a young shinobi with an incorrigible knack for mischief. He achieved his dream to become the greatest ninja in the village and his face sits atop the Hokage monument. But this is not his story... A new generation of ninja are ready to take the stage, led by Naruto's own son, Boruto!<br><br>\n\n(Source: VIZ Media)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 99,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ninja",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Child Cast",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Battle Royale",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 77,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Adoption",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Anachronism",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 44,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Episodic",
+                "rank": 25,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dinosaurs",
+                "rank": 25,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "School",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dissociative Identities",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Cyborg",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Death Game",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Table Tennis",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           }
         ]
       }

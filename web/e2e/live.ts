@@ -247,6 +247,29 @@ const FORMATS: [path: string, needs: string, holds: (value: any) => boolean][] =
         next.airingAt > 1e9 &&
         next.airingAt < 1e10),
   ],
+  // parseSynopsis() in synopsis.ts reads it as text, with a few tags of AniList's own.
+  ['description', 'a text or null', nameOrNull],
+  [
+    'duration',
+    'a whole number of minutes above 0, or null',
+    (minutes) => minutes === null || (whole(minutes) && minutes > 0),
+  ],
+  [
+    // tagsOf() in tags.ts sorts them by rank, and drops or sets apart a tag by its flags, so a
+    // flag gone null would show an adult tag or a spoiler (spec §3G).
+    'tags',
+    'a list of tags, each with a name, a whole rank from 0 to 100 or null, and isAdult, isGeneralSpoiler and isMediaSpoiler each true or false',
+    (tags) =>
+      Array.isArray(tags) &&
+      tags.every(
+        (tag) =>
+          typeof tag?.name === 'string' &&
+          (tag.rank === null || (whole(tag.rank) && tag.rank >= 0 && tag.rank <= 100)) &&
+          [tag.isAdult, tag.isGeneralSpoiler, tag.isMediaSpoiler].every(
+            (flag) => typeof flag === 'boolean',
+          ),
+      ),
+  ],
 ]
 
 /** Whether `field`, named as listsAsked() names it, is at `path` in a title, or under it. */

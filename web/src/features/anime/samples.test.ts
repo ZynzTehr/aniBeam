@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { MOODS } from '../mood/moods.ts'
 import { samplesFor } from './fallback.ts'
 import { hasSmallCover, titleOf } from './format.ts'
-import { ERAS } from './queries.ts'
+import { cardOf, ERAS } from './queries.ts'
 import { SAMPLES } from './samples.ts'
 
 // The sample titles a section shows when it can't reach AniList. They ship with the app, so the
@@ -33,6 +33,20 @@ test('every sample has a cover color and a year, and no episode left to air', ()
       media.nextAiringEpisode,
       null,
       `${titleOf(media)} has an episode countdown, which would go stale`,
+    )
+  }
+})
+
+test('every sample carries its synopsis, and only the tags its card shows, as a list’s titles do', () => {
+  // A sample's card opens on what the sample holds, with no request, as a list's title's does.
+  // Each famous title has a synopsis to show, and its tags are cut as a list's are, which keeps
+  // the file, loaded during an outage, small (see cardOf).
+  for (const media of SAMPLES) {
+    assert.ok(media.description, `${titleOf(media)} has no synopsis`)
+    assert.deepEqual(
+      media.tags,
+      cardOf(media).tags,
+      `${titleOf(media)} has tags the card won't show`,
     )
   }
 })

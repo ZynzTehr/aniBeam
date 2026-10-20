@@ -1,5 +1,9 @@
 import { queryOptions, type QueryClient } from '@tanstack/react-query'
 import { anilist, AniListError, isRateLimited, type Variables } from '../../lib/anilist.ts'
+import { tagsOf, type TagFlags } from './tags.ts'
+
+/** One of AniList's tags on a title, with what the card needs to place it (see tags.ts). */
+export type Tag = TagFlags & { name: string }
 
 /** The fields the panels, title card and pull need. AniList leaves many of them null. */
 export type Media = {
@@ -16,6 +20,12 @@ export type Media = {
   studios: { nodes: { name: string }[] }
   /** airingAt is a Unix time in seconds, so a cached result never shows a stale countdown. */
   nextAiringEpisode: { episode: number; airingAt: number } | null
+  /** AniList's synopsis as text with a few tags of its own markup (see synopsis.ts). */
+  description: string | null
+  /** Minutes an episode runs. */
+  duration: number | null
+  /** Only those the card shows (see cardOf): the top few, and the top few spoilers. */
+  tags: Tag[]
 }
 
 /**
@@ -32,7 +42,19 @@ export type Title = Media & { status?: string | null }
 export const SAFE = 'isAdult: false, genre_not_in: ["Hentai"]'
 const CARD = `id title { romaji english native } coverImage { extraLarge large color } bannerImage
   genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }
-  nextAiringEpisode { episode airingAt }`
+  nextAiringEpisode { episode airingAt } description(asHtml: false) duration
+  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler }`
+
+/**
+ * A title as the cache keeps it: its tags cut to those the card shows, the top 8 and the top 8
+ * spoilers, of the 28 a popular title has on average (75 for One Piece). The lists carry each
+ * title's details, so that opening one costs no request (AniList allows 30 a minute per IP, and a
+ * class on one Wi-Fi shares them), and the cut keeps the saved copy about a third smaller.
+ */
+export const cardOf = <T extends Media>(media: T): T => {
+  const { shown, spoilers } = tagsOf(media.tags)
+  return { ...media, tags: [...shown, ...spoilers] }
+}
 
 // A page of each list. The queries below are built from them, so the request for both of a first
 // visit's lists asks for exactly what the two on their own do.
@@ -132,12 +154,12 @@ const mediaQuery = (
     queryKey: ['anilist', query, variables],
     queryFn: (context) =>
       part && firstVisit(context.client)
-        ? bothLists().then((lists) => lists[part].media)
+        ? bothLists().then((lists) => lists[part].media.map(cardOf))
         : anilist<{ Page: Page }>(
             query,
             variables,
             isRateLimited() ? context.signal : undefined,
-          ).then((data) => data.Page.media),
+          ).then((data) => data.Page.media.map(cardOf)),
     staleTime,
   })
 
@@ -173,7 +195,7 @@ export const titleQuery = (id: number) =>
         // AniList answers 404 with an error for an id with no anime (anilist() throws it); an
         // answer with no title and no error says the same, so it reads the same.
         if (!data.Media) throw new AniListError('Not Found.', 404)
-        return data.Media
+        return cardOf(data.Media)
       }),
     staleTime: (query) => (query.state.data?.status === 'FINISHED' ? 30 * DAY : 6 * HOUR),
     // A title AniList said it hasn't got isn't asked for again by itself, back on the tab or on a

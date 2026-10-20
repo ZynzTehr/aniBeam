@@ -1,6 +1,6 @@
 {
   "request": {
-    "query": "query ($from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus) { Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: \"JP\", startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "query": "query ($from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus) { Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: \"JP\", startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } } } }",
     "variables": {
       "from": 19799999,
       "to": 19900000,
@@ -38,7 +38,102 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Follow the adventures of Satsuki and her four-year-old sister Mei when they move into a new home in the countryside. To their delight they discover that their new neighbor is a mysterious forest spirit called Totoro who can be seen only through the eyes of a child. Totoro introduces them to extraordinary characters, including a cat that doubles as a bus, takes them on a journey through the wonders of nature. <br><br>\n(Source: Disney)",
+            "duration": 86,
+            "tags": [
+              {
+                "name": "Family Life",
+                "rank": 91,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Child Cast",
+                "rank": 91,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Youkai",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Wilderness",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 77,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kids",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 57,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Female Cast",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Iyashikei",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Environmental",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Horticulture",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 813,
@@ -66,7 +161,235 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Goku is back with his new son, Gohan, but just when things are getting settled down, the adventures continue. Whether he is facing enemies such as Freeza, Cell, or Boo, Goku is proven to be an elite of his own and discovers his race, Saiyan. He meets many new people, gaining allies as well as enemies, as he still finds time to raise a family and be the happy-go-lucky Saiyan he is.<br><br>\n(Source: Anime News Network)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 94,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 89,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 89,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cultivation",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Space",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coming of Age",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Skip",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mythology",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Afterlife",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Battle Royale",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 45,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Robots",
+                "rank": 45,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 42,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Reincarnation",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Cyborg",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Anachronism",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gore",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gender Bending",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Body Swapping",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Revenge",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dinosaurs",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dissociative Identities",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Memory Manipulation",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ]
           },
           {
             "id": 223,
@@ -94,7 +417,221 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Goku Son is a young boy who lives in the woods all alone—that is until a girl named Bulma runs into him in her search for a set of magical objects called the \"Dragon Balls.\" Since the artifacts are said to grant one wish to whoever collects all seven, Bulma hopes to gather them and wish for a perfect boyfriend. Goku happens to be in possession of a dragon ball, but unfortunately for Bulma, he refuses to part ways with it, so she makes him a deal: he can tag along on her journey if he lets her borrow the dragon ball's power. With that, the two set off on the journey of a lifetime.<br>\n<br>\nThey don't go on the journey alone. On the way, they meet the old Muten-Roshi and wannabe disciple Kuririn, with whom Goku trains to become a stronger martial artist for the upcoming World Martial Arts Tournament. However, it's not all fun and games; the ability to make any wish come true is a powerful one, and there are others who would do much worse than just wishing for a boyfriend. To stop those who would try to abuse the legendary power, they train to become stronger fighters, using their newfound strength to help the people around them along the way.<br>\n<br>\n(Source: MAL Rewrite)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 99,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 93,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coming of Age",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Battle Royale",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cultivation",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 78,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Anachronism",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Wuxia",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 63,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Time Skip",
+                "rank": 62,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Dinosaurs",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 57,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Revenge",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shapeshifting",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Adoption",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Robots",
+                "rank": 43,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tanned Skin",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kaiju",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Desert",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dissociative Identities",
+                "rank": 28,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ninja",
+                "rank": 28,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 47,
@@ -122,7 +659,207 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "It's the year 2019, thirty-one years have passed since the start of World War III. A top-secret child with amazing powers of the mind breaks free from custody and accidentally gets a motorcycle gang involved in the project. This incident triggers psychic powers within one of the gang members, Tetsuo, and he is taken by the army to be experimented on. His mind has been altered and is now on the path of war, seeking revenge on the society that once called him weak. <br><br>\n(Source: FUNimation)",
+            "duration": 125,
+            "tags": [
+              {
+                "name": "Cyberpunk",
+                "rank": 97,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Post-Apocalyptic",
+                "rank": 94,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dystopian",
+                "rank": 93,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 89,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban",
+                "rank": 89,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Delinquents",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Prophecy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Seinen",
+                "rank": 77,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Body Horror",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Anti-Hero",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Motorcycles",
+                "rank": 74,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Conspiracy",
+                "rank": 71,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gangs",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gore",
+                "rank": 69,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Philosophy",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Crime",
+                "rank": 62,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Guns",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Politics",
+                "rank": 52,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 48,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Mythology",
+                "rank": 45,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Human Experimentation",
+                "rank": 45,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Nudity",
+                "rank": 34,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 578,
@@ -150,7 +887,109 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "In the aftermath of a World War II bombing, two orphaned children struggle to survive in the Japanese countryside. To Seita and his four-year-old sister, the helplessness and indifference of their countrymen is even more painful than the enemy raids. Through desperation, hunger and grief, these children's lives are as heartbreakingly fragile as their spirit and love is inspiring.<br><br>\n(Source: Sentai Filmworks)",
+            "duration": 88,
+            "tags": [
+              {
+                "name": "Tragedy",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Survival",
+                "rank": 91,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "War",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Family Life",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Child Cast",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Homeless",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 69,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Autobiographical",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Educational",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 512,
@@ -178,7 +1017,137 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Kiki is an enterprising young girl who must follow tradition to become a full-fledged witch. Venturing out with only her chatty black cat, Jiji, Kiki flies off for the adventure of a lifetime. Landing in a far-off city, she sets up a high-flying delivery service and begins a wonderful experience of independence and responsibility as she finds her place in the world.<br><br>\n(Source: Disney)",
+            "duration": 105,
+            "tags": [
+              {
+                "name": "Coming of Age",
+                "rank": 95,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Witch",
+                "rank": 94,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Female Cast",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Work",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coastal",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kids",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aviation",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Iyashikei",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 57,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Drawing",
+                "rank": 48,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Motorcycles",
+                "rank": 31,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Pregnancy",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 513,
@@ -206,7 +1175,130 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "This high-flying adventure begins when Pazu, an engineer's apprentice, finds a young girl, Sheeta, floating down from the sky wearing a glowing pendant. Together they discover both are searching for a legendary floating castle, Laputa, and vow to unravel the mystery of the luminous crystal around Sheeta's neck. Their quest won't be easy, however. There are greedy air pirates, secret government agents and astounding obstacles to keep them from the truth, and from each other.<br><br>\n(Source: Disney)",
+            "duration": 125,
+            "tags": [
+              {
+                "name": "Lost Civilization",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Steampunk",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Pirates",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Environmental",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aviation",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Fugitive",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Exiled",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Robots",
+                "rank": 57,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Guns",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 48,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Trains",
+                "rank": 37,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 572,
@@ -234,7 +1326,193 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "A thousand years after a global war, a seaside kingdom known as the Valley Of The Wind remains one of only a few areas still populated. Led by the courageous Princess Nausica&auml;, the people of the Valley are engaged in a constant struggle with powerful insects called ohmu, who guard a poisonous jungle that is spreading across the Earth. Nausica&auml; and her brave companions, together with the people of the Valley, strive to restore the bond between humanity and the Earth. <br><br>\n(Source: Disney)",
+            "duration": 117,
+            "tags": [
+              {
+                "name": "Environmental",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Post-Apocalyptic",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Lost Civilization",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Philosophy",
+                "rank": 89,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "War",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aviation",
+                "rank": 77,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Eco-Horror",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 69,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kaiju",
+                "rank": 63,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Survival",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Horticulture",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dystopian",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cosmic Horror",
+                "rank": 48,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Guns",
+                "rank": 47,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Politics",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anachronism",
+                "rank": 45,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 45,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tanks",
+                "rank": 42,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Revenge",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Cult",
+                "rank": 36,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Prophecy",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Nudity",
+                "rank": 15,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Elderly Protagonist",
+                "rank": 10,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 820,
@@ -268,7 +1546,193 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "For decades, the Galactic Empire has been locked in an interstellar war with the Free Planets Alliance, a conflict that involves thousands of spaceships and millions of soldiers on both sides. Two new commanders enter the conflict with great hopes: Imperial Admiral Reinhard von Lohengramm and the FPA's Yang Wen-Li. As they deal with superiors and subordinates, maneuver through complicated political arrangements, plot strategies, and win battles, each will be tested, and ultimately, changed, by the reality of war. <br><br>\n(Source: Anime News Network)",
+            "duration": 26,
+            "tags": [
+              {
+                "name": "Space Opera",
+                "rank": 98,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Politics",
+                "rank": 98,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "War",
+                "rank": 98,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Space",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ensemble Cast",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Philosophy",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Royal Affairs",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Suicide",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 78,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Economics",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Drugs",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Terrorism",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cult",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Revenge",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gore",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coming of Age",
+                "rank": 57,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Foreign",
+                "rank": 52,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tomboy",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Post-Apocalyptic",
+                "rank": 26,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Rape",
+                "rank": 22,
+                "isAdult": true,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ]
           },
           {
             "id": 885,
@@ -296,7 +1760,137 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "In a desolate and dark world full of shadows, lives one little girl who seems to do nothing but collect water in jars and protect a large egg she carries everywhere. A mysterious man enters her life... and they discuss the world around them. <br><br>\n(Source: Anime News Network)",
+            "duration": 71,
+            "tags": [
+              {
+                "name": "Philosophy",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dystopian",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Lost Civilization",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Religion",
+                "rank": 89,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mythology",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Post-Apocalyptic",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cosmic Horror",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Angels",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 71,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "No Dialogue",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 58,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Amnesia",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Survival",
+                "rank": 52,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Foreign",
+                "rank": 48,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Fairy Tale",
+                "rank": 44,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tanks",
+                "rank": 34,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Body Horror",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 210,
@@ -324,7 +1918,151 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "After taking a surprise dip in a cursed spring while on a training journey in China, martial artist Ranma Saotome and his father, Genma, aren't quite themselves anymore. Now Ranma turns into a girl whenever he's splashed with cold water, and Genma turns into a panda!<br>\n<br>\nTheir new forms cause nothing but confusion at the Tendou dojo, where Soun Tendo is waiting to introduce one of his three daughters to Ranma - as his fiancee! Turns out Genma and Soun arranged the match long ago, but the girl, Akane, and the boy, Ranma, aren't exactly crazy about the idea, or each other! Or are they? Watch the gender switching, jealous rages, and martial arts battles unfold all over again!<br>\n<br>\n(Source: VIZ Media)<br>\n<br>\n<i>Note: Episodes 7-9 of Ranma 1/2: Nettou-hen were originally meant to be seen between episodes 13 and 14 of this series.</i>",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Gender Bending",
+                "rank": 98,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Family Life",
+                "rank": 91,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Arranged Marriage",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Slapstick",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tsundere",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mixed Gender Harem",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Episodic",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Nudity",
+                "rank": 74,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Harem",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cohabitation",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Harem",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cultivation",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ojou-sama",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shogi",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 949,
@@ -352,7 +2090,200 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "In the very near future, a race of huge, insect like aliens is discovered traveling the galaxy. These aliens seem dedicated to the eradication of the human species as it takes its first steps away from the solar system, and they are getting closer and closer to Earth. Humanity has responded by developing spacegoing battleships and giant fighting robots. These robots are piloted by the best and brightest of Earth's youth, picked from training schools around the world.<br><br>\nThe story begins in the year 2023, not long after the first battles with the aliens, and centers on young Noriko Takaya. Although Noriko's father was a famous Captain in the space fleet who was killed during one of the first battles of the war, her own talents as a pilot are questionable. Nonetheless, she has entered a training school. Through the series Noriko, joined by the beautiful and talented Kazumi Amano, will fight to overcome the trauma of war, the doubts of her peers, and her own lack of confidence. <br><br>\n(Source: AniDB)",
+            "duration": 28,
+            "tags": [
+              {
+                "name": "Space",
+                "rank": 94,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 91,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "War",
+                "rank": 89,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coming of Age",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Robot",
+                "rank": 86,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Space Opera",
+                "rank": 86,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Primarily Female Cast",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Skip",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Cosmic Horror",
+                "rank": 77,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kaiju",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 74,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 71,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Bullying",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Nudity",
+                "rank": 62,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Philosophy",
+                "rank": 62,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tomboy",
+                "rank": 62,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Age Gap",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Astronomy",
+                "rank": 57,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Achromatic",
+                "rank": 54,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Parody",
+                "rank": 48,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Love Triangle",
+                "rank": 44,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Henshin",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ]
           },
           {
             "id": 1254,
@@ -380,7 +2311,109 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Ages ago, the goddess Athena was served by fighters called Saints who channeled the power of the Cosmos within them. Now a youth named Seiya has trained to become a Saint himself by earning the mystical Cloth of Pegasus. He is joined by other Saints with Cloths of their own to fight for Athena. <br><br>\n(Source: Anime News Network)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 93,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mythology",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Astronomy",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ensemble Cast",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Foreign",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 52,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Conspiracy",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 732,
@@ -411,7 +2444,144 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "10,000 years in the future, the world has become a very different place; monsters roam the land freely, and people, although equiped with high tech weapons and cybernetic horses, live a humble life more suited to centuries past. The story focuses on a small hamlet plagued by monster attacks and living under the shadow of rule by Count Magnus Lee, a powerful vampire lord who has ruled the land for thousands of years. When a young girl is bitten by the Count and chosen as his current plaything, she seeks out help of a quiet wandering stranger, D. It so happens that D is one of the world`s best vampire hunters, and he takes it upon himself to cut through Magnus Lee`s many minions, and put an end to the Count`s rule.<br><br>\n(Source: AniDB)",
+            "duration": 80,
+            "tags": [
+              {
+                "name": "Vampire",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Body Horror",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Monster Girl",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 77,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Post-Apocalyptic",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gore",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ghost",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ojou-sama",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dystopian",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Love Triangle",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Guns",
+                "rank": 63,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Assassins",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Werewolf",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Nudity",
+                "rank": 41,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 967,
@@ -439,7 +2609,158 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Nuclear war has devastated the planet, turning one fertile ground into a barren, inhospitable landscape on which mankind struggles desperately to stay alive. Society has collapsed and a fight for control wages between vicious dictators, super-powerful mutants, and biker gangs that terrorize the streets.<br>\n<br>\nIn a world so cruel and bleak, only the chosen one can restore civilization to its former self. Kenshiro - master of the Hokuto Shinken fighting technique; a martial art so awesomely brutal that only a single being can be entrusted with its full power!<br>\n<br>\n(Source: Manga Entertainment)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Martial Arts",
+                "rank": 98,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Post-Apocalyptic",
+                "rank": 94,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 78,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gore",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gangs",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cultivation",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Revenge",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Motorcycles",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Desert",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Astronomy",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Torture",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Archery",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Bar",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cannibalism",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Nudity",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 1088,
@@ -470,7 +2791,221 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "In 1999, a giant alien spacecraft crash lands on South Ataria island. Humanity proceeds to attempt to rebuild this marvel, but political conflicts centered around the Macross result in a global war. After 10 years, the Unification Wars are finally over, the new Earth United Nations Government is in power, and work on the Macross is complete.<br>\n<br>\nOn the day of the launching ceremony, its main cannon fires on its own, destroying an alien spacecraft. This fateful day marks the beginning of the war between the humans on the Macross and the Zentradi, a race of humanoid aliens of giant proportions.<br>\n<br>\n(Source: AnimEigo)",
+            "duration": 26,
+            "tags": [
+              {
+                "name": "Space Opera",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "War",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Space",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Love Triangle",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Idol",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Philosophy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Unrequited Love",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Real Robot",
+                "rank": 78,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aviation",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Lost Civilization",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Ensemble Cast",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Politics",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 61,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Musical Theater",
+                "rank": 58,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Marriage",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Age Gap",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Language Barrier",
+                "rank": 45,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Skip",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Incest",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Crossdressing",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Nudity",
+                "rank": 13,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 13,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 1293,
@@ -501,7 +3036,256 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "It all begins when aliens invade and threaten to conquer the Earth! However, one member of the human race is chosen at random to duel the aliens and save the planet: Ataru Moroboshi, a lecherous slacker from Tomobiki High School who begrudgingly participates. All he has to do? Play a game of tag and catch Lum — the beautiful alien princess in a tiger-stripe bikini — by the horns. Unfortunately for Ataru, it’s not so simple, since Lum can fly and deliver electric shocks! Perseverance pays off, but once he catches her, Ataru experiences another shock: He’s now Lum’s betrothed “darling” and she isn’t going back to her home planet anytime soon!\n<br><br>\n(Source: Crunchyroll)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Episodic",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Slapstick",
+                "rank": 86,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Parody",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Surreal Comedy",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tsundere",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Interspecies",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 78,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tomboy",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mythology",
+                "rank": 71,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Youkai",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Monster Girl",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Love Triangle",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Family Life",
+                "rank": 62,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shrine Maiden",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Nudity",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Harem",
+                "rank": 44,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tanks",
+                "rank": 42,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Crossdressing",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ojou-sama",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Military",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dinosaurs",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shapeshifting",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Amnesia",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gender Bending",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Goblin",
+                "rank": 10,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 894,
@@ -529,7 +3313,81 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Kami-sama's old nemesis's son has come to exact revenge on Kami-sama for winning the title of Earth's Guardian. After kidnapping Son Gohan and using the dragon balls to gain immortality, he has a final showdown with Goku.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 41,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dinosaurs",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 85,
@@ -557,7 +3415,151 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "The year is Universal Century 0087. Seven years have passed since the end of the One Year War. In its zeal to stamp out any remaining opposition, the Earth Federation has organized the Titans, an elite fighting force. However, the Titans soon get out of hand, committing atrocities on par with the worst the Principality of Zeon had to offer during the war. In response, dissatisified citizens, former Zeon soldiers, and even members of the Earth Federal Forces form a resistance group known as the Anti-Earth Union Group, or AEUG. As the next war is brewing, a small AEUG group arrives at Side 7 to investigate the new Gundam Mk. II...\n<br><br>\n(Source: Anime News Network)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Space",
+                "rank": 95,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "War",
+                "rank": 95,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 94,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Politics",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Space Opera",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Real Robot",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ensemble Cast",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Femboy",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Family Life",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 67,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cute Boys Doing Cute Things",
+                "rank": 67,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Guns",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 57,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Revenge",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anti-Hero",
+                "rank": 52,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Memory Manipulation",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 1470,
@@ -585,7 +3587,123 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Ryo Saeba works the streets of Tokyo as the City Hunter. He's a \"sweeper\" and with his sidekick Kaori Makimura, he keeps the city clean. People hire the City Hunter to solve their dangerous problems, which he does with a Colt Python. When Ryo's not working on a case, he's working on getting the ladies, and Kaori must keep him in check with her trusty 10 kg hammer.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Crime",
+                "rank": 91,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Episodic",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Guns",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 86,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Slapstick",
+                "rank": 86,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Detective",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Assassins",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Yakuza",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mafia",
+                "rank": 63,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cars",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Nudity",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Boxing",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gambling",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           }
         ]
       }

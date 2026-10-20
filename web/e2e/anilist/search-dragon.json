@@ -1,6 +1,6 @@
 {
   "request": {
-    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } } } }",
     "variables": {
       "search": "dragon"
     }
@@ -32,7 +32,25 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "A satirical parody of car racing Anime.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Cars",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Parody",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 103706,
@@ -56,7 +74,10 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Children harness the power of Dragon Eggs: Mechanical monsters who are sealed within an egg capsule. They use their transforming friends to save the human world against an opposing evil company.\n",
+            "duration": 24,
+            "tags": []
           },
           {
             "id": 906,
@@ -84,7 +105,60 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "The Z Warriors discover an unopenable music box and are told to open it with the dragon balls. The contents turn out to be a warrior named Tapion who had sealed himself inside along with a monster called Hildegarn. Goku must now perfect a new technique to defeat the evil monster.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 51,
+            "tags": [
+              {
+                "name": "Martial Arts",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 204738,
@@ -112,7 +186,81 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Well, a half dragon. Her mom admits Ruri inherited her draconic traits from her father, who, yes, is actually a dragon. As if dealing with curious classmates wasn’t already challenging enough, Ruri and her dragon genes literally turn up the heat in the middle of a lecture. Her ordinary life is about to be anything but!\n<br><br>\n(Source: VIZ Media)",
+            "duration": null,
+            "tags": [
+              {
+                "name": "Coming of Age",
+                "rank": 97,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Monster Girl",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Iyashikei",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Female Cast",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cute Girls Doing Cute Things",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Teen Cast",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 223,
@@ -140,7 +288,221 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Goku Son is a young boy who lives in the woods all alone—that is until a girl named Bulma runs into him in her search for a set of magical objects called the \"Dragon Balls.\" Since the artifacts are said to grant one wish to whoever collects all seven, Bulma hopes to gather them and wish for a perfect boyfriend. Goku happens to be in possession of a dragon ball, but unfortunately for Bulma, he refuses to part ways with it, so she makes him a deal: he can tag along on her journey if he lets her borrow the dragon ball's power. With that, the two set off on the journey of a lifetime.<br>\n<br>\nThey don't go on the journey alone. On the way, they meet the old Muten-Roshi and wannabe disciple Kuririn, with whom Goku trains to become a stronger martial artist for the upcoming World Martial Arts Tournament. However, it's not all fun and games; the ability to make any wish come true is a powerful one, and there are others who would do much worse than just wishing for a boyfriend. To stop those who would try to abuse the legendary power, they train to become stronger fighters, using their newfound strength to help the people around them along the way.<br>\n<br>\n(Source: MAL Rewrite)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 99,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 93,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coming of Age",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Battle Royale",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cultivation",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 78,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Anachronism",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Wuxia",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 63,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Time Skip",
+                "rank": 62,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Dinosaurs",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 57,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Revenge",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shapeshifting",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Adoption",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Robots",
+                "rank": 43,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tanned Skin",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kaiju",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Desert",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dissociative Identities",
+                "rank": 28,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ninja",
+                "rank": 28,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 132096,
@@ -168,7 +530,151 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Short animations streamed on Kyoto Animation's YouTube channel in the lead up to the July 7 premiere of the second season.<br>\n<br>\n(Source: Crunchyroll)<br>\n<br>\n<i>Note: This entry's total count includes episodes 1-13 + the 3 SP episodes that released during the second season's run.</i>",
+            "duration": 2,
+            "tags": [
+              {
+                "name": "Episodic",
+                "rank": 98,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cute Girls Doing Cute Things",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Maids",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Monster Girl",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Yuri",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Chibi",
+                "rank": 51,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Family Life",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Video Games",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "CGI",
+                "rank": 36,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cosplay",
+                "rank": 35,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Office Lady",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Seinen",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Isekai",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ensemble Cast",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swimming",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 102657,
@@ -192,7 +698,74 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "The land of Altera has observed an uneasy peace for years among Humans, Elves and Evil beasts who are loyal to the legendary Black Dragon. But the Black Dragon begins to stir from its hibernation, sending the Beasts marching across Altera. With a beast conquest perilously close, a small group of Humans and Elves unite to try to find a secret hidden road to the Black Dragon's cave and destroy it. But the fate of all of them may be in the hands of the young warrior Lambert, who must summon the confidence and skill to face the Black Dragon himself just when all may be lost.\n<br><br>\n(Source: Official site)",
+            "duration": 87,
+            "tags": [
+              {
+                "name": "Elf",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Full CGI",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Archery",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Fairy Tale",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 296,
@@ -220,7 +793,74 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Oozora Reiji isn't a lazy boy, he's just terribly unmotivated; all the clubs and activities he's joined don't interest him for long. That is, of course, until his best friend Yukino takes him to a underground arcade where an unbelievable virtual reality game is played - Dragon Drive - in which players fight each other with virtual dragons. Reiji ends up throwing all he's got into training a dragon so rare that the Dragon Drive staff are baffled. But soon Reiji learns that Dragon Drive isn't all it seems, and he might be the only one who can save an entire world from evil.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "School",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Card Battle",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Battle Royale",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Isekai",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "CGI",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Proxy Battle",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 9330,
@@ -248,7 +888,60 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "A normal high school boy Kisaragi Ryuji's peaceful life is turned into an adventure by the return of his second cousin Eriko. Ryuji and Eriko seize a relic box from a black broker. In the box, they find a red dragon girl Rose. In order to protect Rose from the black organization, Ryuji decides to fight using his power as a relic handler.",
+            "duration": 23,
+            "tags": [
+              {
+                "name": "Dragons",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Monster Girl",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Harem",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Werewolf",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 153466,
@@ -264,7 +957,7 @@
             },
             "bannerImage": null,
             "genres": ["Action", "Adventure", "Fantasy"],
-            "averageScore": 60,
+            "averageScore": 61,
             "format": "ONA",
             "episodes": 20,
             "season": null,
@@ -276,7 +969,32 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Linley is a young noble of a declining, once-powerful clan which once dominated the world. He has large aspirations and wants to save his clan. Linley's journey begins with an accident when he discovers a ring. He took a liking to this ring, which had a dragon carved coiling around it. Upon being injured during a battle between two powerful fighters he discovers that his ring is not what he thought it was and possesses powers beyond his imagination.",
+            "duration": null,
+            "tags": [
+              {
+                "name": "Full CGI",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cultivation",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 870,
@@ -304,7 +1022,116 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Mink&mdash;the daughter of a dragon and a retired dragonslaying knight&mdash;sets out on a journey to get tickets for a concert held by Dick Saucer, world-famous teen idol and dragon hunter. Meanwhile, the corrupt king of the land is trying to take her hostage to get at her mother, and his magic-using daughter seeks to foil Mink's quest out of sheer spite.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 26,
+            "tags": [
+              {
+                "name": "Monster Girl",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Parody",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Chibi",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Slapstick",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Elf",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Unrequited Love",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Meta",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cyborg",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Nudity",
+                "rank": 37,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 5151,
@@ -320,7 +1147,7 @@
             },
             "bannerImage": null,
             "genres": ["Drama"],
-            "averageScore": 53,
+            "averageScore": 54,
             "format": "OVA",
             "episodes": 3,
             "season": "SPRING",
@@ -332,7 +1159,46 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "The protagonist, Ryuu or Crying Dragon, is a mysterious man who often plays games with the gang members. He only wins by \"ron\", a move in which one needs to wait for the opponent's tile to complete the win.<br><br>\n* 'Ron' is also called 'Naki' in mahjong, which has the same pronunciation as 'Crying' in Japanese.<br><br>\nMahjong Hishouden Naki no Ryuu is a mahjong anime based on a manga  by Nojo Junichi in 1980s-90s.<br>",
+            "duration": 40,
+            "tags": [
+              {
+                "name": "Mahjong",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gambling",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Yakuza",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mafia",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gangs",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 138563,
@@ -360,167 +1226,10 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
-          },
-          {
-            "id": 2142,
-            "title": {
-              "romaji": "Blue Dragon",
-              "english": null,
-              "native": "ブルー・ドラゴン"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/2142.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/2142.jpg",
-              "color": "#1aa1d6"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2142-HJsF1zFBQyTb.jpg",
-            "genres": ["Adventure", "Comedy", "Fantasy", "Supernatural"],
-            "averageScore": 61,
-            "format": "TV",
-            "episodes": 51,
-            "season": "SPRING",
-            "seasonYear": 2007,
-            "studios": {
-              "nodes": []
-            },
-            "nextAiringEpisode": null
-          },
-          {
-            "id": 100110,
-            "title": {
-              "romaji": "Dragon Fist",
-              "english": null,
-              "native": "ドラゴンフィスト"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b100110-rZ4oRMIErl50.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b100110-rZ4oRMIErl50.jpg",
-              "color": "#c9350d"
-            },
-            "bannerImage": null,
-            "genres": ["Drama", "Fantasy"],
-            "averageScore": 38,
-            "format": "OVA",
-            "episodes": 1,
-            "season": "SPRING",
-            "seasonYear": 1991,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "Agent 21"
-                }
-              ]
-            },
-            "nextAiringEpisode": null
-          },
-          {
-            "id": 122511,
-            "title": {
-              "romaji": "Long Zu",
-              "english": "Dragon Raja -The Blazing Dawn-",
-              "native": "龙族"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx122511-h6FpxJGfKx3I.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx122511-h6FpxJGfKx3I.jpg",
-              "color": "#bbd6f1"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/122511-c2NEixtg4qHx.jpg",
-            "genres": ["Action", "Drama", "Fantasy"],
-            "averageScore": 73,
-            "format": "ONA",
-            "episodes": 17,
-            "season": null,
-            "seasonYear": null,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "GARDEN"
-                }
-              ]
-            },
-            "nextAiringEpisode": null
-          },
-          {
-            "id": 213094,
-            "title": {
-              "romaji": "Yonghansonyeo",
-              "english": "Dragon Girl Problem",
-              "native": "용한소녀"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx213094-uRMWWkBmERSq.png",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx213094-uRMWWkBmERSq.png",
-              "color": "#3593ff"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/213094-9A2YJRwlKbLP.jpg",
-            "genres": ["Comedy", "Fantasy", "Romance"],
-            "averageScore": 61,
-            "format": "ONA",
-            "episodes": 10,
-            "season": null,
-            "seasonYear": null,
-            "studios": {
-              "nodes": []
-            },
-            "nextAiringEpisode": null
-          },
-          {
-            "id": 21055,
-            "title": {
-              "romaji": "Chaos Dragon: Sekiryuu Sen'eki",
-              "english": "Chaos Dragon",
-              "native": "ケイオスドラゴン 赤竜戦役"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21055-n18s5xL1u0ZY.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx21055-n18s5xL1u0ZY.jpg",
-              "color": "#f16b50"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/21055-NKyn3byd6gH3.jpg",
-            "genres": ["Action", "Fantasy", "Supernatural"],
-            "averageScore": 49,
-            "format": "TV",
-            "episodes": 12,
-            "season": "SUMMER",
-            "seasonYear": 2015,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "SILVER LINK."
-                }
-              ]
-            },
-            "nextAiringEpisode": null
-          },
-          {
-            "id": 2819,
-            "title": {
-              "romaji": "Dragon Quest: Abel Yuusha Densetsu",
-              "english": "Dragon Warrior",
-              "native": "ドラゴンクエスト～勇者アベル伝説～"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx2819-pkB0KboXOxTz.png",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx2819-pkB0KboXOxTz.png",
-              "color": "#e4ae28"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2819-yFHXovBmdgIw.jpg",
-            "genres": ["Action", "Adventure", "Fantasy"],
-            "averageScore": 66,
-            "format": "TV",
-            "episodes": 43,
-            "season": "FALL",
-            "seasonYear": 1989,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "NAS"
-                }
-              ]
-            },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Adapted from the picture book of the same name.",
+            "duration": null,
+            "tags": []
           },
           {
             "id": 101424,
@@ -548,7 +1257,545 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "The story is set in modern day Japan following the growth of the protagonist Taiga Akashi, an elementary school kid who wants to be a professional gamer someday.<br><br>\n\n(Source: Crunchyroll)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Card Battle",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "E-Sports",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Food",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
+          },
+          {
+            "id": 100110,
+            "title": {
+              "romaji": "Dragon Fist",
+              "english": null,
+              "native": "ドラゴンフィスト"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b100110-rZ4oRMIErl50.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b100110-rZ4oRMIErl50.jpg",
+              "color": "#c9350d"
+            },
+            "bannerImage": null,
+            "genres": ["Drama", "Fantasy"],
+            "averageScore": 38,
+            "format": "OVA",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 1991,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Agent 21"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "The story follows Ling Fei-long, a Chinese transfer student living in Japan. Ling is the son of the leader of the White Dragon clan, one of four clans who live in the mountains of China and are descended from mythical beasts. After killing an ordinary human, Ling is banished to Japan so that he might learn about humanity and how to control his powers around them.\n",
+            "duration": 40,
+            "tags": [
+              {
+                "name": "Clone",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shoujo",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
+          },
+          {
+            "id": 2142,
+            "title": {
+              "romaji": "Blue Dragon",
+              "english": null,
+              "native": "ブルー・ドラゴン"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/2142.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/2142.jpg",
+              "color": "#1aa1d6"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2142-HJsF1zFBQyTb.jpg",
+            "genres": ["Adventure", "Comedy", "Fantasy", "Supernatural"],
+            "averageScore": 61,
+            "format": "TV",
+            "episodes": 51,
+            "season": "SPRING",
+            "seasonYear": 2007,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "As Shu's village was being attacked by an unknown enemy, he and his friends, Jiro and Kluke decide to defend their home. They soon meet warrior Zola and receive the powers of Shadow, an ability that let's them transform their shadow into a powerful monster. Shu receives one of the most powerful monsters, Blue Dragon, and they all set out to defeat their enemy.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Dragons",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Child Cast",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Goblin",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kids",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
+          },
+          {
+            "id": 122511,
+            "title": {
+              "romaji": "Long Zu",
+              "english": "Dragon Raja -The Blazing Dawn-",
+              "native": "龙族"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx122511-h6FpxJGfKx3I.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx122511-h6FpxJGfKx3I.jpg",
+              "color": "#bbd6f1"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/122511-c2NEixtg4qHx.jpg",
+            "genres": ["Action", "Drama", "Fantasy"],
+            "averageScore": 73,
+            "format": "ONA",
+            "episodes": 17,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "GARDEN"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Lu Mingfei never expected to live an extraordinary life. He was content with his average achievements and took pride in his skill in Starcraft. However, all that is upended when he suddenly receives a scholarship to study in Chicago at a place called Cassell College.<br>\nIt all seems too good to be true, this can only be a scam! Little does he know, that when he does eventually accept the offer, it is but the beginning of the rest of his life, and the college's obscurity will be the least of his concerns once they start telling him about the dragons...\n<br><br>\n<i>Note: Episode 0 aired with a runtime of 49 minutes.</i>",
+            "duration": 18,
+            "tags": [
+              {
+                "name": "Dragons",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "College",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Lost Civilization",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Conspiracy",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Guns",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mythology",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Scuba Diving",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "CGI",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coming of Age",
+                "rank": 26,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ensemble Cast",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 10,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              }
+            ]
+          },
+          {
+            "id": 213094,
+            "title": {
+              "romaji": "Yonghansonyeo",
+              "english": "Dragon Girl Problem",
+              "native": "용한소녀"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx213094-uRMWWkBmERSq.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx213094-uRMWWkBmERSq.png",
+              "color": "#3593ff"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/213094-9A2YJRwlKbLP.jpg",
+            "genres": ["Comedy", "Fantasy", "Romance"],
+            "averageScore": 62,
+            "format": "ONA",
+            "episodes": 10,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "As the daughter of the Dragon King, Kim Yong-Man has never had true independence. When her father tries to force her hand in marriage, Yong Man runs away from home, deciding to try and live a \"normal\" life. She enrolls in a human high school and vows to become the top student there. However, Sim Hae-Su, the current first-ranked student, isn't pleased with the appearance of a new rival, and promises himself that he'll never let her beat him. As Yong-Man and Hae-Su continue to clash at school and try to busy themselves with their studies, they somehow keep getting tangled up with each other. Will these academic opponents end up falling in love – and what could this mean for Yong Man's supernatural side?",
+            "duration": 14,
+            "tags": [
+              {
+                "name": "Female Protagonist",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Teen Cast",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Love Triangle",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Fake Relationship",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Wrestling",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
+          },
+          {
+            "id": 21055,
+            "title": {
+              "romaji": "Chaos Dragon: Sekiryuu Sen'eki",
+              "english": "Chaos Dragon",
+              "native": "ケイオスドラゴン 赤竜戦役"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21055-n18s5xL1u0ZY.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx21055-n18s5xL1u0ZY.jpg",
+              "color": "#f16b50"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/21055-NKyn3byd6gH3.jpg",
+            "genres": ["Action", "Fantasy", "Supernatural"],
+            "averageScore": 49,
+            "format": "TV",
+            "episodes": 12,
+            "season": "SUMMER",
+            "seasonYear": 2015,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "SILVER LINK."
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "The story takes place in the sparkling era year 3015, where the great nations Donatia and Kouran divide the world in a cold war as they fight for supremacy. In the middle of this standoff is island country Nil Kamui, which has lost its independence.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Dragons",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "CGI",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Revenge",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kuudere",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              }
+            ]
+          },
+          {
+            "id": 2819,
+            "title": {
+              "romaji": "Dragon Quest: Abel Yuusha Densetsu",
+              "english": "Dragon Warrior",
+              "native": "ドラゴンクエスト～勇者アベル伝説～"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx2819-pkB0KboXOxTz.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx2819-pkB0KboXOxTz.png",
+              "color": "#e4ae28"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2819-yFHXovBmdgIw.jpg",
+            "genres": ["Action", "Adventure", "Fantasy"],
+            "averageScore": 66,
+            "format": "TV",
+            "episodes": 43,
+            "season": "FALL",
+            "seasonYear": 1989,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "NAS"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Dragon Quest is loosely based on Dragon Quest III. The names and some of the characters are familar, but the world map is smaller and a very different shape. The two main characters are Abel and Tialah. Tialah receives the legendary Red Stone from the Aliahan Village sage Master Yogi. Soon after, Tialah is kidnapped by the evil Baramos who wants to use the Red Stone to resurrect The Great Dragon and be granted eternal life. Abel swore to rescue Tialah and he is given the Blue Stone, which can only seal the Dragon once it has been released. <br><br>\n(Source: AniDB)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Male Protagonist",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           }
         ]
       }

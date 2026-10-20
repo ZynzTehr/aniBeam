@@ -353,12 +353,15 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // 84,500 B with the swipe that opens the menu from anywhere on a phone's page, not the header
 // alone (touch events on the document, opensFrom and rowScrolls in lib/swipe.ts keeping it off
 // the search, a dialog and the decade strip, off selected text and a pinch: 84,720 B), so its
-// budget is 85,000 B.
+// budget is 85,000 B. The JS loaded only when needed rose to 14,028 B when the samples began to
+// carry each title's synopsis, running time and the tags its card shows, as the lists' titles do,
+// so that a sample's card opens on them with no request (the user agreed to about 15 KB more,
+// gzipped), so its budget is 14,500 B.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
   'the JS every visit loads': 85_000,
   'the CSS': 11_000,
-  'the JS loaded only when needed': 3_500,
+  'the JS loaded only when needed': 14_500,
   'every other file': 500,
 }
 

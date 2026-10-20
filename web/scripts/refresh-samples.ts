@@ -8,7 +8,7 @@ import { writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { format, resolveConfig } from 'prettier'
 import { hasSmallCover } from '../src/features/anime/format.ts'
-import { QUERIES, type Media } from '../src/features/anime/queries.ts'
+import { cardOf, QUERIES, type Media } from '../src/features/anime/queries.ts'
 
 // In display order, at most 50 (one page of AniList's answer). The first 9 fill the trending page,
 // and the first 3 its biggest panels. Then come 3 to 5 for each decade, newest first.
@@ -43,7 +43,8 @@ if (!res.ok || !body.data) {
   process.exit(1)
 }
 
-const found = new Map(body.data.Page.media.map((media) => [media.id, media]))
+// Each title's tags cut as the cache cuts them (see cardOf).
+const found = new Map(body.data.Page.media.map((media) => [media.id, cardOf(media)]))
 const problems: string[] = []
 if (new Set(IDS).size < IDS.length) problems.push('An id is in the list twice.')
 const samples = IDS.flatMap((id, i) => {
