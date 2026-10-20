@@ -6,8 +6,8 @@ import {
   EDGE,
   opens,
   opensFrom,
+  pageMoved,
   rowScrolls,
-  swipeMoved,
   swipeStart,
   zoomed,
   type Swipe,
@@ -84,9 +84,9 @@ export function SiteHeader({
   // A clearly sideways swipe to the right anywhere on a phone's page opens the menu, but not from
   // the screen's left edge, the system's Back, nor where opensFrom says a drag is the page's own:
   // the search bubble, a dialog, the decade strip. Touch events, passive, on the document: they
-  // go on as the browser scrolls, zooms or selects (a pointer's stop with a pointercancel where
-  // touch-action leaves the drag to the browser, as it does on the page), and iOS Safari sends
-  // them too. So nothing the browser does with a finger changes.
+  // go on as the browser scrolls, zooms or selects (pointer events stop with a pointercancel
+  // where touch-action leaves the drag to the browser, as it does on the page), and iOS Safari
+  // sends them too. So nothing the browser does with a finger changes.
   useEffect(() => {
     let swipe: Swipe | null = null
     // When a swipe last opened the menu: a click straight after it (on a link, say, where the
@@ -108,7 +108,7 @@ export function SiteHeader({
       header.current?.style.removeProperty('--pull')
     }
     const start = (e: TouchEvent) => {
-      // A second finger laid down leaves the first one's swipe be, and starts none.
+      // A second finger laid down starts no swipe (see move for what it does to the first's).
       if (e.touches.length > 1) return
       const t = e.changedTouches[0]
       const on = e.target instanceof Element ? e.target : (e.target as Node).parentElement
@@ -122,12 +122,14 @@ export function SiteHeader({
     const move = (e: TouchEvent) => {
       const t = mine(e)
       if (!swipe || !t) return
-      // Two fingers moving are a pinch, the browser's zoom: the swipe ends.
+      // With a second finger down, resting or not, a move is a pinch, the browser's zoom (two
+      // fingers drawing apart, one of them still or both moving): the swipe ends. A second finger
+      // that taps and lifts before the first moves on changes nothing.
       if (e.touches.length > 1) return unpull()
-      // Sideways only if more than twice as far across as down: a page scroll that drifts never
-      // opens it.
-      const s = swipeMoved(swipe, point(e, t), 2)
-      if (s.axis === 'y' || selecting()) return unpull()
+      // Sideways only while more than twice as far across as up or down, all the way: a page
+      // scroll that drifts or hooks sideways never opens it (see pageMoved).
+      const s = pageMoved(swipe, point(e, t))
+      if (!s || selecting()) return unpull()
       swipe = s
       if (s.axis !== 'x') return
       // The hamburger's bars lean into the swipe (components.css).

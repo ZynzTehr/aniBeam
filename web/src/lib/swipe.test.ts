@@ -5,6 +5,7 @@ import {
   dragOffset,
   opens,
   opensFrom,
+  pageMoved,
   rowScrolls,
   shuts,
   speed,
@@ -20,7 +21,7 @@ const at = (clientX: number, clientY: number, timeStamp: number) => ({
   timeStamp,
 })
 
-/** A finger from (100, 300) through `moves` ([x, y, t] each), with the header's 2:1 lock or 1:1. */
+/** A finger from (100, 300) through `moves` ([x, y, t] each), with the page's 2:1 lock or 1:1. */
 function drag(moves: [number, number, number][], ratio = 1) {
   let s = swipeStart({ ...at(100, 300, 0), pointerType: 'touch' }) as Swipe
   for (const [x, y, t] of moves) s = swipeMoved(s, at(x, y, t), ratio)
@@ -60,7 +61,7 @@ test('the way is decided once the finger has gone 10px, and kept', () => {
     'x',
     'kept',
   )
-  // The header's lock: across must be more than twice up or down.
+  // The page's lock: across must be more than twice up or down.
   assert.equal(drag([[112, 306, 16]], 2).axis, 'y')
   assert.equal(drag([[113, 306, 16]], 2).axis, 'x')
   // Another finger changes nothing.
@@ -104,6 +105,70 @@ test('the header opens the menu at 48px right, or at 24px with a flick faster th
     ),
     false,
     'up and down first',
+  )
+})
+
+/**
+ * A finger on the page from (100, 300) through `moves`, as the page's listener reads it: whether
+ * it opened the menu, ended as no sideways swipe, or goes on, undecided or short.
+ */
+function pageDrag(moves: [number, number, number][]) {
+  let s = swipeStart({ ...at(100, 300, 0), pointerType: 'touch' })
+  for (const [x, y, t] of moves) {
+    s = s && pageMoved(s, at(x, y, t))
+    if (s && opens(s)) return 'opens'
+  }
+  return s ? 'goes on' : 'ends'
+}
+
+/** From (x, y) at `t` ms, `steps` moves of `dx` across and `dy` down, 16 ms apart. */
+const steps = (x: number, y: number, t: number, count: number, dx: number, dy: number) =>
+  Array.from(
+    { length: count },
+    (_, i) => [x + dx * (i + 1), y + dy * (i + 1), t + 16 * (i + 1)] as [number, number, number],
+  )
+
+test('a swipe on the page stays sideways only while it has gone more than twice as far across as up or down, at every move: a scroll whose first pixels hook right ends it, and never opens the menu', () => {
+  assert.equal(
+    pageDrag([[112, 300, 16], ...steps(112, 300, 16, 10, 4, -30)]),
+    'ends',
+    '12px right, then 300px up drifting 40px right',
+  )
+  assert.equal(
+    pageDrag([[118, 298, 16], ...steps(118, 298, 16, 10, 3.6, -30)]),
+    'ends',
+    '18px right and 2px up, then 300px up drifting 36px right',
+  )
+  assert.equal(
+    pageDrag([
+      [104, 300, 16],
+      [108, 299, 32],
+      [112, 298, 48],
+      [116, 297, 64],
+      [120, 296, 80],
+      ...steps(120, 296, 80, 10, 4, -25),
+    ]),
+    'ends',
+    '20px right drifting 4px up, then 250px up drifting 40px right',
+  )
+  assert.equal(
+    pageDrag([
+      [112, 300, 10],
+      [130, 260, 40],
+    ]),
+    'ends',
+    'a quick fling up the screen, its first 12px right',
+  )
+  assert.equal(pageDrag([[102, 312, 16]]), 'ends', 'up and down first')
+  assert.equal(pageDrag([[105, 302, 16]]), 'goes on', 'within 10px, undecided')
+  assert.equal(
+    pageDrag([
+      [112, 302, 100],
+      [130, 306, 200],
+      [150, 310, 300],
+    ]),
+    'opens',
+    '50px right drifting 10px down',
   )
 })
 

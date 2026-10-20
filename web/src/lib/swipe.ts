@@ -16,14 +16,15 @@ export const SLOP = 10
 export const WINDOW = 100
 
 /**
- * One finger's swipe: where it started, how far it has gone across, which way it was decided,
- * and where the finger was over the last WINDOW ms ([time, x] pairs), for its speed.
+ * One finger's swipe: where it started, how far it has gone across and down, which way it was
+ * decided, and where the finger was over the last WINDOW ms ([time, x] pairs), for its speed.
  */
 export type Swipe = {
   id: number
   x: number
   y: number
   dx: number
+  dy: number
   axis?: 'x' | 'y'
   trail: [number, number][]
 }
@@ -41,12 +42,19 @@ export const zoomed = () => (globalThis.visualViewport?.scale ?? 1) > 1.01
 export const swipeStart = (e: Point & { pointerType: string }): Swipe | null =>
   e.pointerType === 'mouse' || zoomed()
     ? null
-    : { id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, trail: [[e.timeStamp, e.clientX]] }
+    : {
+        id: e.pointerId,
+        x: e.clientX,
+        y: e.clientY,
+        dx: 0,
+        dy: 0,
+        trail: [[e.timeStamp, e.clientX]],
+      }
 
 /**
  * The swipe after the finger moved (or lifted): undecided within SLOP, then sideways or not for
- * good. Sideways only if it went across more than `ratio` times as far as up or down: 2 for the
- * page, so a scroll that drifts never opens the menu.
+ * good. Sideways only if it went across more than `ratio` times as far as up or down (2 for the
+ * page, which pageMoved holds it to all the way; 1 for the menu's drag).
  */
 export function swipeMoved(s: Swipe, e: Point, ratio = 1): Swipe {
   if (e.pointerId !== s.id) return s
@@ -58,7 +66,19 @@ export function swipeMoved(s: Swipe, e: Point, ratio = 1): Swipe {
   const trail = [...s.trail, [e.timeStamp, e.clientX] as [number, number]].filter(
     ([t]) => t >= e.timeStamp - WINDOW,
   )
-  return { ...s, axis, dx, trail }
+  return { ...s, axis, dx, dy, trail }
+}
+
+/**
+ * The page's swipe after the finger moved, or null once it is no swipe to open the menu: decided
+ * up and down, or, decided sideways, no longer more than twice as far across as up or down from
+ * where it started. Held to that at every move, not only at the SLOP that decides it, so a scroll
+ * whose first few pixels hook sideways, as a thumb's can, scrolls on and never opens the menu.
+ */
+export function pageMoved(s: Swipe, e: Point): Swipe | null {
+  const moved = swipeMoved(s, e, 2)
+  const across = Math.abs(moved.dx) > 2 * Math.abs(moved.dy)
+  return moved.axis === 'y' || (moved.axis === 'x' && !across) ? null : moved
 }
 
 /** How fast the finger went across over the last WINDOW ms, in px/ms (rightward positive). */
