@@ -1836,7 +1836,11 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   inset: 0;
 }
 
+/* --pad is its padding, which the banner band spans to sit flush at its top. Its first row is the
+   band's, as tall as the band: sized auto, it would grow with the min-height. */
 .ab-sheet {
+  --pad: clamp(28px, 4vw, 60px);
+
   position: relative;
   display: grid;
   width: min(100% - 32px, 1180px);
@@ -1844,15 +1848,39 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   align-items: center;
   gap: clamp(20px, 4vw, 60px);
   margin: 24px auto;
-  padding: clamp(28px, 4vw, 60px);
+  padding: 0 var(--pad) var(--pad);
   border: 5px solid var(--ink);
   background: var(--paper);
   box-shadow: 14px 14px 0 var(--ink);
   grid-template-columns: minmax(200px, 34%) minmax(0, 1fr);
+  grid-template-rows: min-content;
+}
+
+/* The banner band (spec §3A): the title's banner across the sheet's top, flush inside its border,
+   inked along its foot, cropped to fill. Its height is its own, so it is as tall with a banner as
+   without one, or with one that fails and hides (see cover.ts), and nothing moves as one lands.
+   It stands over the art, so the Japanese title falls into view from behind it. */
+.ab-band {
+  position: relative;
+  z-index: 1;
+  height: clamp(200px, 25vw, 420px);
+  margin: 0 calc(-1 * var(--pad));
+  border-bottom: 5px solid var(--ink);
+  background: var(--anime-accent);
+  grid-column: 1 / -1;
+}
+
+.ab-band img {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  inset: 0;
 }
 
 .ab-close {
   position: absolute;
+  z-index: 2;
   top: 14px;
   right: 14px;
   display: grid;
@@ -2099,10 +2127,18 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   }
 
   .ab-sheet {
+    --pad: 20px;
+
     width: calc(100% - 20px);
     margin: 10px auto;
-    padding: 64px 20px 28px;
+    padding: 0 20px 28px;
     grid-template-columns: 1fr;
+  }
+
+  /* A short strip, 19:4, the banner's own shape. */
+  .ab-band {
+    height: auto;
+    aspect-ratio: 19 / 4;
   }
 
   /* Stacked, the art is as narrow as its cover, as it is beside the text, so the Japanese title
@@ -2114,11 +2150,18 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     justify-self: center;
   }
 
-  /* Its fall (ab-fall) starts 16% of its height higher, up to 60px here, but only about 45px of
-     card stand above it, under the close button: its first frames poked out of the card's top. */
+  /* Beside the cover, level with its top: 6% above it, the column's head hid under the band's
+     foot. Its fall (ab-fall) starts 40px higher, behind the band. */
   .ab-native {
     --fall: -40px;
+    top: 0;
     left: -1em;
+  }
+
+  /* Over the band's short strip, the close button keeps clear of its ink line, down to 320px. */
+  .ab-close {
+    top: 8px;
+    right: 8px;
   }
 
   .ab-sheet-art img {

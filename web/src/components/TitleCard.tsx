@@ -184,6 +184,19 @@ export function TitleCard({
             <i />
           </span>
         </button>
+        {/* The banner band (see .ab-band): the title's banner, where it has one, over its color.
+            Decoded off the main thread, so a large banner landing mid-opening holds up nothing. */}
+        <div className="ab-band" aria-hidden="true">
+          {media.bannerImage && (
+            <img
+              src={media.bannerImage}
+              alt=""
+              decoding="async"
+              onLoad={markLoaded}
+              onError={markBroken}
+            />
+          )}
+        </div>
         <div className="ab-sheet-art">
           {media.title.native && (
             <p className="ab-native" lang="ja" aria-hidden="true">
