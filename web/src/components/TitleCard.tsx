@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   formatOf,
   nextEpisode,
@@ -12,6 +12,7 @@ import { accentVars } from '../features/theming/deriveAccent.ts'
 import { reducedMotion, watchDeviceMotion } from '../lib/motion.ts'
 import { markBroken, markLoaded } from './cover.ts'
 import { cssVars } from './cssVars.ts'
+import { RetryButton } from './RetryButton.tsx'
 import { TitleDetails } from './TitleDetails.tsx'
 
 /** Called with the title and the element it was opened from (for the opening animation). */
@@ -23,17 +24,31 @@ export type OpenTitle = (media: Media, from: HTMLElement) => void
  * motion: it fades in, and fades out as it closes). It opens as a native modal dialog, so the
  * page behind goes inert, Esc closes it, and the browser returns focus to whatever opened it.
  * `from` is that element's position, where the wipe starts, and where it shrinks back to.
+ * `status` says why AniList holds up a newer answer for the title, and `onRetry` is Try again.
  */
 export function TitleCard({
   media,
   from,
+  status = null,
+  onRetry,
   onClose,
 }: {
   media: Media
   from: DOMRect
+  status?: string | null
+  onRetry?: () => void
   onClose: () => void
 }) {
   const ref = useRef<HTMLDialogElement>(null)
+  // Try again hands focus to the status line as it hides (see RetryButton). Once the answer has
+  // come and the line has nothing more to say, focus goes on to the close button, where the card
+  // started it, rather than staying on a line no longer shown; the card keeps its place.
+  const closeButton = useRef<HTMLButtonElement>(null)
+  const statusLine = useRef<HTMLParagraphElement>(null)
+  useLayoutEffect(() => {
+    if (!status && document.activeElement === statusLine.current)
+      closeButton.current?.focus({ preventScroll: true })
+  }, [status])
   // With reduced motion, the card fades out before it closes (see .ab-card.is-closing): the
   // dialog stays open while the fade plays, and closes as it ends, when the browser returns
   // focus. Asked to close again meanwhile, it closes at once.
@@ -185,7 +200,13 @@ export function TitleCard({
       <title>{`${title} · AniBeam`}</title>
       <div className="ab-wipe" aria-hidden="true" />
       <article className="ab-sheet">
-        <button type="button" className="ab-close" onClick={close} aria-label="Close title card">
+        <button
+          ref={closeButton}
+          type="button"
+          className="ab-close"
+          onClick={close}
+          aria-label="Close title card"
+        >
           {/* An X of three bars, so it can fold into a back arrow (see .ab-x). */}
           <span className="ab-x" aria-hidden="true">
             <i />
@@ -273,6 +294,16 @@ export function TitleCard({
           <TitleDetails media={media} />
         </div>
       </article>
+      {/* Why AniList holds up a newer answer for the title (spec §3I), which the card keeps
+          meanwhile, with Try again once the tries end. It sits past the sheet's end, so nothing
+          moves as it comes, and sticks to the screen's foot while the card scrolls (see
+          .ab-card-status). The line is always there, so a screen reader hears it change. */}
+      <div className={status ? 'ab-card-status is-shown' : 'ab-card-status'}>
+        <p ref={statusLine} id="ab-card-status" role="status" tabIndex={-1}>
+          {status}
+        </p>
+        {status && onRetry && <RetryButton headingId="ab-card-status" onRetry={onRetry} />}
+      </div>
     </dialog>
   )
 }

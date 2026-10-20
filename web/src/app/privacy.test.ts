@@ -336,26 +336,29 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // and its menu (the hamburger, the manga-panel menu and its slide: 10,013 B), and past 10,500 B
 // with the title card's banner band (the band, its phone strip, the sheet's padding around it:
 // 10,546 B; with its impact frame, drawn again for contrast themes, and the close button's white
-// line over it, 10,642 B), so its budget is 11,000 B. The JS every visit loads passed 78,500 B with the scroll slam's landing
-// (lib/landing.ts, 78,954 B with its follow-ups), then 79,000 B with the request for one title on
-// its own (titleQuery, for title addresses: 79,019 B), 79,500 B with opening a title at its
-// address (lib/route.ts, the note in place of a card: 79,519 B), 80,000 B with the title
-// addresses' review fixes (the note's fade-out among them: 80,043 B), 80,500 B with the section
-// links (lib/sectionNav.ts, docking the intro's buttons: 80,741 B), 81,000 B with a phone's bar of
-// them (81,118 B, since taken out), 81,500 B with the buttons' flight into the header and back
-// (82,032 B), 82,500 B with the phone's menu in the bar's place (MenuDrawer, the hamburger:
-// 82,508 B), 83,000 B with its swipes (lib/swipe.ts, a swipe across the header to open it and a
-// drag that it follows to shut it: 83,262 B), and 83,500 B with a phone's header hiding as the
-// page scrolls down and coming back as it scrolls up (topAfter in lib/sectionNav.ts, and the
-// landing observer following it: 83,529 B), and 84,000 B with the phone header no longer moved
-// by a heading whose ring a tap hid (in lib/sectionNav.ts: 84,044 B; with the search box losing
-// focus as a touch keyboard is put away, keyboardAfter in lib/searchBox.ts, 84,262 B), and
-// 84,500 B with the swipe that opens the menu from anywhere on a phone's page, not the header
-// alone (touch events on the document, opensFrom and rowScrolls in lib/swipe.ts keeping it off
-// the search, a dialog and the decade strip, off selected text and a pinch: 84,720 B), and
-// 85,000 B with the title card's synopsis (TitleDetails, its Read more measured again as the text
-// changes size, and synopsis.ts, which reads AniList's markup into plain text: 85,844 B), and
-// 86,000 B with its tags (tagsOf in the card, the spoiler tags behind their button: 86,020 B), so
+// line over it, 10,642 B), and past 11,000 B with the card's status line (why AniList holds up a
+// newer answer for a title opened at its address, with Try again, stuck to the screen's foot:
+// 11,016 B; the synopsis and the tags had brought it to 10,934 B), so its budget is 11,500 B. The
+// JS every visit loads passed 78,500 B with the scroll slam's landing (lib/landing.ts, 78,954 B
+// with its follow-ups), then 79,000 B with the request for one title on its own (titleQuery, for
+// title addresses: 79,019 B), 79,500 B with opening a title at its address (lib/route.ts, the note
+// in place of a card: 79,519 B), 80,000 B with the title addresses' review fixes (the note's
+// fade-out among them: 80,043 B), 80,500 B with the section links (lib/sectionNav.ts, docking the
+// intro's buttons: 80,741 B), 81,000 B with a phone's bar of them (81,118 B, since taken out),
+// 81,500 B with the buttons' flight into the header and back (82,032 B), 82,500 B with the phone's
+// menu in the bar's place (MenuDrawer, the hamburger: 82,508 B), 83,000 B with its swipes
+// (lib/swipe.ts, a swipe across the header to open it and a drag that it follows to shut it:
+// 83,262 B), and 83,500 B with a phone's header hiding as the page scrolls down and coming back as
+// it scrolls up (topAfter in lib/sectionNav.ts, and the landing observer following it: 83,529 B),
+// and 84,000 B with the phone header no longer moved by a heading whose ring a tap hid (in
+// lib/sectionNav.ts: 84,044 B; with the search box losing focus as a touch keyboard is put away,
+// keyboardAfter in lib/searchBox.ts, 84,262 B), and 84,500 B with the swipe that opens the menu
+// from anywhere on a phone's page, not the header alone (touch events on the document, opensFrom
+// and rowScrolls in lib/swipe.ts keeping it off the search, a dialog and the decade strip, off
+// selected text and a pinch: 84,720 B), and 85,000 B with the title card's synopsis (TitleDetails,
+// its Read more measured again as the text changes size, and synopsis.ts, which reads AniList's
+// markup into plain text: 85,844 B), and 86,000 B with its tags (tagsOf in the card, the spoiler
+// tags behind their button: 86,020 B; with the card's status line and its Try again, 86,148 B), so
 // its budget is 86,500 B. The JS loaded only when needed rose to 14,028 B when the samples began to
 // carry each title's synopsis, running time and the tags its card shows, as the lists' titles do,
 // so that a sample's card opens on them with no request (the user agreed to about 15 KB more,
@@ -363,7 +366,7 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
   'the JS every visit loads': 86_500,
-  'the CSS': 11_000,
+  'the CSS': 11_500,
   'the JS loaded only when needed': 14_500,
   'every other file': 500,
 }

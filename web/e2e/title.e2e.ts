@@ -1098,3 +1098,224 @@ test('a card shows its title’s top 8 tags by rank, never an adult one, and its
   }
   assert.deepEqual(seen, [], 'cards whose tags show wrongly, or that asked AniList for them')
 })
+
+// The open card's status line, if it shows: what it says, its role, its buttons, and whether it
+// is whole on the screen.
+const STATUS = `(() => {
+  const line = document.querySelector('dialog.ab-card[open] .ab-card-status')
+  if (!line?.classList.contains('is-shown')) return null
+  const box = line.getBoundingClientRect()
+  return {
+    text: line.querySelector('p').textContent,
+    role: line.querySelector('p').getAttribute('role'),
+    buttons: [...line.querySelectorAll('button')].map((button) => button.textContent.trim()),
+    whole: box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth,
+  }
+})()`
+// The site's outage wording (see app/status.ts): while the app tries again after a 429, and once
+// its tries have ended.
+const BUSY = 'AniList is busy right now. It’s not something you did. Trying again within a minute.'
+const GAVE_UP =
+  'AniList, where AniBeam gets its anime, isn’t responding right now. It’s not something you did. Try again in a minute.'
+
+/**
+ * AniList's 429 for Frieren from now on, its timeout ending a second or so later, as its
+ * X-RateLimit-Reset says (without one the app waits a full minute, see retryAt), each noted in
+ * `asked`.
+ */
+async function stage429(asked: number[]) {
+  await browser.rewriteAniList(({ request }) => {
+    if (request.variables.id !== 154587) return null
+    asked.push(Date.now())
+    return {
+      status: 429,
+      body: { data: null, errors: [{ message: 'Too Many Requests.', status: 429 }] },
+      headers: { 'X-RateLimit-Reset': String(Math.ceil(Date.now() / 1000) + 1) },
+    }
+  })
+}
+
+// The focused part's name, and " (no ring)" unless it shows the card's focus ring.
+const FOCUSED = `(() => {
+  const part = document.activeElement, ring = getComputedStyle(part)
+  const name = part === document.body ? 'the page' : (part.getAttribute('aria-label') ?? part.textContent.trim())
+  const shows = part.matches(':focus-visible') && ring.outlineStyle === 'solid' && parseFloat(ring.outlineWidth) >= 4 && ring.outlineColor === 'rgb(255, 45, 85)'
+  return shows ? name : name + ' (no ring)'
+})()`
+
+test('a card opened at its address keeps its title while AniList answers 429, says why as the site does, and offers Try again once the tries end', async () => {
+  // Spec §3I and the plan's PR 13: a 429 keeps what is shown, and says AniList is busy. A card
+  // opened from a list asks for nothing; one opened at its address asks for its title, and asks
+  // again once its saved answer is out of date, as an airing title's is 6 hours on: here Frieren,
+  // staged as airing, saved 7 hours ago. Its card shows it at once and keeps it, while a status
+  // line at the screen's foot says AniList is busy as the app tries again, then, once the tries
+  // end, that AniList isn't responding, with Try again, which Tab reaches after the details'
+  // buttons. Pressed, Try again hands focus to the line, which says it is trying, and the line
+  // goes once the answer comes, focus going on to the close button. Nothing moves meanwhile. In
+  // a contrast theme the line keeps its frame.
+  await browser.watchLayoutShifts()
+  for (const screen of [SCREENS[0], SCREENS[2]]) {
+    const where = `${screen.width}px`
+    await browser.forget()
+    await browser.rewriteAniList(({ request, status, body }) => {
+      if (request.variables.id !== 154587) return null
+      body.data.Media.status = 'RELEASING'
+      return { status, body }
+    })
+    try {
+      await browser.load({ ...screen, reduceMotion: true, url: at('/anime/154587') })
+      assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000), `${where}: no card`)
+      // The cache is saved at most once a second.
+      await sleep(1500)
+    } finally {
+      await browser.rewriteAniList(null)
+    }
+    const aged = await browser.evaluate<boolean>(`(() => {
+      const copy = JSON.parse(localStorage.getItem('anibeam:cache') ?? 'null')
+      const title = copy?.clientState.queries.find((query) => query.queryKey[2]?.id === 154587)
+      if (!title) return false
+      title.state.dataUpdatedAt -= 7 * 60 * 60_000
+      localStorage.setItem('anibeam:cache', JSON.stringify(copy))
+      return true
+    })()`)
+    assert.ok(aged, `${where}: Frieren's answer was never saved`)
+    const asked: number[] = []
+    await stage429(asked)
+    try {
+      await browser.load({ ...screen, reduceMotion: true, url: at('/anime/154587') })
+      assert.ok(
+        await browser.waitFor(`/Frieren/.test(${CARD})`, 5000),
+        `${where}: no card from the saved answer`,
+      )
+      assert.ok(
+        await browser.waitFor(`${STATUS}?.text === ${JSON.stringify(BUSY)}`, 5000),
+        `${where}: while AniList answered 429, the card's status line was ${JSON.stringify(await browser.evaluate(STATUS))}`,
+      )
+      assert.deepEqual(
+        await browser.evaluate(STATUS),
+        { text: BUSY, role: 'status', buttons: [], whole: true },
+        `${where}: while the app tries again`,
+      )
+      assert.ok(
+        await browser.evaluate(
+          `Boolean(document.querySelector('dialog.ab-card[open] .ab-synopsis-text'))`,
+        ),
+        `${where}: the card lost its synopsis`,
+      )
+      assert.ok(
+        await browser.waitFor(`${STATUS}?.buttons.includes('Try again')`, 40_000),
+        `${where}: no Try again once the tries ended`,
+      )
+      assert.deepEqual(
+        await browser.evaluate(STATUS),
+        { text: GAVE_UP, role: 'status', buttons: ['Try again'], whole: true },
+        `${where}: once the tries ended`,
+      )
+      assert.equal(asked.length, 4, `${where}: Frieren asked for, then tried 3 times more`)
+      assert.match(
+        await browser.evaluate<string>(CARD),
+        /Frieren/,
+        `${where}: the card lost its title`,
+      )
+      // Tab reaches Try again after the details' last button, with the card's ring, and back.
+      await browser.evaluate(
+        `document.querySelector('dialog.ab-card[open] .ab-tag-set .ab-more').focus(); true`,
+      )
+      await browser.press('Tab')
+      const forward = await browser.evaluate<string>(FOCUSED)
+      const whole = await browser.evaluate(STATUS)
+      await browser.press('Tab', true)
+      const back = await browser.evaluate<string>(FOCUSED)
+      assert.deepEqual(
+        { forward, whole, back },
+        {
+          forward: 'Try again',
+          whole: { text: GAVE_UP, role: 'status', buttons: ['Try again'], whole: true },
+          back: 'Show spoiler tags',
+        },
+        `${where}: Tab from Show spoiler tags, then Shift+Tab`,
+      )
+      if (screen === SCREENS[2]) {
+        await browser.send('Emulation.setEmulatedMedia', {
+          features: [
+            { name: 'prefers-reduced-motion', value: 'reduce' },
+            { name: 'forced-colors', value: 'active' },
+          ],
+        })
+        try {
+          assert.ok(
+            await browser.evaluate(`(() => {
+              const probe = document.body.appendChild(document.createElement('i'))
+              probe.style.color = 'CanvasText'
+              const text = getComputedStyle(probe).color
+              probe.remove()
+              const line = getComputedStyle(document.querySelector('dialog.ab-card[open] .ab-card-status'))
+              return line.borderTopStyle === 'solid' && parseFloat(line.borderTopWidth) >= 3 && line.borderTopColor === text && line.color === text
+            })()`),
+            `${where}: in a contrast theme, the status line lost its frame`,
+          )
+        } finally {
+          await browser.send('Emulation.setEmulatedMedia', {
+            features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+          })
+        }
+      }
+    } finally {
+      await browser.rewriteAniList(null)
+    }
+    // Once AniList's timeout is surely over (its reset, then up to 2 s), so the line says it is
+    // trying again, not that the app is taking a break.
+    await sleep(4000)
+    await browser.holdAniList(1500)
+    try {
+      await browser.evaluate(
+        `document.querySelector('dialog.ab-card[open] .ab-card-status .ab-retry').focus(); true`,
+      )
+      await browser.press('Enter')
+      assert.ok(
+        await browser.waitFor(`document.activeElement?.id === 'ab-card-status'`, 1000),
+        `${where}: Try again, hiding, left focus on ${await browser.evaluate(FOCUSED)}`,
+      )
+      assert.equal(
+        await browser.evaluate(`document.activeElement.textContent`),
+        'Trying AniList again…',
+        `${where}: as Try again asks`,
+      )
+    } finally {
+      await browser.holdAniList(0)
+    }
+    assert.ok(
+      await browser.waitFor(`${STATUS} === null`, 10_000),
+      `${where}: the status line stayed once the answer came`,
+    )
+    assert.equal(
+      await browser.evaluate(FOCUSED),
+      'Close title card',
+      `${where}: focus once the line had gone`,
+    )
+    const { value, shifts } = await browser.layoutShift()
+    assert.ok(value < 0.1, `${where}: layout shift ${value}: ${JSON.stringify(shifts)}`)
+  }
+
+  // With nothing saved, the note in the card's place says the same (see titleNote).
+  await browser.forget()
+  const asked: number[] = []
+  await stage429(asked)
+  try {
+    await browser.load({ ...SCREENS[0], reduceMotion: true, url: at('/anime/154587') })
+    const NOTE = `document.querySelector('dialog.ab-notice[open] .ab-notice-text')?.textContent`
+    assert.ok(
+      await browser.waitFor(`${NOTE} === ${JSON.stringify(BUSY)}`, 5000),
+      'with nothing saved, no note said AniList is busy',
+    )
+    assert.ok(
+      await browser.waitFor(
+        `${NOTE} === ${JSON.stringify(GAVE_UP)} && [...document.querySelectorAll('dialog.ab-notice button')].some((button) => button.textContent === 'Try again')`,
+        40_000,
+      ),
+      'with nothing saved, no Try again once the tries ended',
+    )
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+})

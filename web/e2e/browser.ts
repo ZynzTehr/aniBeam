@@ -37,7 +37,23 @@ export type Answer = {
   status: number
   body: any
 }
-type Rewrite = (answer: Answer) => { status: number; body: unknown } | null
+/**
+ * A rewrite's answer: its status, its body, and any `headers` to send in place of the answer's own
+ * of the same name (in any case) or beside them, such as a 429's X-RateLimit-Reset.
+ */
+type Rewritten = { status: number; body: unknown; headers?: Record<string, string> }
+type Rewrite = (answer: Answer) => Rewritten | null
+
+/** `headers` with each of `extra` in place of one of the same name, or added. */
+const withHeaders = (
+  headers: { name: string; value: string }[],
+  extra: Record<string, string> = {},
+) => [
+  ...headers.filter(
+    ({ name }) => !Object.keys(extra).some((key) => key.toLowerCase() === name.toLowerCase()),
+  ),
+  ...Object.entries(extra).map(([name, value]) => ({ name, value })),
+]
 
 /** Where a browser's AniList answers come from: AniList itself, or recordings (see open). */
 export type AniListMode = 'live' | 'recorded'
@@ -599,8 +615,10 @@ export class Browser {
   /**
    * Changes AniList's answers before the page sees them, to stage what AniList rarely does.
    * `rewrite` gets each answer and returns a new status and body, or null to pass it on as
-   * it is. `null` stops rewriting. In a live browser the requests still go to AniList (and count
-   * toward its limit), and the answers keep its headers. In a recorded browser the rewrite gets a
+   * it is. It may return headers too, sent in place of the answer's own of the same name or
+   * beside them: a 429's X-RateLimit-Reset a second away has the app wait a second, not a minute.
+   * `null` stops rewriting. In a live browser the requests still go to AniList (and count toward
+   * its limit), and the answers keep its other headers. In a recorded browser the rewrite gets a
    * copy of the request's recording, so it can change it where it is. A request with no recording
    * comes as a 404: a rewrite that answers it with another status needs no recording, but a 404
    * passed on, or changed and still a 404, leaves it a request with no recording (see open).
@@ -627,9 +645,14 @@ export class Browser {
         errorReason: 'ConnectionRefused',
       }).catch(() => {})
     else if (this.aniList === 'recorded') {
-      const { status, body } = this.#recorded(request)
+      const { status, body, headers } = this.#recorded(request)
       this.#hold(requestId, this.#holdMs || ANSWER_MS, () =>
-        this.#fulfill(requestId, status, ANSWER_HEADERS, JSON.stringify(body)),
+        this.#fulfill(
+          requestId,
+          status,
+          withHeaders(ANSWER_HEADERS, headers),
+          JSON.stringify(body),
+        ),
       )
     } else
       this.#hold(requestId, this.#holdMs, () =>
@@ -642,7 +665,7 @@ export class Browser {
    * recording, a 404; unless a rewrite answers it with another status, it is noted for
    * waitFor() and close() to throw.
    */
-  #recorded(request: { method: string; url: string; postData?: string }) {
+  #recorded(request: { method: string; url: string; postData?: string }): Rewritten {
     let graphql: Answer['request'] | undefined
     try {
       graphql = JSON.parse(request.postData ?? '')
@@ -656,7 +679,7 @@ export class Browser {
         ? structuredClone(recording.body)
         : { data: null, errors: [{ message: `No recording for ${name}`, status: 404 }] },
     }
-    let changed: { status: number; body: unknown } | null = null
+    let changed: Rewritten | null = null
     try {
       changed = this.#rewrite?.(answer) ?? null
     } catch {}
@@ -759,8 +782,11 @@ export class Browser {
       requestId,
       responseCode: changed.status,
       // The new body is plain JSON of a new length.
-      responseHeaders: responseHeaders.filter(
-        (header: { name: string }) => !/^content-(encoding|length)$/i.test(header.name),
+      responseHeaders: withHeaders(
+        responseHeaders.filter(
+          (header: { name: string }) => !/^content-(encoding|length)$/i.test(header.name),
+        ),
+        changed.headers,
       ),
       body: Buffer.from(JSON.stringify(changed.body)).toString('base64'),
     }).catch(() => {})

@@ -2239,6 +2239,35 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   }
 }
 
+/* Why AniList holds up a newer answer for a card's title, with Try again (see TitleCard), in the
+   look of a section's long status tag. In the card's flow past the sheet's end, so nothing moves
+   as it comes, and stuck to the screen's foot while the card scrolls above that. */
+.ab-card-status {
+  position: sticky;
+  z-index: 1;
+  bottom: 16px;
+  width: fit-content;
+  max-width: min(100% - 32px, 40ch);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.ab-card-status.is-shown {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin: 0 auto 24px;
+  padding: 10px 16px;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.ab-card-status p {
+  margin: 0;
+}
+
 /* ---------- Phone ---------- */
 @media (max-width: 820px) {
   .ab-pull-row,
@@ -2389,8 +2418,14 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     .ab-card[open] .ab-genres,
     .ab-card[open] .ab-facts,
     .ab-card[open] .ab-row-actions,
-    .ab-card[open] .ab-details {
+    .ab-card[open] .ab-details,
+    .ab-card[open] .ab-card-status.is-shown {
       animation: ab-rise 0.6s var(--spring) both 0.9s;
+    }
+
+    /* A status line that comes once the card has landed rises in at once. */
+    .ab-card[open].is-landed .ab-card-status.is-shown {
+      animation-delay: 0s;
     }
 
     /* Closing plays all that backwards, twice as fast: each part's keyframes in reverse, in half
@@ -2421,7 +2456,8 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     .ab-card[open].is-leaving .ab-genres,
     .ab-card[open].is-leaving .ab-facts,
     .ab-card[open].is-leaving .ab-row-actions,
-    .ab-card[open].is-leaving .ab-details {
+    .ab-card[open].is-leaving .ab-details,
+    .ab-card[open].is-leaving .ab-card-status.is-shown {
       animation: ab-rise-back 0.3s var(--spring) reverse both;
       animation-delay: calc((var(--T) - 1.5s) / 2);
     }
@@ -2996,12 +3032,14 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 }
 
 /* Focused by Try again as it hides while its retry runs (see RetryButton). */
-.ab-notice-text:focus-visible {
+.ab-notice-text:focus-visible,
+.ab-card-status p:focus-visible {
   outline: 4px solid var(--hot);
   outline-offset: 3px;
 }
 
-.ab-notice .ab-retry {
+.ab-notice .ab-retry,
+.ab-card-status .ab-retry {
   margin: 0;
 }
 

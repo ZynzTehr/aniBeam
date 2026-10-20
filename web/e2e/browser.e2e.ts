@@ -500,6 +500,49 @@ test('in a recorded browser, a block beats the recordings, a hold delays their a
   }
 })
 
+test('a rewrite’s headers reach the page in place of the answer’s own, as a 429’s reset time does, and the rest stay', async () => {
+  // A check stages a short rate-limit timeout this way: AniList's 429 with an X-RateLimit-Reset a
+  // second or two away, where with none the app waits a full minute (see retryAt in anilist.ts).
+  const browser = await Browser.open({ aniList: 'recorded', recordings: [firstVisit] })
+  const ask = `fetch('https://graphql.anilist.co', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(${JSON.stringify(firstVisit.request)}),
+  }).then((res) => ({
+    status: res.status,
+    reset: res.headers.get('X-RateLimit-Reset'),
+    remaining: res.headers.get('X-RateLimit-Remaining'),
+    limit: res.headers.get('X-RateLimit-Limit'),
+  }))`
+  try {
+    await browser.load()
+    assert.ok(await browser.titlesShown(15_000), 'no titles came, not even the samples')
+    await browser.rewriteAniList(() => ({
+      status: 429,
+      body: { data: null, errors: [{ message: 'Too Many Requests.', status: 429 }] },
+      headers: { 'X-RateLimit-Reset': '1767225600', 'x-ratelimit-remaining': '0' },
+    }))
+    let staged: unknown
+    try {
+      staged = await browser.evaluate(ask)
+    } finally {
+      await browser.rewriteAniList(null)
+    }
+    assert.deepEqual(
+      staged,
+      { status: 429, reset: '1767225600', remaining: '0', limit: '30' },
+      'the rewrite’s headers, whatever their case, and the answer’s others',
+    )
+    assert.deepEqual(
+      await browser.evaluate(ask),
+      { status: 200, reset: null, remaining: '29', limit: '30' },
+      'with the rewrite gone, the recorded answer’s own headers',
+    )
+  } finally {
+    await browser.close()
+  }
+})
+
 test('a recorded browser can’t reach AniList: a request that gets past the recordings fails to resolve its address', async () => {
   const browser = await Browser.open({ aniList: 'recorded' })
   try {
