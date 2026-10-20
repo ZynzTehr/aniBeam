@@ -5,7 +5,9 @@ import {
   afterSwipe,
   EDGE,
   opens,
-  swipeMoved,
+  opensFrom,
+  pageMoved,
+  rowScrolls,
   swipeStart,
   zoomed,
   type Swipe,
@@ -22,7 +24,7 @@ export type NavLink = { href: string; label: string; current?: boolean; soon?: b
 
 /**
  * The logo, the section links and the title search. Under 900px it is one row: a hamburger that
- * opens the menu of the section links (MenuDrawer), as a rightward swipe across the row does, the
+ * opens the menu of the section links (MenuDrawer), as a rightward swipe across the page does, the
  * logo, and the search on the far side, whose bubble grows down over the page a row at a time as
  * what is typed wraps, leaving the header its one row; the header hides as the page scrolls down
  * and comes back as it scrolls up (lib/sectionNav.ts). It publishes its own height as --top-h on
@@ -48,12 +50,6 @@ export function SiteHeader({
   const burger = useRef<HTMLButtonElement>(null)
   const menu = useRef<HTMLDialogElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
-  // A rightward swipe across the header opens the menu: not from the screen's left edge, the
-  // system's Back, and not on the search bubble, where a drag selects text.
-  const swipe = useRef<Swipe | null>(null)
-  // When a swipe last opened the menu: a click straight after it (on the logo, say, where the
-  // finger lifted) does nothing (see afterSwipe).
-  const swiped = useRef(-Infinity)
   useLayoutEffect(() => {
     const element = header.current
     if (!element) return
@@ -85,51 +81,93 @@ export function SiteHeader({
     }
   }, [])
 
+  // A clearly sideways swipe to the right anywhere on a phone's page opens the menu, but not from
+  // the screen's left edge, the system's Back, nor where opensFrom says a drag is the page's own:
+  // the search bubble, a dialog, the decade strip. Touch events, passive, on the document: they
+  // go on as the browser scrolls, zooms or selects (pointer events stop with a pointercancel
+  // where touch-action leaves the drag to the browser, as it does on the page), and iOS Safari
+  // sends them too. So nothing the browser does with a finger changes.
+  useEffect(() => {
+    let swipe: Swipe | null = null
+    // When a swipe last opened the menu: a click straight after it (on a link, say, where the
+    // finger lifted) does nothing (see afterSwipe).
+    let swiped = -Infinity
+    const point = (e: TouchEvent, t: Touch) => ({
+      pointerId: t.identifier,
+      clientX: t.clientX,
+      clientY: t.clientY,
+      timeStamp: e.timeStamp,
+      pointerType: 'touch',
+    })
+    // Only the swiping finger moves, lifts or cancels its swipe, as in the menu's drag.
+    const mine = (e: TouchEvent) => [...e.changedTouches].find((t) => t.identifier === swipe?.id)
+    // Text being selected, its handles dragged, say, is the browser's.
+    const selecting = () => document.getSelection()?.isCollapsed === false
+    const unpull = () => {
+      swipe = null
+      header.current?.style.removeProperty('--pull')
+    }
+    const start = (e: TouchEvent) => {
+      // A second finger laid down starts no swipe (see move for what it does to the first's).
+      if (e.touches.length > 1) return
+      const t = e.changedTouches[0]
+      const on = e.target instanceof Element ? e.target : (e.target as Node).parentElement
+      const free =
+        t.clientX >= EDGE &&
+        !matchMedia('(min-width: 900px)').matches &&
+        !selecting() &&
+        opensFrom(on, (el) => rowScrolls(el, getComputedStyle(el).overflowX))
+      swipe = free ? swipeStart(point(e, t)) : null
+    }
+    const move = (e: TouchEvent) => {
+      const t = mine(e)
+      if (!swipe || !t) return
+      // With a second finger down, resting or not, a move is a pinch, the browser's zoom (two
+      // fingers drawing apart, one of them still or both moving): the swipe ends. A second finger
+      // that taps and lifts before the first moves on changes nothing.
+      if (e.touches.length > 1) return unpull()
+      // Sideways only while more than twice as far across as up or down, all the way: a page
+      // scroll that drifts or hooks sideways never opens it (see pageMoved).
+      const s = pageMoved(swipe, point(e, t))
+      if (!s || selecting()) return unpull()
+      swipe = s
+      if (s.axis !== 'x') return
+      // The hamburger's bars lean into the swipe (components.css).
+      header.current?.style.setProperty('--pull', String(Math.min(Math.max(s.dx / 48, 0), 1)))
+      if (!opens(s)) return
+      unpull()
+      swiped = e.timeStamp
+      if (openMenu(menu.current, burger.current, false)) setMenuOpen(true)
+    }
+    const lifted = (e: TouchEvent) => mine(e) && unpull()
+    // On the window, before any other listener, the menu's own among them.
+    const click = (e: MouseEvent) => {
+      if (!afterSwipe(swiped, e.timeStamp)) return
+      e.preventDefault()
+      e.stopPropagation()
+    }
+    const passive = { passive: true }
+    document.addEventListener('touchstart', start, passive)
+    document.addEventListener('touchmove', move, passive)
+    document.addEventListener('touchend', lifted, passive)
+    document.addEventListener('touchcancel', lifted, passive)
+    addEventListener('click', click, true)
+    return () => {
+      document.removeEventListener('touchstart', start)
+      document.removeEventListener('touchmove', move)
+      document.removeEventListener('touchend', lifted)
+      document.removeEventListener('touchcancel', lifted)
+      removeEventListener('click', click, true)
+    }
+  }, [])
+
   const open = (byKey: boolean) => {
     if (openMenu(menu.current, burger.current, byKey)) setMenuOpen(true)
   }
-  const unpull = (element: HTMLElement) => {
-    swipe.current = null
-    element.style.removeProperty('--pull')
-  }
-  // Only the swiping finger's lift or cancel ends its swipe, as in the menu's drag.
-  const lifted = (e: { pointerId: number; currentTarget: HTMLElement }) =>
-    e.pointerId === swipe.current?.id && unpull(e.currentTarget)
 
   return (
     <>
-      <header
-        ref={header}
-        className="ab-top"
-        onPointerDown={(e) => {
-          // A second finger leaves the first one's swipe be.
-          if (swipe.current && !e.isPrimary) return
-          const narrow = !matchMedia('(min-width: 900px)').matches
-          const clear = !(e.target as Element).closest('.ab-bubble-field')
-          swipe.current = narrow && clear && e.clientX >= EDGE ? swipeStart(e) : null
-        }}
-        onPointerMove={(e) => {
-          // Sideways only if more than twice as far across as down: a page scroll that drifts
-          // never opens it.
-          const s = swipe.current && swipeMoved(swipe.current, e, 2)
-          swipe.current = s?.axis === 'y' ? null : s
-          if (s?.axis !== 'x') return
-          // The hamburger's bars lean into the swipe (components.css).
-          e.currentTarget.style.setProperty('--pull', String(Math.min(Math.max(s.dx / 48, 0), 1)))
-          if (opens(s)) {
-            unpull(e.currentTarget)
-            swiped.current = e.timeStamp
-            open(false)
-          }
-        }}
-        onPointerUp={lifted}
-        onPointerCancel={lifted}
-        onClickCapture={(e) => {
-          if (!afterSwipe(swiped.current, e.timeStamp)) return
-          e.preventDefault()
-          e.stopPropagation()
-        }}
-      >
+      <header ref={header} className="ab-top">
         <button
           ref={burger}
           type="button"

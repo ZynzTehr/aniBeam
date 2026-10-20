@@ -13,7 +13,7 @@ const KANA: Record<string, string> = {
 
 /**
  * A phone's menu of the page's section links: a manga panel that slides in from the left, opened
- * by the header's hamburger or a rightward swipe across the header (SiteHeader), shut by its X,
+ * by the header's hamburger or a rightward swipe across the page (SiteHeader), shut by its X,
  * Escape, Back, a tap on the dimmed page, a link, a leftward drag or flick, which it follows, or
  * the page widening to 900px. A modal dialog, so the page behind it can't be reached or
  * read while it is open, and a sibling of the header, never inside it: Safari drops a closing

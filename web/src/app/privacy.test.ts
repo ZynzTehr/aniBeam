@@ -347,11 +347,14 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // page scrolls down and coming back as it scrolls up (topAfter in lib/sectionNav.ts, and the
 // landing observer following it: 83,529 B), and 84,000 B with the phone header no longer moved
 // by a heading whose ring a tap hid (in lib/sectionNav.ts: 84,044 B; with the search box losing
-// focus as a touch keyboard is put away, keyboardAfter in lib/searchBox.ts, 84,262 B), so its
-// budget is 84,500 B.
+// focus as a touch keyboard is put away, keyboardAfter in lib/searchBox.ts, 84,262 B), and
+// 84,500 B with the swipe that opens the menu from anywhere on a phone's page, not the header
+// alone (touch events on the document, opensFrom and rowScrolls in lib/swipe.ts keeping it off
+// the search, a dialog and the decade strip, off selected text and a pinch: 84,720 B), so its
+// budget is 85,000 B.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 84_500,
+  'the JS every visit loads': 85_000,
   'the CSS': 10_500,
   'the JS loaded only when needed': 3_500,
   'every other file': 500,

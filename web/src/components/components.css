@@ -772,9 +772,10 @@ img[data-broken] {
      (data-hide, see lib/sectionNav.ts), but never while focus is in it with its ring showing:
      Shift+Tab back up shows it in the same frame, so the browser has nothing to scroll to. A
      tap's focus, or the hamburger the menu hands focus back to after a tap or a swipe, shows no
-     ring, and lets it hide. A transform, so nothing on the page moves. Sideways drags on it are
-     left to the swipe that opens the menu (SiteHeader); up and down still scroll the page, and
-     pinches zoom. */
+     ring, and lets it hide. A transform, so nothing on the page moves. Sideways drags on it move
+     nothing, as on the rest of the page, whose touches the swipe that opens the menu reads
+     (SiteHeader); up and down still scroll the page, and pinches zoom (WebKit parses pinch-zoom
+     too). */
   .ab-top {
     flex-wrap: nowrap;
     align-items: flex-start;
@@ -3193,7 +3194,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 /* The phone's header and menu, with motion allowed. The header swishes up in 0.2s as it hides
    and eases back down in 0.28s, with no slide while focus shows its ring in it, so Shift+Tab finds
    it in place at once. Only under 900px: widening with it hidden doesn't slide it back. The
-   hamburger's bars lean into a swipe across the header (--pull, SiteHeader), and it stamps into
+   hamburger's bars lean into a swipe across the page (--pull, SiteHeader), and it stamps into
    the paper as it is pressed. The menu slams in from the left with the dock flight's overshoot,
    hidden by the 24px of panel off the screen, and goes out quickly; a finger dragging it moves it
    at once; its links slap down as it lands. */

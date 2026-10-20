@@ -1999,7 +1999,7 @@ test('on a phone a rightward swipe that starts on the header row opens the menu,
   })
 })
 
-test('a swipe never opens the menu from the screen’s left edge, the search bubble, a short slow drag, a slant, a drag up the screen (which scrolls the page), below the header, with a mouse, or from 900px', async () => {
+test('a swipe on the header row never opens the menu from the screen’s left edge, the search bubble, a short slow drag, a slant, a drag up the screen (which scrolls the page), with a mouse, or from 900px', async () => {
   await browser.load({ ...PHONE, reduceMotion: true })
   assert.ok(await browser.titlesShown())
   await browser.landAll()
@@ -2021,7 +2021,6 @@ test('a swipe never opens the menu from the screen’s left edge, the search bub
       ['a slow 30px drag', line(at.logo, 39, 30, 0, 600)],
       ['a slant, 60px across and 40px down', line(at.logo, 20, 60, 40, 200)],
       ['a drag up the screen', line(at.logo, 70, 10, -60, 200)],
-      ['below the header', line(100, 300, 100, 0, 300)],
     ] as const) {
       await scrollAndSettle(0)
       await swipe([...path])
@@ -2085,14 +2084,328 @@ test('a swipe never opens the menu from the screen’s left edge, the search bub
       'a slow 30px drag': still,
       'a slant, 60px across and 40px down': still,
       'a drag up the screen': { open: false, scrolled: true },
-      'below the header': still,
       'with a mouse': still,
       'at 1024px': still,
     },
   )
 })
 
-test('a click straight after the swipe that opened the menu, where the finger lifted, does nothing; a tap a moment later works as ever', async () => {
+/**
+ * Scrolls what `selector` finds to the middle of a phone's screen and gives a point on it to swipe
+ * from: below the header, 40px or more in from the left edge, with room for a 120px swipe right,
+ * where a touch lands on it (`bare`: on it and on nothing inside it, as on empty paper).
+ */
+async function pointOn(selector: string, bare = false) {
+  const at = await browser.evaluate<{ x: number; y: number } | null>(`(() => {
+    const el = document.querySelector(${JSON.stringify(selector)})
+    if (!el) return null
+    el.scrollIntoView({ block: 'center' })
+    const box = el.getBoundingClientRect()
+    for (let y = Math.max(box.top + 10, 120); y < Math.min(box.bottom - 10, innerHeight - 20); y += 10)
+      for (let x = Math.max(box.left + 10, 40); x <= Math.min(box.right - 10, innerWidth - 140); x += 10) {
+        const hit = document.elementFromPoint(x, y)
+        if (${bare} ? hit === el : el.contains(hit)) return { x, y }
+      }
+    return null
+  })()`)
+  if (!at) assert.fail(`nothing on the screen is ${selector} to swipe from`)
+  await frames()
+  return at
+}
+
+const STRIP_ROW = '.ab-strip-row:not(.ab-strip-grid)'
+
+test('on a phone a clearly sideways swipe to the right anywhere on the page opens the menu: on a trending panel, the pull machine, the decades’ heading or the intro’s empty paper, far and slow or short and quick, and no title card opens', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const seen: Record<string, unknown> = {}
+  await withTouch(async () => {
+    for (const [how, selector, bare, dx, ms, steps] of [
+      ['100px on a trending panel, slowly', '.ab-page .ab-panel:nth-child(2)', false, 100, 400, 8],
+      [
+        'a quick 30px flick on a trending panel',
+        '.ab-page .ab-panel:nth-child(3)',
+        false,
+        30,
+        45,
+        3,
+      ],
+      ['100px on the pull machine', '.ab-machine', false, 100, 400, 8],
+      ['100px on the decades’ heading', '#decades', false, 100, 400, 8],
+      ['100px on the intro’s empty paper', '.ab-intro', true, 100, 400, 8],
+    ] as const) {
+      const { x, y } = await pointOn(selector, bare)
+      await swipe(line(x, y, dx, 0, ms, steps))
+      await browser.waitFor(MENU_OPEN, 1000)
+      await frames()
+      const { open, expanded, ring } = await browser.evaluate<Record<string, unknown>>(MENU_STATE)
+      seen[how] = {
+        open,
+        expanded,
+        ring,
+        card: await browser.evaluate(`Boolean(document.querySelector('.ab-card[open]'))`),
+      }
+      await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+      await browser.waitFor(MENU_SHUT, 1000)
+      // Past the 500 ms in which a click is taken for the swipe's own.
+      await sleep(550)
+    }
+  })
+  // Opened by a finger, so with no ring.
+  const opened = { open: true, expanded: 'true', ring: false, card: false }
+  assert.deepEqual(seen, {
+    '100px on a trending panel, slowly': opened,
+    'a quick 30px flick on a trending panel': opened,
+    '100px on the pull machine': opened,
+    '100px on the decades’ heading': opened,
+    '100px on the intro’s empty paper': opened,
+  })
+})
+
+test('a swipe on the page never opens the menu from the decade strip, which it scrolls, the screen’s left 24px, a slant, a drag up the screen or a scroll whose first move hooks right, which scroll the page, with text selected before or during it, across the open title card, with a second finger down, in a pinch, on a pinch-zoomed page panned to its edge, or from 900px; one the system cancels leaves the bars upright', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const seen: Record<string, unknown> = {}
+  // Whether a case opened the menu, which is then shut again, so it can't hide the next case.
+  const opened = async () => {
+    const open = await browser.evaluate<boolean>(MENU_OPEN)
+    if (open) {
+      await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+      await sleep(550)
+    }
+    return open
+  }
+  await withTouch(async () => {
+    // The decade strip, scrolled along first, so a swipe right has somewhere to take it back.
+    await browser.evaluate(`document.querySelector('${STRIP_ROW}').scrollLeft = 400; true`)
+    await sleep(300)
+    const strip = await pointOn(STRIP_ROW)
+    const along = `document.querySelector('${STRIP_ROW}').scrollLeft`
+    const before = await browser.evaluate<number>(along)
+    const onStrip = await browser.evaluate<boolean>(
+      `document.querySelector('${STRIP_ROW}').contains(document.elementFromPoint(${strip.x}, ${strip.y}))`,
+    )
+    await swipe(line(strip.x, strip.y, 120, 0, 400), { hold: 200 })
+    await sleep(500)
+    seen['120px right on the decade strip'] = {
+      'from the strip': onStrip,
+      open: await opened(),
+      'scrolled the strip back': (await browser.evaluate<number>(along)) < before,
+    }
+    // On the trending panels' page.
+    const panel = await pointOn('.ab-page .ab-panel:nth-child(2)')
+    for (const [how, path] of [
+      ['from 12px in', line(12, panel.y, 100, 0, 300)],
+      ['from 22px in', line(22, panel.y, 100, 0, 300)],
+      ['a slant, 60px across and 40px down', line(panel.x, panel.y, 60, 40, 200)],
+    ] as const) {
+      await swipe([...path])
+      await sleep(300)
+      seen[how] = { open: await opened() }
+    }
+    // With text selected, a drag may be moving the selection's ends: it is the browser's.
+    await browser.evaluate(
+      `getSelection().selectAllChildren(document.querySelector('.ab-page h2')); true`,
+    )
+    await swipe(line(panel.x, panel.y, 100, 0, 300))
+    await sleep(300)
+    seen['with text selected'] = { open: await opened() }
+    await browser.evaluate(`getSelection().removeAllRanges(); true`)
+    const y = await browser.evaluate<number>('scrollY')
+    await swipe(line(panel.x, panel.y, 40, -200, 300), { hold: 200 })
+    await sleep(300)
+    seen['a drag up the screen, 40px across'] = {
+      open: await opened(),
+      'scrolled the page': (await browser.evaluate<number>('scrollY')) > y,
+    }
+    // A scroll whose first move hooks right, as a thumb's can, past the 10px that decide a
+    // swipe's way (and Chrome's own slop, inside which it holds moves back, as iOS doesn't), then
+    // goes up the screen still drifting right: it scrolls the page, and the drift never opens it.
+    const hooked: [string, [number, number][]][] = [
+      [
+        'a scroll hooking 18px right, then 300px up drifting 36px right',
+        [[18, -2], ...Array.from({ length: 10 }, () => [3.6, -30] as [number, number])],
+      ],
+      [
+        'a scroll drifting 20px right, then 250px up drifting 40px right',
+        [
+          [4, 0],
+          [4, -1],
+          [4, -1],
+          [4, -1],
+          [4, -1],
+          ...Array.from({ length: 10 }, () => [4, -25] as [number, number]),
+        ],
+      ],
+    ]
+    for (const [how, moves] of hooked) {
+      const from = await pointOn('.ab-page .ab-panel:nth-child(2)')
+      const path: [number, number, number][] = [[from.x, Math.max(from.y, 400), 0]]
+      for (const [dx, dy] of moves) {
+        const [x0, y0, t0] = path[path.length - 1]
+        path.push([x0 + dx, y0 + dy, t0 + 30])
+      }
+      const before = await browser.evaluate<number>('scrollY')
+      await swipe(path, { hold: 200 })
+      await sleep(300)
+      seen[how] = {
+        open: await opened(),
+        'scrolled the page': (await browser.evaluate<number>('scrollY')) > before,
+      }
+    }
+    // Text selected while the finger is down, as a long press selects a word, the drag then
+    // moving the selection's end: the browser's, so the swipe ends there.
+    const press = await pointOn('.ab-page .ab-panel:nth-child(2)')
+    await swipe(
+      [
+        [press.x, press.y, 0],
+        [press.x + 4, press.y, 100],
+        [press.x + 100, press.y, 300],
+      ],
+      {
+        hold: 100,
+        mid: async () => {
+          await browser.evaluate(
+            `getSelection().selectAllChildren(document.querySelector('.ab-page h2')); true`,
+          )
+        },
+      },
+    )
+    await sleep(300)
+    seen['text selected mid-swipe, as by a long press'] = { open: await opened() }
+    await browser.evaluate(`getSelection().removeAllRanges(); true`)
+    // A swipe the system takes, as iOS's Back or an alert does, cancelled 30px across, short of
+    // the 48px that open the menu: the bars, leaning into it, stand upright again.
+    const cancelAt = await pointOn('.ab-page .ab-panel:nth-child(2)')
+    const finger = (dx: number) => [{ id: 1, x: cancelAt.x + dx, y: cancelAt.y }]
+    const pull = `document.querySelector('.ab-top').style.getPropertyValue('--pull')`
+    await touches([
+      ['touchStart', finger(0), 0],
+      ['touchMove', finger(15), 80],
+      ['touchMove', finger(30), 160],
+    ])
+    const leaning = await browser.evaluate<string>(pull)
+    await touches([['touchCancel', [], 0]])
+    await sleep(300)
+    seen['a swipe the system cancels, 30px across'] = {
+      leaning,
+      open: await opened(),
+      pull: await browser.evaluate(pull),
+    }
+    // The title card, opened by a tap on a panel: a swipe across it is the card's.
+    await tapOn('.ab-page .ab-panel:nth-child(2) .ab-link')
+    assert.ok(
+      await browser.waitFor(`Boolean(document.querySelector('.ab-card[open]'))`, 2000),
+      'the title card didn’t open',
+    )
+    await swipe(line(60, 400, 120, 0, 300))
+    await sleep(300)
+    seen['across the title card'] = {
+      open: await opened(),
+      card: await browser.evaluate(`Boolean(document.querySelector('.ab-card[open]'))`),
+    }
+    await browser.evaluate(`document.querySelector('.ab-card[open]')?.close(); true`)
+    await sleep(550)
+    // A second finger laid down mid-swipe and held: with two fingers down, a move of either is a
+    // pinch, the browser's zoom, even with the other still, so the swipe ends.
+    const held = await pointOn('.ab-page .ab-panel:nth-child(2)')
+    const first = (dx: number) => ({ id: 1, x: held.x + dx, y: held.y })
+    const thumb = { id: 2, x: 330, y: 100 }
+    await touches([
+      ['touchStart', [first(0)], 0],
+      ['touchMove', [first(10)], 80],
+      ['touchMove', [first(20)], 160],
+      ['touchMove', [first(30)], 240],
+      ['touchStart', [first(30), thumb], 300],
+      ['touchMove', [first(60), thumb], 380],
+      ['touchMove', [first(90), thumb], 460],
+      ['touchEnd', [], 560],
+    ])
+    await sleep(400)
+    seen['a second finger laid down mid-swipe and held'] = {
+      open: await opened(),
+      pull: await browser.evaluate(pull),
+    }
+    await pinch(0.2)
+    await sleep(300)
+    // A pinch whose first finger goes 100px right, the second 100px left: the browser's zoom.
+    const pinchAt = await pointOn('.ab-page .ab-panel:nth-child(2)')
+    const fingers = (i: number) => [
+      { id: 1, x: 200 + i * 12.5, y: pinchAt.y },
+      { id: 2, x: 150 - i * 12.5, y: pinchAt.y },
+    ]
+    await touches([
+      ['touchStart', fingers(0).slice(0, 1), 0],
+      ['touchStart', fingers(0), 30],
+      ...Array.from(
+        { length: 8 },
+        (_, i) => ['touchMove', fingers(i + 1), 60 + i * 30] as [string, Finger[], number],
+      ),
+      ['touchEnd', [], 330],
+    ])
+    await sleep(400)
+    seen['a pinch, its first finger going right'] = { open: await opened() }
+    await pinch(0.2)
+    await sleep(300)
+    // Pinch-zoomed in, a sideways drag pans the page instead. Panned first to the zoomed view's
+    // left edge, where a drag right has no more to pan, so the finger goes on across the screen
+    // and only the zoomed rule keeps the menu shut, then and as it pans.
+    await pointOn('.ab-page .ab-panel:nth-child(2)')
+    await pinch(2.5)
+    const left = () => browser.evaluate<number>('Math.round(visualViewport.offsetLeft)')
+    let panning = false
+    for (let i = 0; i < 6 && (await left()) > 0; i++) {
+      await swipe(line(60, 400, 250, 0, 600), { hold: 200 })
+      await sleep(300)
+      panning = (await opened()) || panning
+    }
+    const edge = await left()
+    await swipe(line(60, 400, 120, 0, 600), { hold: 200 })
+    await sleep(400)
+    seen['zoomed in'] = { 'at its left edge': edge === 0, open: (await opened()) || panning }
+    await pinch(0.4)
+  })
+  // From 900px, where the header holds the links and there is no menu.
+  await browser.load({ width: 1024, height: 768, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await withTouch(async () => {
+    await swipe(line(200, 500, 120, 0, 300))
+    await sleep(300)
+  })
+  seen['at 1024px'] = { open: await opened() }
+  const still = { open: false }
+  assert.deepEqual(seen, {
+    '120px right on the decade strip': {
+      'from the strip': true,
+      open: false,
+      'scrolled the strip back': true,
+    },
+    'from 12px in': still,
+    'from 22px in': still,
+    'a slant, 60px across and 40px down': still,
+    'with text selected': still,
+    'a drag up the screen, 40px across': { open: false, 'scrolled the page': true },
+    'a scroll hooking 18px right, then 300px up drifting 36px right': {
+      open: false,
+      'scrolled the page': true,
+    },
+    'a scroll drifting 20px right, then 250px up drifting 40px right': {
+      open: false,
+      'scrolled the page': true,
+    },
+    'text selected mid-swipe, as by a long press': still,
+    'a swipe the system cancels, 30px across': { leaning: '0.625', open: false, pull: '' },
+    'across the title card': { open: false, card: true },
+    'a second finger laid down mid-swipe and held': { open: false, pull: '' },
+    'a pinch, its first finger going right': still,
+    'zoomed in': { 'at its left edge': true, open: false },
+    'at 1024px': still,
+  })
+})
+
+test('a click straight after the swipe that opened the menu, where the finger lifted, does nothing, on the header, the open menu’s link or the dimmed page; a tap a moment later works as ever', async () => {
   await browser.load({ ...PHONE, reduceMotion: true })
   assert.ok(await browser.titlesShown())
   await browser.landAll()
@@ -2115,10 +2428,32 @@ test('a click straight after the swipe that opened the menu, where the finger li
     await sleep(600)
     await tapOn('.ab-burger')
     seen.later = { open: await browser.waitFor(MENU_OPEN, 1000) }
+    await browser.evaluate(`document.querySelector('.ab-drawer').close(); true`)
+    await sleep(600)
+    // From a trending panel, the finger lifting over the open menu: a click on its first link,
+    // and one on the dimmed page beside it, each do nothing, the menu's own handlers included,
+    // which would shut it (and the link jump).
+    const panel = await pointOn('.ab-page .ab-panel:nth-child(2)')
+    const address = await browser.evaluate<string>('location.href')
+    await swipe(line(panel.x, panel.y, 80, 0, 160))
+    await browser.evaluate(`(() => {
+      const click = (el, x, y) => el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, clientX: x, clientY: y }))
+      const link = document.querySelector('.ab-drawer nav a')
+      const box = link.getBoundingClientRect()
+      click(link, box.left + 10, box.top + 10)
+      click(document.querySelector('.ab-drawer'), innerWidth - 10, 400)
+      return true
+    })()`)
+    await sleep(300)
+    seen['from a panel, then on the menu’s link and the dimmed page'] = {
+      open: await browser.evaluate(MENU_OPEN),
+      sameAddress: (await browser.evaluate<string>('location.href')) === address,
+    }
   })
   assert.deepEqual(seen, {
     straight: { open: true, samePage: true },
     later: { open: true },
+    'from a panel, then on the menu’s link and the dimmed page': { open: true, sameAddress: true },
   })
 })
 
