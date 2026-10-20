@@ -21,16 +21,16 @@ The `.env.example` files list every variable with a comment explaining it. Real 
 
 ## Scripts (run from the repo root)
 
-| Command                | What it does                                                    |
-| ---------------------- | --------------------------------------------------------------- |
-| `npm run dev`          | Starts the web app at http://localhost:5173                     |
-| `npm run dev:server`   | Starts the chat server at http://localhost:3001 (`GET /health`) |
-| `npm run build`        | Type-checks and builds every workspace                          |
-| `npm run typecheck`    | Type-checks every workspace                                     |
-| `npm run lint`         | Lints the web app with oxlint                                   |
-| `npm test`             | Runs the unit tests with Node's built-in test runner            |
-| `npm run test:browser` | Runs the browser checks in `web/e2e` (see below)                |
-| `npm run format`       | Formats the repo with Prettier                                  |
+| Command                | What it does                                                           |
+| ---------------------- | ---------------------------------------------------------------------- |
+| `npm run dev`          | Starts the web app at http://localhost:5173                            |
+| `npm run dev:server`   | Starts the chat server at http://localhost:3001 (`GET /health`)        |
+| `npm run build`        | Type-checks and builds every workspace                                 |
+| `npm run typecheck`    | Type-checks every workspace                                            |
+| `npm run lint`         | Lints the web app with oxlint, which refuses `dangerouslySetInnerHTML` |
+| `npm test`             | Runs the unit tests with Node's built-in test runner                   |
+| `npm run test:browser` | Runs the browser checks in `web/e2e` (see below)                       |
+| `npm run format`       | Formats the repo with Prettier                                         |
 
 `npm test` and `npm run test:browser` stop a test after its time limit, and end each test file's process the moment its last test ends, so that a test left waiting can't stall them. Each file's results reach the runner through a pipe, which macOS writes in the background, so a process ended that way could lose the last of them, and a run passed on fewer tests (270 of 303 once). So every test process writes its output at once (`web/scripts/blocking-test-output.ts`), and a reporter fails the run, naming the file, if any test a file queued never reported (`web/scripts/every-test-reported.ts`). A file queues every test as it loads only if it awaits nothing at its top level after its first test, and a test holds every test file to that: a test registered after such an await would never be queued, and could go missing unseen.
 
