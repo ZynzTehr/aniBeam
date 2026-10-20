@@ -1150,6 +1150,49 @@ const FOCUSED = `(() => {
   return shows ? name : name + ' (no ring)'
 })()`
 
+// Where the card's focus is now: the focused part's name, or null once it has left the card's
+// parts (Tab from the last, or on to the card itself). With it, what of it can't be seen or
+// clicked: any of it off the screen, or under the status line (WCAG 2.4.11), or, at its centre,
+// something else that a click there would reach. Two frames on, so the card has scrolled to it.
+const STOP = `(async () => {
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  const card = document.querySelector('dialog.ab-card[open]'), part = document.activeElement
+  if (!card?.contains(part) || part === card) return null
+  const name = part.getAttribute('aria-label') ?? part.textContent.trim().replace(/\\s+/g, ' ')
+  const box = part.getBoundingClientRect(), hid = []
+  if (box.top < 0 || box.left < 0 || box.bottom > innerHeight || box.right > innerWidth)
+    hid.push('off the screen')
+  const line = card.querySelector('.ab-card-status.is-shown')
+  if (line && !line.contains(part)) {
+    const over = line.getBoundingClientRect()
+    if (box.left < over.right && over.left < box.right && box.top < over.bottom && over.top < box.bottom)
+      hid.push('under the status line')
+  }
+  const hit = document.elementFromPoint((box.left + box.right) / 2, (box.top + box.bottom) / 2)
+  if (!part.contains(hit)) hid.push('its centre reaches ' + (hit?.className || hit?.tagName))
+  return { name, hid }
+})()`
+
+/**
+ * Walks Tab through the open card's parts from its close button, and returns each stop's name,
+ * with what of it can't be seen or clicked, if any. It starts two frames on, so the card knows the
+ * status line's height (see TitleCard's --status-h).
+ */
+async function tabStops() {
+  await browser.evaluate(`new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelector('dialog.ab-card[open] .ab-close').focus()
+    resolve(true)
+  })))`)
+  const stops: string[] = []
+  while (stops.length < 30) {
+    await browser.press('Tab')
+    const stop = await browser.evaluate<{ name: string; hid: string[] } | null>(STOP)
+    if (!stop || stop.name === 'Close title card') return stops
+    stops.push(stop.hid.length > 0 ? `${stop.name} (${stop.hid.join(', ')})` : stop.name)
+  }
+  return [...stops, 'Tab never left the card']
+}
+
 test('a card opened at its address keeps its title while AniList answers 429, says why as the site does, and offers Try again once the tries end', async () => {
   // Spec §3I and the plan's PR 13: a 429 keeps what is shown, and says AniList is busy. A card
   // opened from a list asks for nothing; one opened at its address asks for its title, and asks
@@ -1209,6 +1252,12 @@ test('a card opened at its address keeps its title while AniList answers 429, sa
         ),
         `${where}: the card lost its synopsis`,
       )
+      // Each of the card's Tab stops scrolls clear of the line, whole and in reach of a click.
+      assert.deepEqual(
+        await tabStops(),
+        ['Open on AniList', 'Read more', 'Show spoiler tags'],
+        `${where}: Tab through the card while the app tries again`,
+      )
       assert.ok(
         await browser.waitFor(`${STATUS}?.buttons.includes('Try again')`, 40_000),
         `${where}: no Try again once the tries ended`,
@@ -1219,6 +1268,11 @@ test('a card opened at its address keeps its title while AniList answers 429, sa
         `${where}: once the tries ended`,
       )
       assert.equal(asked.length, 4, `${where}: Frieren asked for, then tried 3 times more`)
+      assert.deepEqual(
+        await tabStops(),
+        ['Open on AniList', 'Read more', 'Show spoiler tags', 'Try again'],
+        `${where}: Tab through the card once the tries ended`,
+      )
       assert.match(
         await browser.evaluate<string>(CARD),
         /Frieren/,

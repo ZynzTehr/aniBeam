@@ -2268,6 +2268,13 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   margin: 0;
 }
 
+/* While it shows, a part the keyboard focuses scrolls clear of it, 16px above its top, rather than
+   under it (WCAG 2.4.11), where a click on it would reach the line instead. --status-h is the
+   line's height, which TitleCard keeps; the line stands 16px off the screen's foot. */
+.ab-card:has(.ab-card-status.is-shown) {
+  scroll-padding-bottom: calc(var(--status-h, 0px) + 32px);
+}
+
 /* ---------- Phone ---------- */
 @media (max-width: 820px) {
   .ab-pull-row,

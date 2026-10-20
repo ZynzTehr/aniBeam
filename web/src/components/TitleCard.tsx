@@ -49,6 +49,20 @@ export function TitleCard({
     if (!status && document.activeElement === statusLine.current)
       closeButton.current?.focus({ preventScroll: true })
   }, [status])
+  // The status line sticks to the screen's foot over the card's parts, so the card keeps its height
+  // (--status-h) for the space a part the keyboard focuses scrolls clear of (see .ab-card's
+  // scroll-padding-bottom): none is hidden under the line (WCAG 2.4.11), nor out of a click's reach.
+  const statusBox = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const card = ref.current
+    const line = statusBox.current
+    if (!card || !line) return
+    const resized = new ResizeObserver(() =>
+      card.style.setProperty('--status-h', `${line.offsetHeight}px`),
+    )
+    resized.observe(line)
+    return () => resized.disconnect()
+  }, [])
   // With reduced motion, the card fades out before it closes (see .ab-card.is-closing): the
   // dialog stays open while the fade plays, and closes as it ends, when the browser returns
   // focus. Asked to close again meanwhile, it closes at once.
@@ -298,7 +312,7 @@ export function TitleCard({
           meanwhile, with Try again once the tries end. It sits past the sheet's end, so nothing
           moves as it comes, and sticks to the screen's foot while the card scrolls (see
           .ab-card-status). The line is always there, so a screen reader hears it change. */}
-      <div className={status ? 'ab-card-status is-shown' : 'ab-card-status'}>
+      <div ref={statusBox} className={status ? 'ab-card-status is-shown' : 'ab-card-status'}>
         <p ref={statusLine} id="ab-card-status" role="status" tabIndex={-1}>
           {status}
         </p>
