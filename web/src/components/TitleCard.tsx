@@ -1,10 +1,18 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
-import { formatOf, nextEpisode, seasonOf, studioOf, titleOf } from '../features/anime/format.ts'
+import {
+  formatOf,
+  nextEpisode,
+  runtimeOf,
+  seasonOf,
+  studioOf,
+  titleOf,
+} from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
 import { reducedMotion, watchDeviceMotion } from '../lib/motion.ts'
 import { markBroken, markLoaded } from './cover.ts'
 import { cssVars } from './cssVars.ts'
+import { TitleDetails } from './TitleDetails.tsx'
 
 /** Called with the title and the element it was opened from (for the opening animation). */
 export type OpenTitle = (media: Media, from: HTMLElement) => void
@@ -134,6 +142,7 @@ export function TitleCard({
   const title = titleOf(media)
   const size = title.length > 44 ? 'ab-xl' : title.length > 22 ? 'ab-l' : ''
   const next = nextEpisode(media)
+  const runtime = runtimeOf(media)
   return (
     <dialog
       ref={ref}
@@ -232,6 +241,12 @@ export function TitleCard({
               <dt>Episodes</dt>
               <dd>{media.episodes ?? 'TBA'}</dd>
             </div>
+            {runtime && (
+              <div>
+                <dt>Runtime</dt>
+                <dd>{runtime}</dd>
+              </div>
+            )}
             {next && (
               <div>
                 <dt>Next</dt>
@@ -255,6 +270,7 @@ export function TitleCard({
               Chat about it <small>Soon</small>
             </button>
           </div>
+          <TitleDetails media={media} />
         </div>
       </article>
     </dialog>

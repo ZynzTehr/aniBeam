@@ -1799,7 +1799,8 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 }
 
 .ab-close:focus-visible,
-.ab-btn:focus-visible {
+.ab-btn:focus-visible,
+.ab-more:focus-visible {
   outline: 4px solid var(--hot);
   outline-offset: 3px;
 }
@@ -2122,6 +2123,86 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   font-size: 22px;
 }
 
+/* The details, last in the card, under an ink rule (see TitleDetails): the synopsis, its source
+   as a caption, and the tags. */
+.ab-details {
+  display: grid;
+  gap: 18px;
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 3px solid var(--ink);
+}
+
+.ab-synopsis {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.ab-synopsis-text,
+.ab-synopsis-none {
+  max-width: 68ch;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.ab-synopsis-text p {
+  margin: 0 0 0.8em;
+}
+
+.ab-synopsis-text p:last-child {
+  margin-bottom: 0;
+}
+
+/* Five lines until Read more, in line heights, which the page's own font and a fallback share,
+   so the clamp is as tall before the font arrives as after. Where it hides some of the text, the
+   last lines fade into the paper. */
+.ab-synopsis-text.is-clamped {
+  max-height: 5lh;
+  overflow: hidden;
+}
+
+.ab-synopsis-text.is-cut {
+  mask-image: linear-gradient(#000 55%, transparent);
+}
+
+.ab-source {
+  margin: 0;
+  color: #3d3d3d;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+/* Read more, Show less and Show spoiler tags: open, in the title's fill, which ink reads on at
+   4.5:1 or better (see deriveAccent). */
+.ab-more {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font: 800 14px var(--body);
+  cursor: pointer;
+}
+
+.ab-more[aria-expanded='true'] {
+  background: var(--anime-accent);
+}
+
+/* A contrast theme paints every button alike, so open ones take its colors for selected things. */
+@media (forced-colors: active) {
+  .ab-more[aria-expanded='true'] {
+    border-color: ButtonText;
+    background: SelectedItem;
+    color: SelectedItemText;
+    forced-color-adjust: none;
+  }
+}
+
 /* ---------- Phone ---------- */
 @media (max-width: 820px) {
   .ab-pull-row,
@@ -2271,7 +2352,8 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 
     .ab-card[open] .ab-genres,
     .ab-card[open] .ab-facts,
-    .ab-card[open] .ab-row-actions {
+    .ab-card[open] .ab-row-actions,
+    .ab-card[open] .ab-details {
       animation: ab-rise 0.6s var(--spring) both 0.9s;
     }
 
@@ -2285,7 +2367,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
       --T: max(1.55s, calc(1.3s + (var(--n) - 1) * 70ms));
     }
 
-    /* With no native title, the opening ends as the facts and buttons land, at 1.5s. */
+    /* With no native title, the opening ends as the facts, buttons and details land, at 1.5s. */
     .ab-card[open].is-leaving:not(:has(.ab-native)) {
       --T: max(1.5s, calc(1.3s + (var(--n) - 1) * 70ms));
     }
@@ -2302,7 +2384,8 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 
     .ab-card[open].is-leaving .ab-genres,
     .ab-card[open].is-leaving .ab-facts,
-    .ab-card[open].is-leaving .ab-row-actions {
+    .ab-card[open].is-leaving .ab-row-actions,
+    .ab-card[open].is-leaving .ab-details {
       animation: ab-rise-back 0.3s var(--spring) reverse both;
       animation-delay: calc((var(--T) - 1.5s) / 2);
     }

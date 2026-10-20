@@ -56,6 +56,19 @@ export function nextEpisode(media: Media, now = Date.now()) {
 }
 
 /**
+ * "24m each", or for a title in one part, such as a movie, "1h 50m"; null when AniList doesn't
+ * know. AniList's duration is the minutes one episode runs.
+ */
+export function runtimeOf(media: Media) {
+  const minutes = media.duration
+  if (!minutes) return null
+  const hours = Math.floor(minutes / 60)
+  const time = [hours && `${hours}h`, minutes % 60 && `${minutes % 60}m`].filter(Boolean).join(' ')
+  const once = media.episodes === 1 || (media.format === 'MOVIE' && media.episodes === null)
+  return once ? time : `${time} each`
+}
+
+/**
  * Some titles only have a small cover (230px wide): AniList then points "extraLarge" at the
  * medium-size folder. The intro leaves these out of its cover fan, where they'd look blurry, and
  * coverSrcSet has no bigger file to offer for them.

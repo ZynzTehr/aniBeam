@@ -1,9 +1,14 @@
-// The title card as a title page (spec §3A, plan PRs 12 and 13): its layout, from a phone to a
-// wide screen. The titles come from the recordings; a check that needs something particular of a
-// title, such as no banner, stages it with rewriteAniList on Frieren's answer.
+// The title card as a title page (spec §3A, plan PRs 12 and 13): its layout and its details, from
+// a phone to a wide screen. The titles come from the recordings; a check that needs something
+// particular of a title, such as no banner, stages it with rewriteAniList on Frieren's answer.
 import assert from 'node:assert/strict'
 import { after, afterEach, before, beforeEach, test } from 'node:test'
+import { setTimeout as sleep } from 'node:timers/promises'
+import { runtimeOf } from '../src/features/anime/format.ts'
+import type { Media } from '../src/features/anime/queries.ts'
+import { parseSynopsis } from '../src/features/anime/synopsis.ts'
 import { BASE_URL, Browser } from './browser.ts'
+import { recordings } from './recordings.ts'
 
 let browser: Browser
 before(async () => {
@@ -33,8 +38,13 @@ const at = (path: string) => new URL(path, BASE_URL).href
 // The open title card's heading, or '' with none open.
 const CARD = `document.querySelector('dialog.ab-card[open] #ab-card-title')?.textContent.replace(/\\s+/g, ' ').trim() ?? ''`
 
-/** Opens Frieren's card at its address, under reduced motion, and waits until it has landed. */
+/**
+ * Opens Frieren's card at its address, under reduced motion, and waits until it has landed. Nothing
+ * of it is saved first, so it comes from its answer, as a check has staged it or as recorded, not
+ * as an earlier check staged it.
+ */
 async function openFrieren(screen: (typeof SCREENS)[number]) {
+  await browser.forget()
   await browser.load({ ...screen, reduceMotion: true, url: at('/anime/154587') })
   assert.ok(
     await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000),
@@ -392,4 +402,526 @@ test('over a frame in brand red, the focused close button stays traced all the w
     await browser.rewriteAniList(null)
   }
   assert.deepEqual(seen, [], 'focused close buttons that melt into a brand-red frame')
+})
+
+// Each recorded title as AniList gave it, by its id, from every recording: the lists' titles and
+// Frieren's own answer.
+const RECORDED = new Map<number, Media>()
+for (const { body } of recordings().values())
+  for (const part of Object.values<any>(body?.data ?? {}))
+    for (const media of part?.media ?? [part]) if (media?.id) RECORDED.set(media.id, media)
+
+/**
+ * What a title's card should show of its synopsis, as synopsis.ts reads AniList's description:
+ * each paragraph, its lines on lines of their own, and its source as a caption.
+ */
+function synopsisOf(description: string | null | undefined) {
+  const { paragraphs, source } = parseSynopsis(description)
+  return {
+    text: paragraphs.map((lines) =>
+      lines.map((runs) => runs.map((run) => run.text).join('')).join('\n'),
+    ),
+    source: source && `Source: ${source}`,
+  }
+}
+
+// What the open card shows of its synopsis: each paragraph's text as it reads, or what it says in
+// its place, and its caption; and its running time, among the facts.
+const SYNOPSIS = `(() => {
+  const card = document.querySelector('dialog.ab-card[open]')
+  const text = card.querySelector('.ab-synopsis-text')
+  const fact = [...card.querySelectorAll('.ab-facts > div')].find((fact) => fact.querySelector('dt').textContent === 'Runtime')
+  return {
+    text: text ? [...text.querySelectorAll('p')].map((p) => p.innerText) : card.querySelector('.ab-synopsis-none')?.textContent ?? 'none',
+    source: card.querySelector('.ab-source')?.textContent ?? null,
+    runtime: fact?.querySelector('dd').textContent ?? null,
+  }
+})()`
+
+/** Notes the variables of every request the page makes of AniList from now on, until undone. */
+async function noteRequests() {
+  const asked: string[] = []
+  await browser.rewriteAniList(({ request }) => {
+    asked.push(JSON.stringify(request.variables))
+    return null
+  })
+  return asked
+}
+
+test('a card opened from a list shows its synopsis and running time at once, asking AniList for nothing', async () => {
+  // The lists carry each title's details (see cardOf), so a card opened from one shows them as it
+  // opens, with no request: AniList allows 30 a minute, and a class on one network shares them.
+  // The first trending title is opened at each size and read in the card's first frames, before
+  // its fade has ended; and nothing may be asked of AniList from the click on.
+  const seen: string[] = []
+  for (const screen of [SCREENS[0], SCREENS[2]]) {
+    await browser.forget()
+    await browser.load({ ...screen, reduceMotion: true })
+    assert.ok(await browser.titlesShown(), `at ${screen.width}px, no titles showed`)
+    const asked = await noteRequests()
+    try {
+      const { id, shown } = await browser.evaluate<{ id: number; shown: unknown }>(`(async () => {
+        const link = document.querySelector('.ab-grid .ab-link')
+        link.click()
+        for (let frame = 0; frame < 30 && !document.querySelector('dialog.ab-card[open]'); frame++)
+          await new Promise((resolve) => requestAnimationFrame(resolve))
+        return { id: Number(link.getAttribute('href').split('/').pop()), shown: document.querySelector('dialog.ab-card[open]') && ${SYNOPSIS} }
+      })()`)
+      await browser.animationsDone()
+      await sleep(500)
+      const media = RECORDED.get(id)
+      assert.ok(media, `title ${id} is in no recording`)
+      const expected = { ...synopsisOf(media.description), runtime: runtimeOf(media) }
+      if (JSON.stringify(shown) !== JSON.stringify(expected))
+        seen.push(`${screen.width}px: ${JSON.stringify(shown)}, not ${JSON.stringify(expected)}`)
+      if (asked.length) seen.push(`${screen.width}px: asked AniList for ${asked.join(', ')}`)
+    } finally {
+      await browser.rewriteAniList(null)
+    }
+  }
+  assert.deepEqual(seen, [], 'cards opened from a list without their details, or asking for them')
+})
+
+test('a card opened at its address shows its synopsis and running time from its one request', async () => {
+  // A title opened at its address asks AniList for itself (titleQuery), and its answer carries
+  // the same details as a list's titles: the card shows them from that one request.
+  const seen: string[] = []
+  for (const screen of [SCREENS[0], SCREENS[2]]) {
+    await browser.forget()
+    const asked = await noteRequests()
+    try {
+      await openFrieren(screen)
+      const media = RECORDED.get(154587)!
+      const shown = await browser.evaluate(SYNOPSIS)
+      const expected = { ...synopsisOf(media.description), runtime: runtimeOf(media) }
+      if (JSON.stringify(shown) !== JSON.stringify(expected))
+        seen.push(`${screen.width}px: ${JSON.stringify(shown)}, not ${JSON.stringify(expected)}`)
+      const own = asked.filter((variables) => variables === '{"id":154587}').length
+      if (own !== 1) seen.push(`${screen.width}px: asked AniList for Frieren ${own} times`)
+    } finally {
+      await browser.rewriteAniList(null)
+    }
+  }
+  assert.deepEqual(seen, [], 'cards opened at their address without their details')
+})
+
+/**
+ * Frieren's answer from now on with `description` in place of its own, and nothing of it saved,
+ * so the next visit to its address asks for it again.
+ */
+async function stageDescription(description: string | null) {
+  await browser.forget()
+  await browser.rewriteAniList(({ request, status, body }) => {
+    if (request.variables.id !== 154587) return null
+    body.data.Media.description = description
+    return { status, body }
+  })
+}
+
+// The open card's synopsis as it lies: its text's height and full height, in line heights to a
+// tenth, whether its foot fades, and its button, if any: what it says, aria-expanded, whether
+// aria-controls names the text, and whether the button is whole on the screen.
+const CLAMP = `(() => {
+  const card = document.querySelector('dialog.ab-card[open]')
+  const text = card.querySelector('.ab-synopsis-text'), button = card.querySelector('.ab-synopsis .ab-more')
+  const lines = (px) => Math.round((px / parseFloat(getComputedStyle(text).lineHeight)) * 10) / 10
+  const box = button?.getBoundingClientRect()
+  return {
+    lines: lines(text.clientHeight),
+    of: lines(text.scrollHeight),
+    fades: getComputedStyle(text).maskImage !== 'none',
+    button: button && {
+      says: button.textContent,
+      expanded: button.getAttribute('aria-expanded'),
+      controls: button.getAttribute('aria-controls') === text.id && text.id !== '',
+      whole: box.top >= 0 && box.bottom <= innerHeight,
+    },
+  }
+})()`
+
+type Clamp = {
+  lines: number
+  of: number
+  fades: boolean
+  button: { says: string; expanded: string; controls: boolean; whole: boolean } | null
+}
+
+// Clicks the synopsis's button, first bringing it `into` view as scrollIntoView puts it, and waits
+// two frames.
+const press = (into: 'start' | 'end') => `(async () => {
+  const button = document.querySelector('dialog.ab-card[open] .ab-synopsis .ab-more')
+  button.scrollIntoView({ block: '${into}' })
+  button.click()
+  await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  return true
+})()`
+
+test('the synopsis shows five lines, and where they hide some of it, Read more opens the rest and Show less closes it', async () => {
+  // The title lab's choice: five lines of the synopsis, the last fading into the paper, and a
+  // Read more button that opens the rest (Show less closes it again), saying which to screen
+  // readers with aria-expanded and naming the text it opens with aria-controls. Closing from the
+  // foot of a long synopsis brings the button back into view. A synopsis of five lines or fewer
+  // shows whole, with no button and no fade. Reduced motion, as here, keeps the clamp.
+  const seen: string[] = []
+  const expect = (where: string, actual: unknown, expected: unknown) => {
+    if (JSON.stringify(actual) !== JSON.stringify(expected))
+      seen.push(`${where}: ${JSON.stringify(actual)}, not ${JSON.stringify(expected)}`)
+  }
+  const READ_MORE = { says: 'Read more', expanded: 'false', controls: true, whole: true }
+  try {
+    for (const screen of [SCREENS[0], SCREENS[2]]) {
+      await browser.forget()
+      await openFrieren(screen)
+      const where = `${screen.width}px`
+      const closed = await browser.evaluate<Clamp>(CLAMP)
+      expect(
+        where,
+        {
+          ...closed,
+          of: closed.of > 5,
+          button: closed.button && { ...closed.button, whole: true },
+        },
+        { lines: 5, of: true, fades: true, button: READ_MORE },
+      )
+      // Wherever the button ends up as the text opens above it.
+      await browser.evaluate(press('start'))
+      const open = await browser.evaluate<Clamp>(CLAMP)
+      expect(
+        `${where}, after Read more`,
+        { ...open, button: open.button && { ...open.button, whole: undefined } },
+        {
+          lines: closed.of,
+          of: closed.of,
+          fades: false,
+          button: { says: 'Show less', expanded: 'true', controls: true },
+        },
+      )
+      await browser.evaluate(press('end'))
+      expect(`${where}, after Show less`, await browser.evaluate(CLAMP), {
+        ...closed,
+        button: READ_MORE,
+      })
+    }
+    await stageDescription('The second season of <i>Ao no Hako</i>.')
+    for (const screen of [SCREENS[0], SCREENS[2]]) {
+      await openFrieren(screen)
+      const short = await browser.evaluate<Clamp>(CLAMP)
+      expect(
+        `${screen.width}px, a synopsis of a line`,
+        { ...short, lines: short.lines <= 2 },
+        { lines: true, of: short.lines, fades: false, button: null },
+      )
+    }
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+  assert.deepEqual(seen, [], 'synopses clamped or opened wrongly')
+})
+
+test('the synopsis keeps AniList’s lines, italics and bold, shows markup only as text, and says “Description unavailable.” when there is none', async () => {
+  // Spec §3I: a title with no description says "Description unavailable.", as does one whose
+  // description is only its source. Otherwise the card draws what synopsis.ts makes of it:
+  // AniList's <br> as lines and paragraphs, <i> and <b> as italics and bold, and anything else,
+  // a script tag or a javascript: link among them, as plain text, never as markup.
+  const HOSTILE =
+    'Elf mage <i>Frieren</i> and <b>Himmel</b><br>walk on.<br><br><script>alert(1)</script><a href="javascript:alert(1)">a link</a> &lt;b&gt;bold?&lt;/b&gt;<br><br>(Source: Crunchyroll)'
+  const NONE = { text: 'Description unavailable.', source: null, em: [], strong: [], markup: [] }
+  const cases = [
+    [null, NONE],
+    ['', NONE],
+    ['(Source: Crunchyroll)', NONE],
+    [
+      HOSTILE,
+      {
+        text: ['Elf mage Frieren and Himmel\nwalk on.', 'alert(1)a link <b>bold?</b>'],
+        source: 'Source: Crunchyroll',
+        em: ['Frieren'],
+        strong: ['Himmel'],
+        markup: [],
+      },
+    ],
+  ] as const
+  const seen: string[] = []
+  try {
+    for (const [description, expected] of cases) {
+      await stageDescription(description)
+      for (const screen of [SCREENS[0], SCREENS[2]]) {
+        await openFrieren(screen)
+        const { text, source } = await browser.evaluate<{ text: unknown; source: unknown }>(
+          SYNOPSIS,
+        )
+        const marks = await browser.evaluate<Record<string, string[]>>(`(() => {
+          const details = document.querySelector('dialog.ab-card[open] .ab-details')
+          const all = (selector) => [...details.querySelectorAll(selector)].map((part) => part.textContent)
+          return { em: all('em'), strong: all('strong'), markup: [...details.querySelectorAll('script, a, b, i, [href], [onclick]')].map((part) => part.outerHTML) }
+        })()`)
+        const shown = { text, source, ...marks }
+        if (JSON.stringify(shown) !== JSON.stringify(expected))
+          seen.push(`${screen.width}px, ${JSON.stringify(description)}: ${JSON.stringify(shown)}`)
+      }
+    }
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+  assert.deepEqual(seen, [], 'synopses drawn wrongly')
+})
+
+test('the clamp is as tall in a fallback font as in the page’s own, and Read more follows the text as it changes size', async () => {
+  // The card can open before the page's own font has come, as on a cold visit to a title's
+  // address, and the text reflows as the font swaps in. The clamp is five line heights, which a
+  // fallback font and the page's share, so the clamped synopsis keeps its height; and whether the
+  // five lines hide anything is measured again as the text changes size, so Read more is there
+  // exactly while they do. Here Frieren's synopsis is drawn in a fallback font, then packed tight
+  // enough to fit in five lines, then as it should be.
+  const seen: string[] = []
+  for (const screen of [SCREENS[0], SCREENS[2]]) {
+    await openFrieren(screen)
+    const look = (style: string) =>
+      browser.evaluate<{ height: number; hides: boolean; button: boolean }>(`(async () => {
+        const text = document.querySelector('dialog.ab-card[open] .ab-synopsis-text')
+        text.style.cssText = ${JSON.stringify(style)}
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        return {
+          height: text.clientHeight,
+          hides: text.scrollHeight > text.clientHeight + 1,
+          button: Boolean(document.querySelector('dialog.ab-card[open] .ab-synopsis .ab-more')),
+        }
+      })()`)
+    const states = {
+      own: await look(''),
+      fallback: await look('font-family: serif'),
+      packed: await look('letter-spacing: -0.45em'),
+      back: await look(''),
+    }
+    const where = `${screen.width}px`
+    if (states.fallback.height !== states.own.height)
+      seen.push(
+        `${where}: ${states.fallback.height}px tall in a fallback font, ${states.own.height}px in its own`,
+      )
+    for (const [state, { hides, button }] of Object.entries(states))
+      if (hides !== button)
+        seen.push(
+          `${where}, ${state}: ${hides ? 'hides text' : 'hides nothing'}, ${button ? 'with' : 'without'} Read more`,
+        )
+    if (states.packed.hides) seen.push(`${where}: packed tight, the synopsis still overflowed`)
+    if (!states.back.hides) seen.push(`${where}: the synopsis no longer overflows five lines`)
+  }
+  assert.deepEqual(seen, [], 'clamps whose height or Read more went wrong as the text changed')
+})
+
+test('Tab reaches the details’ buttons after the card’s own, each showing its focus, and Shift+Tab goes back', async () => {
+  // Every interactive part is reachable by Tab, with visible focus (the acceptance checks). The
+  // card's stops, from its close button: Open on AniList (the Soon buttons are disabled), then
+  // the details' buttons in reading order, each with the card's focus ring, 4px in brand hot.
+  const STOPS = ['Close title card', 'Open on AniList', 'Read more']
+  const seen: string[] = []
+  const focused = () =>
+    browser.evaluate<string>(`(() => {
+      const part = document.activeElement, ring = getComputedStyle(part)
+      const name = part === document.body ? 'the page' : (part.getAttribute('aria-label') ?? part.textContent.trim())
+      const shows = part.matches(':focus-visible') && ring.outlineStyle === 'solid' && parseFloat(ring.outlineWidth) >= 4 && ring.outlineColor === 'rgb(255, 45, 85)'
+      return shows ? name : name + ' (no ring)'
+    })()`)
+  for (const screen of [SCREENS[0], SCREENS[2]]) {
+    await openFrieren(screen)
+    await browser.evaluate(`document.querySelector('dialog.ab-card[open] .ab-close').focus(); true`)
+    const forward = [await focused()]
+    for (let i = 1; i < STOPS.length; i++) {
+      await browser.press('Tab')
+      forward.push(await focused())
+    }
+    const backward = [forward.at(-1)]
+    for (let i = 1; i < STOPS.length; i++) {
+      await browser.press('Tab', true)
+      backward.push(await focused())
+    }
+    if (JSON.stringify(forward) !== JSON.stringify(STOPS))
+      seen.push(`${screen.width}px, Tab: ${forward.join(' → ')}`)
+    if (JSON.stringify(backward) !== JSON.stringify(STOPS.toReversed()))
+      seen.push(`${screen.width}px, Shift+Tab: ${backward.join(' → ')}`)
+  }
+  assert.deepEqual(seen, [], 'the card’s Tab stops, each with its ring')
+})
+
+/**
+ * Every color the open card's details paint, each with what it stands on, in words: a part's text
+ * on its background, and its border on what lies around it, with their contrast; and whether each
+ * color is one the details may use: ink, white, the paper, the caption's grey, or one of the
+ * title's two accents (deriveAccent), the fill under ink and the text color on white or paper.
+ */
+const DETAIL_COLORS = `(() => {
+  const card = document.querySelector('dialog.ab-card[open]')
+  const swatch = document.createElement('i')
+  card.append(swatch)
+  const rgb = (value) => { swatch.style.color = value; return getComputedStyle(swatch).color }
+  const accent = rgb(getComputedStyle(card).getPropertyValue('--anime-accent'))
+  const accentText = rgb(getComputedStyle(card).getPropertyValue('--anime-accent-text'))
+  const named = new Map([[rgb('#141414'), 'ink'], [rgb('#fff'), 'white'], [rgb('#f6f1e6'), 'paper'], [rgb('#3d3d3d'), 'grey'], [accent, 'accent'], [accentText, 'accent text']])
+  swatch.remove()
+  const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+  const lum = (color) => { const [r, g, b] = color.match(/[\\d.]+/g).map(Number); return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b) }
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return Math.round(((x + 0.05) / (y + 0.05)) * 10) / 10 }
+  const seen = (color) => !/rgba\\(.*, 0\\)$/.test(color) && color !== 'transparent'
+  const under = (part) => { for (let at = part; at; at = at.parentElement) { const bg = getComputedStyle(at).backgroundColor; if (seen(bg)) return bg } return rgb('#f6f1e6') }
+  const name = (color) => named.get(color) ?? color
+  const found = []
+  for (const part of card.querySelectorAll('.ab-details, .ab-details *')) {
+    const style = getComputedStyle(part)
+    if (!part.checkVisibility()) continue
+    const label = part.localName + (part.className ? '.' + String(part.className).split(' ')[0] : '')
+    if ([...part.childNodes].some((node) => node.nodeType === 3 && node.textContent.trim()))
+      found.push({ part: label, what: 'text', color: name(style.color), on: name(under(part)), ratio: ratio(style.color, under(part)), least: 4.5 })
+    if (parseFloat(style.borderTopWidth) > 0 && seen(style.borderTopColor))
+      found.push({ part: label, what: 'border', color: name(style.borderTopColor), on: name(under(part.parentElement)), ratio: ratio(style.borderTopColor, under(part.parentElement)), least: 3 })
+  }
+  return found
+})()`
+
+test('the details paint only ink, white, paper, the caption’s grey and the title’s own accent pairs, every text at 4.5:1 and every border at 3:1', async () => {
+  // Colors in the title's own color come from deriveAccent, in its pairs: the fill under ink, and
+  // the text color on white or paper, each meeting 4.5:1. The details are drawn for the first four
+  // trending titles, whose colors differ, and for Frieren with no color (brand hot), with the
+  // synopsis open, so its open button shows in the title's fill.
+  const seen: string[] = []
+  const PAIRS: Record<string, string[]> = {
+    ink: ['white', 'paper', 'accent'],
+    grey: ['white', 'paper'],
+    'accent text': ['white', 'paper'],
+    white: [],
+    paper: [],
+    accent: ['ink'],
+  }
+  const look = async (where: string) => {
+    await browser.evaluate(
+      `document.querySelectorAll('dialog.ab-card[open] .ab-details .ab-more[aria-expanded="false"]').forEach((button) => button.click()); true`,
+    )
+    await browser.evaluate(
+      `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))`,
+    )
+    const colors =
+      await browser.evaluate<
+        { part: string; what: string; color: string; on: string; ratio: number; least: number }[]
+      >(DETAIL_COLORS)
+    assert.ok(
+      colors.some((color) => color.on === 'accent'),
+      `${where}: no open button in the title's fill`,
+    )
+    for (const { part, what, color, on, ratio, least } of colors) {
+      if (!(color in PAIRS))
+        seen.push(`${where}: ${part}'s ${what} in ${color}, not one of the details' colors`)
+      else if (what === 'text' && !PAIRS[color].includes(on))
+        seen.push(`${where}: ${part}'s ${color} text on ${on}`)
+      if (ratio < least) seen.push(`${where}: ${part}'s ${what}, ${color} on ${on}, at ${ratio}:1`)
+    }
+  }
+  for (const screen of [SCREENS[0], SCREENS[2]]) {
+    await browser.load({ ...screen, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    for (let panel = 0; panel < 4; panel++) {
+      await browser.evaluate(
+        `document.querySelectorAll('.ab-grid .ab-link')[${panel}].click(); true`,
+      )
+      assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
+      await browser.animationsDone()
+      await look(`${screen.width}px, ${await browser.evaluate(CARD)}`)
+      await browser.evaluate(
+        `document.querySelector('dialog.ab-card[open] .ab-close').click(); true`,
+      )
+      assert.ok(await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000))
+    }
+  }
+  await browser.forget()
+  await browser.rewriteAniList(({ request, status, body }) => {
+    if (request.variables.id !== 154587) return null
+    body.data.Media.coverImage.color = null
+    return { status, body }
+  })
+  try {
+    for (const screen of [SCREENS[0], SCREENS[2]]) {
+      await openFrieren(screen)
+      await look(`${screen.width}px, Frieren with no color`)
+    }
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+  assert.deepEqual(seen, [], 'colors in the details out of their pairs, or too faint')
+})
+
+test('in a contrast theme, an open button shows it is open, in the theme’s colors for a selected thing', async () => {
+  // A contrast theme paints every button alike, so the title's fill on an open button would go:
+  // an open one takes the theme's colors for something selected, in a light palette and a dark one.
+  const seen: string[] = []
+  try {
+    for (const scheme of ['light', 'dark']) {
+      await openFrieren(SCREENS[2])
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [
+          { name: 'prefers-reduced-motion', value: 'reduce' },
+          { name: 'forced-colors', value: 'active' },
+          { name: 'prefers-color-scheme', value: scheme },
+        ],
+      })
+      const look = await browser.evaluate<{
+        closed: string
+        open: string
+        selected: string
+      }>(`(async () => {
+        const button = document.querySelector('dialog.ab-card[open] .ab-details .ab-more')
+        const probe = document.body.appendChild(document.createElement('i'))
+        probe.style.backgroundColor = 'SelectedItem'
+        const selected = getComputedStyle(probe).backgroundColor
+        probe.remove()
+        const closed = getComputedStyle(button).backgroundColor
+        button.click()
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+        return { closed, open: getComputedStyle(button).backgroundColor, selected }
+      })()`)
+      if (look.open !== look.selected || look.closed === look.selected)
+        seen.push(`${scheme}: closed ${look.closed}, open ${look.open}, selected ${look.selected}`)
+    }
+  } finally {
+    await browser.send('Emulation.setEmulatedMedia', { features: [] })
+  }
+  assert.deepEqual(seen, [], 'open buttons that look closed in a contrast theme')
+})
+
+test('a card opened from a list, or cold at its address with AniList’s answer held 2 s, opens with its details and shifts nothing', async () => {
+  // The plan's guard: layout shift (CLS, as web-vitals counts it) under 0.1, from the page's first
+  // moment until the card has opened and settled, its banner and cover in. Opened from a list,
+  // the card has its details from its first frame; at its address, they come in its one answer,
+  // here held 2 s, with nothing saved.
+  await browser.watchLayoutShifts()
+  const seen: string[] = []
+  const settle = async () => {
+    await browser.animationsDone()
+    await browser.evaluate(BANNER_SETTLED)
+    await sleep(500)
+  }
+  for (const screen of [SCREENS[0], SCREENS[2]]) {
+    await browser.forget()
+    await browser.load(screen)
+    assert.ok(await browser.titlesShown())
+    const before = (await browser.layoutShift()).value
+    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
+    assert.ok(
+      await browser.waitFor(`document.querySelector('dialog.ab-card[open] .ab-details')`, 5000),
+    )
+    await settle()
+    const fromList = (await browser.layoutShift()).value - before
+    if (fromList >= 0.1) seen.push(`${screen.width}px, from a list: ${fromList}`)
+    await browser.forget()
+    await browser.holdAniList(2000)
+    try {
+      await browser.load({ ...screen, url: at('/anime/154587') })
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card[open] .ab-details')`, 10_000),
+      )
+      await settle()
+      const { value } = await browser.layoutShift()
+      if (value >= 0.1) seen.push(`${screen.width}px, at its address: ${value}`)
+    } finally {
+      await browser.holdAniList(0)
+    }
+  }
+  assert.deepEqual(seen, [], 'layout shift as a card opened, under 0.1')
 })

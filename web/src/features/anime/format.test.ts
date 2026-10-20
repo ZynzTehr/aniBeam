@@ -6,6 +6,7 @@ import {
   formatOf,
   hasSmallCover,
   nextEpisode,
+  runtimeOf,
   seasonOf,
   studioOf,
   titleOf,
@@ -90,6 +91,16 @@ test('nextEpisode rounds the countdown to the nearest hour', () => {
   assert.equal(nextEpisode(media(at(4.4)), now), 'Ep 9 in 4h') // 4h 24m
   // A countdown in days rounds its hours the same way.
   assert.equal(nextEpisode(media(at(52.6)), now), 'Ep 9 in 2d 5h') // 2d 4h 36m
+})
+
+test('runtimeOf gives the minutes an episode runs, in hours past an hour, and once for a title in one part', () => {
+  assert.equal(runtimeOf(media({ duration: 24 })), '24m each')
+  assert.equal(runtimeOf(media({ duration: 3, episodes: null })), '3m each') // still airing
+  assert.equal(runtimeOf(media({ format: 'MOVIE', episodes: 1, duration: 110 })), '1h 50m')
+  assert.equal(runtimeOf(media({ format: 'MOVIE', episodes: null, duration: 120 })), '2h') // not out yet
+  assert.equal(runtimeOf(media({ format: 'MOVIE', episodes: 3, duration: 95 })), '1h 35m each') // in parts
+  assert.equal(runtimeOf(media({ format: 'OVA', episodes: 1, duration: 60 })), '1h')
+  assert.equal(runtimeOf(media({ duration: null })), null) // AniList doesn't know
 })
 
 test('hasSmallCover spots AniList pointing extraLarge at the 230px folder', () => {
