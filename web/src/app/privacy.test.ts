@@ -335,7 +335,8 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // hidden, the current section in yellow: 9,016 B), and past 9,500 B with a phone's one-row header
 // and its menu (the hamburger, the manga-panel menu and its slide: 10,013 B), and past 10,500 B
 // with the title card's banner band (the band, its phone strip, the sheet's padding around it:
-// 10,546 B), so its budget is 11,000 B. The JS every visit loads passed 78,500 B with the scroll slam's landing
+// 10,546 B; with its impact frame, drawn again for contrast themes, and the close button's white
+// line over it, 10,642 B), so its budget is 11,000 B. The JS every visit loads passed 78,500 B with the scroll slam's landing
 // (lib/landing.ts, 78,954 B with its follow-ups), then 79,000 B with the request for one title on
 // its own (titleQuery, for title addresses: 79,019 B), 79,500 B with opening a title at its
 // address (lib/route.ts, the note in place of a card: 79,519 B), 80,000 B with the title

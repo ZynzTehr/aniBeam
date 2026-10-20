@@ -1804,6 +1804,13 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   outline-offset: 3px;
 }
 
+/* The close button stands over the band's corner, where its red with keyboard focus, and its red
+   ring, melted into a red banner or the brand-red frame of a title with no color: a white line
+   between the two keeps its shape. */
+.ab-close:focus-visible {
+  box-shadow: 0 0 0 3px #fff;
+}
+
 /* Taller than the screen, the card scrolls, and Chrome makes it a Tab stop of its own. Its edge is
    the screen's, so an outline would fall off it, and drawn inside, the wipe and the sheet would
    cover it. So its ring is a frame laid over all of it, fixed to the screen's edge while the card
@@ -1860,15 +1867,39 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 /* The banner band (spec §3A): the title's banner across the sheet's top, flush inside its border,
    inked along its foot, cropped to fill. Its height is its own, so it is as tall with a banner as
    without one, or with one that fails and hides (see cover.ts), and nothing moves as one lands.
-   It stands over the art, so the Japanese title falls into view from behind it. */
+   It stands over the art, so the Japanese title falls into view from behind it. Where there is
+   no banner, or it fails, the band is an impact frame in the title's color: the wipe's speed
+   lines, bursting from a bright middle, over the page's screentone, sharp, with no blur. */
 .ab-band {
   position: relative;
   z-index: 1;
   height: clamp(200px, 25vw, 420px);
   margin: 0 calc(-1 * var(--pad));
   border-bottom: 5px solid var(--ink);
-  background: var(--anime-accent);
+  background-color: var(--anime-accent);
+  background-image:
+    radial-gradient(ellipse, rgb(255 255 255 / 0.85) 0 6%, transparent 34%),
+    radial-gradient(rgb(20 20 20 / 0.2) 1.1px, transparent 1.5px),
+    repeating-conic-gradient(transparent 0deg 5deg, rgb(255 255 255 / 0.4) 5deg 7deg);
+  background-size:
+    auto,
+    6px 6px,
+    auto;
   grid-column: 1 / -1;
+}
+
+/* A contrast theme paints backgrounds in its page color and drops gradients, which left the frame
+   an empty box: it keeps its lines and dots, in the theme's text color on its page color. */
+@media (forced-colors: active) {
+  .ab-band {
+    border-bottom-color: CanvasText;
+    background-color: Canvas;
+    background-image:
+      radial-gradient(ellipse, Canvas 0 6%, transparent 34%),
+      radial-gradient(CanvasText 1px, transparent 1.4px),
+      repeating-conic-gradient(transparent 0deg 5deg, CanvasText 5deg 6deg);
+    forced-color-adjust: none;
+  }
 }
 
 .ab-band img {

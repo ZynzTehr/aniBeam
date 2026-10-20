@@ -202,3 +202,194 @@ test('details that arrive late move nothing above them: the cover and the title 
   }
   assert.deepEqual(moved, [], 'parts of the card that moved as the details arrived below them')
 })
+
+/**
+ * What the open card's band shows above its ink line, from a screenshot: the share of its pixels,
+ * in percent, near each of the colors `near` names (CSS colors, within 60 of red, green and blue
+ * together), and the shares lighter and darker than the first of them by at least 0.08 of WCAG
+ * luminance. Decoded in the page. The close button, which stands over the band's corner, is made
+ * see-through meanwhile (focus stays where it is), so only the band is counted.
+ */
+async function bandPixels(near: string[]) {
+  const clip = await browser.evaluate<{
+    x: number
+    y: number
+    width: number
+    height: number
+  }>(`(() => {
+    const band = document.querySelector('dialog.ab-card[open] .ab-band')
+    document.querySelector('dialog.ab-card[open] .ab-close').style.opacity = '0'
+    const box = band.getBoundingClientRect(), ink = parseFloat(getComputedStyle(band).borderBottomWidth)
+    return { x: box.left + scrollX, y: box.top + scrollY, width: box.width, height: box.height - ink }
+  })()`)
+  const png = await browser.screenshot(clip)
+  await browser.evaluate(
+    `document.querySelector('dialog.ab-card[open] .ab-close').style.removeProperty('opacity'); true`,
+  )
+  return browser.evaluate<{ near: number[]; lighter: number; darker: number }>(`(async () => {
+    const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+    const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+    const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+    context.drawImage(image, 0, 0)
+    const { data } = context.getImageData(0, 0, image.width, image.height)
+    const swatch = new OffscreenCanvas(1, 1).getContext('2d')
+    const rgb = (color) => { swatch.clearRect(0, 0, 1, 1); swatch.fillStyle = color; swatch.fillRect(0, 0, 1, 1); return [...swatch.getImageData(0, 0, 1, 1).data].slice(0, 3) }
+    const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+    const lum = ([r, g, b]) => 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+    const colors = ${JSON.stringify(near)}.map(rgb), first = lum(colors[0])
+    const near = colors.map(() => 0)
+    let lighter = 0, darker = 0
+    const pixels = data.length / 4
+    for (let i = 0; i < data.length; i += 4) {
+      const pixel = [data[i], data[i + 1], data[i + 2]]
+      colors.forEach((color, k) => { if (color.reduce((sum, v, j) => sum + Math.abs(v - pixel[j]), 0) <= 60) near[k]++ })
+      const l = lum(pixel)
+      if (l >= first + 0.08) lighter++
+      if (l <= first - 0.08) darker++
+    }
+    const percent = (n) => Math.round((n / pixels) * 1000) / 10
+    return { near: near.map(percent), lighter: percent(lighter), darker: percent(darker) }
+  })()`)
+}
+
+test('with no banner, or a broken one, the band is an impact frame in the title’s color: speed lines and screentone, no blur', async () => {
+  // A title without a banner should still look intentional (spec §8): the band shows the wipe's
+  // look, the title's color with white speed lines bursting from a bright middle and the page's
+  // screentone dots, sharp, with no blurred cover. Mostly the title's color, with light lines and
+  // dark dots both plain to see.
+  const seen: string[] = []
+  try {
+    for (const banner of ['no banner', 'a broken banner'] as const) {
+      await stage(banner)
+      for (const screen of [SCREENS[0], SCREENS[2]]) {
+        await openFrieren(screen)
+        await browser.evaluate(BANNER_SETTLED)
+        const accent = await browser.evaluate<string>(
+          `getComputedStyle(document.querySelector('dialog.ab-card[open]')).getPropertyValue('--anime-accent')`,
+        )
+        const { near, lighter, darker } = await bandPixels([accent])
+        const blurred = await browser.evaluate<string[]>(`(() => {
+          const band = document.querySelector('dialog.ab-card[open] .ab-band')
+          return [band, ...band.querySelectorAll('*')].flatMap((part) => ['', '::before', '::after'].flatMap((pseudo) => {
+            const style = getComputedStyle(part, pseudo || null)
+            return [style.filter, style.backdropFilter].filter((value) => value !== 'none')
+          }))
+        })()`)
+        const where = `${screen.width}px, ${banner}`
+        if (near[0] < 40) seen.push(`${where}: ${near[0]}% in the title's color ${accent}`)
+        if (lighter < 5) seen.push(`${where}: ${lighter}% speed lines, lighter than its color`)
+        if (darker < 2) seen.push(`${where}: ${darker}% screentone, darker than its color`)
+        if (blurred.length) seen.push(`${where}: blurred with ${blurred.join(', ')}`)
+      }
+    }
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+  assert.deepEqual(seen, [], 'bands that are no impact frame in the title’s color')
+})
+
+test('in a contrast theme, the impact frame keeps its speed lines and screentone, in the theme’s colors', async () => {
+  // A contrast theme (forced colors) paints every background in its page color and drops
+  // gradients, which left the frame an empty box. It keeps its lines and dots, drawn in the
+  // theme's text color on its page color, in a light palette and a dark one, with its ink line in
+  // the text color too: mostly the page color, with the lines and dots plain to see.
+  const seen: string[] = []
+  await stage('no banner')
+  try {
+    for (const scheme of ['light', 'dark']) {
+      await openFrieren(SCREENS[2])
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [
+          { name: 'prefers-reduced-motion', value: 'reduce' },
+          { name: 'forced-colors', value: 'active' },
+          { name: 'prefers-color-scheme', value: scheme },
+        ],
+      })
+      // The theme's own colors, as this palette paints them.
+      const [canvas, text, line] = await browser.evaluate<string[]>(`(() => {
+        const probe = document.body.appendChild(document.createElement('i'))
+        const color = (value) => { probe.style.backgroundColor = value; return getComputedStyle(probe).backgroundColor }
+        const colors = [color('Canvas'), color('CanvasText')]
+        probe.remove()
+        return [...colors, getComputedStyle(document.querySelector('dialog.ab-card[open] .ab-band')).borderBottomColor]
+      })()`)
+      const {
+        near: [onCanvas, onText],
+      } = await bandPixels([canvas, text])
+      if (onCanvas < 40) seen.push(`${scheme}: ${onCanvas}% in the theme's page color ${canvas}`)
+      if (onText < 3) seen.push(`${scheme}: ${onText}% lines and dots in its text color ${text}`)
+      if (line !== text) seen.push(`${scheme}: its ink line in ${line}, not the theme's ${text}`)
+    }
+  } finally {
+    await browser.send('Emulation.setEmulatedMedia', { features: [] })
+    await browser.rewriteAniList(null)
+  }
+  assert.deepEqual(seen, [], 'contrast themes where the impact frame is no impact frame')
+})
+
+test('over a frame in brand red, the focused close button stays traced all the way round, at 3:1 or better', async () => {
+  // The close button now stands over the band's corner. With the keyboard's focus it turns brand
+  // red inside a brand-red ring, and a title with no color has a frame in brand red (as can a red
+  // banner): button, ring and frame melted into one, with only the white arrow left. Around the
+  // button, from its edge to 10px out, each of 72 directions must cross something that stands out
+  // from the frame's red at 3:1 or better.
+  const seen: string[] = []
+  await browser.forget()
+  await browser.rewriteAniList(({ request, status, body }) => {
+    if (request.variables.id !== 154587) return null
+    body.data.Media.bannerImage = null
+    body.data.Media.coverImage.color = null
+    return { status, body }
+  })
+  try {
+    for (const screen of [SCREENS[0], SCREENS[2]]) {
+      await openFrieren(screen)
+      const { clip, focused } = await browser.evaluate<{
+        clip: { x: number; y: number; width: number; height: number }
+        focused: boolean
+      }>(`(() => {
+        const button = document.querySelector('dialog.ab-card[open] .ab-close')
+        button.focus()
+        const box = button.getBoundingClientRect()
+        return {
+          clip: { x: box.left - 12 + scrollX, y: box.top - 12 + scrollY, width: box.width + 24, height: box.height + 24 },
+          focused: button.matches(':focus-visible'),
+        }
+      })()`)
+      assert.ok(focused, `at ${screen.width}px, the close button shows no keyboard focus`)
+      await browser.animationsDone()
+      const png = await browser.screenshot(clip)
+      const traced = await browser.evaluate<number>(`(async () => {
+        const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+        const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+        const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+        context.drawImage(image, 0, 0)
+        const { data } = context.getImageData(0, 0, image.width, image.height)
+        const scale = image.width / ${clip.width}
+        const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+        const lum = ([r, g, b]) => 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b)
+        const swatch = new OffscreenCanvas(1, 1).getContext('2d')
+        swatch.fillStyle = getComputedStyle(document.querySelector('dialog.ab-card[open]')).getPropertyValue('--anime-accent')
+        swatch.fillRect(0, 0, 1, 1)
+        const frame = lum(swatch.getImageData(0, 0, 1, 1).data)
+        const stands = (l) => (Math.max(l, frame) + 0.05) / (Math.min(l, frame) + 0.05) >= 3
+        const center = ${clip.width} / 2, radius = ${clip.width} / 2 - 12
+        let traced = 0
+        for (let k = 0; k < 72; k++) {
+          const angle = (k / 72) * 2 * Math.PI
+          for (let r = radius; r <= radius + 10; r += 0.5) {
+            const x = Math.round((center + r * Math.cos(angle)) * scale), y = Math.round((center + r * Math.sin(angle)) * scale)
+            if (x < 0 || y < 0 || x >= image.width || y >= image.height) continue
+            const i = (y * image.width + x) * 4
+            if (stands(lum([data[i], data[i + 1], data[i + 2]]))) { traced++; break }
+          }
+        }
+        return traced
+      })()`)
+      if (traced < 72) seen.push(`${screen.width}px: traced in ${traced} of 72 directions`)
+    }
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+  assert.deepEqual(seen, [], 'focused close buttons that melt into a brand-red frame')
+})
