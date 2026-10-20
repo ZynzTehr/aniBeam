@@ -94,12 +94,23 @@ test('nextEpisode rounds the countdown to the nearest hour', () => {
 })
 
 test('runtimeOf gives the minutes an episode runs, in hours past an hour, and once for a title in one part', () => {
-  assert.equal(runtimeOf(media({ duration: 24 })), '24m each')
-  assert.equal(runtimeOf(media({ duration: 3, episodes: null })), '3m each') // still airing
-  assert.equal(runtimeOf(media({ format: 'MOVIE', episodes: 1, duration: 110 })), '1h 50m')
-  assert.equal(runtimeOf(media({ format: 'MOVIE', episodes: null, duration: 120 })), '2h') // not out yet
-  assert.equal(runtimeOf(media({ format: 'MOVIE', episodes: 3, duration: 95 })), '1h 35m each') // in parts
-  assert.equal(runtimeOf(media({ format: 'OVA', episodes: 1, duration: 60 })), '1h')
+  // Short on screen, and in words for a screen reader, which can read "24m" as "24 meters".
+  const runtime = (overrides: Partial<Media>) => {
+    const { text, spoken } = runtimeOf(media(overrides)) ?? {}
+    return `${text} | ${spoken}`
+  }
+  assert.equal(runtime({ duration: 24 }), '24m each | 24 minutes each')
+  assert.equal(runtime({ duration: 1, episodes: null }), '1m each | 1 minute each') // still airing
+  assert.equal(
+    runtime({ format: 'MOVIE', episodes: 1, duration: 110 }),
+    '1h 50m | 1 hour 50 minutes',
+  )
+  assert.equal(runtime({ format: 'MOVIE', episodes: null, duration: 120 }), '2h | 2 hours') // not out yet
+  assert.equal(
+    runtime({ format: 'MOVIE', episodes: 3, duration: 95 }),
+    '1h 35m each | 1 hour 35 minutes each', // in parts
+  )
+  assert.equal(runtime({ format: 'OVA', episodes: 1, duration: 61 }), '1h 1m | 1 hour 1 minute')
   assert.equal(runtimeOf(media({ duration: null })), null) // AniList doesn't know
 })
 

@@ -427,15 +427,18 @@ function synopsisOf(description: string | null | undefined) {
 }
 
 // What the open card shows of its synopsis: each paragraph's text as it reads, or what it says in
-// its place, and its caption; and its running time, among the facts.
+// its place, and its caption; and its running time, among the facts: its text on screen, hidden
+// from screen readers, and the words they read in its place, hidden from the screen.
 const SYNOPSIS = `(() => {
   const card = document.querySelector('dialog.ab-card[open]')
   const text = card.querySelector('.ab-synopsis-text')
   const fact = [...card.querySelectorAll('.ab-facts > div')].find((fact) => fact.querySelector('dt').textContent === 'Runtime')
+  const dd = fact?.querySelector('dd')
+  const part = (selector) => dd.querySelector(selector)?.textContent ?? 'none'
   return {
     text: text ? [...text.querySelectorAll('p')].map((p) => p.innerText) : card.querySelector('.ab-synopsis-none')?.textContent ?? 'none',
     source: card.querySelector('.ab-source')?.textContent ?? null,
-    runtime: fact?.querySelector('dd').textContent ?? null,
+    runtime: dd ? { text: part('[aria-hidden="true"]'), spoken: part('.sr-only') } : null,
   }
 })()`
 
@@ -973,13 +976,14 @@ test('a card opened from a list, or cold at its address, with AniList’s answer
   assert.deepEqual(seen, [], 'layout shift as a card opened, under 0.1')
 })
 
-// The open card's tags as they show: each chip's text, a spoiler marked "(spoiler)", and its
-// spoiler button, if any: what it says, aria-expanded, and whether aria-controls names the list.
+// The open card's tags as they show: each chip's text as a screen reader reads it, a spoiler's
+// words for it included, then " (dashed)" for a chip drawn as a spoiler; and its spoiler button,
+// if any: what it says, aria-expanded, and whether aria-controls names the list.
 const TAGS = `(() => {
   const card = document.querySelector('dialog.ab-card[open]')
   const list = card.querySelector('.ab-tags'), button = card.querySelector('.ab-tag-set .ab-more')
   return {
-    chips: list ? [...list.querySelectorAll('li')].map((chip) => chip.textContent + (chip.classList.contains('is-spoiler') ? ' (spoiler)' : '')) : [],
+    chips: list ? [...list.querySelectorAll('li')].map((chip) => chip.textContent + (chip.classList.contains('is-spoiler') ? ' (dashed)' : '')) : [],
     button: button && {
       says: button.textContent,
       expanded: button.getAttribute('aria-expanded'),
@@ -996,8 +1000,10 @@ test('a card shows its title’s top 8 tags by rank, never an adult one, and its
   // Frieren at its address, staged with an adult tag ranked above the rest, with no spoiler
   // tags (no button), and with no tags at all (no chips and no button).
   const seen: string[] = []
+  // A spoiler says so to a screen reader too, in words hidden from the screen, as the dashes say it
+  // only to the eye.
   const chip = (spoiler: boolean) => (tag: Tag) =>
-    `${tag.name}${tag.rank === null ? '' : ` ${tag.rank}%`}${spoiler ? ' (spoiler)' : ''}`
+    `${tag.name}${tag.rank === null ? '' : ` ${tag.rank}%`}${spoiler ? ', spoiler (dashed)' : ''}`
   /** Checks the open card's tags against `media`'s, through both presses of its button. */
   const check = async (media: Media) => {
     const { shown, spoilers } = tagsOf(media.tags)

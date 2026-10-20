@@ -96,18 +96,23 @@ function Synopsis({ description }: { description: string | null }) {
   )
 }
 
-/** A tag as a chip, with its rank, how strongly it fits the title, where AniList gives one. */
+/**
+ * A tag as a chip, with its rank, how strongly it fits the title, where AniList gives one. A
+ * spoiler's dashed border shows it only to the eye, so it says so in words to a screen reader.
+ */
 const chip = (tag: Tag, spoiler: boolean) => (
   <li key={tag.name} className={spoiler ? 'is-spoiler' : undefined}>
     {tag.name}
     {tag.rank !== null && <small> {tag.rank}%</small>}
+    {spoiler && <span className="sr-only">, spoiler</span>}
   </li>
 )
 
 /**
  * The title's top tags by rank, never an adult one, and its top spoiler tags only once "Show
  * spoiler tags" is pressed (spec §3G): they join the list in place, after the others, marked as
- * spoilers, and go again at a second press. A title with no spoiler tags has no button.
+ * spoilers to the eye and in words, and go again at a second press. A title with no spoiler tags
+ * has no button.
  */
 function Tags({ tags }: { tags: Tag[] }) {
   const id = useId()

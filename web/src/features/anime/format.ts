@@ -56,16 +56,22 @@ export function nextEpisode(media: Media, now = Date.now()) {
 }
 
 /**
- * "24m each", or for a title in one part, such as a movie, "1h 50m"; null when AniList doesn't
- * know. AniList's duration is the minutes one episode runs.
+ * "24m each", or for a title in one part, such as a movie, "1h 50m", with the same in words for
+ * screen readers ("24 minutes each", "1 hour 50 minutes"), which can read "24m" as "24 meters";
+ * null when AniList doesn't know. AniList's duration is the minutes one episode runs.
  */
 export function runtimeOf(media: Media) {
   const minutes = media.duration
   if (!minutes) return null
-  const hours = Math.floor(minutes / 60)
-  const time = [hours && `${hours}h`, minutes % 60 && `${minutes % 60}m`].filter(Boolean).join(' ')
+  const [hours, rest] = [Math.floor(minutes / 60), minutes % 60]
   const once = media.episodes === 1 || (media.format === 'MOVIE' && media.episodes === null)
-  return once ? time : `${time} each`
+  const say = (parts: (string | false)[]) => parts.filter(Boolean).join(' ') + (once ? '' : ' each')
+  const unit = (count: number, word: string) =>
+    count > 0 && `${count} ${word}${count > 1 ? 's' : ''}`
+  return {
+    text: say([hours > 0 && `${hours}h`, rest > 0 && `${rest}m`]),
+    spoken: say([unit(hours, 'hour'), unit(rest, 'minute')]),
+  }
 }
 
 /**

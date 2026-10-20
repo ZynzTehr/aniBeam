@@ -279,7 +279,10 @@ export function TitleCard({
             {runtime && (
               <div>
                 <dt>Runtime</dt>
-                <dd>{runtime}</dd>
+                <dd>
+                  <span aria-hidden="true">{runtime.text}</span>
+                  <span className="sr-only">{runtime.spoken}</span>
+                </dd>
               </div>
             )}
             {next && (
