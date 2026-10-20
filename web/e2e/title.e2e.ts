@@ -77,12 +77,13 @@ async function stage(banner: Banner) {
   })
 }
 
-// Once the open card's banner, if it has one, has loaded or failed, and its error or load event
-// has been handled (two frames on).
+// Once the open card's banner, if it has one, has loaded or failed, its error or load event has
+// been handled (two frames on), and a banner that loaded has faded in.
 const BANNER_SETTLED = `(async () => {
   const banner = document.querySelector('dialog.ab-card[open] .ab-band img')
   if (banner) await banner.decode().catch(() => {})
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  if (banner) await Promise.all(banner.getAnimations().map((a) => a.finished.catch(() => {})))
   return true
 })()`
 
@@ -114,7 +115,7 @@ test('the banner band crowns the card in an ink frame, the same size with a bann
           const px = (n) => Math.round(n * 10) / 10
           // Phones and tablets up to 820px stack the card: there the band is a 19:4 strip, 64px at least.
           const height = innerWidth <= 820 ? Math.max(64, box.width * 4 / 19) : Math.min(420, Math.max(200, innerWidth / 4))
-          const shown = img && img.checkVisibility({ visibilityProperty: true })
+          const shown = img && img.checkVisibility({ visibilityProperty: true, opacityProperty: true })
           const inside = { top: box.top, left: box.left, right: box.right, bottom: box.bottom - parseFloat(style.borderBottomWidth) }
           const fills = img && ['top', 'left', 'right', 'bottom'].every((side) => Math.abs(img.getBoundingClientRect()[side] - inside[side]) < 1)
           return {
@@ -150,11 +151,14 @@ test('the banner band crowns the card in an ink frame, the same size with a bann
   assert.deepEqual(seen, [], 'cards whose banner band is missing, or out of shape or place')
 })
 
-test('the band and the cover stay put from the card’s first frame to the banner’s arrival, and the card opens without waiting for it', async () => {
+test('the band and the cover stay put from the card’s first frame to the banner’s arrival, the card opens without waiting for it, and the banner fades in', async () => {
   // The banner is large (123 to 358 KB) and comes after the card has opened: the band must not
   // wait for it to show, nor change size as it lands. Frame by frame from the card's first, the
   // band's box and the cover's place stay the same, and the card shows before the banner has
   // come. Its address is made new for this check, so no copy saved earlier can bring it at once.
+  // Under reduced motion, as here, a banner that comes late fades in once it has loaded, from no
+  // more than a quarter seen in the first frame it could show: appearing at once, it changed
+  // about a third of a wide screen in one frame.
   await browser.forget()
   await browser.rewriteAniList(({ request, status, body }) => {
     if (request.variables.id !== 154587) return null
@@ -166,10 +170,10 @@ test('the band and the cover stay put from the card’s first frame to the banne
   try {
     await browser.load({ width: 1440, height: 900, reduceMotion: true, url: at('/anime/154587') })
     const frames = await browser.evaluate<
-      { boxes: string[]; before: number } | 'no band' | null
+      { boxes: string[]; before: number; seen: number[] } | 'no band' | null
     >(`new Promise((resolve) => {
-      const boxes = [], until = performance.now() + 15000
-      let before = 0, after = 0
+      const boxes = [], seen = [], until = performance.now() + 15000
+      let before = 0
       requestAnimationFrame(function frame() {
         const card = document.querySelector('dialog.ab-card[open]')
         const band = card?.querySelector('.ab-band'), banner = band?.querySelector('img')
@@ -178,9 +182,11 @@ test('the band and the cover stay put from the card’s first frame to the banne
           const b = band.getBoundingClientRect(), c = card.querySelector('.ab-sheet-art img').getBoundingClientRect()
           const box = [b.top, b.left, b.width, b.height, c.top, c.left].map(Math.round).join(' ')
           if (boxes.at(-1) !== box) boxes.push(box)
-          if (banner?.complete && banner.naturalWidth) after++
+          // How much of the banner each frame shows, from the first it has loaded, until it shows
+          // in full, a second on at most.
+          if (banner?.complete && banner.naturalWidth) seen.push(Number(getComputedStyle(banner).opacity))
           else before++
-          if (after > 5) return resolve({ boxes, before })
+          if (seen.at(-1) === 1 || seen.length > 60) return resolve({ boxes, before, seen })
         }
         requestAnimationFrame(frame)
       })
@@ -189,6 +195,11 @@ test('the band and the cover stay put from the card’s first frame to the banne
     assert.ok(frames && frames !== 'no band', 'the banner never arrived')
     assert.ok(frames.before > 0, 'the card waited for its banner before it showed')
     assert.equal(frames.boxes.length, 1, `the band or the cover moved: ${frames.boxes.join(' → ')}`)
+    const shown = frames.seen.map((opacity) => Math.round(opacity * 100) / 100)
+    assert.ok(
+      shown[0] <= 0.25 && shown.at(-1) === 1,
+      `the banner, from the first frame it had loaded: ${shown.join(', ')} of it shown`,
+    )
   } finally {
     await browser.holdAniList(0)
     await browser.rewriteAniList(null)

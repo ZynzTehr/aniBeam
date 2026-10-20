@@ -1775,8 +1775,9 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 }
 
 /* And it fades out as it closes, the same way: gone at once, it changed most of the screen in a
-   single frame too. TitleCard holds the dialog open while the fade plays, and closes it as the
-   fade ends, only with reduced motion: with motion allowed, the card plays its opening backwards
+   single frame too, after its banner's own fade, if it has one (see .ab-band img). TitleCard
+   holds the dialog open while the fade plays, and closes it as the fade ends, only with reduced
+   motion: with motion allowed, the card plays its opening backwards
    instead (see .ab-card.is-leaving in the motion block). [open] ranks this rule above the motion
    block's animation: none, so a device that stops asking for reduced motion mid-fade can't cut
    the fade short and leave the card open: finishEntrances() in lib/motion.ts finishes it
@@ -1909,6 +1910,28 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   height: 100%;
   object-fit: cover;
   inset: 0;
+}
+
+/* The banner shows once it has loaded (data-loaded, see cover.ts). With reduced motion it then
+   fades in on its own, once the card's fade has played, however late it comes: fading in with
+   the card, a dark banner changed over a quarter of the screen in one frame (Cyberpunk:
+   Edgerunners 2's, 25% at 1440px), and one that came late appeared at once, about a third of a
+   wide screen. With motion allowed, the motion block shows it at once, behind the wipe. */
+.ab-band img:not([data-loaded]) {
+  opacity: 0;
+}
+
+.ab-card[open] .ab-band img[data-loaded] {
+  animation: ab-fade 0.15s linear 0.15s backwards;
+}
+
+/* As the card fades out, a banner fades out first, and the card after it, for the same reason. */
+.ab-card[open].is-closing .ab-band img[data-loaded] {
+  animation: ab-fade-out 0.15s linear forwards;
+}
+
+.ab-card[open].is-closing:has(.ab-band img[data-loaded]) {
+  animation-delay: 0.15s;
 }
 
 .ab-close {
@@ -2417,6 +2440,11 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   :where(:root:not([data-motion='reduce'])) {
     /* The wipe brings the card in, in place of the fade, over the page dimmed behind it. */
     .ab-card[open] {
+      animation: none;
+    }
+
+    /* And the banner shows as it loads, with no fade of its own (see .ab-band img). */
+    .ab-card[open] .ab-band img[data-loaded] {
       animation: none;
     }
 
