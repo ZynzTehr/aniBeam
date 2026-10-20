@@ -2010,6 +2010,22 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   .ab-x i {
     background: ButtonText;
   }
+
+  /* The theme also drops the white line around the focused button (a box-shadow) and draws its
+     ring in its own highlight color, over the band, where a banner keeps its colors: in a dark
+     theme, on a light banner, the ring stood at about 1.3:1. A halo in the theme's page color,
+     from the button's edge out past the ring, keeps the ring on the theme's colors wherever the
+     button stands. Its 15px reach out of the button's padding box is 12px past its border. */
+  .ab-close:focus-visible::after {
+    position: absolute;
+    z-index: -1;
+    border: 12px solid Canvas;
+    border-radius: 50%;
+    content: '';
+    forced-color-adjust: none;
+    inset: -15px;
+    pointer-events: none;
+  }
 }
 
 .ab-sheet-art {
@@ -2320,10 +2336,17 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     grid-template-columns: 1fr;
   }
 
-  /* A short strip, 19:4, the banner's own shape. */
+  /* A short strip, 19:4, the banner's own shape, and never under 64px, which the close button
+     needs to stand clear of its ink line (8px down, 48px tall, the line's 5px and some air):
+     narrower than 320px, as on a phone zoomed past 125%, the strip was 53px tall at 280px, and
+     the button hung over the line. Held that tall, the ratio would widen the strip to match, and
+     the card's column with it: it stretches across the column as it is, and asks no width. */
   .ab-band {
+    min-width: 0;
     height: auto;
+    min-height: 64px;
     aspect-ratio: 19 / 4;
+    justify-self: stretch;
   }
 
   /* Stacked, the art is as narrow as its cover, as it is beside the text, so the Japanese title
@@ -2350,7 +2373,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     max-height: round(down, 100%, 1em);
   }
 
-  /* Over the band's short strip, the close button keeps clear of its ink line, down to 320px. */
+  /* Over the band's short strip, the close button keeps clear of its ink line (see .ab-band). */
   .ab-close {
     top: 8px;
     right: 8px;

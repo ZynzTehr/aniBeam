@@ -93,11 +93,16 @@ test('the banner band crowns the card in an ink frame, the same size with a bann
   // the text below it. With no banner, or one that fails to load, it keeps its size, so the card
   // looks the same either way and nothing moves as a banner loads or fails; a failed one hides,
   // rather than show Chrome's broken-image icon.
+  // A phone zoomed past 125% is under 320px wide: there the strip keeps the height the close
+  // button needs to stand clear of the ink line, 64px. At 280px the copy's Soon buttons (213px)
+  // already push the card's column 2.5px past the sheet's padding, and the band follows the
+  // column: that is the buttons' to settle, so there the band's place inside the border is not
+  // held to.
   const seen: string[] = []
   try {
     for (const banner of Object.keys(BANNERS) as Banner[]) {
       await stage(banner)
-      for (const screen of SCREENS) {
+      for (const screen of [{ width: 280, height: 653, phone: true }, ...SCREENS]) {
         await openFrieren(screen)
         await browser.evaluate(BANNER_SETTLED)
         const band = await browser.evaluate<Record<string, unknown> | null>(`(() => {
@@ -107,8 +112,8 @@ test('the banner band crowns the card in an ink frame, the same size with a bann
           const sheet = card.querySelector('.ab-sheet').getBoundingClientRect(), box = band.getBoundingClientRect()
           const style = getComputedStyle(band), img = band.querySelector('img')
           const px = (n) => Math.round(n * 10) / 10
-          // Phones and tablets up to 820px stack the card: there the band is a 19:4 strip.
-          const height = innerWidth <= 820 ? box.width * 4 / 19 : Math.min(420, Math.max(200, innerWidth / 4))
+          // Phones and tablets up to 820px stack the card: there the band is a 19:4 strip, 64px at least.
+          const height = innerWidth <= 820 ? Math.max(64, box.width * 4 / 19) : Math.min(420, Math.max(200, innerWidth / 4))
           const shown = img && img.checkVisibility({ visibilityProperty: true })
           const inside = { top: box.top, left: box.left, right: box.right, bottom: box.bottom - parseFloat(style.borderBottomWidth) }
           const fills = img && ['top', 'left', 'right', 'bottom'].every((side) => Math.abs(img.getBoundingClientRect()[side] - inside[side]) < 1)
@@ -118,6 +123,7 @@ test('the banner band crowns the card in an ink frame, the same size with a bann
             'ink line': style.borderBottomStyle + ' ' + style.borderBottomWidth + ' ' + style.borderBottomColor,
             banner: !img ? 'none' : img.hasAttribute('data-broken') ? (shown ? 'broken, shown' : 'broken, hidden') : !img.complete || !img.naturalWidth ? 'not loaded' : shown && fills && getComputedStyle(img).objectFit === 'cover' ? 'fills the band' : 'shown, not filling the band',
             'the cover': card.querySelector('.ab-sheet-art img').getBoundingClientRect().top >= box.bottom ? 'below it' : 'under it',
+            'the close button': (() => { const over = card.querySelector('.ab-close').getBoundingClientRect().bottom - inside.bottom; return over <= 0 ? 'clear of the ink line' : 'over the ink line by ' + px(over) + 'px' })(),
           }
         })()`)
         const expected = {
@@ -130,7 +136,10 @@ test('the banner band crowns the card in an ink frame, the same size with a bann
             'a broken banner': 'broken, hidden',
           }[banner],
           'the cover': 'below it',
+          'the close button': 'clear of the ink line',
         }
+        if (band && screen.width < 320)
+          band['inside the sheet border'] = expected['inside the sheet border']
         if (JSON.stringify(band) !== JSON.stringify(expected))
           seen.push(`${screen.width}px, ${banner}: ${JSON.stringify(band)}`)
       }
@@ -403,6 +412,87 @@ test('over a frame in brand red, the focused close button stays traced all the w
     await browser.rewriteAniList(null)
   }
   assert.deepEqual(seen, [], 'focused close buttons that melt into a brand-red frame')
+})
+
+test('in a contrast theme, the focused close button’s ring stands out from the banner around it, at 3:1 or better all the way round', async () => {
+  // The close button stands over the band, and a contrast theme draws its focus ring in the
+  // theme's highlight color and drops its white line, but leaves a banner photo as it is: on
+  // Frieren's light sky, in a dark theme, the ring stood at about 1.3:1 against it. In each of 72
+  // directions, the ring, midway across, must stand out at 3:1 or better from what lies just
+  // inside it, in its gap, and just past it, in a light palette and a dark one.
+  const seen: string[] = []
+  try {
+    for (const scheme of ['light', 'dark']) {
+      for (const screen of [SCREENS[0], SCREENS[2]]) {
+        await openFrieren(screen)
+        await browser.send('Emulation.setEmulatedMedia', {
+          features: [
+            { name: 'prefers-reduced-motion', value: 'reduce' },
+            { name: 'forced-colors', value: 'active' },
+            { name: 'prefers-color-scheme', value: scheme },
+          ],
+        })
+        await browser.evaluate(BANNER_SETTLED)
+        await browser.animationsDone()
+        const { clip, focused, banner } = await browser.evaluate<{
+          clip: { x: number; y: number; width: number; height: number }
+          focused: boolean
+          banner: boolean
+        }>(`(() => {
+          const card = document.querySelector('dialog.ab-card[open]')
+          const button = card.querySelector('.ab-close'), img = card.querySelector('.ab-band img')
+          button.focus()
+          const box = button.getBoundingClientRect()
+          return {
+            clip: { x: box.left - 16 + scrollX, y: box.top - 16 + scrollY, width: box.width + 32, height: box.height + 32 },
+            focused: button.matches(':focus-visible'),
+            banner: Boolean(img?.complete && img.naturalWidth),
+          }
+        })()`)
+        const where = `${scheme}, ${screen.width}px`
+        assert.ok(focused, `${where}: the close button shows no keyboard focus`)
+        assert.ok(banner, `${where}: Frieren's banner did not load`)
+        await sleep(300) // the button's color change on focus, 0.25 s
+        const png = await browser.screenshot(clip)
+        const { stands, least } = await browser.evaluate<{
+          stands: number
+          least: number
+        }>(`(async () => {
+          const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+          const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+          const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+          context.drawImage(image, 0, 0)
+          const { data } = context.getImageData(0, 0, image.width, image.height)
+          const scale = image.width / ${clip.width}
+          const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+          const lum = (x, y) => { const i = (Math.round(y * scale) * image.width + Math.round(x * scale)) * 4; return 0.2126 * channel(data[i]) + 0.7152 * channel(data[i + 1]) + 0.0722 * channel(data[i + 2]) }
+          const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)
+          // The button is 48px round, its ring 4px wide 3px out from its edge: the ring's middle is
+          // 29px from the button's center, its gap's 25.5px, and just past it 33px.
+          const center = ${clip.width} / 2, at = (r, angle) => lum(center + r * Math.cos(angle), center + r * Math.sin(angle))
+          let stands = 0, least = Infinity
+          for (let k = 0; k < 72; k++) {
+            const angle = (k / 72) * 2 * Math.PI, ring = at(29, angle)
+            const worst = Math.min(ratio(ring, at(25.5, angle)), ratio(ring, at(33, angle)))
+            if (worst >= 3) stands++
+            least = Math.min(least, worst)
+          }
+          return { stands, least: Math.round(least * 100) / 100 }
+        })()`)
+        if (stands < 72)
+          seen.push(
+            `${where}: the ring stands out in ${stands} of 72 directions, at ${least}:1 at worst`,
+          )
+      }
+    }
+  } finally {
+    await browser.send('Emulation.setEmulatedMedia', { features: [] })
+  }
+  assert.deepEqual(
+    seen,
+    [],
+    'contrast themes where the focused close button’s ring melts into the banner',
+  )
 })
 
 // Each recorded title as AniList gave it, by its id, from every recording: the lists' titles and
