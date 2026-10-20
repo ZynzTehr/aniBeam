@@ -1836,8 +1836,9 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   inset: 0;
 }
 
-/* --pad is its padding, which the banner band spans to sit flush at its top. Its first row is the
-   band's, as tall as the band: sized auto, it would grow with the min-height. */
+/* --pad is its padding, which the banner band spans to sit flush at its top. Its rows start at its
+   top and stay there: centered in its height, they moved as the details arrived under the facts,
+   the cover down and the title up. */
 .ab-sheet {
   --pad: clamp(28px, 4vw, 60px);
 
@@ -1845,7 +1846,8 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   display: grid;
   width: min(100% - 32px, 1180px);
   min-height: min(100dvh - 48px, 760px);
-  align-items: center;
+  align-content: start;
+  align-items: start;
   gap: clamp(20px, 4vw, 60px);
   margin: 24px auto;
   padding: 0 var(--pad) var(--pad);
@@ -1853,7 +1855,6 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   background: var(--paper);
   box-shadow: 14px 14px 0 var(--ink);
   grid-template-columns: minmax(200px, 34%) minmax(0, 1fr);
-  grid-template-rows: min-content;
 }
 
 /* The banner band (spec §3A): the title's banner across the sheet's top, flush inside its border,

@@ -174,3 +174,31 @@ test('the band and the cover stay put from the card’s first frame to the banne
     await browser.rewriteAniList(null)
   }
 })
+
+test('details that arrive late move nothing above them: the cover and the title stay put', async () => {
+  // The synopsis and tags (PR 13) arrive after the card opens, below the facts. The sheet
+  // centered its columns in its height, so the copy growing under the facts moved the cover down
+  // and the title up, 181px in the title lab. A tall block added at the copy's foot, as the
+  // details will be, must leave the cover, the kicker and the title where they were.
+  const moved: string[] = []
+  for (const screen of SCREENS) {
+    await openFrieren(screen)
+    const tops = `(() => {
+      const card = document.querySelector('dialog.ab-card[open]')
+      const top = (selector) => Math.round(card.querySelector(selector).getBoundingClientRect().top)
+      return { cover: top('.ab-sheet-art img'), kicker: top('.ab-kicker'), title: top('.ab-title') }
+    })()`
+    const before = await browser.evaluate<Record<string, number>>(tops)
+    await browser.evaluate(`(() => {
+      const late = document.createElement('div')
+      late.style.height = '600px'
+      document.querySelector('dialog.ab-card[open] .ab-sheet-copy').append(late)
+      return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))
+    })()`)
+    const after = await browser.evaluate<Record<string, number>>(tops)
+    for (const part of Object.keys(before))
+      if (after[part] !== before[part])
+        moved.push(`${screen.width}px: the ${part}, ${before[part]} → ${after[part]}px`)
+  }
+  assert.deepEqual(moved, [], 'parts of the card that moved as the details arrived below them')
+})
