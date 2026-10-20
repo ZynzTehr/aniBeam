@@ -5160,9 +5160,9 @@ describe('the title card, from a small phone to a wide screen', () => {
 
   /**
    * Plays what holdWhat held, one 60 Hz frame at a time to its end, and says how far past the
-   * screen `width`px wide (its sides and top) and past the card's sheet the Japanese title ever
-   * stood while it showed at all, side by side, in px, rounded, and when it stood furthest; or
-   * null if it never did. `when` names the moment, for the message.
+   * screen `width`px wide (its sides and top), past the card's sheet and, stacked, behind the
+   * cover the Japanese title ever stood while it showed at all, side by side, in px, rounded, and
+   * when it stood furthest; or null if it never did. `when` names the moment, for the message.
    */
   async function nativeOutside(width: number, when: string) {
     return browser.evaluate<string | null>(`(async () => {
@@ -5183,6 +5183,9 @@ describe('the title card, from a small phone to a wide screen', () => {
           'the right of the sheet': n.right - s.right,
           'the top of the sheet': s.top - n.top,
           'the bottom of the sheet': n.bottom - s.bottom,
+          // Stacked, the column stands beside the cover, none of it behind: its box as laid out,
+          // which the opening's turns and tilts leave as it is, from the cover's left edge.
+          'the left of the cover, behind it': ${width} <= 820 ? native.offsetLeft + native.offsetWidth : 0,
         }
         for (const [side, px] of Object.entries(past))
           if (px > 0.5 && px > (worst.get(side)?.px ?? 0))
@@ -5193,16 +5196,18 @@ describe('the title card, from a small phone to a wide screen', () => {
     })()`)
   }
 
-  test('the Japanese title behind the cover stays whole on the screen and inside the card, as it opens, at rest and as it closes', async () => {
-    // The title's Japanese name stands in a tall ghost column behind the cover, hanging off its
-    // top-left (6% of the art's width out beside the text, a whole character out when stacked). On
+  test('the Japanese title stays whole on the screen and inside the card, wholly beside the cover where the card stacks, as it opens, at rest and as it closes', async () => {
+    // The title's Japanese name stands in a tall ghost column hanging off the cover's top-left:
+    // beside the text, mostly behind the cover, 6% of the art's width out; stacked, beside it. On
     // a phone or a tablet in portrait the card stacks, and the art used to stretch across the
     // card with the cover in its middle, so 6% of the art put the
     // column on the card's border on a phone, and 7 to 10px off the screen and 17 to 20px out of
     // the card on a tablet in portrait, far from the cover. And the first frames of its fall
-    // poked up to 8px out of the card's top there. The first two trending titles are opened at
-    // each size, their opening and closing played by hand one 60 Hz frame at a time: wherever
-    // the column shows at all, it must lie on the screen and inside the card's sheet.
+    // poked up to 8px out of the card's top there. Then, stacked, a name of two columns stood
+    // with its first, the name's start, behind the cover, and only its second beside it. The
+    // first two trending titles are opened at each size, their opening and closing played by
+    // hand one 60 Hz frame at a time: wherever the column shows at all, it must lie on the screen
+    // and inside the card's sheet, and stacked, none of it behind the cover.
     const off: string[] = []
     for (const [width, height] of SCREENS) {
       await browser.load({ width, height, phone: width < 900 })

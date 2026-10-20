@@ -2183,11 +2183,18 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   }
 
   /* Beside the cover, level with its top: 6% above it, the column's head hid under the band's
-     foot. Its fall (ab-fall) starts 40px higher, behind the band. */
+     foot. Its fall (ab-fall) starts 40px higher, behind the band. One whole column, standing
+     out from the cover's left edge and ending with it, where there is room for one: a name of
+     two put its first column, the name's start, behind the cover, and only its second beside
+     it. A long name is cut at a whole character. */
   .ab-native {
     --fall: -40px;
     top: 0;
-    left: -1em;
+    right: 100%;
+    left: auto;
+    max-width: 1em;
+    max-height: 100%;
+    max-height: round(down, 100%, 1em);
   }
 
   /* Over the band's short strip, the close button keeps clear of its ink line, down to 320px. */
