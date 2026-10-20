@@ -925,11 +925,11 @@ test('in a contrast theme, open buttons show they are open, in the theme’s col
   )
 })
 
-test('a card opened from a list, or cold at its address with AniList’s answer held 2 s, opens with its details and shifts nothing', async () => {
+test('a card opened from a list, or cold at its address, with AniList’s answers held 2 s, opens with its details and shifts nothing', async () => {
   // The plan's guard: layout shift (CLS, as web-vitals counts it) under 0.1, from the page's first
-  // moment until the card has opened and settled, its banner and cover in. Opened from a list,
-  // the card has its details from its first frame; at its address, they come in its one answer,
-  // here held 2 s, with nothing saved.
+  // moment until the card has opened and settled, its banner and cover in, with AniList's answers
+  // held 2 s. Opened from a list, the card has its details from its first frame, so a slow AniList
+  // holds up nothing; at its address, they come in its one answer, with nothing saved.
   await browser.watchLayoutShifts()
   const seen: string[] = []
   const settle = async () => {
@@ -942,11 +942,18 @@ test('a card opened from a list, or cold at its address with AniList’s answer 
     await browser.load(screen)
     assert.ok(await browser.titlesShown())
     const before = (await browser.layoutShift()).value
-    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
-    assert.ok(
-      await browser.waitFor(`document.querySelector('dialog.ab-card[open] .ab-details')`, 5000),
-    )
-    await settle()
+    await browser.holdAniList(2000)
+    try {
+      await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(); true`)
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card[open] .ab-details')`, 5000),
+      )
+      await settle()
+      // Past the hold, for anything held to have come.
+      await sleep(2000)
+    } finally {
+      await browser.holdAniList(0)
+    }
     const fromList = (await browser.layoutShift()).value - before
     if (fromList >= 0.1) seen.push(`${screen.width}px, from a list: ${fromList}`)
     await browser.forget()
