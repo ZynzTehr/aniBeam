@@ -28,22 +28,26 @@ const runs = (line: Run[]) =>
 /**
  * The synopsis, clamped to five lines, with Read more where the clamp hides some of it, and Show
  * less once it is open. Whether it does is measured as the card lays out, before the browser
- * draws it, and again whenever the clamped text changes size, as when the page's own font
- * arrives in place of a fallback or the screen turns: so the button comes with the text, and is
- * there only while the clamp hides something.
+ * draws it, and again whenever the text changes size, as when the page's own font arrives in
+ * place of a fallback or the screen turns: so the button comes with the text, and is there only
+ * while the clamp hides something. The text is watched whole, inside the clamp, as well as the
+ * clamp itself: text that reflows past five lines, or back to five, leaves the clamp as tall as
+ * it was, and watching only the clamp would miss it.
  */
 function Synopsis({ description }: { description: string | null }) {
   const id = useId()
   const text = useRef<HTMLDivElement>(null)
+  const whole = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   const [cut, setCut] = useState(false)
   useLayoutEffect(() => {
     const element = text.current
-    if (!element || open) return
+    if (!element || !whole.current || open) return
     const measure = () => setCut(element.scrollHeight > element.clientHeight + 1)
     measure()
     const resized = new ResizeObserver(measure)
     resized.observe(element)
+    resized.observe(whole.current)
     return () => resized.disconnect()
   }, [open])
   const { paragraphs, source } = parseSynopsis(description)
@@ -57,16 +61,18 @@ function Synopsis({ description }: { description: string | null }) {
           .filter(Boolean)
           .join(' ')}
       >
-        {paragraphs.map((lines, p) => (
-          <p key={p}>
-            {lines.map((line, l) => (
-              <span key={l}>
-                {l > 0 && <br />}
-                {runs(line)}
-              </span>
-            ))}
-          </p>
-        ))}
+        <div ref={whole}>
+          {paragraphs.map((lines, p) => (
+            <p key={p}>
+              {lines.map((line, l) => (
+                <span key={l}>
+                  {l > 0 && <br />}
+                  {runs(line)}
+                </span>
+              ))}
+            </p>
+          ))}
+        </div>
       </div>
       {(cut || open) && (
         <button

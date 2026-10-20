@@ -672,8 +672,10 @@ test('the clamp is as tall in a fallback font as in the page’s own, and Read m
   // address, and the text reflows as the font swaps in. The clamp is five line heights, which a
   // fallback font and the page's share, so the clamped synopsis keeps its height; and whether the
   // five lines hide anything is measured again as the text changes size, so Read more is there
-  // exactly while they do. Here Frieren's synopsis is drawn in a fallback font, then packed tight
-  // enough to fit in five lines, then as it should be.
+  // exactly while they do, even where the clamp keeps its height as the text reflows past five
+  // lines or back. Here Frieren's synopsis is spaced to fill exactly five lines, then a little
+  // looser, then drawn in a fallback font, then packed tight enough to fit in five lines, then
+  // spaced to exactly five and a little looser again, then as it should be.
   const seen: string[] = []
   for (const screen of [SCREENS[0], SCREENS[2]]) {
     await openFrieren(screen)
@@ -688,10 +690,28 @@ test('the clamp is as tall in a fallback font as in the page’s own, and Read m
           button: Boolean(document.querySelector('dialog.ab-card[open] .ab-synopsis .ab-more')),
         }
       })()`)
+    const own = await look('')
+    // The loosest letter spacing at which the text still fits in five lines, found by halving.
+    const { fits, over } = await browser.evaluate<{ fits: number; over: number }>(`(() => {
+      const text = document.querySelector('dialog.ab-card[open] .ab-synopsis-text')
+      let fits = -8, over = 0
+      for (let i = 0; i < 25; i++) {
+        const mid = (fits + over) / 2
+        text.style.letterSpacing = mid + 'px'
+        if (text.scrollHeight > text.clientHeight + 1) over = mid
+        else fits = mid
+      }
+      text.style.letterSpacing = ''
+      return { fits, over }
+    })()`)
     const states = {
-      own: await look(''),
+      own,
+      tight: await look(`letter-spacing: ${fits}px`),
+      loose: await look(`letter-spacing: ${over + 0.5}px`),
       fallback: await look('font-family: serif'),
       packed: await look('letter-spacing: -0.45em'),
+      'tight again': await look(`letter-spacing: ${fits}px`),
+      'loose again': await look(`letter-spacing: ${over + 0.5}px`),
       back: await look(''),
     }
     const where = `${screen.width}px`
@@ -705,6 +725,11 @@ test('the clamp is as tall in a fallback font as in the page’s own, and Read m
           `${where}, ${state}: ${hides ? 'hides text' : 'hides nothing'}, ${button ? 'with' : 'without'} Read more`,
         )
     if (states.packed.hides) seen.push(`${where}: packed tight, the synopsis still overflowed`)
+    for (const state of ['tight', 'tight again'] as const)
+      if (states[state].hides)
+        seen.push(`${where}, ${state}: spaced to fill five lines, it overflowed`)
+    for (const state of ['loose', 'loose again'] as const)
+      if (!states[state].hides) seen.push(`${where}, ${state}: spaced looser, it didn't overflow`)
     if (!states.back.hides) seen.push(`${where}: the synopsis no longer overflows five lines`)
   }
   assert.deepEqual(seen, [], 'clamps whose height or Read more went wrong as the text changed')
