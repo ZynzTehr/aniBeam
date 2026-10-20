@@ -5,8 +5,9 @@ import assert from 'node:assert/strict'
 import { after, afterEach, before, beforeEach, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { runtimeOf } from '../src/features/anime/format.ts'
-import type { Media } from '../src/features/anime/queries.ts'
+import type { Media, Tag } from '../src/features/anime/queries.ts'
 import { parseSynopsis } from '../src/features/anime/synopsis.ts'
+import { tagsOf } from '../src/features/anime/tags.ts'
 import { BASE_URL, Browser } from './browser.ts'
 import { recordings } from './recordings.ts'
 
@@ -712,8 +713,9 @@ test('the clamp is as tall in a fallback font as in the page’s own, and Read m
 test('Tab reaches the details’ buttons after the card’s own, each showing its focus, and Shift+Tab goes back', async () => {
   // Every interactive part is reachable by Tab, with visible focus (the acceptance checks). The
   // card's stops, from its close button: Open on AniList (the Soon buttons are disabled), then
-  // the details' buttons in reading order, each with the card's focus ring, 4px in brand hot.
-  const STOPS = ['Close title card', 'Open on AniList', 'Read more']
+  // the details' buttons in reading order, Read more and Show spoiler tags, each with the card's
+  // focus ring, 4px in brand hot.
+  const STOPS = ['Close title card', 'Open on AniList', 'Read more', 'Show spoiler tags']
   const seen: string[] = []
   const focused = () =>
     browser.evaluate<string>(`(() => {
@@ -781,7 +783,7 @@ test('the details paint only ink, white, paper, the caption’s grey and the tit
   // Colors in the title's own color come from deriveAccent, in its pairs: the fill under ink, and
   // the text color on white or paper, each meeting 4.5:1. The details are drawn for the first four
   // trending titles, whose colors differ, and for Frieren with no color (brand hot), with the
-  // synopsis open, so its open button shows in the title's fill.
+  // synopsis and any spoiler tags open, so the open buttons show in the title's fill.
   const seen: string[] = []
   const PAIRS: Record<string, string[]> = {
     ink: ['white', 'paper', 'accent'],
@@ -847,9 +849,11 @@ test('the details paint only ink, white, paper, the caption’s grey and the tit
   assert.deepEqual(seen, [], 'colors in the details out of their pairs, or too faint')
 })
 
-test('in a contrast theme, an open button shows it is open, in the theme’s colors for a selected thing', async () => {
+test('in a contrast theme, open buttons show they are open, in the theme’s colors for a selected thing, and shown spoiler tags keep their dashes', async () => {
   // A contrast theme paints every button alike, so the title's fill on an open button would go:
-  // an open one takes the theme's colors for something selected, in a light palette and a dark one.
+  // an open one takes the theme's colors for something selected, in a light palette and a dark
+  // one. Frieren's card has both buttons, Read more and Show spoiler tags. A spoiler tag, once
+  // shown, keeps its dashed border, which the theme draws in its own color.
   const seen: string[] = []
   try {
     for (const scheme of ['light', 'dark']) {
@@ -861,28 +865,39 @@ test('in a contrast theme, an open button shows it is open, in the theme’s col
           { name: 'prefers-color-scheme', value: scheme },
         ],
       })
-      const look = await browser.evaluate<{
-        closed: string
-        open: string
-        selected: string
+      const { buttons, spoilers } = await browser.evaluate<{
+        buttons: { says: string; closed: string; open: string; selected: string }[]
+        spoilers: string[]
       }>(`(async () => {
-        const button = document.querySelector('dialog.ab-card[open] .ab-details .ab-more')
         const probe = document.body.appendChild(document.createElement('i'))
         probe.style.backgroundColor = 'SelectedItem'
         const selected = getComputedStyle(probe).backgroundColor
         probe.remove()
-        const closed = getComputedStyle(button).backgroundColor
-        button.click()
-        await new Promise((resolve) => requestAnimationFrame(resolve))
-        return { closed, open: getComputedStyle(button).backgroundColor, selected }
+        const buttons = []
+        for (const button of document.querySelectorAll('dialog.ab-card[open] .ab-details .ab-more')) {
+          const closed = getComputedStyle(button).backgroundColor
+          button.click()
+          await new Promise((resolve) => requestAnimationFrame(resolve))
+          buttons.push({ says: button.textContent, closed, open: getComputedStyle(button).backgroundColor, selected })
+        }
+        const spoilers = [...document.querySelectorAll('dialog.ab-card[open] .ab-tags .is-spoiler')].map((chip) => getComputedStyle(chip).borderTopStyle)
+        return { buttons, spoilers }
       })()`)
-      if (look.open !== look.selected || look.closed === look.selected)
-        seen.push(`${scheme}: closed ${look.closed}, open ${look.open}, selected ${look.selected}`)
+      if (buttons.length !== 2) seen.push(`${scheme}: ${buttons.length} buttons, not 2`)
+      for (const { says, closed, open, selected } of buttons)
+        if (open !== selected || closed === selected)
+          seen.push(`${scheme}, ${says}: closed ${closed}, open ${open}, selected ${selected}`)
+      if (!spoilers.length || spoilers.some((style) => style !== 'dashed'))
+        seen.push(`${scheme}: spoiler tags shown with borders ${JSON.stringify(spoilers)}`)
     }
   } finally {
     await browser.send('Emulation.setEmulatedMedia', { features: [] })
   }
-  assert.deepEqual(seen, [], 'open buttons that look closed in a contrast theme')
+  assert.deepEqual(
+    seen,
+    [],
+    'open buttons that look closed, or spoiler tags unmarked, in a contrast theme',
+  )
 })
 
 test('a card opened from a list, or cold at its address with AniList’s answer held 2 s, opens with its details and shifts nothing', async () => {
@@ -924,4 +939,137 @@ test('a card opened from a list, or cold at its address with AniList’s answer 
     }
   }
   assert.deepEqual(seen, [], 'layout shift as a card opened, under 0.1')
+})
+
+// The open card's tags as they show: each chip's text, a spoiler marked "(spoiler)", and its
+// spoiler button, if any: what it says, aria-expanded, and whether aria-controls names the list.
+const TAGS = `(() => {
+  const card = document.querySelector('dialog.ab-card[open]')
+  const list = card.querySelector('.ab-tags'), button = card.querySelector('.ab-tag-set .ab-more')
+  return {
+    chips: list ? [...list.querySelectorAll('li')].map((chip) => chip.textContent + (chip.classList.contains('is-spoiler') ? ' (spoiler)' : '')) : [],
+    button: button && {
+      says: button.textContent,
+      expanded: button.getAttribute('aria-expanded'),
+      controls: button.getAttribute('aria-controls') === list.id && list.id !== '',
+    },
+  }
+})()`
+
+test('a card shows its title’s top 8 tags by rank, never an adult one, and its spoiler tags only after “Show spoiler tags”, asking AniList for nothing', async () => {
+  // Spec §3G and the title lab's choice: the top 8 tags by rank as chips, each with its rank,
+  // adult tags never, and the top 8 spoiler tags behind "Show spoiler tags", which shows them in
+  // place, after the others and marked as spoilers, and hides them again, saying which with
+  // aria-expanded. Every trending panel's title is opened from the list, with no request. Then
+  // Frieren at its address, staged with an adult tag ranked above the rest, with no spoiler
+  // tags (no button), and with no tags at all (no chips and no button).
+  const seen: string[] = []
+  const chip = (spoiler: boolean) => (tag: Tag) =>
+    `${tag.name}${tag.rank === null ? '' : ` ${tag.rank}%`}${spoiler ? ' (spoiler)' : ''}`
+  /** Checks the open card's tags against `media`'s, through both presses of its button. */
+  const check = async (media: Media) => {
+    const { shown, spoilers } = tagsOf(media.tags)
+    const where = `${await browser.evaluate<number>('innerWidth')}px, ${await browser.evaluate(CARD)}`
+    const button = (expanded: boolean) =>
+      spoilers.length
+        ? { says: 'Show spoiler tags', expanded: String(expanded), controls: true }
+        : null
+    const hidden = { chips: shown.map(chip(false)), button: button(false) }
+    // Hidden, shown at a press, hidden again at a second; with no spoiler tags, no press.
+    const expected = spoilers.length
+      ? [
+          hidden,
+          { chips: [...shown.map(chip(false)), ...spoilers.map(chip(true))], button: button(true) },
+          hidden,
+        ]
+      : [hidden]
+    const states = [await browser.evaluate(TAGS)]
+    for (let press = 0; press < 2 && spoilers.length; press++) {
+      const pressed = await browser.evaluate<boolean>(`(async () => {
+        const button = document.querySelector('dialog.ab-card[open] .ab-tag-set .ab-more')
+        button?.click()
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+        return Boolean(button)
+      })()`)
+      if (!pressed) break
+      states.push(await browser.evaluate(TAGS))
+    }
+    if (JSON.stringify(states) !== JSON.stringify(expected))
+      seen.push(`${where}: ${JSON.stringify(states)}`)
+    const adult = media.tags.filter((tag) => tag.isAdult).map((tag) => tag.name)
+    if (adult.some((name) => JSON.stringify(states).includes(`"${name} `)))
+      seen.push(`${where}: shows an adult tag, of ${adult.join(', ')}`)
+  }
+  for (const screen of [SCREENS[0], SCREENS[2]]) {
+    await browser.forget()
+    await browser.load({ ...screen, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    const ids = await browser.evaluate<number[]>(
+      `[...document.querySelectorAll('.ab-grid .ab-link')].map((link) => Number(link.getAttribute('href').split('/').pop()))`,
+    )
+    const asked = await noteRequests()
+    try {
+      for (const id of ids) {
+        const media = RECORDED.get(id)
+        assert.ok(media, `title ${id} is in no recording`)
+        await browser.evaluate(
+          `document.querySelector('.ab-grid .ab-link[href="/anime/${id}"]').click(); true`,
+        )
+        assert.ok(await browser.waitFor(`${CARD} !== ''`, 5000))
+        await check(media)
+        await browser.evaluate(
+          `document.querySelector('dialog.ab-card[open] .ab-close').click(); true`,
+        )
+        assert.ok(await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000))
+      }
+      await sleep(500)
+      if (asked.length) seen.push(`${screen.width}px: asked AniList for ${asked.join(', ')}`)
+    } finally {
+      await browser.rewriteAniList(null)
+    }
+  }
+  const frieren = RECORDED.get(154587)!
+  const ADULT = {
+    name: 'Nudity',
+    rank: 100,
+    isAdult: true,
+    isGeneralSpoiler: false,
+    isMediaSpoiler: false,
+  }
+  const STAGED: Record<string, Tag[]> = {
+    'an adult tag': [
+      ADULT,
+      { ...ADULT, name: 'Sexual Content', isMediaSpoiler: true },
+      ...frieren.tags,
+    ],
+    'no spoiler tags': frieren.tags.map((tag) => ({
+      ...tag,
+      isGeneralSpoiler: false,
+      isMediaSpoiler: false,
+    })),
+    'no tags': [],
+  }
+  try {
+    for (const [staged, tags] of Object.entries(STAGED)) {
+      await browser.rewriteAniList(({ request, status, body }) => {
+        if (request.variables.id !== 154587) return null
+        body.data.Media.tags = tags
+        return { status, body }
+      })
+      for (const screen of [SCREENS[0], SCREENS[2]]) {
+        await openFrieren(screen)
+        await check({ ...frieren, tags })
+        if (
+          staged === 'no tags' &&
+          (await browser.evaluate(
+            `Boolean(document.querySelector('dialog.ab-card[open] .ab-tag-set'))`,
+          ))
+        )
+          seen.push(`${screen.width}px, no tags: the card still has a place for them`)
+      }
+    }
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+  assert.deepEqual(seen, [], 'cards whose tags show wrongly, or that asked AniList for them')
 })

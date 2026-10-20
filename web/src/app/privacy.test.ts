@@ -354,14 +354,15 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // alone (touch events on the document, opensFrom and rowScrolls in lib/swipe.ts keeping it off
 // the search, a dialog and the decade strip, off selected text and a pinch: 84,720 B), and
 // 85,000 B with the title card's synopsis (TitleDetails, its Read more measured again as the text
-// changes size, and synopsis.ts, which reads AniList's markup into plain text: 85,844 B), so its
-// budget is 86,000 B. The JS loaded only when needed rose to 14,028 B when the samples began to
+// changes size, and synopsis.ts, which reads AniList's markup into plain text: 85,844 B), and
+// 86,000 B with its tags (tagsOf in the card, the spoiler tags behind their button: 86,020 B), so
+// its budget is 86,500 B. The JS loaded only when needed rose to 14,028 B when the samples began to
 // carry each title's synopsis, running time and the tags its card shows, as the lists' titles do,
 // so that a sample's card opens on them with no request (the user agreed to about 15 KB more,
 // gzipped), so its budget is 14,500 B.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 86_000,
+  'the JS every visit loads': 86_500,
   'the CSS': 11_000,
   'the JS loaded only when needed': 14_500,
   'every other file': 500,

@@ -1,17 +1,19 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
-import type { Media } from '../features/anime/queries.ts'
+import type { Media, Tag } from '../features/anime/queries.ts'
 import { parseSynopsis, type Run } from '../features/anime/synopsis.ts'
+import { tagsOf } from '../features/anime/tags.ts'
 
 /**
  * What the title card shows below its facts and buttons, last in it: the synopsis, five lines of
- * it until Read more, with its source as a caption. A list's copy of a title carries it (see
- * cardOf), so a card opened from a list shows it at once, with no request, and one opened at its
- * address shows it from that one request.
+ * it until Read more, with its source as a caption, and the tags, spoilers behind a button. A
+ * list's copy of a title carries them (see cardOf), so a card opened from a list shows them at
+ * once, with no request, and one opened at its address shows them from that one request.
  */
 export function TitleDetails({ media }: { media: Media }) {
   return (
     <div className="ab-details">
       <Synopsis description={media.description} />
+      <Tags tags={media.tags} />
     </div>
   )
 }
@@ -84,6 +86,45 @@ function Synopsis({ description }: { description: string | null }) {
         </button>
       )}
       {source && <p className="ab-source">Source: {source}</p>}
+    </section>
+  )
+}
+
+/** A tag as a chip, with its rank, how strongly it fits the title, where AniList gives one. */
+const chip = (tag: Tag, spoiler: boolean) => (
+  <li key={tag.name} className={spoiler ? 'is-spoiler' : undefined}>
+    {tag.name}
+    {tag.rank !== null && <small> {tag.rank}%</small>}
+  </li>
+)
+
+/**
+ * The title's top tags by rank, never an adult one, and its top spoiler tags only once "Show
+ * spoiler tags" is pressed (spec §3G): they join the list in place, after the others, marked as
+ * spoilers, and go again at a second press. A title with no spoiler tags has no button.
+ */
+function Tags({ tags }: { tags: Tag[] }) {
+  const id = useId()
+  const [spoilersShown, setSpoilersShown] = useState(false)
+  const { shown, spoilers } = tagsOf(tags)
+  if (shown.length + spoilers.length === 0) return null
+  return (
+    <section className="ab-tag-set" aria-label="Tags">
+      <ul id={id} className="ab-tags">
+        {shown.map((tag) => chip(tag, false))}
+        {spoilersShown && spoilers.map((tag) => chip(tag, true))}
+      </ul>
+      {spoilers.length > 0 && (
+        <button
+          type="button"
+          className="ab-more"
+          aria-expanded={spoilersShown}
+          aria-controls={id}
+          onClick={() => setSpoilersShown(!spoilersShown)}
+        >
+          Show spoiler tags
+        </button>
+      )}
     </section>
   )
 }

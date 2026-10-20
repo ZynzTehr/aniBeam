@@ -2176,6 +2176,42 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   letter-spacing: 0.04em;
 }
 
+/* The tags: chips, squarer than the genres' pills. A spoiler tag, once shown, is marked as one by a
+   dashed border in the title's text color, which reads on white at 4.5:1 or better. */
+.ab-tag-set {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.ab-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ab-tags li {
+  padding: 3px 9px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ab-tags small {
+  color: #3d3d3d;
+  font-size: 11px;
+}
+
+.ab-tags .is-spoiler {
+  border-style: dashed;
+  border-color: var(--anime-accent-text);
+}
+
 /* Read more, Show less and Show spoiler tags: open, in the title's fill, which ink reads on at
    4.5:1 or better (see deriveAccent). */
 .ab-more {

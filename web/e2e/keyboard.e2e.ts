@@ -151,6 +151,19 @@ test('a title card taller than the screen shows its focus ring, inside its edge,
     )
     await browser.evaluate(`document.activeElement.blur(); true`)
     const unfocused = await edges()
+    // Scrolled to its foot, the top edge cuts through whatever the card holds there: where ink
+    // text meets it (as the title's tall letters did, once the details made the card longer), the
+    // ring's ink lies on ink and its white line on white paper, and changes nothing at those
+    // points, whatever the ring. So the top edge is read scrolled back to the card's head
+    // (Home), where the screen's edge is the title's color above the sheet.
+    await browser.evaluate(`document.querySelector('dialog.ab-card').focus(); true`)
+    await browser.press('Home')
+    await browser.evaluate(
+      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+    )
+    focused.top = (await edges()).top
+    await browser.evaluate(`document.activeElement.blur(); true`)
+    unfocused.top = (await edges()).top
     const at = ({ width, rgb }: { width: number; rgb: number[] }, x: number, y: number) =>
       rgb.slice((y * width + x) * 3, (y * width + x) * 3 + 3)
     // The share of the points along an edge where the ring changes any pixel across its depth.
