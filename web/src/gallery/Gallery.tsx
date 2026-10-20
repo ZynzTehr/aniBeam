@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { noteFor, sampleNote, searchStatus, statusText } from '../app/status.ts'
+import { cardNote, noteFor, sampleNote, searchStatus, statusText } from '../app/status.ts'
 import { IntroHero } from '../components/IntroHero.tsx'
 import { MangaPage, PANELS } from '../components/MangaPage.tsx'
 import { MotionSwitch } from '../components/MotionSwitch.tsx'
@@ -14,7 +14,15 @@ import { MoodSlider } from '../features/mood/MoodSlider.tsx'
 import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { accentVars, deriveAccent, DOTTED_PAPER, INK } from '../features/theming/deriveAccent.ts'
 import { contrast } from '../lib/color.ts'
-import { ECCHI_POOL, mediaOf, STATES, STATUS_CASES, TITLE_CASES, type State } from './cases.ts'
+import {
+  CARD_STATES,
+  ECCHI_POOL,
+  mediaOf,
+  STATES,
+  STATUS_CASES,
+  TITLE_CASES,
+  type State,
+} from './cases.ts'
 import './gallery.css'
 
 // Tailwind doesn't read this folder (see styles/index.css): the word capitalize here is a canary,
@@ -39,9 +47,17 @@ const noop = () => {}
 export default function Gallery() {
   // The header's search box shows what is typed, and searches nothing.
   const [search, setSearch] = useState('')
-  // The title card open, if any, and where it opened from, as in the app.
-  const [opened, setOpened] = useState<{ media: Media; from: DOMRect } | null>(null)
+  // The title card open, if any, and where it opened from, as in the app; with its status line
+  // and Try again, if a case of that line opened it.
+  const [opened, setOpened] = useState<{
+    media: Media
+    from: DOMRect
+    status?: string | null
+    retry?: boolean
+  } | null>(null)
   const open: OpenTitle = (media, from) => setOpened({ media, from: from.getBoundingClientRect() })
+  const openHeld: OpenHeld = (media, from, status, retry) =>
+    setOpened({ media, from: from.getBoundingClientRect(), status, retry })
   return (
     <div className="ab-app">
       <a className="ab-skip" href="#main">
@@ -69,7 +85,7 @@ export default function Gallery() {
           </p>
         </header>
         <TitleCases onOpen={open} />
-        <SectionStates onOpen={open} />
+        <SectionStates onOpen={open} onOpenHeld={openHeld} />
         <StatusLines />
         <Controls />
         <Sliders />
@@ -83,6 +99,8 @@ export default function Gallery() {
           key={opened.media.id}
           media={opened.media}
           from={opened.from}
+          status={opened.status}
+          onRetry={opened.retry ? noop : undefined}
           onClose={() => setOpened(null)}
         />
       )}
@@ -211,8 +229,14 @@ function OneAtATime<S extends string>({
   )
 }
 
-/** Every state of each section, and of the intro and the pull machine. */
-function SectionStates({ onOpen }: { onOpen: OpenTitle }) {
+/** Opens a title's card with its status line saying `status`, and Try again if `retry`. */
+type OpenHeld = (media: Media, from: HTMLElement, status: string | null, retry: boolean) => void
+
+/**
+ * Every state of each section, and of the intro and the pull machine, and of a title card's status
+ * line.
+ */
+function SectionStates({ onOpen, onOpenHeld }: { onOpen: OpenTitle; onOpenHeld: OpenHeld }) {
   const failed = statusText(STATUS_CASES.failed.status, false)
   const page: Record<State<'page'>, ReactNode> = {
     Loading: (
@@ -311,6 +335,28 @@ function SectionStates({ onOpen }: { onOpen: OpenTitle }) {
     Loading: <IntroHero titles={[]} loading actions={actions} />,
     'No covers': <IntroHero titles={[]} actions={actions} />,
   }
+  // A card keeps its title while AniList holds up a newer answer for it, and its status line says
+  // why (see cardNote): each state opens the first sample's card with the line forced.
+  const card = Object.fromEntries(
+    Object.entries(CARD_STATES).map(([label, { status, retry }]) => [
+      label,
+      <button
+        key={label}
+        type="button"
+        className="ab-btn"
+        onClick={(event) =>
+          onOpenHeld(
+            SAMPLES[0],
+            event.currentTarget,
+            cardNote({ ...status, data: SAMPLES[0] }, false),
+            retry,
+          )
+        }
+      >
+        Open its card
+      </button>,
+    ]),
+  )
   const pull: Record<State<'pull'>, ReactNode> = {
     'Nothing to pull yet': <PullMachine pool={[]} onOpen={onOpen} />,
     'Nothing it may hand out (all Ecchi)': <PullMachine pool={ECCHI_POOL} onOpen={onOpen} />,
@@ -321,12 +367,13 @@ function SectionStates({ onOpen }: { onOpen: OpenTitle }) {
     <Part
       id="gal-states"
       heading="Section states"
-      note="The intro and the pull machine can be on a page only once (their ids, and the machine’s vibe buttons), so they show one state at a time."
+      note="The intro and the pull machine can be on a page only once (their ids, and the machine’s vibe buttons), so they show one state at a time. Last come the states of a title card’s status line, which says why AniList holds up a newer answer for the title the card keeps: open its card for each."
     >
       <Each group="page" states={STATES.page} render={page} />
       <Each group="strip" states={STATES.strip} render={strip} />
       <OneAtATime group="intro" legend="The intro" states={STATES.intro} render={intro} />
       <OneAtATime group="pull" legend="The pull machine" states={STATES.pull} render={pull} />
+      <Each group="card-status" states={Object.keys(card)} render={card} />
     </Part>
   )
 }

@@ -206,3 +206,15 @@ export const STATUS_CASES = statusCases({
     status: { ...IDLE, data: TITLES, isFetching: true, dataUpdatedAt: FETCHED },
   },
 })
+
+/**
+ * The states a title card's status line shows (see cardNote in app/status.ts), as the gallery
+ * labels them: AniList busy while the app tries again, then its tries ended, with Try again.
+ */
+export const CARD_STATES = {
+  'AniList busy (429), trying again': { status: STATUS_CASES.busy.status, retry: false },
+  'Its tries ended, with Try again': {
+    status: { ...IDLE, error: new AniListError('Too many requests', 429) },
+    retry: true,
+  },
+}

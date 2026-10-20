@@ -305,6 +305,62 @@ test(
 )
 
 test(
+  "the title card's status line shows in each of its states, and Esc closes the card with focus back",
+  { skip },
+  async () => {
+    // Reduced motion, so each card fades in and out in 150 ms.
+    await browser.load({ url: GALLERY, reduceMotion: true })
+    const lines: Record<string, unknown> = {}
+    for (const label of ['AniList busy (429), trying again', 'Its tries ended, with Try again']) {
+      const button = `document.querySelector('[data-group="card-status"] > [data-case="${label}"] button')`
+      if (!(await browser.evaluate<boolean>(`Boolean(${button})`))) {
+        lines[label] = 'no button opens its card'
+        continue
+      }
+      await browser.evaluate(`${button}.focus()`)
+      await browser.press('Enter')
+      const shown = await browser.waitFor(
+        `document.querySelector('dialog.ab-card[open] .ab-card-status.is-shown')`,
+        5000,
+      )
+      lines[label] = shown
+        ? await browser.evaluate(`(() => {
+          const line = document.querySelector('dialog.ab-card[open] .ab-card-status'), box = line.getBoundingClientRect()
+          return {
+            text: line.querySelector('p').textContent,
+            role: line.querySelector('p').getAttribute('role'),
+            buttons: [...line.querySelectorAll('button')].map((button) => button.textContent.trim()),
+            whole: box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth,
+          }
+        })()`)
+        : 'no status line'
+      await browser.press('Escape')
+      const closed = await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000)
+      const back = await browser.evaluate<boolean>(`document.activeElement === ${button}`)
+      if (!closed || !back) lines[label] = closed ? 'focus not back' : 'still open'
+    }
+    assert.deepEqual(
+      lines,
+      {
+        'AniList busy (429), trying again': {
+          text: 'AniList is busy right now. It’s not something you did. Trying again within a minute.',
+          role: 'status',
+          buttons: [],
+          whole: true,
+        },
+        'Its tries ended, with Try again': {
+          text: 'AniList, where AniBeam gets its anime, isn’t responding right now. It’s not something you did. Try again in a minute.',
+          role: 'status',
+          buttons: ['Try again'],
+          whole: true,
+        },
+      },
+      "the card's status lines",
+    )
+  },
+)
+
+test(
   'a mood slider is a native range of 5 stops, reads its word by keyboard, and is 44px tall',
   { skip },
   async () => {
