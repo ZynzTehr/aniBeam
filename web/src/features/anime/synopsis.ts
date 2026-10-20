@@ -5,30 +5,36 @@
 
 /** A stretch of text, emphasized (in italics), strong (in bold), both or neither. */
 export type Run = { text: string; em: boolean; strong: boolean }
-/** Paragraphs of lines of runs, and the source its "(Source: …)" paragraph names, if any. */
+/**
+ * Paragraphs of lines of runs, and the source its "(Source: …)" or "[Written by …]" paragraph
+ * names, if any.
+ */
 export type Synopsis = { paragraphs: Run[][][]; source: string | null }
 
 // A tag starts with a letter, so "a < b" stays text. Only its name counts: attributes drop.
 const TAG = /(<\/?[a-z][^<>]*>)/i
-const NAMED = new Map([
+// A paragraph that is a source line, whole: "(Source: Crunchyroll)", "[Written by MAL Rewrite]".
+const SOURCE = /^(?:\(Source:(.+)\)|\[Written by (.+)\])$/i
+// HTML's five for markup, its Latin-1 set in order from nbsp (U+00A0) to yuml (U+00FF), as in
+// Nausicaä's and Heidi's (Öhi) descriptions, and its typographic marks, as in Wolf Children's.
+const LATIN1 =
+  'nbsp iexcl cent pound curren yen brvbar sect uml copy ordf laquo not shy reg macr deg plusmn sup2 sup3 acute micro para middot cedil sup1 ordm raquo frac14 frac12 frac34 iquest Agrave Aacute Acirc Atilde Auml Aring AElig Ccedil Egrave Eacute Ecirc Euml Igrave Iacute Icirc Iuml ETH Ntilde Ograve Oacute Ocirc Otilde Ouml times Oslash Ugrave Uacute Ucirc Uuml Yacute THORN szlig agrave aacute acirc atilde auml aring aelig ccedil egrave eacute ecirc euml igrave iacute icirc iuml eth ntilde ograve oacute ocirc otilde ouml divide oslash ugrave uacute ucirc uuml yacute thorn yuml'
+const MARKS =
+  'OElig oelig Scaron scaron Yuml fnof circ tilde ensp emsp thinsp ndash mdash lsquo rsquo sbquo ldquo rdquo bdquo dagger Dagger bull hellip permil prime Prime lsaquo rsaquo euro trade'
+const MARKED = 'ŒœŠšŸƒˆ˜\u2002\u2003\u2009–—‘’‚“”„†‡•…‰′″‹›€™'
+const NAMED = new Map<string, string>([
   ['amp', '&'],
   ['lt', '<'],
   ['gt', '>'],
   ['quot', '"'],
   ['apos', "'"],
-  ['nbsp', ' '],
-  ['mdash', '—'],
-  ['ndash', '–'],
-  ['lsquo', '‘'],
-  ['rsquo', '’'],
-  ['ldquo', '“'],
-  ['rdquo', '”'],
-  ['hellip', '…'],
+  ...LATIN1.split(' ').map((name, i): [string, string] => [name, String.fromCharCode(0xa0 + i)]),
+  ...MARKS.split(' ').map((name, i): [string, string] => [name, MARKED[i]]),
 ])
 
-/** Decodes the named entities AniList uses and any numeric one; others stay as written. */
+/** Decodes those named entities and any numeric one; others stay as written. */
 export const decodeEntities = (text: string) =>
-  text.replace(/&(#x[\da-f]+|#\d+|[a-z]+);/gi, (whole, name: string) => {
+  text.replace(/&(#x[\da-f]+|#\d+|[a-z][a-z\d]*);/gi, (whole, name: string) => {
     if (name[0] !== '#') return NAMED.get(name) ?? whole
     const code = /x/i.test(name[1]) ? parseInt(name.slice(2), 16) : Number(name.slice(1))
     return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole
@@ -52,14 +58,16 @@ function tidy(runs: Run[]) {
 
 /**
  * Two or more <br> in a row (</br> counts as one) end a paragraph, one ends a line. <i>/<em> and
- * <b>/<strong> turn their style on and off, and a paragraph's end turns both off, so a tag left
- * open can't run on. Every other tag drops and keeps its text.
+ * <b>/<strong> open and close their style, one inside its like closing only itself, as in HTML,
+ * and a paragraph's end closes both, so a tag left open can't run on. Every other tag drops and
+ * keeps its text. The source is the first source line's: AniList puts a synopsis's own source
+ * right after it, before any note, and a note can name a source of its own.
  */
 export function parseSynopsis(description: string | null | undefined): Synopsis {
   const paragraphs: Run[][][] = []
   let paragraph: Run[][] = []
   let line: Run[] = []
-  let [breaks, em, strong] = [0, false, false]
+  let [breaks, em, strong] = [0, 0, 0]
   // The <br>s seen since the last text take effect once more text or a style comes.
   const flush = () => {
     if (breaks > 0) {
@@ -69,7 +77,7 @@ export function parseSynopsis(description: string | null | undefined): Synopsis 
     }
     if (breaks > 1) {
       if (paragraph.length) paragraphs.push(paragraph)
-      ;[paragraph, em, strong] = [[], false, false]
+      ;[paragraph, em, strong] = [[], 0, 0]
     }
     breaks = 0
   }
@@ -79,17 +87,19 @@ export function parseSynopsis(description: string | null | undefined): Synopsis 
     if (tag === 'br') breaks++
     else if (tag === 'i' || tag === 'em' || tag === 'b' || tag === 'strong') {
       flush()
-      if (tag === 'i' || tag === 'em') em = !end
-      else strong = !end
+      // A close with none open (a stray) closes nothing.
+      if (tag === 'i' || tag === 'em') em = Math.max(0, em + (end ? -1 : 1))
+      else strong = Math.max(0, strong + (end ? -1 : 1))
     } else if (i % 2 === 0 && piece) {
       if (piece.trim()) flush()
-      line.push({ text: decodeEntities(piece), em, strong })
+      line.push({ text: decodeEntities(piece), em: em > 0, strong: strong > 0 })
     }
   }
   breaks = 2
   flush()
   const text = (lines: Run[][]) => lines.map((runs) => runs.map((r) => r.text).join('')).join(' ')
-  const at = paragraphs.findLastIndex((lines) => /^\(Source:.+\)$/i.test(text(lines)))
-  const source = at < 0 ? null : text(paragraphs.splice(at, 1)[0]).slice(8, -1).trim()
-  return { paragraphs, source }
+  const at = paragraphs.findIndex((lines) => SOURCE.test(text(lines)))
+  if (at < 0) return { paragraphs, source: null }
+  const [, source, writer] = SOURCE.exec(text(paragraphs.splice(at, 1)[0]))!
+  return { paragraphs, source: (source ?? writer).trim() }
 }

@@ -69,6 +69,57 @@ test('parseSynopsis takes a source line out of the middle, and ends an open <i> 
   )
 })
 
+test("parseSynopsis credits the synopsis's own source, not its note's (NARUTO×NINKU's real one)", () => {
+  // AniList puts a synopsis's source right after it, before any note, and here the note has a
+  // source of its own: the first source line is the caption, and the note's stays with the note.
+  // The note's <i> holds another <i>, which closes only itself, so the note is italic throughout.
+  const { paragraphs, source } = show(description('NARUTO×NINKU'))
+  assert.equal(source, 'NARUTO x NINKŪ Official Site')
+  assert.deepEqual(
+    paragraphs.map((paragraph) => paragraph.slice(0, 30)),
+    [
+      '_"I\'m heading out on a mission',
+      'Team 7 members Naruto, Sasuke,',
+      'What appears before the bewild',
+      '_Note: The official website fo',
+      '(Source: Anime News Network, e',
+    ],
+  )
+  assert.match(paragraphs[3], /^_Note: [^_]* 20th anniversary back in 2022\._$/)
+})
+
+test('parseSynopsis takes a closing "[Written by …]" as the source too (Princess Mononoke\'s)', () => {
+  const { paragraphs, source } = show(description('Princess Mononoke'))
+  assert.equal(source, 'MAL Rewrite')
+  assert.equal(paragraphs.length, 4)
+  assert.match(paragraphs[3], /expel his curse\?$/)
+})
+
+test('parseSynopsis takes a source only from a paragraph of its own, whole', () => {
+  // A source line sharing its paragraph, or words that only mention one, stay in the synopsis.
+  assert.deepEqual(show('Story.<br><br>(Source: Crunchyroll)<br>Note: aired in 2 parts.'), {
+    paragraphs: ['Story.', '(Source: Crunchyroll)\nNote: aired in 2 parts.'],
+    source: null,
+  })
+  for (const text of [
+    'He quotes (Source: none) and walks off.',
+    '(Source: none) opens this.',
+    'Read it [Written by Ann] today.',
+    '[Written by Ann] and more',
+  ])
+    assert.deepEqual(show(text), { paragraphs: [text], source: null }, text)
+})
+
+test("parseSynopsis shows the Latin-1 letters AniList writes as entities (Nausicaä's, Heidi's)", () => {
+  const nausicaa = show(description('Nausicaä of the Valley of the Wind'))
+  assert.equal(nausicaa.source, 'Disney')
+  assert.match(nausicaa.paragraphs[0], /Princess Nausicaä, the people .* Nausicaä and her brave/)
+  assert.doesNotMatch(nausicaa.paragraphs[0], /&/)
+  const heidi = show(description('Heidi, Girl of the Alps'))
+  assert.equal(heidi.source, 'Anime News Network, edited')
+  assert.match(heidi.paragraphs[0], /her grandfather Öhi, who lives in the Alps/)
+})
+
 test("parseSynopsis drops a link and keeps its words (Haruhi's note)", () => {
   const { paragraphs, source } = show(description('The Melancholy of Haruhi Suzumiya'))
   assert.equal(source, null)
@@ -85,6 +136,10 @@ test('parseSynopsis has nothing to show for no description', () => {
   assert.deepEqual(parseSynopsis('(Source: Crunchyroll)'), {
     paragraphs: [],
     source: 'Crunchyroll',
+  })
+  assert.deepEqual(parseSynopsis('[Written by MAL Rewrite]'), {
+    paragraphs: [],
+    source: 'MAL Rewrite',
   })
 })
 
@@ -123,14 +178,18 @@ test('parseSynopsis turns hostile markup into plain text', () => {
   }
 })
 
-test('parseSynopsis lets no open tag run past its paragraph, and ignores a stray close', () => {
+test('parseSynopsis lets no open tag run past its paragraph, ignores a stray close, and closes a tag inside its like only once', () => {
   assert.deepEqual(show('<i>open<br><br>next <b>bold<br><br>plain').paragraphs, [
     '_open_',
     'next **bold**',
     'plain',
   ])
-  assert.deepEqual(show('</b>stray</i> close <b><b>twice</b> once').paragraphs, [
-    'stray close **twice** once',
+  // As in HTML, a tag opened inside one of its kind closes only itself.
+  assert.deepEqual(show('</b>stray</i> close <b><b>twice</b> once</b> done').paragraphs, [
+    'stray close **twice once** done',
+  ])
+  assert.deepEqual(show('<i>the <em>Show</em> aired</i> then').paragraphs, [
+    '_the Show aired_ then',
   ])
 })
 
@@ -153,6 +212,25 @@ test("decodeEntities decodes AniList's entities and leaves unknown or impossible
   assert.equal(decodeEntities('children&mdash;an'), 'children—an')
   assert.equal(decodeEntities('Machina &ndash; The'), 'Machina – The')
   assert.equal(decodeEntities('&quot;&apos;&nbsp;&hellip;&#8220;&#x201D;'), '"\' …“”')
+  // HTML's Latin-1 letters and signs, and its typographic ones, by name.
+  assert.equal(
+    decodeEntities(
+      '&auml;&Ouml;&uuml;&Uuml;&eacute;&Egrave;&agrave;&ccedil;&szlig;&ntilde;&oslash;&aring;&AElig;',
+    ),
+    'äÖüÜéÈàçßñøåÆ',
+  )
+  assert.equal(
+    decodeEntities(
+      '&iexcl;&pound;&yen;&copy;&reg;&deg;&plusmn;&sup2;&frac12;&times;&divide;&laquo;&raquo;&middot;&yuml;',
+    ),
+    '¡£¥©®°±²½×÷«»·ÿ',
+  )
+  assert.equal(
+    decodeEntities(
+      '&euro;&trade;&bull;&dagger;&permil;&sbquo;&bdquo;&lsaquo;&rsaquo;&OElig;&scaron;&Yuml;',
+    ),
+    '€™•†‰‚„‹›ŒšŸ',
+  )
   for (const kept of [
     '&constructor;',
     '&toString;',
