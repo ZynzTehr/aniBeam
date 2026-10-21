@@ -1,4 +1,4 @@
-import { queryOptions, type QueryClient } from '@tanstack/react-query'
+import { queryOptions, type QueryClient, type QueryKey } from '@tanstack/react-query'
 import { anilist, AniListError, isRateLimited, type Variables } from '../../lib/anilist.ts'
 import { tagsOf, type TagFlags } from './tags.ts'
 
@@ -210,6 +210,18 @@ export const titleQuery = (id: number) =>
     refetchOnWindowFocus: (query) => !isMissing(query.state.error),
     retryOnMount: false,
   })
+
+/**
+ * How long the saved cache keeps an answer, from when it came (see lib/queryClient.ts): a title
+ * AniList says is finished, 30 days, as its details won't change; anything else a day, a list or a
+ * title still airing (its next episode changes), so a visitor back after a week never sees that
+ * week's lists. Not how long an answer stays fresh (staleTime): a trending list out of date after
+ * 30 minutes still shows while the page asks for a newer one.
+ */
+export const keptFor = (queryKey: QueryKey, data: unknown) =>
+  queryKey[1] === QUERIES.title && (data as Title | undefined)?.status === 'FINISHED'
+    ? 30 * DAY
+    : DAY
 
 const isMissing = (error: unknown) => error instanceof AniListError && error.status === 404
 

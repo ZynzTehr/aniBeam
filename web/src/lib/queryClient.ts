@@ -5,6 +5,7 @@ import {
   type PersistedClient,
   type Persister,
 } from '@tanstack/react-query-persist-client'
+import { keptFor, QUERIES } from '../features/anime/queries.ts'
 import { AniListError } from './anilist.ts'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -59,6 +60,24 @@ const signature = ({ clientState }: PersistedClient) =>
     ]),
   ])
 
+// What a saved copy brings back: each answer only while it is kept (see keptFor), however lately the
+// copy was saved, since a copy is saved again whenever anything in it changes, and only answers to
+// a query the app still asks with. Each answer is saved under its query's exact text, so an edit to
+// a query leaves the answers under the old text where nothing looks them up again. A copy that
+// isn't one TanStack saved is left for TanStack to throw away.
+const restored = (saved: string): PersistedClient => {
+  const copy = JSON.parse(saved)
+  const queries: PersistedClient['clientState']['queries'] | undefined = copy?.clientState?.queries
+  if (!Array.isArray(queries)) return copy
+  const asked: unknown[] = Object.values(QUERIES)
+  copy.clientState.queries = queries.filter(
+    ({ queryKey, state }) =>
+      asked.includes(queryKey[1]) &&
+      Date.now() - state.dataUpdatedAt < keptFor(queryKey, state.data),
+  )
+  return copy
+}
+
 // localStorage holds about 5 MB per site; removeOldestQuery drops the oldest
 // result when it is full. Upgrade path if that ever limits us: an IndexedDB persister.
 // The storage is an argument so tests can hand it a stand-in (see persist.test.ts).
@@ -83,6 +102,7 @@ export const cachePersister = (
     storage,
     key: 'anibeam:cache',
     retry: removeOldestQuery,
+    deserialize: restored,
   })
   let lastSaved: string | undefined
   return {
