@@ -450,14 +450,14 @@ test('a double-click on Watch trailer opens the trailer and leaves it open, its 
     seen[`${screen.width}px`] = await browser.evaluate(`({
       trailer: Boolean(${TRAILER}),
       'under the pointer': document.elementFromPoint(${x}, ${y})?.className ?? null,
-      entry: history.state,
+      entry: { ...history.state, trailer: typeof history.state.trailer },
     })`)
     seen[`${screen.width}px, from YouTube or Google`] = fromGoogle(from).length
   }
   const expected = {
     trailer: true,
     'under the pointer': 'ab-trailer',
-    entry: { over: '/', trailer: true },
+    entry: { over: '/', trailer: 'string' },
   }
   assert.deepEqual(seen, {
     '390px': expected,
@@ -568,6 +568,46 @@ test('reloaded with the trailer open, the card comes back without it, back at it
     reloaded: { trailer: false, card: true, address: '/anime/154587', google: [] },
     'Watch trailer, then Close': { trailer: false, card: true, address: '/anime/154587' },
     'then Back': { trailer: false, card: false, address: '/' },
+  })
+})
+
+test('after a reload, Forward back to where the trailer was open opens the card without it, loading nothing from YouTube or Google', async () => {
+  // Forward to the trailer's history entry opens the trailer again, as a press in this page load
+  // put it there. After a reload, or a tab the browser brings back, nobody has pressed Watch
+  // trailer yet, so the entry opens no trailer (spec §5: only a press loads anything from
+  // YouTube), and the page goes Back to the card's own entry, as for a card opened there.
+  const state = () =>
+    browser.evaluate<object>(`({
+      trailer: Boolean(document.querySelector('dialog.ab-trailer')),
+      card: Boolean(document.querySelector('dialog.ab-card')),
+      frames: document.querySelectorAll('iframe').length,
+      address: location.pathname,
+    })`)
+  const seen: Record<string, unknown> = {}
+  await openFromSearch(DESKTOP, FRIEREN, false)
+  await watchTrailer()
+  await browser.evaluate(`history.back(); true`)
+  await browser.waitFor(`!document.querySelector('dialog.ab-trailer')`, 5_000)
+  await browser.evaluate(`history.back(); true`)
+  await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000)
+  await browser.send('Page.reload')
+  await browser.waitFor(`document.readyState === 'complete' && document.querySelector('#main')`)
+  const from = requests.length
+  await browser.evaluate(`history.forward(); true`)
+  await browser.waitFor(`document.querySelector('dialog.ab-card.is-landed')`, 10_000)
+  await browser.animationsDone()
+  seen['Forward'] = await state()
+  await browser.evaluate(`history.forward(); true`)
+  await browser.waitFor('false', 1_000)
+  seen['Forward again'] = { ...(await state()), google: fromGoogle(from) }
+  await browser.evaluate(`history.back(); true`)
+  await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000)
+  seen['then Back'] = await state()
+  const card = { trailer: false, card: true, frames: 0, address: '/anime/154587' }
+  assert.deepEqual(seen, {
+    Forward: card,
+    'Forward again': { ...card, google: [] },
+    'then Back': { trailer: false, card: false, frames: 0, address: '/' },
   })
 })
 

@@ -5,6 +5,7 @@ import {
   isOver,
   isTrailer,
   push,
+  pushedTrailer,
   pushTrailer,
   replace,
   titleIdFrom,
@@ -137,26 +138,33 @@ test('Watch trailer adds a history entry at the card’s address, its state kept
   const stop = watchPath(() => heard.push(location.pathname))
   pushTrailer()
   stop()
-  assert.deepEqual(history.state, { over: '/', trailer: true })
-  assert.ok(isTrailer(history.state) && isOver(history.state))
+  const { trailer, ...kept } = history.state as { trailer: unknown }
+  assert.deepEqual(kept, { over: '/' })
+  assert.equal(typeof trailer, 'string', 'the mark is this page load’s')
+  assert.ok(isTrailer(history.state) && pushedTrailer(history.state) && isOver(history.state))
   assert.deepEqual(history.entries, ['/', '/anime/154587', '/anime/154587'])
   assert.equal(location.search, '?ep=5', 'the query is left as it was')
   assert.deepEqual(heard, ['/anime/154587'])
   // A card opened at its address has no state of its own: the trailer's entry has its mark alone.
   history.state = null
   pushTrailer()
-  assert.deepEqual(history.state, { trailer: true })
+  assert.deepEqual(history.state, { trailer })
 })
 
-test('only the trailer’s mark says a trailer is open', () => {
-  assert.equal(isTrailer({ over: '/', trailer: true }), true)
-  for (const state of [null, undefined, {}, { over: '/' }, { trailer: 'yes' }, 'trailer', 1])
+test('only the trailer’s mark says a trailer was open, and only this page load’s says it pushed it', () => {
+  for (const state of [{ over: '/', trailer: 'another load' }, { trailer: 'x' }]) {
+    assert.equal(isTrailer(state), true, JSON.stringify(state))
+    assert.equal(pushedTrailer(state), false, JSON.stringify(state))
+  }
+  for (const state of [null, undefined, {}, { over: '/' }, { trailer: true }, 'trailer', 1]) {
     assert.equal(isTrailer(state), false, JSON.stringify(state))
+    assert.equal(pushedTrailer(state), false, JSON.stringify(state))
+  }
 })
 
 test('a card opened at the trailer’s entry takes its mark off, keeping the rest and adding no entry, and goes Back to the card’s own', (t) => {
   const { history } = fakeWindow(t, '/anime/154587')
-  history.state = { over: '/', trailer: true }
+  history.state = { over: '/', trailer: 'another load' }
   dropTrailer()
   assert.deepEqual(history.state, { over: '/' })
   assert.deepEqual(history.entries, ['/anime/154587'])

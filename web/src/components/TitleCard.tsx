@@ -11,7 +11,7 @@ import type { Media } from '../features/anime/queries.ts'
 import { trailerOf } from '../features/anime/trailer.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
 import { reducedMotion, watchDeviceMotion } from '../lib/motion.ts'
-import { dropTrailer, isTrailer, pushTrailer } from '../lib/route.ts'
+import { dropTrailer, isTrailer, pushedTrailer, pushTrailer } from '../lib/route.ts'
 import { markBroken, markLoaded } from './cover.ts'
 import { cssVars } from './cssVars.ts'
 import { RetryButton } from './RetryButton.tsx'
@@ -170,15 +170,17 @@ export function TitleCard({
   // playing over the card. Pressing Watch trailer adds a history entry at the card's address (see
   // pushTrailer), so Back closes the trailer and leaves the card, and Forward back to it opens the
   // trailer again, as Forward does a card. A card opened at such an entry, as after a reload there,
-  // opens without its trailer, and goes Back to its own entry (see dropTrailer): only a press loads
-  // anything from YouTube (spec §5).
+  // opens without its trailer, and goes Back to its own entry (see dropTrailer), as does Forward to
+  // one an earlier page load pushed, as after a reload or in a tab the browser brought back: only a
+  // press loads anything from YouTube (spec §5).
   const trailer = trailerOf(media)
   const [watching, setWatching] = useState(false)
   const watchButton = useRef<HTMLButtonElement>(null)
   useEffect(() => {
     dropTrailer()
     const moved = () => {
-      if (isTrailer(history.state)) setWatching(true)
+      if (pushedTrailer(history.state)) setWatching(true)
+      else dropTrailer()
     }
     addEventListener('popstate', moved)
     return () => removeEventListener('popstate', moved)
