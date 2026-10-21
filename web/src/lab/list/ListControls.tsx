@@ -1,4 +1,6 @@
 import { useId } from 'react'
+import { titleOf } from '../../features/anime/format.ts'
+import { titleFor } from './pool.ts'
 import { entryOf, press, setStatus, toggleFavorite, useList, type Status } from './sandbox.ts'
 import type { Options } from './switches.ts'
 import { WORDS } from './wording.ts'
@@ -43,8 +45,11 @@ export function ListControls({
     </button>
   )
   const waits = options.d2 === 'waits' && !entry
-  // Shown only on T2, its own row: elsewhere the name is for screen readers.
+  // Shown only on T2, its own row: elsewhere the name is for screen readers. Under a cover (L1)
+  // it names the title too, so a grid of groups isn't twelve alike.
   const nameClass = placement === 't2' ? 'ab-lab-mylist-name' : 'sr-only'
+  const media = placement === 'slim' ? titleFor(id) : null
+  const name = media ? `${WORDS.group}: ${titleOf(media)}` : WORDS.group
   const heart = (
     <button
       type="button"
@@ -96,7 +101,7 @@ export function ListControls({
       data-id={id}
     >
       <span id={nameId} className={nameClass}>
-        {WORDS.group}
+        {name}
       </span>
       {statuses}
       {heart}

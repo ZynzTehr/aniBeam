@@ -178,7 +178,7 @@ export const SWITCHES: Switch[] = [
       { value: 'links', label: 'Links that update the address', recommended: true },
       { value: 'tabs', label: 'ARIA tabs, moved with the arrow keys' },
     ],
-    note: 'As links, Back and Forward work and a view can be shared: the address line under the tabs shows what the site’s address would be.',
+    note: 'As links, Back and Forward work and a view can be shared: the address line under the tabs shows what the site’s address would be. The tabs option’s markup is approximate: the grid isn’t wrapped in a tab panel of its own.',
     section: 'page',
   },
   {

@@ -383,10 +383,17 @@
   gap: 10px;
 }
 
-/* T1: the group's buttons sit in the card's action row, each wrapping as the row's own do. */
-.ab-lab-host-t1,
-.ab-lab-at-t1 {
+/*
+ * T1: the group sits in the card's action row, its buttons wrapping as the row's own do. Only the
+ * host has display: contents: on the group itself Safari can drop its role and its name.
+ */
+.ab-lab-host-t1 {
   display: contents;
+}
+
+.ab-lab-at-t1 {
+  display: inline-flex;
+  max-width: 100%;
 }
 
 /* T2: a row of their own above the actions, under the name "My List". */
@@ -406,6 +413,7 @@
 
 /* Under 600px the card centres its action row: the row above it follows. */
 @media (max-width: 599px) {
+  .ab-lab-at-t1,
   .ab-lab-at-t2 {
     justify-content: center;
   }
