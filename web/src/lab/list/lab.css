@@ -364,3 +364,147 @@
   color: var(--ink);
   font-family: var(--body);
 }
+
+/* The page under the card: what to try, and a way to open the card again. Inert while it is open. */
+.ab-lab-under {
+  display: grid;
+  max-width: 60ch;
+  justify-items: start;
+  gap: 12px;
+  padding: 24px 16px;
+}
+
+/* ---------- The list controls (see ListControls) ---------- */
+.ab-lab-mylist {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* T1: the group's buttons sit in the card's action row, each wrapping as the row's own do. */
+.ab-lab-host-t1,
+.ab-lab-at-t1 {
+  display: contents;
+}
+
+/* T2: a row of their own above the actions, under the name "My List". */
+.ab-lab-host-t2 {
+  margin-top: 22px;
+}
+
+.ab-lab-host-t2 + .ab-row-actions {
+  margin-top: 14px;
+}
+
+.ab-lab-mylist-name {
+  flex-basis: 100%;
+  font: 400 15px / 1 var(--display);
+  letter-spacing: 0.02em;
+}
+
+/* Save and Want to try joined as a pair, sharing one border between them. */
+.ab-lab-pair {
+  display: inline-flex;
+}
+
+.ab-lab-at-t2 .ab-lab-pair .ab-btn:first-child,
+.ab-lab-at-pull .ab-lab-pair .ab-btn:first-child,
+.ab-lab-at-slim .ab-lab-pair .ab-btn:first-child {
+  border-radius: 999px 0 0 999px;
+}
+
+.ab-lab-at-t2 .ab-lab-pair .ab-btn:last-child,
+.ab-lab-at-pull .ab-lab-pair .ab-btn:last-child,
+.ab-lab-at-slim .ab-lab-pair .ab-btn:last-child {
+  margin-left: -3px;
+  border-radius: 0 999px 999px 0;
+}
+
+.ab-lab-at-t1 .ab-lab-pair {
+  display: contents;
+}
+
+/* A pressed button shows above its neighbour, so its ring and shadow are whole. */
+.ab-lab-pair .ab-btn:focus-visible,
+.ab-lab-pair .ab-btn[aria-pressed='true'] {
+  position: relative;
+  z-index: 1;
+}
+
+.ab-lab-heart {
+  gap: 8px;
+}
+
+.ab-lab-heart svg {
+  width: 18px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+}
+
+.ab-lab-heart[aria-pressed='true'] svg {
+  fill: currentColor;
+}
+
+/* D2 (b): the heart is off until the title is saved, in AniBeam's dashed "can't use this" look. */
+.ab-lab-off {
+  border-style: dashed;
+  box-shadow: none;
+  color: rgb(20 20 20 / 0.6);
+  cursor: not-allowed;
+}
+
+/* D3's ink stamp: the pressed button inked like a hanko, red on paper, a little askew. */
+.ab-lab-stamped {
+  border-color: var(--hot-deep);
+  background: #fff;
+  box-shadow:
+    inset 0 0 0 2px #fff,
+    inset 0 0 0 4px var(--hot-deep);
+  color: var(--hot-deep);
+  transform: rotate(-2deg);
+}
+
+.ab-lab-stamped:hover {
+  box-shadow:
+    inset 0 0 0 2px #fff,
+    inset 0 0 0 4px var(--hot-deep),
+    3px 3px 0 var(--ink);
+}
+
+/* D1 (b): one three-way control, the site's radio chips. */
+.ab-lab-three {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ab-lab-three .ab-chip input:focus-visible + span {
+  outline-color: var(--hot);
+}
+
+/* What the card's own status line says, shown at the screen's foot for the lab only. */
+.ab-lab-heard-host {
+  position: sticky;
+  z-index: 2;
+  bottom: 8px;
+  pointer-events: none;
+}
+
+.ab-lab-heard {
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  margin: 0 auto 8px;
+  padding: 6px 12px;
+  border: 2px dashed var(--ink);
+  border-radius: 12px;
+  background: var(--sun);
+  color: var(--ink);
+  font: 700 13px / 1.35 var(--body);
+}

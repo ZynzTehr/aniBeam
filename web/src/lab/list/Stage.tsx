@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
+import { CardStage } from './CardStage.tsx'
 import { setStorage } from './sandbox.ts'
 import { read, SECTIONS, type Lab, type Options, type Section } from './switches.ts'
 
@@ -19,7 +20,7 @@ export function Stage({ section }: { section: Section }) {
     addEventListener('message', heard)
     return () => removeEventListener('message', heard)
   }, [])
-  const { lab } = shown
+  const { options, lab } = shown
   useEffect(() => setStorage(lab.storage), [lab.storage])
   // The lab's Reduce motion switch: the site's own setting, for this frame only, so it never
   // changes the visitor's saved choice.
@@ -36,9 +37,13 @@ export function Stage({ section }: { section: Section }) {
   return (
     <div className="ab-lab-page">
       <title>{`${name} · My List lab`}</title>
-      <main id="main">
-        <p className="ab-lab-why">{name}: built in a later commit.</p>
-      </main>
+      {section === 'card' ? (
+        <CardStage options={options} title={lab.title} />
+      ) : (
+        <main id="main">
+          <p className="ab-lab-why">{name}: built in a later commit.</p>
+        </main>
+      )}
     </div>
   )
 }
