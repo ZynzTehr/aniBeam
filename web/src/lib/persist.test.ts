@@ -367,6 +367,99 @@ test('lists that arrive close together are saved at most once a second, and none
   )
 })
 
+/**
+ * A page's frames and whether its tab shows, run by the test: `draw()` runs the frames asked for,
+ * and `hide()` hides the tab, as a visitor switching tabs or closing this one does. Until the test
+ * ends, the page's requestAnimationFrame and document are these.
+ */
+function fakePage(t: TestContext) {
+  const frames: (() => void)[] = []
+  const document = Object.assign(new EventTarget(), { visibilityState: 'visible' })
+  const before = ['requestAnimationFrame', 'document'].map(
+    (name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)] as const,
+  )
+  t.after(() => {
+    for (const [name, descriptor] of before)
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor)
+      else Reflect.deleteProperty(globalThis, name)
+  })
+  Object.defineProperty(globalThis, 'requestAnimationFrame', {
+    configurable: true,
+    value: (frame: () => void) => frames.push(frame),
+  })
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: document })
+  return {
+    draw: () => frames.splice(0).forEach((frame) => frame()),
+    hide: () => {
+      document.visibilityState = 'hidden'
+      document.dispatchEvent(new Event('visibilitychange'))
+    },
+    show: () => {
+      document.visibilityState = 'visible'
+      document.dispatchEvent(new Event('visibilitychange'))
+    },
+  }
+}
+
+test('in a browser, an answer is saved once the page has drawn it, and at once in a hidden tab', async (t) => {
+  // Each save writes out the whole copy: about 100 ms once it has grown to 4.3 MB, as 30 days of
+  // titles can make it. TanStack asks for the save as an answer arrives, before the page draws it,
+  // so the visitor would wait that long for their titles. The save waits for the page's next frame
+  // and goes on just after it is drawn. A hidden tab draws no frames, so there an answer is saved at
+  // once, and one still waiting is saved as the tab is hidden, as closing it does first: a tab
+  // closed then must still have it next time.
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
+  const page = fakePage(t)
+  const storage = fakeStorage()
+  const client = new QueryClient()
+  t.after(saveChanges(client, storage))
+  const titles = SAMPLES.slice(0, 2)
+  const answer = ask(client, 'frieren')
+  await wait(t) // no time passes
+  page.draw()
+  await wait(t, 2000) // asking is saved, then a second goes by with nothing new to save
+  answer(titles)
+  await wait(t) // no time passes
+  assert.deepEqual(savedSearches(storage), {}, 'the answer was saved before the page drew it')
+  page.draw()
+  await wait(t) // no time passes
+  assert.deepEqual(
+    savedSearches(storage),
+    {},
+    'the answer was saved as the page drew its frame, holding the frame up',
+  )
+  await wait(t, 1)
+  assert.deepEqual(
+    savedSearches(storage),
+    { frieren: titles },
+    'the answer was not saved once the page had drawn it',
+  )
+
+  await wait(t, 1000) // a quiet second, so the next answer is saved as it can be
+  page.hide()
+  const hidden = SAMPLES.slice(2, 4)
+  ask(client, 'mushishi')(hidden)
+  await wait(t) // no time passes
+  assert.deepEqual(
+    savedSearches(storage).mushishi,
+    hidden,
+    'in a hidden tab, which draws no frames, the answer was not saved at once',
+  )
+
+  await wait(t, 1000)
+  page.show()
+  const closing = SAMPLES.slice(4, 6)
+  ask(client, 'naruto')(closing)
+  await wait(t) // no time passes
+  page.hide() // before the next frame
+  await wait(t) // no time passes
+  assert.deepEqual(
+    savedSearches(storage).naruto,
+    closing,
+    'an answer waiting for the next frame was not saved as the tab was hidden: a tab closed now would lose it',
+  )
+})
+
 test('asking for a search writes nothing until its answer comes', async (t) => {
   // A list is saved only once it has titles, so a save as a search is asked for would write the
   // whole copy, which can be megabytes, with nothing new in it, while the page draws the search.

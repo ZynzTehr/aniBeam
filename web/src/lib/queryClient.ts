@@ -84,6 +84,27 @@ const restored = (saved: string): PersistedClient => {
   return copy
 }
 
+// Each save writes out the whole copy, about 100 ms once it has grown to 4.3 MB, as 30 days of
+// titles can make it. TanStack asks for it as an answer arrives, before the page draws the answer,
+// so the visitor would wait that long for their titles: `save` waits for the page's next frame and
+// goes on just after it is drawn. A hidden tab draws no frames, so there it goes on at once, and as
+// soon as the tab is hidden while it waits, as closing the tab does first. Outside a browser, as in
+// the unit tests, it goes on at once.
+const afterDrawing = (save: () => void | PromiseLike<void>) =>
+  typeof requestAnimationFrame !== 'function' || document.visibilityState === 'hidden'
+    ? save()
+    : new Promise<void>((resolve) => {
+        let started = false
+        const start = () => {
+          if (started) return
+          started = true
+          document.removeEventListener('visibilitychange', start)
+          resolve(save())
+        }
+        requestAnimationFrame(() => setTimeout(start))
+        document.addEventListener('visibilitychange', start)
+      })
+
 // localStorage holds about 5 MB per site; removeOldestQuery drops the oldest
 // result when it is full. Upgrade path if that ever limits us: an IndexedDB persister.
 // The storage is an argument so tests can hand it a stand-in (see persist.test.ts).
@@ -117,7 +138,7 @@ export const cachePersister = (
       const saving = signature(client)
       if (saving === lastSaved) return
       lastSaved = saving
-      return persister.persistClient(client)
+      return afterDrawing(() => persister.persistClient(client))
     },
   }
 }
