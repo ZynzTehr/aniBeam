@@ -93,3 +93,93 @@ export function merge(a: List, b: List): List {
     list[id] = Object.hasOwn(a, id) ? winner(a[id], entry) : entry
   return list
 }
+
+/** The most titles the list holds (spec §3F's soft cap). Delete markers don't count. */
+export const CAP = 2000
+
+/**
+ * What an edit did: added a title, moved it to the other status, removed it, gave it the heart or
+ * took the heart away; nothing, as when the title was already so; or nothing because the list is
+ * full (see CAP).
+ */
+export type Change = 'added' | 'moved' | 'removed' | 'favorited' | 'unfavorited' | 'none' | 'full'
+
+/** An edit's outcome: the list as it now is, and what changed (`list` itself when nothing did). */
+export type Edited = { list: List; change: Change }
+
+// The heart pressed on a title not on the list puts it on, Saved, with the heart (the plan's D2,
+// option a). Null would leave such a press doing nothing, for a heart shown disabled until then.
+const HEART_ADDS_AS: Status | null = 'SAVED'
+
+/** The title's entry while it is on the list: not a delete marker. */
+const onList = (list: List, id: number): Entry | undefined =>
+  list[id]?.deleted ? undefined : list[id]
+
+const isFull = (list: List) => Object.values(list).filter((entry) => !entry.deleted).length >= CAP
+
+/**
+ * `list` with the title's latest change: its new status and heart, or a delete marker. The change
+ * is made at `now`, or 1 ms after the title's last change if the clock reads earlier, as when the
+ * computer's clock was set back. So a title's changes always come in order, and the last one wins
+ * a merge (see rank).
+ */
+function written(
+  list: List,
+  id: number,
+  now: number,
+  status: Status,
+  favorite: boolean,
+  deleted = false,
+): List {
+  const before = list[id]?.updatedAt
+  const updatedAt = before === undefined ? now : Math.max(now, before + 1)
+  const entry: Entry = deleted
+    ? { status, favorite, updatedAt, deleted: true }
+    : { status, favorite, updatedAt }
+  return { ...list, [id]: entry }
+}
+
+/**
+ * Puts the title on the list with `status`, moving it if it has the other one and keeping its
+ * heart, or takes it off with null: a delete marker, which takes its heart away too. Adding to a
+ * full list changes nothing. Nor does an id that isn't an AniList id (see ID): a saved copy would
+ * lose it.
+ */
+export function setStatusIn(list: List, id: number, status: Status | null, now: number): Edited {
+  const entry = onList(list, id)
+  if (!ID.test(String(id))) return { list, change: 'none' }
+  if (status === null) {
+    if (!entry) return { list, change: 'none' }
+    return { list: written(list, id, now, entry.status, false, true), change: 'removed' }
+  }
+  if (entry?.status === status) return { list, change: 'none' }
+  if (!entry && isFull(list)) return { list, change: 'full' }
+  return {
+    list: written(list, id, now, status, entry?.favorite ?? false),
+    change: entry ? 'moved' : 'added',
+  }
+}
+
+/**
+ * A press on the title's Saved or Want to try button (`status`): the button already pressed takes
+ * the title off the list, and the other moves it there, or puts it on.
+ */
+export const pressStatusIn = (list: List, id: number, status: Status, now: number) =>
+  setStatusIn(list, id, onList(list, id)?.status === status ? null : status, now)
+
+/**
+ * A press on the title's heart: given or taken away while the title is on the list, its status
+ * kept. On a title not on the list, it follows HEART_ADDS_AS, unless the list is full.
+ */
+export function toggleFavoriteIn(list: List, id: number, now: number): Edited {
+  const entry = onList(list, id)
+  if (!ID.test(String(id))) return { list, change: 'none' }
+  if (entry)
+    return {
+      list: written(list, id, now, entry.status, !entry.favorite),
+      change: entry.favorite ? 'unfavorited' : 'favorited',
+    }
+  if (!HEART_ADDS_AS) return { list, change: 'none' }
+  if (isFull(list)) return { list, change: 'full' }
+  return { list: written(list, id, now, HEART_ADDS_AS, true), change: 'added' }
+}

@@ -2,7 +2,17 @@
 // localStorage, under anibeam:list:v1 (spec §3F).
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { merge, parse, type Entry, type List, type Status } from './store.ts'
+import {
+  CAP,
+  merge,
+  parse,
+  pressStatusIn,
+  setStatusIn,
+  toggleFavoriteIn,
+  type Entry,
+  type List,
+  type Status,
+} from './store.ts'
 
 const T = Date.UTC(2026, 9, 21, 12)
 
@@ -175,4 +185,99 @@ test("an older copy can't bring back a removed title, and delete markers are kep
     assert.deepEqual(merged, { '1': removed(T + 10), '2': saved(T), '3': removed(T) })
   // Saved again after the removal, it comes back.
   assert.deepEqual(merge(here, { '1': want(T + 11) }), { '1': want(T + 11), '2': saved(T) })
+})
+
+const HOUR = 60 * 60 * 1000
+
+test('a change never goes back in time, even when the clock does', () => {
+  // Saved at T, then the clock is set back an hour: each later change comes 1 ms after the last.
+  let { list } = setStatusIn({}, 1, 'SAVED', T)
+  assert.deepEqual(list, { '1': saved(T) })
+  ;({ list } = toggleFavoriteIn(list, 1, T - HOUR))
+  assert.deepEqual(list, { '1': saved(T + 1, true) }, 'the heart, after the clock went back')
+  ;({ list } = pressStatusIn(list, 1, 'WANT', T - HOUR))
+  assert.deepEqual(list, { '1': want(T + 2, true) }, 'the move, after the clock went back')
+  ;({ list } = setStatusIn(list, 1, null, T - HOUR))
+  assert.deepEqual(list, { '1': removed(T + 3, 'WANT') }, 'the removal, after the clock went back')
+  ;({ list } = setStatusIn(list, 1, 'SAVED', T - HOUR))
+  assert.deepEqual(list, { '1': saved(T + 4) }, 'saved again after its removal')
+  // With the clock right again, a change takes its time.
+  ;({ list } = toggleFavoriteIn(list, 1, T + HOUR))
+  assert.deepEqual(list, { '1': saved(T + HOUR, true) })
+})
+
+test('the other button moves a title, keeping its heart, and the pressed one removes it', () => {
+  let edited = pressStatusIn({}, 7, 'SAVED', T)
+  assert.deepEqual(edited, { list: { '7': saved(T) }, change: 'added' })
+  edited = toggleFavoriteIn(edited.list, 7, T + 1)
+  assert.deepEqual(edited, { list: { '7': saved(T + 1, true) }, change: 'favorited' })
+  edited = pressStatusIn(edited.list, 7, 'WANT', T + 2)
+  assert.deepEqual(edited, { list: { '7': want(T + 2, true) }, change: 'moved' })
+  // Removing takes the heart away too: a title has one entry, and one delete marker.
+  edited = pressStatusIn(edited.list, 7, 'WANT', T + 3)
+  assert.deepEqual(edited, { list: { '7': removed(T + 3, 'WANT') }, change: 'removed' })
+  // Back on the list, it has no heart.
+  edited = pressStatusIn(edited.list, 7, 'WANT', T + 4)
+  assert.deepEqual(edited, { list: { '7': want(T + 4) }, change: 'added' })
+  edited = toggleFavoriteIn(toggleFavoriteIn(edited.list, 7, T + 5).list, 7, T + 6)
+  assert.deepEqual(edited, { list: { '7': want(T + 6) }, change: 'unfavorited' })
+})
+
+test('the heart on a title not on the list saves it, with the heart (D2, option a)', () => {
+  assert.deepEqual(toggleFavoriteIn({ '2': want(T) }, 1, T + 1), {
+    list: { '1': saved(T + 1, true), '2': want(T) },
+    change: 'added',
+  })
+  // On a title taken off the list, after its delete marker.
+  assert.deepEqual(toggleFavoriteIn({ '1': removed(T + 9, 'WANT') }, 1, T), {
+    list: { '1': saved(T + 10, true) },
+    change: 'added',
+  })
+})
+
+test('an edit that changes nothing gives back the same list, and writes no time', () => {
+  const list = { '1': saved(T), '2': removed(T) }
+  for (const edited of [
+    setStatusIn(list, 1, 'SAVED', T + 1),
+    setStatusIn(list, 2, null, T + 1),
+    setStatusIn(list, 3, null, T + 1),
+    // Not AniList ids: a saved copy would drop them (see parse).
+    setStatusIn(list, 0, 'SAVED', T + 1),
+    setStatusIn(list, 1.5, 'SAVED', T + 1),
+    setStatusIn(list, -4, 'SAVED', T + 1),
+    setStatusIn(list, 1e9, 'SAVED', T + 1),
+    pressStatusIn(list, NaN, 'WANT', T + 1),
+    toggleFavoriteIn(list, 0, T + 1),
+  ]) {
+    assert.equal(edited.change, 'none')
+    assert.equal(edited.list, list, 'the very same list')
+  }
+  assert.deepEqual(list, { '1': saved(T), '2': removed(T) }, 'the list given was changed')
+})
+
+test('a full list takes no new title, but its titles can still move, lose their heart or go', () => {
+  // 2,000 titles on the list, and 500 taken off, whose delete markers don't count.
+  const full: List = {}
+  for (let id = 1; id <= CAP; id++) full[id] = id === 1 ? saved(T, true) : want(T)
+  for (let id = CAP + 1; id <= CAP + 500; id++) full[id] = removed(T)
+  for (const edited of [
+    setStatusIn(full, 9000, 'SAVED', T + 1),
+    pressStatusIn(full, 9000, 'WANT', T + 1),
+    toggleFavoriteIn(full, 9000, T + 1),
+    // Nor back, once taken off.
+    setStatusIn(full, CAP + 1, 'SAVED', T + 1),
+  ]) {
+    assert.equal(edited.change, 'full')
+    assert.equal(edited.list, full, 'the very same list')
+  }
+  assert.equal(pressStatusIn(full, 1, 'WANT', T + 1).change, 'moved')
+  assert.equal(toggleFavoriteIn(full, 1, T + 1).change, 'unfavorited')
+  const fewer = setStatusIn(full, 2, null, T + 1)
+  assert.equal(fewer.change, 'removed')
+  // One title fewer, and there is room for one more.
+  assert.equal(setStatusIn(fewer.list, 9000, 'SAVED', T + 2).change, 'added')
+  // 1,999 titles and the 500 markers: the markers don't fill it.
+  const room = { ...full }
+  delete room[CAP]
+  assert.equal(setStatusIn(room, 9000, 'SAVED', T + 1).change, 'added')
 })
