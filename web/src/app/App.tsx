@@ -30,7 +30,15 @@ import { isRateLimited } from '../lib/anilist.ts'
 import { markPointerJumps } from '../lib/jumps.ts'
 import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
-import { isOver, push, replace, titleIdFrom, titlePath, usePathname } from '../lib/route.ts'
+import {
+  isOver,
+  isTrailer,
+  push,
+  replace,
+  titleIdFrom,
+  titlePath,
+  usePathname,
+} from '../lib/route.ts'
 import { startSectionNav } from '../lib/sectionNav.ts'
 import { useSteadyList } from '../lib/steadyList.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
@@ -195,6 +203,14 @@ export default function App() {
   const cardSays = addressed !== null && !fromList ? cardNote(title, isRateLimited()) : null
   const retryTitle = () => void title.refetch()
   const close = () => {
+    // Closed by itself, the trailer goes Back from its history entry, which the browser does a
+    // moment later (see TitleCard). A card that closes meanwhile waits for it: going on, it would
+    // put / in place of the trailer's entry, and the trailer's Back would land on the card's own,
+    // opening the card again.
+    if (isTrailer(history.state)) {
+      addEventListener('popstate', close, { once: true })
+      return
+    }
     closedItself.current = true
     if (isOver(history.state)) history.back()
     else replace('/')

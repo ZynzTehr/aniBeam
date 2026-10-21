@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { isOver, push, replace, titleIdFrom, titlePath, watchPath } from './route.ts'
+import {
+  dropTrailer,
+  isOver,
+  isTrailer,
+  push,
+  pushTrailer,
+  replace,
+  titleIdFrom,
+  titlePath,
+  watchPath,
+} from './route.ts'
 
 test('an address opens a title only at /anime/ and its AniList id, with or without a last slash', () => {
   assert.equal(titleIdFrom('/anime/154587'), 154587)
@@ -112,4 +122,42 @@ test('an entry the page pushed over an address says so; any other state does not
   assert.equal(isOver({ over: '/' }), true)
   for (const state of [null, undefined, {}, { over: 1 }, 'over', { other: '/' }])
     assert.equal(isOver(state), false, JSON.stringify(state))
+})
+
+test('Watch trailer adds a history entry at the card’s address, its state kept under the trailer’s mark', (t) => {
+  const { location, history } = fakeWindow(t, '/')
+  push('/anime/154587', { over: '/' })
+  location.search = '?ep=5'
+  const heard: string[] = []
+  const stop = watchPath(() => heard.push(location.pathname))
+  pushTrailer()
+  stop()
+  assert.deepEqual(history.state, { over: '/', trailer: true })
+  assert.ok(isTrailer(history.state) && isOver(history.state))
+  assert.deepEqual(history.entries, ['/', '/anime/154587', '/anime/154587'])
+  assert.equal(location.search, '?ep=5', 'the query is left as it was')
+  assert.deepEqual(heard, ['/anime/154587'])
+  // A card opened at its address has no state of its own: the trailer's entry has its mark alone.
+  history.state = null
+  pushTrailer()
+  assert.deepEqual(history.state, { trailer: true })
+})
+
+test('only the trailer’s mark says a trailer is open', () => {
+  assert.equal(isTrailer({ over: '/', trailer: true }), true)
+  for (const state of [null, undefined, {}, { over: '/' }, { trailer: 'yes' }, 'trailer', 1])
+    assert.equal(isTrailer(state), false, JSON.stringify(state))
+})
+
+test('a card opened at the trailer’s entry takes its mark off, keeping the rest and adding no entry', (t) => {
+  const { history } = fakeWindow(t, '/anime/154587')
+  history.state = { over: '/', trailer: true }
+  dropTrailer()
+  assert.deepEqual(history.state, { over: '/' })
+  assert.deepEqual(history.entries, ['/anime/154587'])
+  // An entry with no mark is left as it is.
+  const state = { over: '/' }
+  history.state = state
+  dropTrailer()
+  assert.equal(history.state, state)
 })

@@ -64,3 +64,33 @@ export function push(path: string, state: unknown) {
   history.pushState(state, '', path)
   for (const listener of listeners) listener()
 }
+
+/**
+ * Whether a history entry's state says a title's trailer is open over its card: the page pushed it
+ * as "Watch trailer" was pressed (see pushTrailer), so Back from it closes the trailer alone.
+ */
+export const isTrailer = (state: unknown) =>
+  (state as { trailer?: unknown } | null)?.trailer === true
+
+/**
+ * Puts a title's trailer over its card as a new history entry, at the card's own address and with
+ * the card's state kept under the trailer's mark, so Back returns to the card's entry.
+ */
+export function pushTrailer() {
+  push(`${location.pathname}${location.search}`, {
+    ...(history.state as object | null),
+    trailer: true,
+  })
+}
+
+/**
+ * Takes the trailer's mark off the history entry the page is at, keeping the rest of its state and
+ * adding no entry: for a card opened at an entry the trailer was open at, as after a reload there,
+ * which opens without its trailer, as only a press loads YouTube (spec §5).
+ */
+export function dropTrailer() {
+  if (!isTrailer(history.state)) return
+  const state = { ...(history.state as object) } as { trailer?: true }
+  delete state.trailer
+  replace(`${location.pathname}${location.search}${location.hash}`, state)
+}
