@@ -22,6 +22,7 @@ import { cachePersister, persistOptions } from './queryClient.ts'
 
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
+const DAY = 24 * HOUR
 
 /**
  * localStorage, as far as the saved cache uses it, holding `room` characters at most: a bigger
@@ -117,10 +118,11 @@ test('a copy today’s app saved comes back an hour later, titles and all', asyn
   )
 })
 
-test('a copy saved 23 hours ago comes back, and one saved 25 hours ago does not', async (t) => {
-  // persistOptions keeps a copy for a day (maxAge), so a visitor back the next evening still has
-  // last night's titles. The test above sees only a maxAge under an hour, and every browser check
-  // reads a copy saved seconds before. PR 14 changes the day on purpose; until then, this pins it.
+test('a list comes back 23 hours after it came, and not 25', async (t) => {
+  // A list is kept a day, so a visitor back the next evening still has last night's titles, and one
+  // back after a week never sees that week's. The copy itself lasts 30 days (maxAge), for finished
+  // titles (see the tests below), so each list goes by its own age. The test above sees only a keep
+  // of over an hour, and every browser check reads a copy saved seconds before.
   t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2030, 0, 1) })
   const { queryKey } = trendingQuery()
   const titles = SAMPLES.slice(0, 2)
@@ -128,23 +130,17 @@ test('a copy saved 23 hours ago comes back, and one saved 25 hours ago does not'
   const restored = async (hours: number) => {
     const storage = fakeStorage()
     storage.items.set('anibeam:cache', savedCopy(Date.now() - hours * HOUR, titles))
-    const client = new QueryClient()
-    await persistQueryClientRestore({
-      ...persistOptions,
-      queryClient: client,
-      persister: cachePersister(storage),
-    })
-    return client.getQueryData(queryKey)
+    return (await restore(storage)).getQueryData(queryKey)
   }
   assert.deepEqual(
     await restored(23),
     titles,
-    'a copy saved 23 hours ago did not come back: the saved titles last less than a day',
+    'a list saved 23 hours ago did not come back: lists are kept less than a day',
   )
   assert.equal(
     await restored(25),
     undefined,
-    'a copy saved 25 hours ago came back: the saved titles last more than a day',
+    'a list saved 25 hours ago came back: lists are kept more than a day',
   )
 })
 
@@ -220,6 +216,31 @@ test('an answer saved under a query’s old text does not come back', async () =
       .map(({ queryKey }) => (queryKey[1] === QUERIES.trending ? 'today’s' : 'the old text’s')),
     ['today’s'],
     'trending came back under the old text as well as today’s',
+  )
+})
+
+test('a finished title comes back 29 days after it came, and not 31', async (t) => {
+  // AniList's answer for a finished title is kept 30 days (spec §3H), as its details won't change,
+  // so a visitor back to its address within the month opens it with no request. The copy holding it
+  // was last saved as it came: nothing else changed since.
+  t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2030, 0, 1) })
+  const { queryKey } = titleQuery(finished.id)
+  // The title the page has once it has restored a copy saved `days` ago, as the title came.
+  const restored = async (days: number) => {
+    const storage = fakeStorage()
+    const savedAt = Date.now() - days * DAY
+    storage.items.set('anibeam:cache', copyOf(savedAt, [[queryKey, finished, savedAt]]))
+    return (await restore(storage)).getQueryData(queryKey)
+  }
+  assert.deepEqual(
+    await restored(29),
+    finished,
+    'a finished title saved 29 days ago did not come back: finished titles are kept less than 30 days',
+  )
+  assert.equal(
+    await restored(31),
+    undefined,
+    'a finished title saved 31 days ago came back: finished titles are kept more than 30 days',
   )
 })
 
@@ -434,13 +455,12 @@ test('each change to a saved list is saved at once: new titles, being marked out
   }
 })
 
-test('the saved copy expires a day after its last change, not a day after the visitor’s last search', async (t) => {
+test('an answer leaves the saved copy a day after it came, however long the visitor goes on searching', async (t) => {
   // A save that would change nothing is skipped (see queryClient.ts), so it leaves the copy's
-  // timestamp, which maxAge counts from, as it was. While AniList is down, every search the visitor
-  // makes fails and changes nothing that is saved: after 23 hours of them, the copy still expires a
-  // day after the last answer. That is on purpose: by then the answer is over a day old, and lists
-  // that old are not saved again either. Were such saves let through to stamp the copy anew, even
-  // hours apart, the answer would come back 24.5 hours after it arrived.
+  // timestamp as it was. While AniList is down, every search the visitor makes fails and changes
+  // nothing that is saved. Either way the answer comes back no later than a day after it came:
+  // restoring goes by each answer's own age (see keptFor), not by when the copy was last saved,
+  // which with the copy lasting 30 days (maxAge, for finished titles) would let it back for a month.
   t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
   const answeredAt = Date.now()
   const storage = fakeStorage()
@@ -473,7 +493,7 @@ test('the saved copy expires a day after its last change, not a day after the vi
   assert.equal(
     next.getQueryData(searchQuery('frieren').queryKey),
     undefined,
-    'the answer came back 24.5 hours after it arrived: searches that saved nothing new stamped the copy anew, so its day ran from a later search, not from its last change',
+    'the answer came back 24.5 hours after it arrived: restoring went by when the copy was saved, not by how old the answer was',
   )
 })
 

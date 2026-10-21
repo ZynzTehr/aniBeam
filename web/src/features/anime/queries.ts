@@ -185,9 +185,8 @@ export const searchQuery = (term: string) =>
  * One title, by its AniList id: a number, as each title's id in the lists is, so a card opened from
  * a list and one opened at its address share the key. TanStack's default staleTime (0) would ask
  * AniList again at each opening: a finished title's details don't change, so they stay fresh for
- * 30 days, and an airing title's (its next episode) for 6 hours. For now the saved cache keeps an
- * answer a day at most (see lib/queryClient.ts), so a finished title is asked for again after a day,
- * until the 30-day cache (plan PR 14).
+ * 30 days, and an airing title's (its next episode) for 6 hours. The saved cache keeps them as long
+ * (see keptFor), so a finished title opened again at its address within the month asks for nothing.
  */
 export const titleQuery = (id: number) =>
   queryOptions({

@@ -25,12 +25,18 @@ export const shouldRetry = (failures: number, error: Error) =>
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Must be at least the persisted maxAge, or saved results are dropped early.
+      // Must be at least as long as a list is kept (a day, see keptFor), or TanStack drops a list
+      // no component is using before then, and the next save leaves it out of the copy.
       gcTime: DAY,
       retry: shouldRetry,
     },
   },
 })
+
+// A title is kept up to 30 days (a finished one, see keptFor), so TanStack keeps it for as long as
+// the tab stays open, restored from a copy or asked for. Not 30 days: setTimeout waits at most
+// about 24.8 days, and given longer waits no time at all, so the title would go at once.
+queryClient.setQueryDefaults(['anilist', QUERIES.title], { gcTime: Infinity })
 
 // Browsers can block storage entirely (e.g. "block all site data"); the app then
 // still works, just without a saved cache.
@@ -92,9 +98,9 @@ const restored = (saved: string): PersistedClient => {
 // as that second ends. The persister times its second by the wall clock, so saving pauses for as
 // long as the computer's clock steps back (TanStack's own behavior, and rare enough to accept).
 // A skipped save leaves the copy's timestamp as it was, so after the page's first save, the copy's
-// day (maxAge) counts from the last change to what is saved, not from the visitor's last activity,
-// such as searches that fail while AniList is down: by the time that day is up, every list in the
-// copy is over a day old, too old to be saved again anyway (see persistOptions).
+// 30 days (maxAge) count from the last change to what is saved, not from the visitor's last
+// activity, such as searches that fail while AniList is down. Each answer in it comes back only
+// while it is kept anyway (see restored), however lately the copy was saved.
 export const cachePersister = (
   storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined,
 ): Persister => {
@@ -118,13 +124,15 @@ export const cachePersister = (
 
 export const persistOptions = {
   persister: cachePersister(browserStorage()),
-  maxAge: DAY,
+  // As long as anything is kept: a finished title, 30 days (see keptFor).
+  maxAge: 30 * DAY,
   dehydrateOptions: {
     // By default TanStack saves only queries whose last fetch succeeded, so a failed
-    // refresh would erase the saved list. Save every result we still have unless it is
-    // over a day old (maxAge only checks when the whole cache was last saved).
+    // refresh would erase the saved list. Save every result we still have while it is kept
+    // (see keptFor): maxAge only checks when the whole copy was last saved.
     shouldDehydrateQuery: (query: Query) =>
-      query.state.data !== undefined && Date.now() - query.state.dataUpdatedAt < DAY,
+      query.state.data !== undefined &&
+      Date.now() - query.state.dataUpdatedAt < keptFor(query.queryKey, query.state.data),
   },
   // Cache keys include each query's text and variables (see queries.ts), so editing a
   // query never reuses old saved results. Change this only if the code that reshapes
