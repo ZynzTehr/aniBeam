@@ -402,8 +402,8 @@ function fakePage(t: TestContext) {
 }
 
 test('in a browser, an answer is saved once the page has drawn it, and at once in a hidden tab', async (t) => {
-  // Each save writes out the whole copy: about 100 ms once it has grown to 4.3 MB, as 30 days of
-  // titles can make it. TanStack asks for the save as an answer arrives, before the page draws it,
+  // Each save writes out the whole copy: about 100 ms once it has grown to 4.3 MB, as a day of
+  // searches can make it. TanStack asks for the save as an answer arrives, before the page draws it,
   // so the visitor would wait that long for their titles. The save waits for the page's next frame
   // and goes on just after it is drawn. A hidden tab draws no frames, so there an answer is saved at
   // once, and one still waiting is saved as the tab is hidden, as closing it does first: a tab
@@ -419,7 +419,9 @@ test('in a browser, an answer is saved once the page has drawn it, and at once i
   page.draw()
   await wait(t, 2000) // asking is saved, then a second goes by with nothing new to save
   answer(titles)
-  await wait(t) // no time passes
+  // A moment passes and no frame is drawn: a save that waited for the next task alone, not the
+  // next frame, would go on now.
+  await wait(t, 1)
   assert.deepEqual(savedSearches(storage), {}, 'the answer was saved before the page drew it')
   page.draw()
   await wait(t) // no time passes

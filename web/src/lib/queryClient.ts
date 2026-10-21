@@ -84,12 +84,13 @@ const restored = (saved: string): PersistedClient => {
   return copy
 }
 
-// Each save writes out the whole copy, about 100 ms once it has grown to 4.3 MB, as 30 days of
-// titles can make it. TanStack asks for it as an answer arrives, before the page draws the answer,
-// so the visitor would wait that long for their titles: `save` waits for the page's next frame and
-// goes on just after it is drawn. A hidden tab draws no frames, so there it goes on at once, and as
-// soon as the tab is hidden while it waits, as closing the tab does first. Outside a browser, as in
-// the unit tests, it goes on at once.
+// Each save writes out the whole copy, about 100 ms once it has grown to 4.3 MB. A day of searches
+// can make it about that big (150 make 3.7 million characters), while a finished title kept 30
+// days adds about 3,000, and only one opened at its address. TanStack asks for a save as an answer
+// arrives, before the page draws the answer, so the visitor would wait that long for their titles:
+// `save` waits for the page's next frame and goes on just after it is drawn. A hidden tab draws no
+// frames, so there it goes on at once, and as soon as the tab is hidden while it waits, as closing
+// the tab does first. Outside a browser, as in the unit tests, it goes on at once.
 const afterDrawing = (save: () => void | PromiseLike<void>) =>
   typeof requestAnimationFrame !== 'function' || document.visibilityState === 'hidden'
     ? save()
