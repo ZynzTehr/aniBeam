@@ -356,6 +356,21 @@ test("another tab's edit since this one last read is kept, never written over", 
   })
 })
 
+test('a change after the last time a list can hold is made at that time, and kept on reload', () => {
+  // 2^53 - 1, the last exact whole number: only a list edited by hand holds it, and parse keeps it.
+  const last = Number.MAX_SAFE_INTEGER
+  const storage = fakeStorage()
+  storage.items.set(KEY, JSON.stringify({ '1': saved(last), '2': want(last - 1) }))
+  const store = createListStore({ storage, now: () => T })
+  assert.deepEqual(store.toggleFavorite(1), { change: 'favorited', saved: true })
+  assert.deepEqual(store.setStatus(2, null), { change: 'removed', saved: true })
+  assert.deepEqual(store.setStatus(2, 'SAVED'), { change: 'added', saved: true })
+  assert.deepEqual(createListStore({ storage }).getSnapshot(), {
+    '1': saved(last, true),
+    '2': saved(last),
+  })
+})
+
 test('when storage is full, the saved AniList answers go to make room for the list, and only they', () => {
   const storage = fakeStorage(400)
   storage.items.set('anibeam:cache', 'x'.repeat(300))

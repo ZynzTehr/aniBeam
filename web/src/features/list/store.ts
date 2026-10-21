@@ -26,8 +26,8 @@ const isObject = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * The entry `value` holds, with only the fields an entry has, or null if any of them is wrong. The
- * time is a whole number of milliseconds from 0, below 2^53, where whole numbers stop being exact:
- * a change must always be able to come 1 ms after the last one.
+ * time is a whole number of milliseconds from 0 to 2^53 - 1 (LAST), past which whole numbers stop
+ * being exact.
  */
 function entryOf(value: unknown): Entry | null {
   if (!isObject(value)) return null
@@ -117,13 +117,18 @@ const HEART_ADDS_AS: Status | null = 'SAVED'
 const onList = (list: List, id: number): Entry | undefined =>
   list[id]?.deleted ? undefined : list[id]
 
+// The last time an entry can have: 2^53 - 1 ms, some 285,000 years on, which only a list edited by
+// hand holds.
+const LAST = Number.MAX_SAFE_INTEGER
+
 const isFull = (list: List) => Object.values(list).filter((entry) => !entry.deleted).length >= CAP
 
 /**
  * `list` with the title's latest change: its new status and heart, or a delete marker. The change
  * is made at `now`, or 1 ms after the title's last change if the clock reads earlier, as when the
  * computer's clock was set back. So a title's changes always come in order, and the last one wins
- * a merge (see rank).
+ * a merge (see rank). After a change made at LAST, the next is made at LAST too, as a later time
+ * would be dropped the next time the list is read (see parse).
  */
 function written(
   list: List,
@@ -134,7 +139,7 @@ function written(
   deleted = false,
 ): List {
   const before = list[id]?.updatedAt
-  const updatedAt = before === undefined ? now : Math.max(now, before + 1)
+  const updatedAt = before === undefined ? now : Math.max(now, Math.min(before + 1, LAST))
   const entry: Entry = deleted
     ? { status, favorite, updatedAt, deleted: true }
     : { status, favorite, updatedAt }
