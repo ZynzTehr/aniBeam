@@ -258,12 +258,12 @@ test('a returning visitor sees last visit’s titles while AniList is down, not 
 })
 
 /**
- * The JSON the last release saved under anibeam:cache, with buster v2: each of `lists` as TanStack
- * dehydrates it, saved at `savedAt`. Each list goes under the hash TanStack's hashKey makes of its
- * key, which the page looks it up by: hashKey sorts the variables, so for the 1990s it isn't the
- * key's JSON.
+ * A saved copy as the app writes it under anibeam:cache, with buster v2: each of `lists` as
+ * TanStack dehydrates it, saved at `savedAt`. Each list goes under the hash TanStack's hashKey
+ * makes of its key, which the page looks it up by: hashKey sorts the variables, so for the 1990s
+ * it isn't the key's JSON.
  */
-function lastReleaseCopy(savedAt: number, lists: [QueryKey, Media[]][]) {
+function savedCopy(savedAt: number, lists: [QueryKey, Media[]][]) {
   return JSON.stringify({
     buster: 'v2',
     timestamp: savedAt,
@@ -301,18 +301,20 @@ const renamed = (titles: Media[], name: string): Media[] =>
 
 // The check above saves the copy and reads it back with one build, so a change that build makes
 // to both sides passes it: main.tsx giving the provider another buster, say, or the copy kept in
-// sessionStorage. Yet a visitor back from the last release would lose every title it saved. Here
-// that release's copy is in place before the page's own scripts run, so it comes back only
-// through the persister the page builds: its key, buster and storage, and main.tsx's wiring. No
-// unit test sees those: none loads main.tsx, and those that restore a copy build a persister of
-// their own. Saved a minute ago, its lists are fresh, and AniList is kept away, so this asks
-// AniList for none. A change meant to drop that copy, such as a new buster, must change this too.
-test('a visitor back from the last release sees the titles it saved while AniList is down', async () => {
+// sessionStorage. Yet a visitor back on the same release, from a tab closed earlier that day,
+// would lose every title it saved. Here a copy in the format the app saves, under today's queries,
+// is in place before the page's own scripts run, so it comes back only through the persister the
+// page builds: its key, buster and storage, and main.tsx's wiring. No unit test sees those: none
+// loads main.tsx, and those that restore a copy build a persister of their own. Saved a minute
+// ago, its lists are fresh, and AniList is kept away, so this asks AniList for none. A change meant
+// to drop such a copy, such as a new buster, must change this too. (A copy an earlier release
+// saved under other query text is another matter: see the check after this one.)
+test('a visitor back on this release sees the titles it saved while AniList is down', async () => {
   // Twenty for trending, as many as AniList sends, and the other ten for the 1990s, the decade
   // the page opens on.
   const trending = renamed(SAMPLES.slice(0, 20), 'Saved trending title')
   const nineties = renamed(SAMPLES.slice(20), 'Saved 1990s title')
-  const copy = lastReleaseCopy(Date.now() - 60_000, [
+  const copy = savedCopy(Date.now() - 60_000, [
     [trendingQuery().queryKey, trending],
     [eraQuery(FIRST_ERA).queryKey, nineties],
   ])
@@ -339,9 +341,9 @@ test('a visitor back from the last release sees the titles it saved while AniLis
         strip: nineties.map(titleOf),
         notes: ['', ''],
       },
-      'with AniList down, the page did not show the titles the last release saved',
+      'with AniList down, the page did not show the titles it saved',
     )
-    assert.equal(asked, 0, 'the page asked AniList for titles the last release saved')
+    assert.equal(asked, 0, 'the page asked AniList for titles it saved')
   } finally {
     await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
     await browser.blockAniList(false)
@@ -352,6 +354,61 @@ test('a visitor back from the last release sees the titles it saved while AniLis
 // same img: narrowing the window or turning a tablet swaps one file for the other. A banner that
 // failed must not keep the cover hidden once it loads. With AniList kept away, the panels show
 // the samples, so the splash title has a banner whatever is trending, and no recording is needed.
+// The last release's queries for trending and a decade, as it sent them before the lists carried
+// each title's trailer (main at 7983f83), written out rather than built from today's, which ask
+// for the trailer too: everything it saved, it saved under this text and these variables.
+const LAST_CARD = `id title { romaji english native } coverImage { extraLarge large color } bannerImage
+  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }
+  nextAiringEpisode { episode airingAt } description(asHtml: false) duration
+  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler }`
+const LAST_SAFE = 'isAdult: false, genre_not_in: ["Hentai"]'
+const LAST_TRENDING = `query { Page(perPage: 20) { media(type: ANIME, sort: TRENDING_DESC, countryOfOrigin: "JP", ${LAST_SAFE}) { ${LAST_CARD} } } }`
+const LAST_ERA = `query ($from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus) { Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: "JP", startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, ${LAST_SAFE}) { ${LAST_CARD} } } }`
+const LAST_NINETIES = { from: 19899999, to: 20000000, notStatus: 'NOT_YET_RELEASED' }
+
+// Each answer is saved under its query's exact text, so a change to a query (here, the trailer
+// added to every list's) leaves what the release before it saved where nothing looks it up, and
+// the saved copy brings it back no more (see restored in lib/queryClient.ts). A visitor back from
+// that release, within the day its lists are kept, loses them once: AniList is asked again, and
+// while it is down, the samples show, as on a first visit. That is the cost of never showing an
+// answer to an older query as today's; a change that brought such a copy back as today's lists
+// fails here, and one that changes the lists' query again must write out this text anew.
+test('a visitor back from the release before the trailer, its lists saved under that release’s queries, sees the samples while AniList is down', async () => {
+  const trending = renamed(SAMPLES.slice(0, 20), 'Saved trending title')
+  const nineties = renamed(SAMPLES.slice(20), 'Saved 1990s title')
+  const copy = savedCopy(Date.now() - 60_000, [
+    [['anilist', LAST_TRENDING, {}], trending],
+    [['anilist', LAST_ERA, LAST_NINETIES], nineties],
+  ])
+  const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: `localStorage.setItem('anibeam:cache', ${JSON.stringify(copy)})`,
+  })
+  await browser.blockAniList()
+  try {
+    await browser.load()
+    // The samples load once the first try has failed; the saved titles, had they come back, at
+    // once.
+    assert.ok(await browser.titlesShown(15_000), 'neither the saved titles nor the samples came')
+    const page = await browser.evaluate<Shown>(shown)
+    const samples1990s = SAMPLES.filter(
+      ({ seasonYear }) => seasonYear !== null && seasonYear >= 1990 && seasonYear <= 1999,
+    )
+    assert.deepEqual(
+      { heading: page.heading, panels: page.panels, strip: page.strip },
+      {
+        heading: 'Fan favorites',
+        panels: SAMPLES.slice(0, 9).map(titleOf),
+        strip: samples1990s.map(titleOf),
+      },
+      'the lists the release before saved came back as today’s',
+    )
+  } finally {
+    await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+    await browser.blockAniList(false)
+    await browser.forget()
+  }
+})
+
 test('the splash panel shows its cover when the window narrows, even after its banner failed', async () => {
   await browser.forget()
   await browser.blockAniList()
