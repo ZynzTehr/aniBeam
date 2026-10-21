@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test, type TestContext } from 'node:test'
 import type { Media } from './queries.ts'
 import { SAMPLES as samples } from './samples.ts'
-import { trailerOf } from './trailer.ts'
+import { embedOf, trailerOf, watchOf } from './trailer.ts'
 
 /** A title whose trailer AniList gives as `trailer`, or leaves out, as a copy saved before did. */
 const titled = (trailer: unknown) => ({ trailer }) as Media
@@ -76,4 +76,56 @@ test('trailerOf gives an id for every sample with a YouTube trailer, and only fo
     samples.filter((media) => media.trailer?.site === 'youtube').map((media) => media.id),
   )
   assert.equal(withIds.length, 24)
+})
+
+/**
+ * A page for lib/motion.ts to ask, on globalThis until the test ends, as Node has none: <html>,
+ * whose data-motion is `dataset.motion` (the site's Reduce motion switch), and a device that asks
+ * for reduced motion while `device` is true.
+ */
+function fakePage(t: TestContext, { site = false, device = false }) {
+  const saved = ['document', 'matchMedia'].map(
+    (name) => [name, Object.getOwnPropertyDescriptor(globalThis, name)] as const,
+  )
+  t.after(() => {
+    for (const [name, descriptor] of saved)
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor)
+      else Reflect.deleteProperty(globalThis, name)
+  })
+  const dataset: DOMStringMap = site ? { motion: 'reduce' } : {}
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: { documentElement: { dataset } },
+  })
+  Object.defineProperty(globalThis, 'matchMedia', {
+    configurable: true,
+    value: (query: string) => ({ matches: device && query === '(prefers-reduced-motion: reduce)' }),
+  })
+}
+
+test('the trailer plays from YouTube’s privacy-enhanced address, in the page on an iPhone, at once', (t) => {
+  // youtube-nocookie.com, as spec §3A asks; rel=0, so what YouTube suggests at the end comes from
+  // the trailer's own channel; playsinline=1, so an iPhone plays it in the dialog, not full screen;
+  // and autoplay=1, as the visitor pressed "Watch trailer" to see it.
+  fakePage(t, {})
+  assert.equal(
+    embedOf('tR8YH0G67Rk'),
+    'https://www.youtube-nocookie.com/embed/tR8YH0G67Rk?rel=0&playsinline=1&autoplay=1',
+  )
+})
+
+test('with reduced motion asked for, on the device or the site, the trailer waits to be played', (t) => {
+  // Spec §3J: the trailer doesn't autoplay under reduced motion. The visitor presses play.
+  for (const asked of [{ device: true }, { site: true }, { device: true, site: true }]) {
+    fakePage(t, asked)
+    assert.equal(
+      embedOf('tR8YH0G67Rk'),
+      'https://www.youtube-nocookie.com/embed/tR8YH0G67Rk?rel=0&playsinline=1',
+      JSON.stringify(asked),
+    )
+  }
+})
+
+test('“Open on YouTube” goes to the trailer’s own page on YouTube', () => {
+  assert.equal(watchOf('tR8YH0G67Rk'), 'https://www.youtube.com/watch?v=tR8YH0G67Rk')
 })
