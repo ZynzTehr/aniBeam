@@ -141,12 +141,12 @@ export function setEntry(id: number, entry: Omit<Entry, 'updatedAt'> | null) {
   else setStatus(id, null)
 }
 
-/** Adds these ids as Saved, keeping any already listed. */
-export function addAll(ids: number[]) {
+/** Adds these ids with this status (Saved unless asked), keeping any already listed. */
+export function addAll(ids: number[], status: Status = 'SAVED') {
   const next = { ...list }
   let at = Date.now()
   for (const id of ids)
-    if (!entryOf(next, id)) next[id] = { status: 'SAVED', favorite: false, updatedAt: at-- }
+    if (!entryOf(next, id)) next[id] = { status, favorite: false, updatedAt: at-- }
   write(next)
 }
 

@@ -1,4 +1,3 @@
-import type { ReactNode } from 'react'
 import { LAB_TITLES } from './pool.ts'
 import { addAll, fill60, reset, twelve } from './sandbox.ts'
 import type { Lab, Options } from './switches.ts'
@@ -14,8 +13,10 @@ export type GoTo = (
 
 type Line = {
   text: string
-  where: ReactNode
+  where: string
   see: () => void
+  /** For "See it" when two lines share their text. */
+  name?: string
   /** Said when "See it" changes the lab's list. */
   changes?: string
   /** Not in the plan's list: a line the lab found it needs. */
@@ -116,6 +117,17 @@ export function Wording({ goTo }: { goTo: GoTo }) {
           changes: 'puts six titles, none a favorite, on the lab’s list',
         },
         {
+          text: `${WORDS.emptyFavoritesWant} · ${WORDS.showAll}`,
+          where: 'Favorites only on the Want to try tab, with no favorites there.',
+          see: () => {
+            reset()
+            addAll(LAB_TITLES, 'WANT')
+            goTo('page', { state: 'list' }, { tab: 'want', fav: '1' })
+          },
+          changes: 'puts six titles in Want to try, none a favorite, on the lab’s list',
+          added: true,
+        },
+        {
           text: `${removedFrom(WORDS.saved)} ${WORDS.undo}`,
           where: 'In a removed cover’s place (D7): open a cover and press Save.',
           see: () => goTo('page', { state: 'list' }, {}, { d7: 'inline' }),
@@ -151,6 +163,18 @@ export function Wording({ goTo }: { goTo: GoTo }) {
           added: true,
         },
         {
+          text: WORDS.unavailable,
+          where: 'With AniList unavailable, on each card a sample can’t fill in.',
+          see: () => goTo('page', { state: 'outage' }),
+          added: true,
+        },
+        {
+          text: WORDS.samplesFill,
+          where: 'After the site’s outage line, when AniList is unavailable.',
+          see: () => goTo('page', { state: 'outage' }),
+          added: true,
+        },
+        {
           text: 'Track on AniList',
           where: 'Under each cover with D6’s visible link, or with L1.',
           see: () => goTo('page', { state: 'list' }, {}, { d6: 'link' }),
@@ -164,6 +188,14 @@ export function Wording({ goTo }: { goTo: GoTo }) {
           text: WORDS.kana,
           where: 'Beside My List in the phone menu (proposed): open the menu below 900px.',
           see: () => goTo('header', { width: '390' }),
+        },
+        {
+          text: WORDS.kana,
+          name: `${WORDS.kana} on the page heading`,
+          where:
+            'The sound effect beside the My List page’s heading, as each of the site’s sections has one (ドン!, バーン, サーチ!).',
+          see: () => goTo('page', { state: 'list' }),
+          added: true,
         },
         {
           text: 'Everything here is on your list. Try another decade.',
@@ -185,14 +217,14 @@ export function Wording({ goTo }: { goTo: GoTo }) {
         <section key={title} className="ab-lab-group" aria-label={title}>
           <h3 className="ab-lab-legend">{title}</h3>
           <ul className="ab-lab-lines">
-            {lines.map(({ text, where, see, changes, added }) => (
-              <li key={text}>
+            {lines.map(({ text, where, see, changes, added, name }) => (
+              <li key={name ?? text}>
                 <q>{text}</q>
                 {added && <span className="ab-lab-rec">Added</span>} <span>{where}</span>{' '}
                 <button
                   type="button"
                   className="ab-lab-see"
-                  aria-label={`See it: ${text}`}
+                  aria-label={`See it: ${name ?? text}`}
                   onClick={see}
                 >
                   See it{changes && ` (${changes})`}

@@ -228,7 +228,7 @@ function MyList({ options, lab }: { options: Options; lab: Lab }) {
   const note = isLoading
     ? null
     : outage
-      ? `${OUTAGE} Sample titles fill in what they can.`
+      ? `${OUTAGE} ${WORDS.samplesFill}`
       : offline
         ? WAITING
         : lab.state === 'offline'
@@ -328,7 +328,7 @@ function MyList({ options, lab }: { options: Options; lab: Lab }) {
           unknown.map((id) => (
             <li key={id} className="ab-strip-item">
               <span className="ab-strip-panel ab-lab-unknown">
-                {offline ? WORDS.unavailableOffline : 'Details unavailable'}
+                {offline ? WORDS.unavailableOffline : WORDS.unavailable}
               </span>
             </li>
           )),
@@ -515,7 +515,7 @@ function Empty({ view, onView }: { view: View; onView: (view: View) => void }) {
   if (view.favorites)
     return (
       <div className="ab-lab-empty">
-        <p>{view.tab === 'saved' ? WORDS.emptyFavorites : 'No favorites in Want to try yet.'}</p>
+        <p>{view.tab === 'saved' ? WORDS.emptyFavorites : WORDS.emptyFavoritesWant}</p>
         <button
           type="button"
           className="ab-btn"

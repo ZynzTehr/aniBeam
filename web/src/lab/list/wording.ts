@@ -17,6 +17,7 @@ export const WORDS = {
   emptyWant: 'Nothing to try yet.',
   browse: 'Browse what’s trending',
   emptyFavorites: 'No favorites in Saved yet.',
+  emptyFavoritesWant: 'No favorites in Want to try yet.',
   showAll: 'Show all',
   undo: 'Undo',
   removeThem: 'Remove them',
@@ -24,6 +25,8 @@ export const WORDS = {
   browserOnly: 'Saved in this browser only.',
   offline: 'Offline: showing saved results',
   unavailableOffline: 'Details unavailable offline',
+  unavailable: 'Details unavailable',
+  samplesFill: 'Sample titles fill in what they can.',
   kana: 'マイリスト',
 }
 
