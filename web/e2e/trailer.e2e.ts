@@ -147,6 +147,47 @@ test('a card offers “Watch trailer” last of its actions only when its title 
   })
 })
 
+test('a title whose trailer AniBeam can’t play, on another site or with an id that isn’t YouTube’s, has no “Watch trailer”', async () => {
+  // Only a YouTube trailer with an 11-character id counts (see trailerOf). Every trailer in the
+  // recordings is one, so here AniList's answer to the search is changed: the third season's
+  // trailer is on Dailymotion, and Frieren's id is no YouTube id. Neither card offers the button,
+  // and opening either puts no frame in the page and asks YouTube and Google for nothing.
+  const trailers: Record<number, { id: string; site: string }> = {
+    [THIRD_SEASON]: { id: 'x2abcde', site: 'dailymotion' },
+    [FRIEREN]: { id: 'tR8YH0G67Rk&list=1', site: 'youtube' },
+  }
+  await browser.rewriteAniList(({ request, status, body }) => {
+    if (request.variables.search !== 'frieren') return null
+    for (const media of body.data.Page.media)
+      if (trailers[media.id]) media.trailer = trailers[media.id]
+    return { status, body }
+  })
+  const seen: Record<string, unknown> = {}
+  try {
+    for (const id of [FRIEREN, THIRD_SEASON]) {
+      const from = requests.length
+      await openFromSearch(DESKTOP, id)
+      seen[id] = {
+        actions: await browser.evaluate(ACTIONS),
+        'from YouTube or Google': fromGoogle(from),
+        frames: await browser.evaluate(`document.querySelectorAll('iframe').length`),
+      }
+    }
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+  const none = {
+    actions: [
+      'Open on AniList',
+      'Save to My List Soon (disabled)',
+      'Chat about it Soon (disabled)',
+    ],
+    'from YouTube or Google': [],
+    frames: 0,
+  }
+  assert.deepEqual(seen, { [FRIEREN]: none, [THIRD_SEASON]: none })
+})
+
 // The open trailer, as a check reads it: where focus is, its links and frame as the page made
 // them, and their boxes on the screen.
 const READ_TRAILER = `(() => {
