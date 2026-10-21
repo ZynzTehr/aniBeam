@@ -115,11 +115,11 @@ export function CoversStage({ options }: { options: Options }) {
           grid
         />
       </main>
-      {captions.map(({ id, host }) => {
+      {captions.map(({ id, key, host }) => {
         const entry = entryOf(list, id)
-        return entry && createPortal(<Stamp entry={entry} />, host, id)
+        return entry && createPortal(<Stamp entry={entry} />, host, key)
       })}
-      {items.map(({ id, host }) => createPortal(<Mark id={id} />, host, id))}
+      {items.map(({ id, key, host }) => createPortal(<Mark id={id} />, host, key))}
       {card && (
         <OpenCard
           key={card.media.id}

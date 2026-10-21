@@ -25,8 +25,11 @@ export function useHost(find: () => Place | null, key: unknown, className = ''):
   return host
 }
 
-/** A host in an element of a component, with the title id its link names. */
-export type Slot = { id: number; host: HTMLElement; item: Element }
+/**
+ * A host in an element of a component, with the title id its link names, and a key of its own: a
+ * title can show twice on a page (trending and a search), and React's keys can't repeat.
+ */
+export type Slot = { id: number; key: string; host: HTMLElement; item: Element }
 
 /** A value the lab reads off the page, for React to read as an outside store. */
 function store<T>(first: T) {
@@ -67,7 +70,7 @@ export function useSlots(
       const host = document.createElement('span')
       host.className = className
       item.append(host)
-      made.push({ id, host, item })
+      made.push({ id, key: `${id}-${made.length}`, host, item })
     }
     slots.set(made)
     return () => {
