@@ -2366,10 +2366,12 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 }
 
 /* A panel of paper in an ink frame, its hard shadow in the title's color, as wide as the screen
-   lets its 16:9 video be: at most 1100px, and no taller than the screen with the bar above it. */
+   lets its 16:9 video be: at most 1100px, and no taller than the screen with the bar above it. Its
+   width is the bar's container, which lays the bar out by it (see .ab-trailer-bar). */
 .ab-trailer-panel {
   display: grid;
   width: min(100%, 1100px, max(320px, (100dvh - 152px) * 16 / 9));
+  container-type: inline-size;
   gap: 12px;
   padding: 12px;
   border: 5px solid var(--ink);
@@ -2378,8 +2380,9 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   grid-template-columns: minmax(0, 1fr);
 }
 
-/* Close, then the title, then Open on YouTube, in one row; on a phone the title has a row of its
-   own above the two, which keep their order, so Tab still goes from left to right. */
+/* Close, then the title, then Open on YouTube, in one row; in a narrow panel, as on a phone, or on
+   a phone on its side, where the screen's height narrows it, the title has a row of its own above
+   the two, which keep their order, so Tab still goes from left to right. */
 .ab-trailer-bar {
   display: grid;
   align-items: center;
@@ -2395,9 +2398,12 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 
 .ab-trailer-title small {
   display: block;
+  overflow: hidden;
   font: 800 11px var(--body);
   letter-spacing: 0.16em;
+  text-overflow: ellipsis;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .ab-trailer-title span {
@@ -2425,7 +2431,11 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   .ab-trailer {
     padding: 10px;
   }
+}
 
+/* Under 480px inside the panel, the title's column beside Close and Open on YouTube would be under
+   200px. */
+@container (max-width: 479px) {
   .ab-trailer-bar {
     display: flex;
     flex-wrap: wrap;

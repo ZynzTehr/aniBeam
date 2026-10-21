@@ -247,6 +247,46 @@ test('Watch trailer plays the trailer from youtube-nocookie.com in a dialog over
   assert.deepEqual(seen, { '390px': expected, '1440px': expected })
 })
 
+test('on a phone on its side, the trailer’s panel fits the short screen and its title keeps room to be read', async () => {
+  // The panel is as wide as the screen's height lets its 16:9 video be, so on a short, wide screen
+  // it is narrow though the screen isn't: the bar lays itself out by the panel's width, giving the
+  // title a row of its own when Close and Open on YouTube would leave it too little, and its label
+  // never runs under them. Sizes: iPhone Pro Max and iPhone 15 on their sides with Safari's bars,
+  // and an iPhone SE.
+  const seen: Record<string, unknown> = {}
+  for (const [width, height] of [
+    [932, 340],
+    [844, 340],
+    [844, 390],
+    [667, 375],
+  ]) {
+    await openFromSearch({ width, height, phone: true }, FRIEREN)
+    await watchTrailer()
+    seen[`${width}x${height}`] = await browser.evaluate(`(() => {
+      const trailer = ${TRAILER}
+      const box = (part) => part.getBoundingClientRect()
+      const panel = box(trailer.querySelector('.ab-trailer-panel'))
+      const title = trailer.querySelector('.ab-trailer-title')
+      const label = title.querySelector('small')
+      const controls = [...trailer.querySelectorAll('.ab-trailer-bar > a, .ab-trailer-bar > button')].map(box)
+      const t = box(title)
+      return {
+        'panel fits': panel.top >= 0 && panel.left >= 0 && panel.right <= ${width} + 0.5 && panel.bottom <= ${height} + 0.5,
+        'title at least 120px': t.width >= 120,
+        'label shown whole': label.scrollWidth <= label.clientWidth,
+        'title clear of Close and the link': controls.every((c) => c.right <= t.left || t.right <= c.left || c.bottom <= t.top || t.bottom <= c.top),
+      }
+    })()`)
+  }
+  const fits = {
+    'panel fits': true,
+    'title at least 120px': true,
+    'label shown whole': true,
+    'title clear of Close and the link': true,
+  }
+  assert.deepEqual(seen, { '932x340': fits, '844x340': fits, '844x390': fits, '667x375': fits })
+})
+
 test('with reduced motion asked for, on the device or with the site’s switch, the trailer waits to be played, and fades in and out', async () => {
   // Spec §3J: the trailer doesn't autoplay under reduced motion. The dialog fades in over 150 ms,
   // and out as it closes, as the card does, in place of the panel's pop with motion allowed.
