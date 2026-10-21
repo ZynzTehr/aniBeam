@@ -183,3 +183,113 @@ export function toggleFavoriteIn(list: List, id: number, now: number): Edited {
   if (isFull(list)) return { list, change: 'full' }
   return { list: written(list, id, now, HEART_ADDS_AS, true), change: 'added' }
 }
+
+/** Where the list is saved: localStorage, under this key alone. */
+export const KEY = 'anibeam:list:v1'
+
+// The saved copy of AniList's answers (queryClient.ts), which can grow to about 4.3 MB of the
+// about 5 MB a site has. When storage is full, the list goes first: the answers can be asked for
+// again, and the visitor's own list can't.
+const CACHE = 'anibeam:cache'
+
+/** localStorage, as far as the list uses it. */
+export type ListStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+
+/**
+ * What an edit did (see Change), and whether the list it left is saved on this device: false when
+ * storage refused it, so it lasts for this visit only. An edit that changed nothing has nothing to
+ * save, and says true.
+ */
+export type Outcome = { change: Change; saved: boolean }
+
+// The error a browser throws when a site's storage is full: QuotaExceededError, or Firefox's own
+// name for it in older versions.
+const isQuota = (error: unknown) =>
+  error instanceof DOMException &&
+  (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')
+
+/**
+ * A list kept in `storage`, which is undefined when the browser blocks it (as some private modes
+ * do), and then kept for the visit only. Several, given one storage, act as several tabs do. `now`
+ * is the clock, which tests can set.
+ */
+export function createListStore({
+  storage,
+  now = Date.now,
+}: {
+  storage: ListStorage | undefined
+  now?: () => number
+}) {
+  // The list as this tab has it, read from storage when first asked for.
+  let list: List | undefined
+
+  // The saved list (empty when none is), or undefined when storage is blocked or can't be read.
+  function stored() {
+    try {
+      return storage && parse(storage.getItem(KEY))
+    } catch {
+      return undefined
+    }
+  }
+
+  // Saves `next`, whether it was saved. When storage is full, the saved AniList answers go, and
+  // the list is tried once more. Each edit tries that again, as TanStack may save its answers
+  // again in between (see queryClient.ts).
+  function save(next: List) {
+    if (!storage) return false
+    const json = JSON.stringify(next)
+    try {
+      storage.setItem(KEY, json)
+      return true
+    } catch (error) {
+      if (!isQuota(error)) return false
+    }
+    try {
+      storage.removeItem(CACHE)
+      storage.setItem(KEY, json)
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // Each edit reads the saved list and merges it with this tab's before it changes anything, then
+  // saves the result: another tab's edit since this one last read is kept, never written over.
+  function edit(change: (list: List, now: number) => Edited): Outcome {
+    const saved = stored()
+    const edited = change(saved ? merge(getSnapshot(), saved) : getSnapshot(), now())
+    list = edited.list
+    const unchanged = edited.change === 'none' || edited.change === 'full'
+    return { change: edited.change, saved: unchanged || save(edited.list) }
+  }
+
+  /** The list as this tab has it. */
+  const getSnapshot = () => (list ??= stored() ?? {})
+
+  return {
+    getSnapshot,
+    /** Puts the title on the list with `status`, or takes it off with null (see setStatusIn). */
+    setStatus: (id: number, status: Status | null) =>
+      edit((list, now) => setStatusIn(list, id, status, now)),
+    /** A press on the title's Saved or Want to try button (see pressStatusIn). */
+    pressStatus: (id: number, status: Status) =>
+      edit((list, now) => pressStatusIn(list, id, status, now)),
+    /** A press on the title's heart (see toggleFavoriteIn). */
+    toggleFavorite: (id: number) => edit((list, now) => toggleFavoriteIn(list, id, now)),
+  }
+}
+
+// A browser can block a site's storage altogether ("block all site data"): reading localStorage
+// then throws, and the list lasts for the visit.
+function browserStorage() {
+  try {
+    return window.localStorage
+  } catch {
+    return undefined
+  }
+}
+
+/** The visitor's list, in this browser's localStorage. */
+export const { getSnapshot, setStatus, pressStatus, toggleFavorite } = createListStore({
+  storage: browserStorage(),
+})

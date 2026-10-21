@@ -4,6 +4,8 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   CAP,
+  createListStore,
+  KEY,
   merge,
   parse,
   pressStatusIn,
@@ -280,4 +282,127 @@ test('a full list takes no new title, but its titles can still move, lose their 
   const room = { ...full }
   delete room[CAP]
   assert.equal(setStatusIn(room, 9000, 'SAVED', T + 1).change, 'added')
+})
+
+/**
+ * localStorage, as far as the list uses it, holding `room` characters at most over all its keys,
+ * as a site's storage does: a write past that throws the error a browser throws when it is full.
+ */
+function fakeStorage(room = Infinity) {
+  const items = new Map<string, string>()
+  const size = () => [...items].reduce((sum, [key, value]) => sum + key.length + value.length, 0)
+  return {
+    items,
+    getItem: (key: string) => items.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      const others = size() - (items.has(key) ? key.length + items.get(key)!.length : 0)
+      if (others + key.length + value.length > room)
+        throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+      items.set(key, value)
+    },
+    removeItem: (key: string) => void items.delete(key),
+  }
+}
+
+/** A storage every use of which throws, as a browser's can when it blocks a site's storage. */
+const refusing = {
+  getItem: refuse,
+  setItem: refuse,
+  removeItem: refuse,
+}
+function refuse(): never {
+  throw new DOMException('The operation is insecure.', 'SecurityError')
+}
+
+const savedList = (storage: { items: Map<string, string> }) =>
+  JSON.parse(storage.items.get(KEY) ?? 'null')
+
+test('the list is saved under anibeam:list:v1 as it changes, and read back from there', () => {
+  const storage = fakeStorage()
+  storage.items.set(KEY, JSON.stringify({ '21': want(T - 5) }))
+  const store = createListStore({ storage, now: () => T })
+  assert.deepEqual(store.getSnapshot(), { '21': want(T - 5) }, 'the list saved before')
+  assert.deepEqual(store.pressStatus(154587, 'SAVED'), { change: 'added', saved: true })
+  assert.deepEqual(savedList(storage), { '21': want(T - 5), '154587': saved(T) })
+  assert.deepEqual(store.getSnapshot(), savedList(storage), 'the list as this tab has it')
+  // Nothing else is written, and nothing changes for an edit that changes nothing.
+  assert.deepEqual([...storage.items.keys()], [KEY])
+  assert.deepEqual(store.setStatus(21, 'WANT'), { change: 'none', saved: true })
+  assert.deepEqual(savedList(storage), { '21': want(T - 5), '154587': saved(T) })
+})
+
+test("another tab's edit since this one last read is kept, never written over", () => {
+  const storage = fakeStorage()
+  let time = T
+  const here = createListStore({ storage, now: () => time++ })
+  const there = createListStore({ storage, now: () => time++ })
+  // Both tabs have read the list, still empty, before either edits it.
+  assert.deepEqual([here.getSnapshot(), there.getSnapshot()], [{}, {}])
+  there.setStatus(2, 'WANT')
+  here.setStatus(1, 'SAVED')
+  assert.deepEqual(savedList(storage), { '1': saved(T + 1), '2': want(T) }, 'both edits saved')
+  assert.deepEqual(here.getSnapshot(), savedList(storage), "this tab has the other's edit too")
+  // The other tab never saw title 1, yet its heart reads the saved list first: it gives title 1 the
+  // heart, as it is on the list, and doesn't put it on again (see HEART_ADDS_AS).
+  assert.deepEqual(there.toggleFavorite(1), { change: 'favorited', saved: true })
+  // A removal in one tab isn't undone by the other's next edit.
+  here.setStatus(2, null)
+  there.setStatus(3, 'SAVED')
+  assert.deepEqual(savedList(storage), {
+    '1': saved(T + 2, true),
+    '2': removed(T + 3, 'WANT'),
+    '3': saved(T + 4),
+  })
+})
+
+test('when storage is full, the saved AniList answers go to make room for the list, and only they', () => {
+  const storage = fakeStorage(400)
+  storage.items.set('anibeam:cache', 'x'.repeat(300))
+  storage.items.set('anibeam:motion', 'reduce')
+  const store = createListStore({ storage, now: () => T })
+  store.setStatus(1, 'SAVED')
+  assert.deepEqual(store.setStatus(154587, 'WANT'), { change: 'added', saved: true })
+  assert.deepEqual(savedList(storage), { '1': saved(T), '154587': want(T) })
+  assert.deepEqual([...storage.items.keys()].sort(), ['anibeam:list:v1', 'anibeam:motion'])
+  // TanStack saves its answers again, filling the storage: the next edit makes room again.
+  storage.items.set('anibeam:cache', 'x'.repeat(300))
+  assert.deepEqual(store.toggleFavorite(1), { change: 'favorited', saved: true })
+  assert.equal(storage.items.has('anibeam:cache'), false)
+  assert.deepEqual(savedList(storage), { '1': saved(T + 1, true), '154587': want(T) })
+})
+
+test('with no room even so, an edit lasts for the visit and says so, and the list is kept', () => {
+  const storage = fakeStorage(40)
+  storage.items.set(KEY, JSON.stringify({ '1': saved(T) }))
+  const store = createListStore({ storage, now: () => T + 1 })
+  assert.deepEqual(store.setStatus(154587, 'WANT'), { change: 'added', saved: false })
+  assert.deepEqual(store.getSnapshot(), { '1': saved(T), '154587': want(T + 1) })
+  assert.deepEqual(savedList(storage), { '1': saved(T) }, 'the list saved before is left as it was')
+  // Later edits still build on this visit's.
+  assert.deepEqual(store.toggleFavorite(154587), { change: 'favorited', saved: false })
+  assert.deepEqual(store.getSnapshot(), { '1': saved(T), '154587': want(T + 2, true) })
+})
+
+test('a storage refusing for any other reason leaves the saved AniList answers alone', () => {
+  const storage = fakeStorage()
+  storage.items.set('anibeam:cache', 'answers')
+  const store = createListStore({
+    storage: { ...storage, setItem: refuse },
+    now: () => T,
+  })
+  assert.deepEqual(store.setStatus(1, 'SAVED'), { change: 'added', saved: false })
+  assert.equal(storage.items.get('anibeam:cache'), 'answers')
+  assert.deepEqual(store.getSnapshot(), { '1': saved(T) })
+})
+
+test('with storage blocked, the list lives for the visit, and nothing throws', () => {
+  for (const storage of [undefined, refusing]) {
+    const store = createListStore({ storage, now: () => T })
+    assert.deepEqual(store.getSnapshot(), {})
+    assert.deepEqual(store.pressStatus(1, 'SAVED'), { change: 'added', saved: false })
+    assert.deepEqual(store.pressStatus(1, 'WANT'), { change: 'moved', saved: false })
+    assert.deepEqual(store.toggleFavorite(2), { change: 'added', saved: false })
+    // The move came 1 ms after the add, as the clock stood still.
+    assert.deepEqual(store.getSnapshot(), { '1': want(T + 1), '2': saved(T, true) })
+  }
 })
