@@ -412,6 +412,16 @@ test('a card whose title AniList holds up keeps it, and says why in the outage w
     cardNote({ ...frieren, isFetching: true }, true),
     'Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.',
   )
+  // A refresh that fails another way, a server error or no connection, says so through its
+  // retries too, with no rate limit on.
+  assert.equal(
+    cardNote({ ...frieren, isFetching: true, failureReason: serverError }, false),
+    'AniList had a problem. It’s not something you did. Trying again in a few seconds.',
+  )
+  assert.equal(
+    cardNote({ ...frieren, isFetching: true, failureReason: noConnection }, false),
+    'AniList isn’t responding right now. It’s not something you did. Trying again in a minute.',
+  )
   assert.equal(
     cardNote({ ...frieren, error: tooMany }, false),
     'AniList, where AniBeam gets its anime, isn’t responding right now. It’s not something you did. Try again in a minute.',

@@ -287,7 +287,8 @@ test('with no banner, or a broken one, the band is an impact frame in the titleâ
   // A title without a banner should still look intentional (spec Â§8): the band shows the wipe's
   // look, the title's color with white speed lines bursting from a bright middle and the page's
   // screentone dots, sharp, with no blurred cover. Mostly the title's color, with light lines and
-  // dark dots both plain to see.
+  // dark dots both plain to see. The bright middle alone is about 9% of the band lighter than the
+  // title's color, and with the lines about 31%: a fifth at least asks for the lines too.
   const seen: string[] = []
   try {
     for (const banner of ['no banner', 'a broken banner'] as const) {
@@ -308,7 +309,7 @@ test('with no banner, or a broken one, the band is an impact frame in the titleâ
         })()`)
         const where = `${screen.width}px, ${banner}`
         if (near[0] < 40) seen.push(`${where}: ${near[0]}% in the title's color ${accent}`)
-        if (lighter < 5) seen.push(`${where}: ${lighter}% speed lines, lighter than its color`)
+        if (lighter < 20) seen.push(`${where}: ${lighter}% speed lines, lighter than its color`)
         if (darker < 2) seen.push(`${where}: ${darker}% screentone, darker than its color`)
         if (blurred.length) seen.push(`${where}: blurred with ${blurred.join(', ')}`)
       }

@@ -96,7 +96,9 @@ test('parseSynopsis takes a closing "[Written by …]" as the source too (Prince
 })
 
 test('parseSynopsis takes a source only from a paragraph of its own, whole', () => {
-  // A source line sharing its paragraph, or words that only mention one, stay in the synopsis.
+  // A source line sharing its paragraph, or words that only mention one, stay in the synopsis:
+  // before them, after them, or around them, so the pattern holds to the paragraph's start and
+  // its end alike.
   assert.deepEqual(show('Story.<br><br>(Source: Crunchyroll)<br>Note: aired in 2 parts.'), {
     paragraphs: ['Story.', '(Source: Crunchyroll)\nNote: aired in 2 parts.'],
     source: null,
@@ -104,8 +106,10 @@ test('parseSynopsis takes a source only from a paragraph of its own, whole', () 
   for (const text of [
     'He quotes (Source: none) and walks off.',
     '(Source: none) opens this.',
+    'And so it ends (Source: none)',
     'Read it [Written by Ann] today.',
     '[Written by Ann] and more',
+    'As retold [Written by Ann]',
   ])
     assert.deepEqual(show(text), { paragraphs: [text], source: null }, text)
 })
