@@ -28,14 +28,14 @@ export function useHost(find: () => Place | null, key: unknown, className = ''):
 /** A host in an element of a component, with the title id its link names. */
 export type Slot = { id: number; host: HTMLElement; item: Element }
 
-/** The slots made last, for React to read as an outside store (see useSlots). */
-function slotStore() {
-  let slots: Slot[] = []
+/** A value the lab reads off the page, for React to read as an outside store. */
+function store<T>(first: T) {
+  let value = first
   const listeners = new Set<() => void>()
   return {
-    get: () => slots,
-    set(next: Slot[]) {
-      slots = next
+    get: () => value,
+    set(next: T) {
+      value = next
       listeners.forEach((listener) => listener())
     },
     subscribe(listener: () => void) {
@@ -47,7 +47,7 @@ function slotStore() {
 
 /**
  * A host in every element `selector` finds under `root`, placed last in it, with the title its
- * link to /anime/:id names. `refresh` changes whenever the component may have drawn other
+ * link to /anime/:id names (the link it is in, or the first in it). `refresh` changes whenever the component may have drawn other
  * elements (new titles, a new layout), so they get hosts too.
  */
 export function useSlots(
@@ -56,12 +56,12 @@ export function useSlots(
   refresh: unknown,
   className = '',
 ): Slot[] {
-  const [store] = useState(slotStore)
+  const [slots] = useState(() => store<Slot[]>([]))
   useLayoutEffect(() => {
     if (!root) return
     const made: Slot[] = []
     for (const item of root.querySelectorAll(selector)) {
-      const link = item.matches('a') ? item : item.querySelector('a[href^="/anime/"]')
+      const link = item.closest('a[href^="/anime/"]') ?? item.querySelector('a[href^="/anime/"]')
       const id = Number(link?.getAttribute('href')?.match(/^\/anime\/(\d+)$/)?.[1])
       if (!id) continue
       const host = document.createElement('span')
@@ -69,11 +69,25 @@ export function useSlots(
       item.append(host)
       made.push({ id, host, item })
     }
-    store.set(made)
+    slots.set(made)
     return () => {
       made.forEach(({ host }) => host.remove())
-      store.set([])
+      slots.set([])
     }
-  }, [store, root, selector, refresh, className])
-  return useSyncExternalStore(store.subscribe, store.get)
+  }, [slots, root, selector, refresh, className])
+  return useSyncExternalStore(slots.subscribe, slots.get)
+}
+
+/**
+ * What `measure` reads off the page, read again after each render where `refresh` changed: a
+ * count of Tab stops, say, which only the drawn page knows.
+ */
+export function useMeasured<T>(measure: () => T, refresh: unknown[], first: T): T {
+  const [measured] = useState(() => store(first))
+  useLayoutEffect(() => {
+    measured.set(measure())
+    // measure reads the page as it is: refresh says when to read it again.
+    // oxlint-disable-next-line react-hooks/exhaustive-deps
+  }, [measured, ...refresh])
+  return useSyncExternalStore(measured.subscribe, measured.get)
 }

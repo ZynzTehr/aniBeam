@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { CardStage } from './CardStage.tsx'
+import { CoversStage } from './CoversStage.tsx'
 import { setStorage } from './sandbox.ts'
 import { read, SECTIONS, type Lab, type Options, type Section } from './switches.ts'
 
@@ -39,6 +40,8 @@ export function Stage({ section }: { section: Section }) {
       <title>{`${name} · My List lab`}</title>
       {section === 'card' ? (
         <CardStage options={options} title={lab.title} />
+      ) : section === 'covers' ? (
+        <CoversStage options={options} />
       ) : (
         <main id="main">
           <p className="ab-lab-why">{name}: built in a later commit.</p>

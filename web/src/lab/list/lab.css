@@ -508,3 +508,100 @@
   color: var(--ink);
   font: 700 13px / 1.35 var(--body);
 }
+
+/* ---------- Covers (see CoversStage) ---------- */
+/* D4 A: an inked stamp above the cover's caption, bottom left, as a hanko on the page. */
+.ab-lab-stamp-host {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: -3px;
+  pointer-events: none;
+}
+
+.ab-lab-stamp {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px 2px;
+  border: 3px solid var(--hot-deep);
+  border-radius: 6px;
+  background: #fff;
+  box-shadow:
+    inset 0 0 0 2px #fff,
+    inset 0 0 0 3px var(--hot-deep);
+  color: var(--hot-deep);
+  font: 400 13px / 1.1 var(--display);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  transform: rotate(-6deg);
+}
+
+.ab-lab-stamp svg {
+  width: 13px;
+  height: 12px;
+  fill: currentColor;
+}
+
+/* D4 B: a 44x44 bookmark button beside each cover, outside its link. */
+.ab-strip-item:has(> .ab-lab-mark-host) {
+  position: relative;
+}
+
+.ab-lab-mark {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 2px 2px 0 var(--ink);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.ab-lab-mark svg {
+  width: 16px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linejoin: round;
+}
+
+.ab-lab-mark[aria-pressed='true'] {
+  background: var(--hot-deep);
+  color: #fff;
+}
+
+.ab-lab-mark[aria-pressed='true'] svg {
+  fill: currentColor;
+}
+
+.ab-lab-mark:focus-visible {
+  outline: 4px solid var(--hot);
+  outline-offset: 3px;
+}
+
+/* On a trending panel, bottom right: the rank holds the top left, the score bubble the top
+   right, the caption the bottom left. */
+.ab-panel > .ab-lab-mark-host .ab-lab-mark {
+  right: 14px;
+  bottom: 14px;
+}
+
+/* On a strip cover, top right, inside its ink frame (the chapter tag holds the top left). */
+.ab-strip-item > .ab-lab-mark-host .ab-lab-mark {
+  top: 10px;
+  right: 10px;
+}
+
+/* Panel 4's bottom right is cut away from 900px: its button moves in past the cut, so its
+   focus ring stays whole. */
+@media (min-width: 900px) {
+  .ab-cut-right > .ab-lab-mark-host .ab-lab-mark {
+    right: calc(var(--cut) + 14px);
+  }
+}
