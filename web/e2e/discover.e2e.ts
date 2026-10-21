@@ -3849,10 +3849,12 @@ const NOTE_STARTS = `(() => {
 const MOVES =
   /^(transform|translate|rotate|scale|top|right|bottom|left|inset.*|(min-|max-)?(width|height)|(inline|block)-size|margin.*|padding.*|clip-path|background-position.*|object-position|offset.*)$/
 /**
- * Does `act`, then reads what it started (see NOTE_STARTS): each animation or transition that
- * moves something, and each that doesn't (a fade, a change of color), as "what on which element";
- * then, once the page's animations have ended or 1 s has passed, each animation or transition
- * still on the page: playing, paused, or finished and holding its last frame.
+ * Does `act`, then listens for 500 ms whatever happens, and on until the page's animations have
+ * ended or 1 s has passed, so that one starting late, as a banner's does when it arrives after the
+ * card, is heard in its own step. It reads what started (see NOTE_STARTS) only then: each
+ * animation or transition that moves something, and each that doesn't (a fade, a change of
+ * color), as "what on which element", and each animation or transition still on the page at the
+ * end: playing, paused, or finished and holding its last frame.
  */
 async function startedBy(act: () => Promise<unknown>) {
   await browser.evaluate(`${NOTE_STARTS}, true`)
@@ -3861,7 +3863,8 @@ async function startedBy(act: () => Promise<unknown>) {
     const since = performance.now()
     requestAnimationFrame(function look() {
       const left = document.getAnimations()
-      if (left.length && performance.now() - since < 1000) return requestAnimationFrame(look)
+      const listened = performance.now() - since
+      if (listened < 500 || (left.length && listened < 1000)) return requestAnimationFrame(look)
       resolve(left.map((a) => (a.animationName ?? a.transitionProperty ?? 'a script’s animation') + ' on ' + (a.effect?.target?.className || a.effect?.target?.localName) + ', ' + a.playState))
     })
   })`)
@@ -4755,19 +4758,29 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
 
   test('a walk through every part that moves, on a desktop and a phone, starts nothing that moves, and leaves no animation or transition running', async () => {
     // Every part of the page that moves with motion allowed, done once each as a visitor does it:
-    // the scroll slam and the intro's buttons flying into the header, a search, a title's card
-    // with its band and its details rising in, Read more and the spoiler tags, the trailer, and on
-    // a phone the header sliding away and back, the menu sliding in and out by its button and by
-    // a swipe, and the search bubble growing. Each may start fades and changes of color, reduced
-    // motion's own versions (the card's, the trailer's and the menu's fades must be heard, so
-    // that a recorder hearing nothing can't pass), but nothing that moves or resizes, by CSS or a
-    // script, and 1 s on nothing may be left on the page, playing, paused or holding its last
-    // frame. With motion allowed, the same walk starts 72 moving ones across its steps, in all but
-    // Read more and the trailer's closing. Set on the site, the setting is turned on by a click
-    // on the switch after the first load, and the phone's load gets it back from the saved choice.
+    // the scroll slam and the intro's buttons flying into the header, the decade strip scrolled
+    // sideways, a search, a title's card with its band, its banner and its details coming in,
+    // Read more and the spoiler tags, the trailer, a pull, and on a phone the header sliding away
+    // and back, the menu sliding in and out by its button and by a swipe, and the search bubble
+    // growing. Each may start fades and changes of color, reduced motion's own versions (the
+    // card's, the trailer's and the menu's fades must be heard, so that a recorder hearing nothing
+    // can't pass), but no animation or transition that moves or resizes, by CSS or the Web
+    // Animations API, heard for at least 500 ms after the step (see startedBy), and nothing may be
+    // left on the page 1 s on, playing, paused or holding its last frame. A script that moves
+    // something by setting its style, with no animation at all, makes nothing to hear: the swipes
+    // also check that nothing in the header or the menu changes its transform under the finger,
+    // as the hamburger's bars and the menu do with motion allowed. Other checks hold the parts
+    // the walk doesn't take: a card opened from a trending panel and closed by its button (the
+    // fade checks above). With motion allowed, the same walk starts 80 moving ones across its
+    // steps, in all but Read more and the trailer's closing, and the hamburger's bars and the menu
+    // move under the finger. Set on the site, the setting is turned on by a click on the switch
+    // after the first load, and the phone's load gets it back from the saved choice.
     const seen: Record<string, Awaited<ReturnType<typeof startedBy>>> = {}
+    let followed: string[] = []
     const step = async (name: string, act: () => Promise<unknown>) => {
-      seen[name] = await startedBy(act)
+      followed = []
+      const started = await startedBy(act)
+      seen[name] = { ...started, moving: [...started.moving, ...new Set(followed)] }
     }
     const frames = () =>
       browser.evaluate(
@@ -4791,20 +4804,40 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
       await browser.evaluate(`${button(label)}.focus(); true`)
       await browser.press('Enter')
     }
-    // A finger's straight swipe from (x, y), dx across, over ms, stamped so the page reads its speed.
+    // What a script could move under a swiping finger by setting a style, with no animation for
+    // NOTE_STARTS to hear (the hamburger's bars leaning into the swipe, the menu following the
+    // finger): each element of the header and the menu by its transform, from when it was first
+    // drawn in the swipe (the menu may open part way, drawn from then on as it is open).
+    const HOLD = `(() => {
+      const read = (el) => ((s) => [s.transform, s.translate, s.rotate, s.scale].join(' '))(getComputedStyle(el))
+      const name = (el) => typeof el.className === 'string' && el.className.trim() ? '.' + el.className.trim().split(/\\s+/)[0]
+        : (el.parentElement ? name(el.parentElement) + ' ' : '') + el.localName
+      const drawn = () => [...document.querySelectorAll('.ab-top, .ab-top *, .ab-drawer, .ab-drawer *')].filter((el) => el.getClientRects().length)
+      const held = new Map(drawn().map((el) => [el, read(el)]))
+      window.__moved = () => drawn().flatMap((el) => {
+        if (!held.has(el)) return held.set(el, read(el)), []
+        return held.get(el) !== read(el) ? ['transform on ' + name(el) + ', under the finger'] : []
+      })
+      return true
+    })()`
+    // A finger's straight swipe from (x, y), dx across, over ms, stamped so the page reads its
+    // speed, noting in `followed` what moved under it as it went (see HOLD).
     const swipe = async (x: number, y: number, dx: number, ms: number) => {
       const start = Date.now() / 1000 - ms / 1000
+      await browser.evaluate(HOLD)
       await browser.send('Input.dispatchTouchEvent', {
         type: 'touchStart',
         touchPoints: [{ x, y }],
         timestamp: start,
       })
-      for (let i = 1; i <= 8; i++)
+      for (let i = 1; i <= 8; i++) {
         await browser.send('Input.dispatchTouchEvent', {
           type: 'touchMove',
           touchPoints: [{ x: x + (dx * i) / 8, y }],
           timestamp: start + (ms * i) / 8 / 1000,
         })
+        followed.push(...(await browser.evaluate<string[]>('window.__moved()')))
+      }
       await browser.send('Input.dispatchTouchEvent', {
         type: 'touchEnd',
         touchPoints: [],
@@ -4832,6 +4865,21 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
         )
         await scrollThrough(await foot(), 0, -600)
       })
+      const strip = `document.querySelector('.ab-strip-row:not(.ab-strip-grid)')`
+      await browser.evaluate(`${strip}.scrollIntoView({ block: 'center' }); true`)
+      await frames()
+      await step('the decade strip scrolled sideways to its end', async () => {
+        const end = await browser.evaluate<number>(`${strip}.scrollWidth - ${strip}.clientWidth`)
+        for (let x = 200; x < end; x += 200) {
+          await browser.evaluate(`${strip}.scrollTo({ left: ${x}, behavior: 'instant' }); true`)
+          await frames()
+        }
+        await browser.evaluate(`${strip}.scrollTo({ left: ${end}, behavior: 'instant' }); true`)
+        await frames()
+        assert.ok(end > 0, 'the decade strip had nothing to scroll')
+      })
+      await browser.evaluate(`scrollTo(0, 0); true`)
+      await frames()
       await step('a search', async () => {
         await browser.search('frieren')
         assert.ok(
@@ -4845,12 +4893,14 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
       })
       await step('opening a title’s card, with its band and its details', async () => {
         await clickMiddle(`document.querySelector('.ab-results a[href="/anime/154587"]')`)
+        // Frieren's banner comes from AniList's image server, and its fade starts only as it
+        // arrives, which may be after the card's: the step waits for it, there or broken.
         assert.ok(
           await browser.waitFor(
-            `document.querySelector('dialog.ab-card.is-landed .ab-details')`,
+            `document.querySelector('dialog.ab-card.is-landed .ab-details') && document.querySelector('dialog.ab-card .ab-band img:is([data-loaded], [data-broken])')`,
             10_000,
           ),
-          'Frieren’s card didn’t open with its details',
+          'Frieren’s card didn’t open with its details and its banner, loaded or broken',
         )
       })
       await step('Read more and Show spoiler tags', async () => {
@@ -4879,6 +4929,20 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
       await step('Esc, closing the card', async () => {
         await browser.press('Escape')
         assert.ok(await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000))
+      })
+      await browser.evaluate(
+        `document.querySelector('.ab-lever').scrollIntoView({ block: 'center' }); true`,
+      )
+      await frames()
+      await step('Pull!: the capsule, and the title it holds', async () => {
+        await clickMiddle(`document.querySelector('.ab-lever')`)
+        assert.ok(
+          await browser.waitFor(
+            `document.querySelector('.ab-result.is-open .ab-result-panel img:is([data-loaded], [data-broken])')`,
+            5000,
+          ),
+          'the pull didn’t show its title',
+        )
       })
 
       await browser.load({
@@ -4953,7 +5017,7 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
         `localStorage.removeItem('anibeam:motion'); delete document.documentElement.dataset.motion; true`,
       )
     }
-    assert.equal(Object.keys(seen).length, 15, 'steps the walk took')
+    assert.equal(Object.keys(seen).length, 17, 'steps the walk took')
     assert.deepEqual(
       Object.fromEntries(
         Object.entries(seen).flatMap(([name, { moving, left }]) =>
@@ -4961,7 +5025,7 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
         ),
       ),
       {},
-      'the steps that started something that moves (what it changed, on which element), or left an animation or transition on the page 1 s on, playing, paused or holding its last frame',
+      'the steps that started something that moves (what it changed, on which element), moved something under a swiping finger, or left an animation or transition on the page 1 s on, playing, paused or holding its last frame',
     )
     assert.deepEqual(
       {
