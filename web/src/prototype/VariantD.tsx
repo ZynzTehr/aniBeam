@@ -12,8 +12,14 @@ import { PullMachine } from '../features/mood/PullMachine.tsx'
 import type { Show, VariantProps } from './data.ts'
 
 // The prototypes ask AniList for the fields they were drawn with (data.ts), with no synopsis,
-// running time or tags, so the title card shows none.
-const asMedia = (show: Show): Media => ({ ...show, description: null, duration: null, tags: [] })
+// running time, tags or trailer, so the title card shows none.
+const asMedia = (show: Show): Media => ({
+  ...show,
+  description: null,
+  duration: null,
+  tags: [],
+  trailer: null,
+})
 
 export default function VariantD(props: VariantProps) {
   const [opened, setOpened] = useState<{ media: Media; from: DOMRect } | null>(null)

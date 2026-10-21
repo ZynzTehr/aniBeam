@@ -65,6 +65,7 @@ export const SAMPLES: Media[] = [
       { name: 'Kuudere', rank: 75, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: false },
       { name: 'Time Skip', rank: 82, isAdult: false, isGeneralSpoiler: true, isMediaSpoiler: true },
     ],
+    trailer: { id: 'tR8YH0G67Rk', site: 'youtube' },
   },
   {
     id: 140960,
@@ -146,6 +147,7 @@ export const SAMPLES: Media[] = [
         isMediaSpoiler: false,
       },
     ],
+    trailer: { id: '_VRxEEBa1XU', site: 'youtube' },
   },
   {
     id: 130003,
@@ -225,6 +227,7 @@ export const SAMPLES: Media[] = [
         isMediaSpoiler: false,
       },
     ],
+    trailer: { id: 'SyMMZF5zNW4', site: 'youtube' },
   },
   {
     id: 113415,
@@ -296,6 +299,7 @@ export const SAMPLES: Media[] = [
       },
       { name: 'Tragedy', rank: 64, isAdult: false, isGeneralSpoiler: true, isMediaSpoiler: true },
     ],
+    trailer: { id: 'RIyb52EMx8c', site: 'youtube' },
   },
   {
     id: 161645,
@@ -384,6 +388,7 @@ export const SAMPLES: Media[] = [
       { name: 'Adoption', rank: 75, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
       { name: 'Suicide', rank: 20, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
     ],
+    trailer: { id: 'oyHqh8ue4zw', site: 'youtube' },
   },
   {
     id: 16498,
@@ -485,6 +490,7 @@ export const SAMPLES: Media[] = [
       },
       { name: 'Amnesia', rank: 60, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
     ],
+    trailer: { id: 'LHtdKWJdif4\t', site: 'youtube' },
   },
   {
     id: 21519,
@@ -577,6 +583,7 @@ export const SAMPLES: Media[] = [
         isMediaSpoiler: false,
       },
     ],
+    trailer: { id: 'k4xGqY5IDBE', site: 'youtube' },
   },
   {
     id: 9253,
@@ -690,6 +697,7 @@ export const SAMPLES: Media[] = [
       { name: 'Suicide', rank: 60, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
       { name: 'War', rank: 51, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
     ],
+    trailer: { id: '27OZc-ku6is', site: 'youtube' },
   },
   {
     id: 20464,
@@ -759,6 +767,7 @@ export const SAMPLES: Media[] = [
       },
       { name: 'School', rank: 73, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: false },
     ],
+    trailer: { id: '9kLRkH9zC5k', site: 'youtube' },
   },
   {
     id: 21827,
@@ -816,6 +825,7 @@ export const SAMPLES: Media[] = [
       { name: 'Tragedy', rank: 92, isAdult: false, isGeneralSpoiler: true, isMediaSpoiler: false },
       { name: 'Age Gap', rank: 60, isAdult: false, isGeneralSpoiler: true, isMediaSpoiler: false },
     ],
+    trailer: { id: '_grmduuECm4', site: 'youtube' },
   },
   {
     id: 199,
@@ -879,6 +889,7 @@ export const SAMPLES: Media[] = [
       },
       { name: 'Twins', rank: 42, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
     ],
+    trailer: { id: 'ByXuk9QqQkk', site: 'youtube' },
   },
   {
     id: 5114,
@@ -972,6 +983,7 @@ export const SAMPLES: Media[] = [
         isMediaSpoiler: true,
       },
     ],
+    trailer: { id: '1ac3_YdSSy0', site: 'youtube' },
   },
   {
     id: 1575,
@@ -1056,6 +1068,7 @@ export const SAMPLES: Media[] = [
       { name: 'Age Gap', rank: 48, isAdult: false, isGeneralSpoiler: true, isMediaSpoiler: false },
       { name: 'Drugs', rank: 48, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
     ],
+    trailer: { id: 'Ab9ztHX-DVg', site: 'youtube' },
   },
   {
     id: 5680,
@@ -1125,6 +1138,7 @@ export const SAMPLES: Media[] = [
         isMediaSpoiler: false,
       },
     ],
+    trailer: { id: 'mFHue76hqt0', site: 'youtube' },
   },
   {
     id: 457,
@@ -1192,6 +1206,7 @@ export const SAMPLES: Media[] = [
       { name: 'Time Skip', rank: 20, isAdult: false, isGeneralSpoiler: true, isMediaSpoiler: true },
       { name: 'Suicide', rank: 15, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
     ],
+    trailer: { id: 'h371H0KIuPo', site: 'youtube' },
   },
   {
     id: 1,
@@ -1263,6 +1278,7 @@ export const SAMPLES: Media[] = [
       },
       { name: 'Amnesia', rank: 62, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
     ],
+    trailer: { id: 'OhNwckCLzis', site: 'youtube' },
   },
   {
     id: 30,
@@ -1367,6 +1383,7 @@ export const SAMPLES: Media[] = [
       },
       { name: 'Clone', rank: 67, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
     ],
+    trailer: { id: 'kOH2_8MkgZY', site: 'youtube' },
   },
   {
     id: 245,
@@ -1438,6 +1455,7 @@ export const SAMPLES: Media[] = [
         isMediaSpoiler: true,
       },
     ],
+    trailer: null,
   },
   {
     id: 232,
@@ -1543,6 +1561,7 @@ export const SAMPLES: Media[] = [
       { name: 'Amnesia', rank: 33, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
       { name: 'Time Skip', rank: 26, isAdult: false, isGeneralSpoiler: true, isMediaSpoiler: true },
     ],
+    trailer: { id: 'W8pQIpheFSw', site: 'youtube' },
   },
   {
     id: 585,
@@ -1607,6 +1626,7 @@ export const SAMPLES: Media[] = [
       },
       { name: 'Band', rank: 40, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
     ],
+    trailer: { id: '0pVkiod6V0U', site: 'youtube' },
   },
   {
     id: 523,
@@ -1670,6 +1690,7 @@ export const SAMPLES: Media[] = [
       },
       { name: 'Kids', rank: 65, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: false },
     ],
+    trailer: { id: '92a7Hj0ijLs', site: 'youtube' },
   },
   {
     id: 47,
@@ -1767,6 +1788,7 @@ export const SAMPLES: Media[] = [
         isMediaSpoiler: true,
       },
     ],
+    trailer: { id: 'SyM8JyyUTjc', site: 'youtube' },
   },
   {
     id: 512,
@@ -1828,6 +1850,7 @@ export const SAMPLES: Media[] = [
       { name: 'Work', rank: 79, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: false },
       { name: 'Coastal', rank: 79, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: false },
     ],
+    trailer: { id: '4bG17OYs-GA', site: 'youtube' },
   },
   {
     id: 223,
@@ -1901,6 +1924,7 @@ export const SAMPLES: Media[] = [
       { name: 'Military', rank: 63, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
       { name: 'Time Skip', rank: 62, isAdult: false, isGeneralSpoiler: true, isMediaSpoiler: true },
     ],
+    trailer: null,
   },
   {
     id: 80,
@@ -2011,6 +2035,7 @@ export const SAMPLES: Media[] = [
         isMediaSpoiler: true,
       },
     ],
+    trailer: null,
   },
   {
     id: 1430,
@@ -2079,6 +2104,7 @@ export const SAMPLES: Media[] = [
         isMediaSpoiler: true,
       },
     ],
+    trailer: { id: 'xmKP3zp3Mug', site: 'youtube' },
   },
   {
     id: 2225,
@@ -2154,6 +2180,7 @@ export const SAMPLES: Media[] = [
       },
       { name: 'Urban', rank: 60, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
     ],
+    trailer: null,
   },
   {
     id: 1044,
@@ -2211,6 +2238,7 @@ export const SAMPLES: Media[] = [
       { name: 'Revenge', rank: 33, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
       { name: 'Kaiju', rank: 33, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
     ],
+    trailer: { id: '8ZX5NosrYl8', site: 'youtube' },
   },
   {
     id: 1550,
@@ -2283,6 +2311,7 @@ export const SAMPLES: Media[] = [
       { name: 'Tragedy', rank: 79, isAdult: false, isGeneralSpoiler: true, isMediaSpoiler: true },
       { name: 'Foreign', rank: 70, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: true },
     ],
+    trailer: null,
   },
   {
     id: 1445,
@@ -2330,5 +2359,6 @@ export const SAMPLES: Media[] = [
         isMediaSpoiler: true,
       },
     ],
+    trailer: null,
   },
 ]

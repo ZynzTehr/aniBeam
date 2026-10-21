@@ -2,7 +2,14 @@ import { dehydrate, environmentManager, QueryClient, QueryObserver } from '@tans
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { AniListError } from './anilist.ts'
-import { ERAS, eraQuery, searchQuery, trendingQuery } from '../features/anime/queries.ts'
+import {
+  ERAS,
+  eraQuery,
+  searchQuery,
+  titleQuery,
+  trendingQuery,
+  type Title,
+} from '../features/anime/queries.ts'
 import { SAMPLES } from '../features/anime/samples.ts'
 import { persistOptions, queryClient, refetchFailed, shouldRetry } from './queryClient.ts'
 
@@ -63,7 +70,8 @@ test('a failed refresh keeps the last good list in the saved cache', async () =>
   assert.deepEqual(saved(client), [[['trending'], [{ id: 1 }]]])
 })
 
-test('results older than a day are not saved again', () => {
+test('lists older than a day are not saved again', () => {
+  // Lists are kept a day; only a finished title is kept longer (see the tests below).
   const client = new QueryClient()
   client.setQueryData(['fresh'], [{ id: 1 }])
   client.setQueryData(['old'], [{ id: 2 }], { updatedAt: Date.now() - DAY - 1 })
@@ -105,6 +113,56 @@ test('a list the visitor has left is still saved 23 hours later', async (t) => {
     saved(queryClient),
     [[search.queryKey, titles]],
     'a list the visitor left 23 hours ago was not saved: gcTime dropped it before its day was up',
+  )
+})
+
+test('a finished title is saved until it is 30 days old, an airing one a day, like the lists', () => {
+  // A finished title's details won't change, so AniList's answer for it is kept 30 days (spec §3H):
+  // a visitor back to its address within the month opens it with no request. An airing title's
+  // next episode changes, so it is kept a day, as the lists are.
+  const finished: Title = { ...SAMPLES[0], status: 'FINISHED' }
+  const airing: Title = { ...SAMPLES[1], status: 'RELEASING' }
+  const client = new QueryClient()
+  const now = Date.now()
+  const answer = (title: Title, id: number, age: number) =>
+    client.setQueryData(titleQuery(id).queryKey, { ...title, id }, { updatedAt: now - age })
+  answer(finished, 1, 29 * DAY)
+  answer(finished, 2, 31 * DAY)
+  answer(airing, 3, 23 * HOUR)
+  answer(airing, 4, 25 * HOUR)
+  assert.deepEqual(
+    saved(client).map(([queryKey]) => (queryKey as [string, string, { id: number }])[2].id),
+    [1, 3],
+    'of a finished title 29 days old (1) and 31 days old (2), and an airing one 23 hours old (3) and 25 hours old (4), these were saved',
+  )
+})
+
+test('a finished title the visitor has left is still saved 29 days later', async (t) => {
+  // The test above, for a title no component is using, which TanStack drops from the cache once
+  // gcTime is up. A day's gcTime would drop a finished title long before its 30 days are up; one
+  // of 30 days would drop it at once, as it is past the longest wait a browser's setTimeout takes
+  // (about 24.8 days), which then waits no time at all (Node's mock timers do the same). As in the
+  // test of a list left 23 hours, query-core is told it is in a browser until the test ends.
+  const wasServer = environmentManager.isServer()
+  environmentManager.setIsServer(() => false)
+  t.after(() => environmentManager.setIsServer(() => wasServer))
+  // The real app client and query, for their gcTime; only the answer and the clock are fake.
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
+  t.after(() => queryClient.clear())
+  const title: Title = { ...SAMPLES[0], status: 'FINISHED' }
+  const { queryKey } = titleQuery(title.id)
+  await queryClient.query({ ...titleQuery(title.id), queryFn: async () => title })
+  t.mock.timers.tick(1) // a gcTime past setTimeout's longest wait has dropped it by now
+  assert.deepEqual(
+    saved(queryClient),
+    [[queryKey, title]],
+    'a finished title was not saved a moment after it was left: its gcTime overflowed setTimeout',
+  )
+  t.mock.timers.tick(29 * DAY) // 29 days go by with the title off the page
+  assert.deepEqual(
+    saved(queryClient),
+    [[queryKey, title]],
+    'a finished title the visitor left 29 days ago was not saved: gcTime dropped it before its 30 days were up',
   )
 })
 

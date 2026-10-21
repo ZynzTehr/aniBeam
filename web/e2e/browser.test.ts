@@ -1,6 +1,14 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { chromeArgs, sessionWindow } from './browser.ts'
+import { chromeArgs, GOOGLE, sessionWindow } from './browser.ts'
+
+// The addresses Chrome is started unable to resolve: those its --host-resolver-rules map to
+// ~NOTFOUND, one rule each, as Chrome reads them, comma-separated.
+const unresolved = (args: string[]) =>
+  args
+    .filter((arg) => arg.startsWith('--host-resolver-rules='))
+    .flatMap((arg) => arg.slice('--host-resolver-rules='.length).split(','))
+    .map((rule) => /^\s*MAP (\S+) ~NOTFOUND\s*$/.exec(rule)?.[1] ?? `unread: ${rule}`)
 
 // The live checks are the only ones to see AniList's API, and when Chrome can't reach AniList they
 // skip, saying it's not the app, as they should while it is down. So a live browser started with a
@@ -11,17 +19,47 @@ import { chromeArgs, sessionWindow } from './browser.ts'
 test('only a recorded browser starts Chrome unable to resolve AniList’s address, and a live one differs from it in that alone', () => {
   const recorded = chromeArgs('recorded', 'profile')
   const live = chromeArgs('live', 'profile')
-  const namingAniList = (args: string[]) => args.filter((arg) => /anilist/i.test(arg))
+  const namingAniList = (args: string[]) => unresolved(args).filter((host) => /anilist/i.test(host))
   assert.deepEqual(
     { recorded: namingAniList(recorded), live: namingAniList(live) },
-    { recorded: ['--host-resolver-rules=MAP graphql.anilist.co ~NOTFOUND'], live: [] },
-    'the arguments naming AniList that each browser’s Chrome starts with',
+    { recorded: ['graphql.anilist.co'], live: [] },
+    'the AniList addresses each browser’s Chrome starts unable to resolve',
   )
   assert.deepEqual(
-    live,
-    recorded.filter((arg) => !/anilist/i.test(arg)),
-    'a live browser’s Chrome arguments, beside a recorded one’s without its rule for AniList',
+    unresolved(live),
+    unresolved(recorded).filter((host) => !/anilist/i.test(host)),
+    'the addresses a live browser’s Chrome can’t resolve, beside a recorded one’s but AniList’s',
   )
+  assert.deepEqual(
+    live.filter((arg) => !arg.startsWith('--host-resolver-rules=')),
+    recorded.filter((arg) => !arg.startsWith('--host-resolver-rules=')),
+    'a live browser’s other Chrome arguments, beside a recorded one’s',
+  )
+})
+
+// Spec §5: YouTube loads only when a trailer is played, and the checks that press "Watch trailer"
+// must play none. So no browser's Chrome, live or recorded, can resolve YouTube's or Google's
+// addresses, nor any under them: a frame or image from them fails before it leaves the machine,
+// and the checks still see what the page asked for (see Browser.watchRequests).
+test('every browser starts Chrome unable to resolve YouTube’s and Google’s addresses, and those under them', () => {
+  for (const mode of ['recorded', 'live'] as const) {
+    const hosts = unresolved(chromeArgs(mode, 'profile'))
+    assert.deepEqual(
+      ['youtube-nocookie.com', 'youtube.com', 'ytimg.com'].filter((host) => !GOOGLE.includes(host)),
+      [],
+      'GOOGLE leaves out the trailer’s own addresses',
+    )
+    assert.deepEqual(
+      GOOGLE.flatMap((host) => [host, `*.${host}`]).filter((host) => !hosts.includes(host)),
+      [],
+      `a ${mode} browser’s Chrome can resolve these`,
+    )
+    assert.deepEqual(
+      hosts.filter((host) => host.startsWith('unread')),
+      [],
+      `rules a ${mode} browser’s Chrome would read some other way`,
+    )
+  }
 })
 
 // Layout shift is counted as web-vitals counts CLS: shifts within 500 ms of the visitor's input

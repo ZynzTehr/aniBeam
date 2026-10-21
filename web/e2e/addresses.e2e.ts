@@ -486,6 +486,49 @@ test('a title opened on the page shows its list’s copy, never saved as AniList
   )
 })
 
+test('a finished title opened at its address 29 days later opens from the saved copy, asking AniList nothing, and 31 days later asks again', async () => {
+  // AniList's answer for a finished title is kept 30 days (spec §3H), as its details won't change.
+  // Here it goes through the persister the page builds and main.tsx's wiring, which no unit test
+  // loads. Frieren has finished. The page's clock is moved on before its scripts run; the lists,
+  // a day old at most, are not kept, but a visit that starts at a title asks for them only once
+  // its card closes.
+  await browser.forget()
+  await browser.load({ ...DESKTOP, reduceMotion: true, url: at('/anime/154587') })
+  assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000), 'no card for Frieren')
+  // The cache is saved at most once a second.
+  await sleep(1500)
+  const asked: string[] = []
+  await browser.rewriteAniList(({ request }) => {
+    asked.push(request.query === QUERIES.title ? `title ${request.variables.id}` : 'a list')
+    return null
+  })
+  try {
+    for (const [days, expected] of [
+      [29, []],
+      [31, ['title 154587']],
+    ] as const) {
+      asked.length = 0
+      const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+        source: `(() => { const now = Date.now; Date.now = () => now() + ${days} * 24 * 60 * 60_000 })()`,
+      })
+      try {
+        await browser.load({ ...DESKTOP, reduceMotion: true, url: at('/anime/154587') })
+        assert.ok(
+          await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000),
+          `${days} days on, no card for Frieren`,
+        )
+        // Long enough for the card to have asked, had it gone out of date.
+        await sleep(1500)
+      } finally {
+        await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+      }
+      assert.deepEqual(asked, expected, `${days} days on, the card asked AniList for this`)
+    }
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+})
+
 test('an answer with no title and no error says the title isn’t there, rather than showing nothing', async () => {
   await browser.forget()
   await browser.rewriteAniList(({ request }) =>

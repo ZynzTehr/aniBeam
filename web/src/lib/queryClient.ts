@@ -5,6 +5,7 @@ import {
   type PersistedClient,
   type Persister,
 } from '@tanstack/react-query-persist-client'
+import { keptFor, QUERIES } from '../features/anime/queries.ts'
 import { AniListError } from './anilist.ts'
 
 const DAY = 24 * 60 * 60 * 1000
@@ -24,12 +25,18 @@ export const shouldRetry = (failures: number, error: Error) =>
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Must be at least the persisted maxAge, or saved results are dropped early.
+      // Must be at least as long as a list is kept (a day, see keptFor), or TanStack drops a list
+      // no component is using before then, and the next save leaves it out of the copy.
       gcTime: DAY,
       retry: shouldRetry,
     },
   },
 })
+
+// A title is kept up to 30 days (a finished one, see keptFor), so TanStack keeps it for as long as
+// the tab stays open, restored from a copy or asked for. Not 30 days: setTimeout waits at most
+// about 24.8 days, and given longer waits no time at all, so the title would go at once.
+queryClient.setQueryDefaults(['anilist', QUERIES.title], { gcTime: Infinity })
 
 // Browsers can block storage entirely (e.g. "block all site data"); the app then
 // still works, just without a saved cache.
@@ -59,6 +66,46 @@ const signature = ({ clientState }: PersistedClient) =>
     ]),
   ])
 
+// What a saved copy brings back: each answer only while it is kept (see keptFor), however lately the
+// copy was saved, since a copy is saved again whenever anything in it changes, and only answers to
+// a query the app still asks with. Each answer is saved under its query's exact text, so an edit to
+// a query leaves the answers under the old text where nothing looks them up again. A copy that
+// isn't one TanStack saved is left for TanStack to throw away.
+const restored = (saved: string): PersistedClient => {
+  const copy = JSON.parse(saved)
+  const queries: PersistedClient['clientState']['queries'] | undefined = copy?.clientState?.queries
+  if (!Array.isArray(queries)) return copy
+  const asked: unknown[] = Object.values(QUERIES)
+  copy.clientState.queries = queries.filter(
+    ({ queryKey, state }) =>
+      asked.includes(queryKey[1]) &&
+      Date.now() - state.dataUpdatedAt < keptFor(queryKey, state.data),
+  )
+  return copy
+}
+
+// Each save writes out the whole copy, about 100 ms once it has grown to 4.3 MB. A day of searches
+// can make it about that big (150 make 3.7 million characters), while a finished title kept 30
+// days adds about 3,000, and only one opened at its address. TanStack asks for a save as an answer
+// arrives, before the page draws the answer, so the visitor would wait that long for their titles:
+// `save` waits for the page's next frame and goes on just after it is drawn. A hidden tab draws no
+// frames, so there it goes on at once, and as soon as the tab is hidden while it waits, as closing
+// the tab does first. Outside a browser, as in the unit tests, it goes on at once.
+const afterDrawing = (save: () => void | PromiseLike<void>) =>
+  typeof requestAnimationFrame !== 'function' || document.visibilityState === 'hidden'
+    ? save()
+    : new Promise<void>((resolve) => {
+        let started = false
+        const start = () => {
+          if (started) return
+          started = true
+          document.removeEventListener('visibilitychange', start)
+          resolve(save())
+        }
+        requestAnimationFrame(() => setTimeout(start))
+        document.addEventListener('visibilitychange', start)
+      })
+
 // localStorage holds about 5 MB per site; removeOldestQuery drops the oldest
 // result when it is full. Upgrade path if that ever limits us: an IndexedDB persister.
 // The storage is an argument so tests can hand it a stand-in (see persist.test.ts).
@@ -73,9 +120,9 @@ const signature = ({ clientState }: PersistedClient) =>
 // as that second ends. The persister times its second by the wall clock, so saving pauses for as
 // long as the computer's clock steps back (TanStack's own behavior, and rare enough to accept).
 // A skipped save leaves the copy's timestamp as it was, so after the page's first save, the copy's
-// day (maxAge) counts from the last change to what is saved, not from the visitor's last activity,
-// such as searches that fail while AniList is down: by the time that day is up, every list in the
-// copy is over a day old, too old to be saved again anyway (see persistOptions).
+// 30 days (maxAge) count from the last change to what is saved, not from the visitor's last
+// activity, such as searches that fail while AniList is down. Each answer in it comes back only
+// while it is kept anyway (see restored), however lately the copy was saved.
 export const cachePersister = (
   storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'> | undefined,
 ): Persister => {
@@ -83,6 +130,7 @@ export const cachePersister = (
     storage,
     key: 'anibeam:cache',
     retry: removeOldestQuery,
+    deserialize: restored,
   })
   let lastSaved: string | undefined
   return {
@@ -91,20 +139,22 @@ export const cachePersister = (
       const saving = signature(client)
       if (saving === lastSaved) return
       lastSaved = saving
-      return persister.persistClient(client)
+      return afterDrawing(() => persister.persistClient(client))
     },
   }
 }
 
 export const persistOptions = {
   persister: cachePersister(browserStorage()),
-  maxAge: DAY,
+  // As long as anything is kept: a finished title, 30 days (see keptFor).
+  maxAge: 30 * DAY,
   dehydrateOptions: {
     // By default TanStack saves only queries whose last fetch succeeded, so a failed
-    // refresh would erase the saved list. Save every result we still have unless it is
-    // over a day old (maxAge only checks when the whole cache was last saved).
+    // refresh would erase the saved list. Save every result we still have while it is kept
+    // (see keptFor): maxAge only checks when the whole copy was last saved.
     shouldDehydrateQuery: (query: Query) =>
-      query.state.data !== undefined && Date.now() - query.state.dataUpdatedAt < DAY,
+      query.state.data !== undefined &&
+      Date.now() - query.state.dataUpdatedAt < keptFor(query.queryKey, query.state.data),
   },
   // Cache keys include each query's text and variables (see queries.ts), so editing a
   // query never reuses old saved results. Change this only if the code that reshapes

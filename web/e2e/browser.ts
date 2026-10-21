@@ -80,19 +80,42 @@ function modeOf(asked: AniListMode | undefined): AniListMode {
 }
 
 /**
+ * YouTube's and Google's addresses, which no browser here can resolve, each with every address
+ * under it (see chromeArgs): the trailer's embed (youtube-nocookie.com), YouTube's own pages and
+ * images, its videos, and the Google servers its player would load from. Spec §5 lets YouTube load
+ * only when a trailer is played, and the checks that press "Watch trailer" must play none.
+ */
+export const GOOGLE = [
+  'youtube-nocookie.com',
+  'youtube.com',
+  'ytimg.com',
+  'googlevideo.com',
+  'google.com',
+  'gstatic.com',
+  'googleapis.com',
+  'doubleclick.net',
+]
+
+/**
  * What a browser's Chrome starts with, its profile in `profile`; port 0 lets Chrome pick a free
- * debugging port. A recorded browser's Chrome can't resolve AniList's address, so a request that
- * got past the recordings fails rather than reach AniList. A live browser's must resolve it, as
- * any visitor's does: the live checks would otherwise take AniList for down on every run, and
- * skip, saying it's not the app, while the run passes. browser.test.ts holds both to that.
+ * debugging port. No browser's Chrome can resolve YouTube's or Google's addresses (GOOGLE), so a
+ * trailer's frame fails before anything leaves the machine. A recorded browser's Chrome can't
+ * resolve AniList's address either, so a request that got past the recordings fails rather than
+ * reach AniList. A live browser's must resolve it, as any visitor's does: the live checks would
+ * otherwise take AniList for down on every run, and skip, saying it's not the app, while the run
+ * passes. browser.test.ts holds them to that.
  */
 export function chromeArgs(mode: AniListMode, profile: string): string[] {
+  const unresolved = [
+    ...(mode === 'recorded' ? ['graphql.anilist.co'] : []),
+    ...GOOGLE.flatMap((host) => [host, `*.${host}`]),
+  ]
   return [
     '--headless',
     '--no-first-run',
     `--user-data-dir=${profile}`,
     '--remote-debugging-port=0',
-    ...(mode === 'recorded' ? ['--host-resolver-rules=MAP graphql.anilist.co ~NOTFOUND'] : []),
+    `--host-resolver-rules=${unresolved.map((host) => `MAP ${host} ~NOTFOUND`).join(', ')}`,
     'about:blank',
   ]
 }
@@ -399,6 +422,27 @@ export class Browser {
    */
   onEvent(method: string, listener: (params: any) => void) {
     this.#listeners.push([method, listener])
+  }
+
+  /**
+   * Every request the page makes from now on, as it is made: its address and, once it fails, why
+   * (Chrome's net:: error). A frame from another site runs apart from the page, but the request for
+   * its document is the page's, so it is here too.
+   */
+  async watchRequests() {
+    const requests: { url: string; error?: string }[] = []
+    const byId = new Map<string, { url: string; error?: string }>()
+    this.onEvent('Network.requestWillBeSent', ({ requestId, request }) => {
+      const made = { url: request.url }
+      requests.push(made)
+      byId.set(requestId, made)
+    })
+    this.onEvent('Network.loadingFailed', ({ requestId, errorText }) => {
+      const made = byId.get(requestId)
+      if (made) made.error = errorText
+    })
+    await this.send('Network.enable')
+    return requests
   }
 
   /** Runs an expression in the page and returns its JSON value. */

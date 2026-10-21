@@ -1,6 +1,6 @@
 {
   "request": {
-    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } } } }",
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } trailer { id site } } } }",
     "variables": {
       "search": "dragon ball"
     }
@@ -250,7 +250,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 813,
@@ -506,7 +507,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 21175,
@@ -657,7 +659,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "ycaU9xEEdi8",
+              "site": "youtube"
+            }
           },
           {
             "id": 225,
@@ -773,7 +779,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 6033,
@@ -952,7 +959,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 20635,
@@ -1124,7 +1132,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "JXVcOKppJZE",
+              "site": "youtube"
+            }
           },
           {
             "id": 170083,
@@ -1236,7 +1248,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "ezbYAglQoxI",
+              "site": "youtube"
+            }
           },
           {
             "id": 102352,
@@ -1303,7 +1319,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "UAvdRZsZzAo",
+              "site": "youtube"
+            }
           },
           {
             "id": 906,
@@ -1384,7 +1404,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 2520,
@@ -1444,7 +1465,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 14837,
@@ -1560,7 +1582,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "-f2V4jmo8L0",
+              "site": "youtube"
+            }
           },
           {
             "id": 6714,
@@ -1613,7 +1639,8 @@
                 "isGeneralSpoiler": true,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 206814,
@@ -1725,7 +1752,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "CFgEL7ei8VE",
+              "site": "youtube"
+            }
           },
           {
             "id": 12231,
@@ -1813,95 +1844,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
-          },
-          {
-            "id": 905,
-            "title": {
-              "romaji": "Dragon Ball Z: Fukkatsu no Fusion!! Goku to Vegeta",
-              "english": "Dragon Ball Z: Fusion Reborn",
-              "native": "ドラゴンボールＺ 復活のフュージョン!!悟空とベジータ"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/905-T97prwPOeyxm.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/905-T97prwPOeyxm.jpg",
-              "color": "#e48650"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/905-Ju8CK3YGZigN.jpg",
-            "genres": ["Action", "Adventure", "Sci-Fi"],
-            "averageScore": 74,
-            "format": "MOVIE",
-            "episodes": 1,
-            "season": "SPRING",
-            "seasonYear": 1995,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "Toei Animation"
-                }
-              ]
-            },
-            "nextAiringEpisode": null,
-            "description": "Not paying attention to his job, a young demon allows the evil cleansing machine to overflow and explode, turning the young demon into the infamous monster Janemba. Goku and Vegeta make solo attempts to defeat the monster, but realize their only option is fusion.<br><br>\n(Source: Anime News Network)",
-            "duration": 55,
-            "tags": [
-              {
-                "name": "Shounen",
-                "rank": 100,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Super Power",
-                "rank": 80,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Demons",
-                "rank": 79,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Male Protagonist",
-                "rank": 76,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Martial Arts",
-                "rank": 76,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Henshin",
-                "rank": 60,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Aliens",
-                "rank": 60,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Afterlife",
-                "rank": 20,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": false
-              }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 894,
@@ -2003,7 +1947,97 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
+          },
+          {
+            "id": 905,
+            "title": {
+              "romaji": "Dragon Ball Z: Fukkatsu no Fusion!! Goku to Vegeta",
+              "english": "Dragon Ball Z: Fusion Reborn",
+              "native": "ドラゴンボールＺ 復活のフュージョン!!悟空とベジータ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/905-T97prwPOeyxm.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/905-T97prwPOeyxm.jpg",
+              "color": "#e48650"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/905-Ju8CK3YGZigN.jpg",
+            "genres": ["Action", "Adventure", "Sci-Fi"],
+            "averageScore": 74,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 1995,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Not paying attention to his job, a young demon allows the evil cleansing machine to overflow and explode, turning the young demon into the infamous monster Janemba. Goku and Vegeta make solo attempts to defeat the monster, but realize their only option is fusion.<br><br>\n(Source: Anime News Network)",
+            "duration": 55,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Henshin",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Afterlife",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null
           },
           {
             "id": 892,
@@ -2077,7 +2111,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 502,
@@ -2151,7 +2186,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 101302,
@@ -2260,27 +2296,31 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "wuIbeQv3v7c",
+              "site": "youtube"
+            }
           },
           {
-            "id": 898,
+            "id": 893,
             "title": {
-              "romaji": "Dragon Ball Z: Tobikkiri no Saikyou Tai Saikyou",
-              "english": "Dragon Ball Z: Cooler's Revenge",
-              "native": "ドラゴンボールZ とびっきりの最強対最強"
+              "romaji": "Dragon Ball: Saikyou e no Michi",
+              "english": "Dragon Ball: The Path to Power",
+              "native": "ドラゴンボール 最強への道"
             },
             "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/898.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/898.jpg",
-              "color": "#f1bb35"
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b893-bzc4Y5KYngZJ.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b893-bzc4Y5KYngZJ.jpg",
+              "color": "#e4a143"
             },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/898-Ml6RdkEYetsB.jpg",
-            "genres": ["Action", "Adventure", "Sci-Fi"],
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/893-VvdQWCOh5Ipz.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Sci-Fi"],
             "averageScore": 68,
             "format": "MOVIE",
             "episodes": 1,
-            "season": "SUMMER",
-            "seasonYear": 1991,
+            "season": "SPRING",
+            "seasonYear": 1996,
             "studios": {
               "nodes": [
                 {
@@ -2289,16 +2329,9 @@
               ]
             },
             "nextAiringEpisode": null,
-            "description": "After defeating Freeza, Goku returns to Earth and goes on a camping trip with Gohan and Krillin. Everything is normal until Cooler - Freeza's brother - sends three henchmen after Goku. A long fight ensues between our heroes and Cooler, in which he transforms into the fourth stage of his evolution and has the edge in the fight...until Goku transforms into Super Saiyan.\n<br><br>\n(Source: Anime News Network)",
-            "duration": 48,
+            "description": "A retelling of Dragon Ball's origin with a different take on the meeting of Goku, Bulma, and Kame-Sen'nin. It also retells the Red Ribbon Army story; but this time they find Goku rather than Goku finding them.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 74,
             "tags": [
-              {
-                "name": "Martial Arts",
-                "rank": 80,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
               {
                 "name": "Shounen",
                 "rank": 79,
@@ -2314,27 +2347,28 @@
                 "isMediaSpoiler": false
               },
               {
-                "name": "Aliens",
-                "rank": 76,
+                "name": "Martial Arts",
+                "rank": 79,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               },
               {
                 "name": "Male Protagonist",
-                "rank": 65,
+                "rank": 79,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               },
               {
-                "name": "Henshin",
-                "rank": 55,
+                "name": "Military",
+                "rank": 30,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           }
         ]
       }

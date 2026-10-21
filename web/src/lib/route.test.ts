@@ -1,6 +1,17 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { isOver, push, replace, titleIdFrom, titlePath, watchPath } from './route.ts'
+import {
+  dropTrailer,
+  isOver,
+  isTrailer,
+  push,
+  pushedTrailer,
+  pushTrailer,
+  replace,
+  titleIdFrom,
+  titlePath,
+  watchPath,
+} from './route.ts'
 
 test('an address opens a title only at /anime/ and its AniList id, with or without a last slash', () => {
   assert.equal(titleIdFrom('/anime/154587'), 154587)
@@ -34,13 +45,18 @@ test('a title’s address reads back as its id', () => {
 
 // A stand-in for the browser's address and history, on globalThis until the test ends, as Node has
 // none: replaceState and pushState change the path, as the browser's do (pushState in a new entry),
-// and fire no popstate, as the browser's don't. In a browser, window is globalThis, so addEventListener is the window's.
+// and fire no popstate, as the browser's don't; back() only counts its calls. In a browser, window is
+// globalThis, so addEventListener is the window's.
 function fakeWindow(t: import('node:test').TestContext, path = '/') {
   const events = new EventTarget()
   const location = { pathname: path, search: '', hash: '' }
   const history = {
     state: null as unknown,
     entries: [path],
+    backs: 0,
+    back() {
+      history.backs++
+    },
     replaceState(state: unknown, _title: string, url: string) {
       const next = new URL(url, `https://ani-beam.vercel.app${location.pathname}`)
       Object.assign(location, { pathname: next.pathname, search: next.search, hash: next.hash })
@@ -112,4 +128,51 @@ test('an entry the page pushed over an address says so; any other state does not
   assert.equal(isOver({ over: '/' }), true)
   for (const state of [null, undefined, {}, { over: 1 }, 'over', { other: '/' }])
     assert.equal(isOver(state), false, JSON.stringify(state))
+})
+
+test('Watch trailer adds a history entry at the card’s address, its state kept under the trailer’s mark', (t) => {
+  const { location, history } = fakeWindow(t, '/')
+  push('/anime/154587', { over: '/' })
+  location.search = '?ep=5'
+  const heard: string[] = []
+  const stop = watchPath(() => heard.push(location.pathname))
+  pushTrailer()
+  stop()
+  const { trailer, ...kept } = history.state as { trailer: unknown }
+  assert.deepEqual(kept, { over: '/' })
+  assert.equal(typeof trailer, 'string', 'the mark is this page load’s')
+  assert.ok(isTrailer(history.state) && pushedTrailer(history.state) && isOver(history.state))
+  assert.deepEqual(history.entries, ['/', '/anime/154587', '/anime/154587'])
+  assert.equal(location.search, '?ep=5', 'the query is left as it was')
+  assert.deepEqual(heard, ['/anime/154587'])
+  // A card opened at its address has no state of its own: the trailer's entry has its mark alone.
+  history.state = null
+  pushTrailer()
+  assert.deepEqual(history.state, { trailer })
+})
+
+test('only the trailer’s mark says a trailer was open, and only this page load’s says it pushed it', () => {
+  for (const state of [{ over: '/', trailer: 'another load' }, { trailer: 'x' }]) {
+    assert.equal(isTrailer(state), true, JSON.stringify(state))
+    assert.equal(pushedTrailer(state), false, JSON.stringify(state))
+  }
+  for (const state of [null, undefined, {}, { over: '/' }, { trailer: true }, 'trailer', 1]) {
+    assert.equal(isTrailer(state), false, JSON.stringify(state))
+    assert.equal(pushedTrailer(state), false, JSON.stringify(state))
+  }
+})
+
+test('a card opened at the trailer’s entry takes its mark off, keeping the rest and adding no entry, and goes Back to the card’s own', (t) => {
+  const { history } = fakeWindow(t, '/anime/154587')
+  history.state = { over: '/', trailer: 'another load' }
+  dropTrailer()
+  assert.deepEqual(history.state, { over: '/' })
+  assert.deepEqual(history.entries, ['/anime/154587'])
+  assert.equal(history.backs, 1, 'the card stayed at the trailer’s entry')
+  // An entry with no mark is left as it is, and the page where it is.
+  const state = { over: '/' }
+  history.state = state
+  dropTrailer()
+  assert.equal(history.state, state)
+  assert.equal(history.backs, 1)
 })

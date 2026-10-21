@@ -901,10 +901,16 @@ test('the clamp is as tall in a fallback font as in the page’s own, and Read m
 
 test('Tab reaches the details’ buttons after the card’s own, each showing its focus, and Shift+Tab goes back', async () => {
   // Every interactive part is reachable by Tab, with visible focus (the acceptance checks). The
-  // card's stops, from its close button: Open on AniList (the Soon buttons are disabled), then
-  // the details' buttons in reading order, Read more and Show spoiler tags, each with the card's
-  // focus ring, 4px in brand hot.
-  const STOPS = ['Close title card', 'Open on AniList', 'Read more', 'Show spoiler tags']
+  // card's stops, from its close button: Open on AniList (the Soon buttons are disabled), Watch
+  // trailer (Frieren has one), then the details' buttons in reading order, Read more and Show
+  // spoiler tags, each with the card's focus ring, 4px in brand hot.
+  const STOPS = [
+    'Close title card',
+    'Open on AniList',
+    'Watch trailer',
+    'Read more',
+    'Show spoiler tags',
+  ]
   const seen: string[] = []
   const focused = () =>
     browser.evaluate<string>(`(() => {
@@ -1469,7 +1475,7 @@ test('a card opened at its address keeps its title while AniList answers 429, sa
       // Each of the card's Tab stops scrolls clear of the line, whole and in reach of a click.
       assert.deepEqual(
         await tabStops(),
-        ['Open on AniList', 'Read more', 'Show spoiler tags'],
+        ['Open on AniList', 'Watch trailer', 'Read more', 'Show spoiler tags'],
         `${where}: Tab through the card while the app tries again`,
       )
       assert.ok(
@@ -1484,7 +1490,7 @@ test('a card opened at its address keeps its title while AniList answers 429, sa
       assert.equal(asked.length, 4, `${where}: Frieren asked for, then tried 3 times more`)
       assert.deepEqual(
         await tabStops(),
-        ['Open on AniList', 'Read more', 'Show spoiler tags', 'Try again'],
+        ['Open on AniList', 'Watch trailer', 'Read more', 'Show spoiler tags', 'Try again'],
         `${where}: Tab through the card once the tries ended`,
       )
       assert.match(

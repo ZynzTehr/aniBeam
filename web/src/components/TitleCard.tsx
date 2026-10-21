@@ -8,12 +8,15 @@ import {
   titleOf,
 } from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
+import { trailerOf } from '../features/anime/trailer.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
 import { reducedMotion, watchDeviceMotion } from '../lib/motion.ts'
+import { dropTrailer, isTrailer, pushedTrailer, pushTrailer } from '../lib/route.ts'
 import { markBroken, markLoaded } from './cover.ts'
 import { cssVars } from './cssVars.ts'
 import { RetryButton } from './RetryButton.tsx'
 import { TitleDetails } from './TitleDetails.tsx'
+import { TrailerDialog } from './TrailerDialog.tsx'
 
 /** Called with the title and the element it was opened from (for the opening animation). */
 export type OpenTitle = (media: Media, from: HTMLElement) => void
@@ -25,6 +28,7 @@ export type OpenTitle = (media: Media, from: HTMLElement) => void
  * page behind goes inert, Esc closes it, and the browser returns focus to whatever opened it.
  * `from` is that element's position, where the wipe starts, and where it shrinks back to.
  * `status` says why AniList holds up a newer answer for the title, and `onRetry` is Try again.
+ * Where the title has a trailer it can play, Watch trailer plays it over the card (TrailerDialog).
  */
 export function TitleCard({
   media,
@@ -162,6 +166,35 @@ export function TitleCard({
     void Promise.allSettled(opening.map((animation) => animation.finished)).then(() => card.close())
   }
 
+  // The title's trailer, where it has one the card can play (see trailerOf), and whether it is
+  // playing over the card. Pressing Watch trailer adds a history entry at the card's address (see
+  // pushTrailer), so Back closes the trailer and leaves the card, and Forward back to it opens the
+  // trailer again, as Forward does a card. A card opened at such an entry, as after a reload there,
+  // opens without its trailer, and goes Back to its own entry (see dropTrailer), as does Forward to
+  // one an earlier page load pushed, as after a reload or in a tab the browser brought back: only a
+  // press loads anything from YouTube (spec §5).
+  const trailer = trailerOf(media)
+  const [watching, setWatching] = useState(false)
+  const watchButton = useRef<HTMLButtonElement>(null)
+  useEffect(() => {
+    dropTrailer()
+    const moved = () => {
+      if (pushedTrailer(history.state)) setWatching(true)
+      else dropTrailer()
+    }
+    addEventListener('popstate', moved)
+    return () => removeEventListener('popstate', moved)
+  }, [])
+  // Closed, the trailer goes, its video with it, and focus goes back to Watch trailer, as the dialog
+  // hands it back where the press focused the button (Safari focuses no button it clicks). Closed by
+  // its own Close, Esc or a click around it, its history entry goes too, so Back then closes the
+  // card (and a card that closes meanwhile waits for it: see App).
+  const closeTrailer = () => {
+    setWatching(false)
+    watchButton.current?.focus({ preventScroll: true })
+    if (isTrailer(history.state)) history.back()
+  }
+
   function close() {
     if (fadesOut()) setClosing(true)
     else if (playsBack()) leave()
@@ -185,9 +218,11 @@ export function TitleCard({
         .join(' ')}
       aria-labelledby="ab-card-title"
       // Esc closes the card unless the page holds it open, which the browser allows once for each
-      // thing the visitor does on the page: the cancel event is cancelable then.
+      // thing the visitor does on the page: the cancel event is cancelable then. The trailer's
+      // dialog sits in the card, and React hands its cancel and close events to the card's own
+      // handlers too, so they count only the card's.
       onCancel={(event) => {
-        if (!event.cancelable) return
+        if (event.target !== event.currentTarget || !event.cancelable) return
         if (fadesOut()) setClosing(true)
         else if (playsBack()) leave()
         else return
@@ -197,7 +232,7 @@ export function TitleCard({
         if (closing && event.target === event.currentTarget) event.currentTarget.close()
         if (leaving && event.animationName === 'ab-wipe-back') event.currentTarget.close()
       }}
-      onClose={onClose}
+      onClose={(event) => event.target === event.currentTarget && onClose()}
       style={{
         ...accentVars(media.coverImage.color),
         ...cssVars({
@@ -307,6 +342,22 @@ export function TitleCard({
             <button type="button" className="ab-soon" disabled>
               Chat about it <small>Soon</small>
             </button>
+            {trailer && (
+              <button
+                ref={watchButton}
+                type="button"
+                className="ab-btn"
+                onClick={() => {
+                  pushTrailer()
+                  setWatching(true)
+                }}
+              >
+                <svg className="ab-play" viewBox="0 0 11 13" aria-hidden="true">
+                  <path d="M0 0 11 6.5 0 13Z" />
+                </svg>
+                Watch trailer
+              </button>
+            )}
           </div>
           <TitleDetails media={media} />
         </div>
@@ -321,6 +372,7 @@ export function TitleCard({
         </p>
         {status && onRetry && <RetryButton headingId="ab-card-status" onRetry={onRetry} />}
       </div>
+      {watching && trailer && <TrailerDialog id={trailer} title={title} onClose={closeTrailer} />}
     </dialog>
   )
 }

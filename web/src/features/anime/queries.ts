@@ -1,4 +1,4 @@
-import { queryOptions, type QueryClient } from '@tanstack/react-query'
+import { queryOptions, type QueryClient, type QueryKey } from '@tanstack/react-query'
 import { anilist, AniListError, isRateLimited, type Variables } from '../../lib/anilist.ts'
 import { tagsOf, type TagFlags } from './tags.ts'
 
@@ -26,6 +26,12 @@ export type Media = {
   duration: number | null
   /** Only those the card shows (see cardOf): the top few, and the top few spoilers. */
   tags: Tag[]
+  /**
+   * Where its trailer is: a site's video id. Carried with the lists, like its details, so a card
+   * knows at once whether to offer "Watch trailer"; nothing from the site loads before that press
+   * (no thumbnail is asked for).
+   */
+  trailer: { id: string | null; site: string | null } | null
 }
 
 /**
@@ -43,7 +49,7 @@ export const SAFE = 'isAdult: false, genre_not_in: ["Hentai"]'
 const CARD = `id title { romaji english native } coverImage { extraLarge large color } bannerImage
   genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }
   nextAiringEpisode { episode airingAt } description(asHtml: false) duration
-  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler }`
+  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } trailer { id site }`
 
 /**
  * A title as the cache keeps it: its tags cut to those the card shows, the top 8 and the top 8
@@ -179,9 +185,8 @@ export const searchQuery = (term: string) =>
  * One title, by its AniList id: a number, as each title's id in the lists is, so a card opened from
  * a list and one opened at its address share the key. TanStack's default staleTime (0) would ask
  * AniList again at each opening: a finished title's details don't change, so they stay fresh for
- * 30 days, and an airing title's (its next episode) for 6 hours. For now the saved cache keeps an
- * answer a day at most (see lib/queryClient.ts), so a finished title is asked for again after a day,
- * until the 30-day cache (plan PR 14).
+ * 30 days, and an airing title's (its next episode) for 6 hours. The saved cache keeps them as long
+ * (see keptFor), so a finished title opened again at its address within the month asks for nothing.
  */
 export const titleQuery = (id: number) =>
   queryOptions({
@@ -204,6 +209,18 @@ export const titleQuery = (id: number) =>
     refetchOnWindowFocus: (query) => !isMissing(query.state.error),
     retryOnMount: false,
   })
+
+/**
+ * How long the saved cache keeps an answer, from when it came (see lib/queryClient.ts): a title
+ * AniList says is finished, 30 days, as its details won't change; anything else a day, a list or a
+ * title still airing (its next episode changes), so a visitor back after a week never sees that
+ * week's lists. Not how long an answer stays fresh (staleTime): a trending list out of date after
+ * 30 minutes still shows while the page asks for a newer one.
+ */
+export const keptFor = (queryKey: QueryKey, data: unknown) =>
+  queryKey[1] === QUERIES.title && (data as Title | undefined)?.status === 'FINISHED'
+    ? 30 * DAY
+    : DAY
 
 const isMissing = (error: unknown) => error instanceof AniListError && error.status === 404
 

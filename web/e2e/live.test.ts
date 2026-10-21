@@ -64,14 +64,15 @@ test('every recording is in the formats the app reads AniList’s answers in', (
 
 // A field the app asks for with no format to be held to would let a title in any form pass. Each
 // field the first visit's query asks for is set to 0.5, which no format allows (no text, flag,
-// whole number or list), in a title that holds them all (a next episode, a studio and a tag too),
-// and must be named, or the object or list it is in.
+// whole number or list), in a title that holds them all (a next episode, a studio, a tag and a
+// trailer too), and must be named, or the object or list it is in.
 test('every field the app asks AniList for is held to a format', () => {
   const answer = recorded('first-visit')
   const i = answer.body.data.trending.media.findIndex(
-    (media: any) => media.nextAiringEpisode && media.studios.nodes.length && media.tags.length,
+    (media: any) =>
+      media.nextAiringEpisode && media.studios.nodes.length && media.tags.length && media.trailer,
   )
-  assert.ok(i >= 0, 'no trending title has a next episode, a studio and a tag')
+  assert.ok(i >= 0, 'no trending title has a next episode, a studio, a tag and a trailer')
   const fields = [...new Set([...listsAsked(QUERIES.firstVisit).values()].flat())]
   assert.ok(fields.length > 0, 'no field read from the first visit’s query')
   for (const field of fields) {
@@ -156,6 +157,16 @@ const unreadable: [string, () => string[], string][] = [
     'a tag’s adult flag gone null, which would show it',
     () => brokenAnswer('first-visit', (data) => (data.era.media[0].tags[0].isAdult = null)),
     'data.era.media[0].tags is [{"name":',
+  ],
+  [
+    // trailerOf() reads the id as text: a number, as in some other API's ids, it can't play.
+    'a trailer’s id as a number',
+    () =>
+      brokenAnswer('first-visit', (data) => {
+        const media = data.trending.media.find((media: any) => media.trailer)
+        media.trailer.id = 12345
+      }),
+    '.trailer is {"id":12345,',
   ],
   [
     'a title twice in a list',

@@ -2318,6 +2318,136 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   scroll-padding-bottom: calc(var(--status-h, 0px) + 32px);
 }
 
+/* ---------- Trailer (over the title card, see TrailerDialog) ---------- */
+/* Watch trailer's play mark, in the label's color, which a contrast theme sets too. */
+.ab-play {
+  width: 11px;
+  height: 13px;
+  margin-right: 8px;
+  fill: currentColor;
+}
+
+/* The trailer fills the screen over the card, dimmed, with its panel in the middle. Shown only
+   while open: a dialog's own display: none hides it until then, as for any closed dialog. It
+   fades in over 150 ms, and out as it closes (TrailerDialog closes it as the fade ends), as the
+   card does under reduced motion: gone at once, the dim would lift in a single frame. With motion
+   allowed, the motion block pops the panel in instead. [open] ranks the fade-out above the motion
+   block's animation: none, as for the card. */
+.ab-trailer {
+  position: fixed;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  max-height: none;
+  margin: 0;
+  padding: 16px;
+  overflow: auto;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--body);
+  inset: 0;
+}
+
+.ab-trailer[open] {
+  display: grid;
+  place-items: center;
+  animation: ab-fade 0.15s linear;
+}
+
+.ab-trailer::backdrop {
+  background: rgb(20 20 20 / 0.85);
+  animation: ab-fade 0.15s linear;
+}
+
+.ab-trailer[open].is-closing,
+.ab-trailer.is-closing::backdrop {
+  animation: ab-fade-out 0.15s linear forwards;
+}
+
+/* A panel of paper in an ink frame, its hard shadow in the title's color, as wide as the screen
+   lets its 16:9 video be: at most 1100px, and no taller than the screen with the bar above it. Its
+   width is the bar's container, which lays the bar out by it (see .ab-trailer-bar). */
+.ab-trailer-panel {
+  display: grid;
+  width: min(100%, 1100px, max(320px, (100dvh - 152px) * 16 / 9));
+  container-type: inline-size;
+  gap: 12px;
+  padding: 12px;
+  border: 5px solid var(--ink);
+  background: var(--paper);
+  box-shadow: 10px 10px 0 var(--anime-accent);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+/* Close, then the title, then Open on YouTube, in one row; in a narrow panel, as on a phone, or on
+   a phone on its side, where the screen's height narrows it, the title has a row of its own above
+   the two, which keep their order, so Tab still goes from left to right. */
+.ab-trailer-bar {
+  display: grid;
+  align-items: center;
+  gap: 10px 16px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.ab-trailer-title {
+  min-width: 0;
+  margin: 0;
+  font: 400 20px/1.2 var(--display);
+}
+
+.ab-trailer-title small {
+  display: block;
+  overflow: hidden;
+  font: 800 11px var(--body);
+  letter-spacing: 0.16em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ab-trailer-title span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The video, 16:9 from the first frame, so nothing moves as it arrives, inside an ink line. */
+.ab-trailer-frame {
+  border: 3px solid var(--ink);
+  background: #000;
+}
+
+.ab-trailer-frame iframe {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  border: 0;
+}
+
+@media (max-width: 599px) {
+  .ab-trailer {
+    padding: 10px;
+  }
+}
+
+/* Under 480px inside the panel, the title's column beside Close and Open on YouTube would be under
+   200px. */
+@container (max-width: 479px) {
+  .ab-trailer-bar {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .ab-trailer-title {
+    flex-basis: 100%;
+    order: -1;
+  }
+}
+
 /* ---------- Phone ---------- */
 @media (max-width: 820px) {
   .ab-pull-row,
@@ -2498,6 +2628,16 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     /* A status line that comes once the card has landed rises in at once. */
     .ab-card[open].is-landed .ab-card-status.is-shown {
       animation-delay: 0s;
+    }
+
+    /* The trailer's panel pops in over the dimming card, as a panel slaps onto the page, in place
+       of the dialog's fade; it still fades out as it closes (see .ab-trailer). */
+    .ab-trailer[open] {
+      animation: none;
+    }
+
+    .ab-trailer[open] .ab-trailer-panel {
+      animation: ab-trailer-in 0.45s var(--spring) both;
     }
 
     /* Closing plays all that backwards, twice as fast: each part's keyframes in reverse, in half
@@ -3567,6 +3707,13 @@ body:has(.ab-card[open], .ab-drawer[open]) {
       box-shadow: 1px 1px 0 var(--ink);
       transform: translate(3px, 3px);
     }
+  }
+}
+
+@keyframes ab-trailer-in {
+  from {
+    opacity: 0;
+    transform: translateY(32px) scale(0.9) rotate(-2deg);
   }
 }
 

@@ -1,6 +1,6 @@
 {
   "request": {
-    "query": "query ($id: Int) { Media(id: $id, type: ANIME, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } status } }",
+    "query": "query ($id: Int) { Media(id: $id, type: ANIME, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } trailer { id site } status } }",
     "variables": {
       "id": 154587
     }
@@ -235,6 +235,10 @@
             "isMediaSpoiler": false
           }
         ],
+        "trailer": {
+          "id": "tR8YH0G67Rk",
+          "site": "youtube"
+        },
         "status": "FINISHED"
       }
     }

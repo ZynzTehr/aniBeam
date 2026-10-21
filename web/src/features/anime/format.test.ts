@@ -33,6 +33,7 @@ const media = (overrides: Partial<Media> = {}): Media => ({
   description: null,
   duration: null,
   tags: [],
+  trailer: null,
   ...overrides,
 })
 

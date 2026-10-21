@@ -1,6 +1,6 @@
 {
   "request": {
-    "query": "query ($from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus) { Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: \"JP\", startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } } } }",
+    "query": "query ($from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus) { Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: \"JP\", startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } trailer { id site } } } }",
     "variables": {
       "from": 19899999,
       "to": 20000000,
@@ -361,13 +361,6 @@
                 "isMediaSpoiler": false
               },
               {
-                "name": "Marriage",
-                "rank": 58,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
                 "name": "Artificial Intelligence",
                 "rank": 58,
                 "isAdult": false,
@@ -410,7 +403,7 @@
                 "isMediaSpoiler": false
               },
               {
-                "name": "Dragons",
+                "name": "Marriage",
                 "rank": 56,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
@@ -422,6 +415,13 @@
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
               },
               {
                 "name": "Battle Royale",
@@ -478,13 +478,6 @@
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
-              },
-              {
-                "name": "Dinosaurs",
-                "rank": 50,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
               },
               {
                 "name": "Kaiju",
@@ -550,6 +543,13 @@
                 "isMediaSpoiler": true
               },
               {
+                "name": "Dinosaurs",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
                 "name": "Interspecies",
                 "rank": 33,
                 "isAdult": false,
@@ -577,7 +577,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 30,
@@ -906,7 +907,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "kOH2_8MkgZY",
+              "site": "youtube"
+            }
           },
           {
             "id": 1,
@@ -1169,7 +1174,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "OhNwckCLzis",
+              "site": "youtube"
+            }
           },
           {
             "id": 164,
@@ -1425,7 +1434,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "4OiMOHRDs14",
+              "site": "youtube"
+            }
           },
           {
             "id": 339,
@@ -1709,7 +1722,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "lpv7Wv-sDAo",
+              "site": "youtube"
+            }
           },
           {
             "id": 32,
@@ -1996,7 +2013,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": {
+              "id": "v1pWyWIu8x4",
+              "site": "youtube"
+            }
           },
           {
             "id": 437,
@@ -2147,7 +2168,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "UXQraSkOOGs",
+              "site": "youtube"
+            }
           },
           {
             "id": 33,
@@ -2431,7 +2456,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "odIwkGztmcc",
+              "site": "youtube"
+            }
           },
           {
             "id": 43,
@@ -2603,7 +2632,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "8RF09G8Ymqg",
+              "site": "youtube"
+            }
           },
           {
             "id": 245,
@@ -2852,7 +2885,8 @@
                 "isGeneralSpoiler": true,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 6,
@@ -3038,7 +3072,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": {
+              "id": "bJVyIXeUznY",
+              "site": "youtube"
+            }
           },
           {
             "id": 392,
@@ -3210,7 +3248,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "UuRNnGmwVc4",
+              "site": "youtube"
+            }
           },
           {
             "id": 527,
@@ -3396,7 +3438,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "nS0ico6na_U",
+              "site": "youtube"
+            }
           },
           {
             "id": 136,
@@ -3526,7 +3572,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 225,
@@ -3642,7 +3689,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 185,
@@ -3761,7 +3809,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "sQArIPVsz78",
+              "site": "youtube"
+            }
           },
           {
             "id": 268,
@@ -3919,7 +3971,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 585,
@@ -4070,7 +4123,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "0pVkiod6V0U",
+              "site": "youtube"
+            }
           },
           {
             "id": 530,
@@ -4368,7 +4425,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": {
+              "id": "UL_F6L1tSAM",
+              "site": "youtube"
+            }
           },
           {
             "id": 232,
@@ -4617,7 +4678,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "W8pQIpheFSw",
+              "site": "youtube"
+            }
           }
         ]
       }

@@ -567,7 +567,10 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
 
   // Space on Open title card opens the card, on its Close button. Tab goes round the card and never
   // to the page behind it: past its last control Chrome takes focus to its own (none, run like
-  // this), then back to the card. Taller than the screen, the card is a stop of its own.
+  // this), then back to the card. Taller than the screen, the card is a stop of its own. How many
+  // stops a round has depends on the pulled title (Watch trailer, Read more and Show spoiler tags
+  // show only for a trailer, a synopsis over five lines and spoiler tags), so Tab goes on until
+  // focus is back on Close, ten presses at most.
   const opener = await focus()
   await browser.press('Space')
   if (!(await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 5_000))) {
@@ -576,7 +579,7 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
   }
   const first = await focus()
   const round: string[] = []
-  for (let stop = 0; stop < 6; stop++) {
+  for (let stop = 0; stop < 10 && round.at(-1) !== 'Close title card'; stop++) {
     await browser.press('Tab')
     const where = await browser.evaluate<string>(`(() => {
       const focused = document.activeElement
@@ -591,7 +594,7 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
   journey.card = { first, round: goesRound ? 'round the card' : round }
 
   // Space on Close closes the card, with focus back on what opened it.
-  for (let stop = 0; stop < 6 && (await focus()) !== 'Close title card'; stop++)
+  for (let stop = 0; stop < 10 && (await focus()) !== 'Close title card'; stop++)
     await browser.press('Tab')
   await browser.press('Space')
   if (!(await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000))) {

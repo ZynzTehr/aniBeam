@@ -52,6 +52,7 @@ const complete: Media = {
   tags: [
     { name: 'Travel', rank: 96, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: false },
   ],
+  trailer: { id: 'qgQMYYwHOWs', site: 'youtube' },
 }
 
 /** "studios.nodes.name" and so on: the path of every field holding a plain value. */
@@ -111,6 +112,24 @@ test('every query asks for the synopsis as AniList writes it, not as HTML', () =
     const asked = [...query.matchAll(/\bdescription\b(\s*\([^)]*\))?/g)]
     assert.ok(asked.length > 0, `${name} doesn't ask for the synopsis`)
     for (const [, args] of asked) assert.equal(args, '(asHtml: false)', name)
+  }
+})
+
+// Spec §5: YouTube loads only when a trailer is played. The lists carry where each title's trailer
+// is, so a card knows at once whether to offer "Watch trailer", but never its thumbnail: an image
+// on Google's servers (i.ytimg.com) that a card or a list would load as it showed. The test above
+// would catch a thumbnail too, but only as one more field; this one says why it must stay out.
+test('every query asks where a title’s trailer is, its site and id, and never for its thumbnail', () => {
+  for (const [name, query] of Object.entries(QUERIES)) {
+    const calls = selections(query)
+    assert.ok(calls.length > 0, `${name} has no media(...) call`)
+    for (const fields of calls)
+      assert.deepEqual(
+        fields.filter((field) => field === 'trailer' || field.startsWith('trailer.')),
+        ['trailer.id', 'trailer.site'],
+        `${name} doesn't ask for exactly a trailer's id and site`,
+      )
+    assert.doesNotMatch(query, /thumbnail/, `${name} asks for a trailer's thumbnail`)
   }
 })
 

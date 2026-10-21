@@ -64,3 +64,52 @@ export function push(path: string, state: unknown) {
   history.pushState(state, '', path)
   for (const listener of listeners) listener()
 }
+
+// This page load's own mark, which the trailer entries it pushes carry (see pushTrailer): a mark
+// from another load, as after a reload or in a tab the browser brought back, was left by a press
+// nobody made in this one.
+const LOAD = Math.random().toString(36).slice(2)
+
+/**
+ * Whether a history entry's state says a title's trailer was open over its card: the page pushed
+ * it as "Watch trailer" was pressed (see pushTrailer), in this page load or an earlier one, so
+ * Back from it closes the trailer alone.
+ */
+export const isTrailer = (state: unknown) =>
+  typeof (state as { trailer?: unknown } | null)?.trailer === 'string'
+
+/**
+ * Whether a history entry's state says this page load pushed it for a trailer (see pushTrailer):
+ * Forward back to it then plays the trailer again, as a press in this load put it there.
+ */
+export const pushedTrailer = (state: unknown) =>
+  (state as { trailer?: unknown } | null)?.trailer === LOAD
+
+/**
+ * Puts a title's trailer over its card as a new history entry, at the card's own address and with
+ * the card's state kept under the trailer's mark, this page load's own, so Back returns to the
+ * card's entry.
+ */
+export function pushTrailer() {
+  push(`${location.pathname}${location.search}`, {
+    ...(history.state as object | null),
+    trailer: LOAD,
+  })
+}
+
+/**
+ * Takes the trailer's mark off the history entry the page is at, keeping the rest of its state and
+ * adding no entry, and goes Back to the card's own entry, just before it at the same address: for a
+ * card opened at an entry the trailer was open at, as after a reload there, which opens without its
+ * trailer, as only a press loads YouTube (spec §5), and for Forward to one this page load didn't
+ * push (see pushedTrailer). Left there, the card would have two entries, so Back after its trailer
+ * played again would land on the other, the card still open. The mark goes first, so the entry,
+ * now ahead, opens no trailer by Forward, nor if Back has nowhere to go.
+ */
+export function dropTrailer() {
+  if (!isTrailer(history.state)) return
+  const state = { ...(history.state as object) } as { trailer?: string }
+  delete state.trailer
+  replace(`${location.pathname}${location.search}${location.hash}`, state)
+  history.back()
+}

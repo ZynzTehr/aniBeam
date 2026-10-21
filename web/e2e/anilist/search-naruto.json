@@ -1,6 +1,6 @@
 {
   "request": {
-    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } } } }",
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } trailer { id site } } } }",
     "variables": {
       "search": "naruto"
     }
@@ -278,7 +278,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": {
+              "id": "-G9BqkgZXRA",
+              "site": "youtube"
+            }
           },
           {
             "id": 10075,
@@ -334,7 +338,8 @@
                 "isGeneralSpoiler": true,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 162561,
@@ -394,7 +399,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "hCZi_R0MnvE",
+              "site": "youtube"
+            }
           },
           {
             "id": 155348,
@@ -468,7 +477,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "yKELA1qBAKA",
+              "site": "youtube"
+            }
           },
           {
             "id": 1735,
@@ -745,7 +758,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 936,
@@ -847,7 +861,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "4EiTuiYlvgo",
+              "site": "youtube"
+            }
           },
           {
             "id": 10659,
@@ -924,7 +942,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 21579,
@@ -973,7 +992,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 8246,
@@ -1047,7 +1067,72 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
+          },
+          {
+            "id": 6325,
+            "title": {
+              "romaji": "NARUTO: Shippuuden - Hi no Ishi wo Tsugu Mono",
+              "english": "Naruto Shippuden the Movie: The Will of Fire",
+              "native": "劇場版 NARUTO -ナルト- 疾風伝 火の意志を継ぐ者"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx6325-WaJPWmdnzgiI.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx6325-WaJPWmdnzgiI.jpg",
+              "color": "#f1a15d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/6325-DpxNXjgp7BPz.jpg",
+            "genres": ["Action", "Comedy"],
+            "averageScore": 71,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 2009,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Pierrot"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Ninjas with bloodline limits begin disappearing in all the countries and blame points toward the fire nation. By Tsunade's order, Kakashi is sacrificed to prevent an all out war. After inheriting charms left by Kakashi, Naruto fights through friends and foes to prevent his death while changing the minds of those who've inherited the will of fire.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 95,
+            "tags": [
+              {
+                "name": "Ninja",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "o0bDuM2tzi0",
+              "site": "youtube"
+            }
           },
           {
             "id": 10589,
@@ -1114,7 +1199,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "r9v_r-zIaVI",
+              "site": "youtube"
+            }
           },
           {
             "id": 13667,
@@ -1202,67 +1291,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
-          },
-          {
-            "id": 6325,
-            "title": {
-              "romaji": "NARUTO: Shippuuden - Hi no Ishi wo Tsugu Mono",
-              "english": "Naruto Shippuden the Movie: The Will of Fire",
-              "native": "劇場版 NARUTO -ナルト- 疾風伝 火の意志を継ぐ者"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx6325-WaJPWmdnzgiI.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx6325-WaJPWmdnzgiI.jpg",
-              "color": "#f1a15d"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/6325-DpxNXjgp7BPz.jpg",
-            "genres": ["Action", "Comedy"],
-            "averageScore": 71,
-            "format": "MOVIE",
-            "episodes": 1,
-            "season": "SUMMER",
-            "seasonYear": 2009,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "Studio Pierrot"
-                }
-              ]
-            },
-            "nextAiringEpisode": null,
-            "description": "Ninjas with bloodline limits begin disappearing in all the countries and blame points toward the fire nation. By Tsunade's order, Kakashi is sacrificed to prevent an all out war. After inheriting charms left by Kakashi, Naruto fights through friends and foes to prevent his death while changing the minds of those who've inherited the will of fire.\n<br><br>\n(Source: Anime News Network)",
-            "duration": 95,
-            "tags": [
-              {
-                "name": "Ninja",
-                "rank": 100,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Shounen",
-                "rank": 79,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Super Power",
-                "rank": 79,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Male Protagonist",
-                "rank": 20,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              }
-            ]
+            ],
+            "trailer": {
+              "id": "bXwNQKK8nLk",
+              "site": "youtube"
+            }
           },
           {
             "id": 2472,
@@ -1350,7 +1383,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 21220,
@@ -1459,7 +1493,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "4SArXrc4qDY",
+              "site": "youtube"
+            }
           },
           {
             "id": 16870,
@@ -1596,7 +1634,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": {
+              "id": "yz_85g1MwAE",
+              "site": "youtube"
+            }
           },
           {
             "id": 594,
@@ -1698,7 +1740,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 4437,
@@ -1779,7 +1822,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "OkI3ZCEbx_E",
+              "site": "youtube"
+            }
           },
           {
             "id": 10686,
@@ -1835,7 +1882,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 7367,
@@ -1905,7 +1953,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 97938,
@@ -2070,7 +2119,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "PULgjzsOybA",
+              "site": "youtube"
+            }
           }
         ]
       }
