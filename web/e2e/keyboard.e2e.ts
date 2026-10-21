@@ -2,7 +2,8 @@
 // (focus visible), 2.4.11 (focus not obscured) and 2.1.1 (keyboard).
 import assert from 'node:assert/strict'
 import { after, afterEach, before, beforeEach, test } from 'node:test'
-import { Browser } from './browser.ts'
+import { setTimeout as sleep } from 'node:timers/promises'
+import { BASE_URL, Browser } from './browser.ts'
 
 let browser: Browser
 before(async () => {
@@ -346,6 +347,9 @@ const STOP = `(() => {
     copy.querySelectorAll('[aria-hidden="true"], rt').forEach((unread) => unread.remove())
     return copy.textContent.replace(/\\s+/g, ' ').trim()
   }
+  // A title card taller than the screen, which scrolls, is a stop of its own: its ring is a frame
+  // inside the screen's edge, which its own check looks at (a title card taller than the screen).
+  if (focused.matches('dialog')) return { name: focused.matches('.ab-trailer') ? 'the trailer' : 'the card', problems: [] }
   const name = focused.matches('.ab-grid .ab-link, .ab-strip-panel')
     ? 'a title in ' + text(focused.closest('section').querySelector('h1, h2'))
     : focused.matches('fieldset input')
@@ -368,13 +372,13 @@ const STOP = `(() => {
   }
   cut('the screen', { top: 0, left: 0, bottom: innerHeight, right: innerWidth })
   // The sticky header covers what reaches under it, unless that is drawn over it, as the skip links
-  // are: what is at the stop's own top edge tells.
+  // are, and a modal dialog's parts are: what is at the stop's own top edge tells.
   const header = document.querySelector('.ab-top')
   const under = header.getBoundingClientRect().bottom
   const top = Math.max(box.top, 0) + 1
   const hit = top < under && document.elementFromPoint((box.left + box.right) / 2, top)
   const over = hit && (focused.contains(hit) || shown.contains(hit))
-  if (getComputedStyle(header).position === 'sticky' && !header.contains(focused) && ring.top < under - 0.5 && !over)
+  if (getComputedStyle(header).position === 'sticky' && !header.contains(focused) && !focused.closest('dialog') && ring.top < under - 0.5 && !over)
     problems.push('ring under the header by ' + Math.round(under - Math.max(ring.top, 0)) + 'px')
   for (let el = shown.parentElement; el && el !== document.body; el = el.parentElement) {
     const clips = getComputedStyle(el)
@@ -449,6 +453,188 @@ test('Tab walks every stop of the page in order and Shift+Tab walks them back, e
     '1440px': { stops: STOPS_TOP, back: BACK_WIDE, problems: [] },
     '390px': { stops: STOPS_PHONE, back: 'the same, reversed', problems: [] },
   })
+})
+
+test("Tab walks a title's card round from its Close and Shift+Tab walks it back, through its trailer's dialog and out, each stop whole on the screen with its focus showing", async () => {
+  // Frieren at its address (/anime/154587), whose card has a trailer, a synopsis over five lines
+  // and spoiler tags, so every button the card can have: on a desktop with motion, once the card
+  // has landed, and on a phone with reduced motion. Each stop is read as the page walk reads one,
+  // forward with WCAG's measure for a focus indicator too. Past its last control Chrome takes focus
+  // to its own (the browser), then to the card itself, which scrolls, and on to Close. Read more,
+  // pressed, opens the synopsis above it, and as Show less it must still show, as must Read more
+  // again. Watch trailer opens the trailer on its Close; Tab goes on to Open on YouTube and back;
+  // Esc closes it, with focus back on Watch trailer. Then, as AniList fails to give the title a
+  // newer answer than the saved one, the walk again, with the status line's Try again in it.
+  const seen: Record<string, unknown> = {}
+  const name = async () =>
+    (await browser.evaluate<{ name: string } | null>(STOP))?.name ?? 'the browser'
+  for (const screen of [
+    { width: 1440, height: 900, reduceMotion: false },
+    { width: 390, height: 844, phone: true, reduceMotion: true },
+  ]) {
+    const url = new URL('/anime/154587', BASE_URL).href
+    const problems: string[] = []
+    // The stop that has focus, two frames on, as Tab reaches it; its problems noted.
+    const stop = async (to: string, measure = true) => {
+      await browser.evaluate(NEXT_FRAME)
+      const found = await browser.evaluate<{ name: string; problems: string[] } | null>(STOP)
+      if (!found) return 'the browser'
+      for (const problem of found.problems) problems.push(`${to} "${found.name}": ${problem}`)
+      if (measure && !found.name.startsWith('the ')) {
+        const shows = await focusShows()
+        if (shows < 1)
+          problems.push(
+            `${to} "${found.name}": its focus changes ${Math.round(shows * 100)}% of the area it must`,
+          )
+      }
+      return found.name
+    }
+    // From Close round the card to Close again, forward or back.
+    const round = async (back: boolean, what: string) => {
+      const names: string[] = []
+      for (let press = 0; press < 12 && names.at(-1) !== 'Close title card'; press++) {
+        await browser.press('Tab', back)
+        names.push(await stop(`${what}, ${back ? 'Shift+Tab' : 'Tab'} ${press + 1} to`, !back))
+      }
+      return names
+    }
+    const toClose = `document.querySelector('dialog.ab-card[open] .ab-close').focus(); true`
+    const tabTo = async (to: string) => {
+      await browser.evaluate(toClose)
+      for (let press = 0; press < 12 && (await name()) !== to; press++) await browser.press('Tab')
+    }
+
+    await browser.forget()
+    await browser.load({ ...screen, url })
+    assert.ok(
+      await browser.waitFor(`document.querySelector('dialog.ab-card.is-landed')`, 10_000),
+      `${screen.width}px: Frieren's card didn't open`,
+    )
+    await browser.animationsDone()
+    await browser.evaluate(SETTLED)
+    const first = await name()
+    const forward = await round(false, 'the card')
+    const back = await round(true, 'the card')
+    const reversed = ['the card', ...forward.slice(0, -2).toReversed(), 'Close title card']
+
+    // Read more, then Show less.
+    await tabTo('Read more')
+    const more: string[] = []
+    for (const press of [1, 2]) {
+      await browser.press('Enter')
+      more.push(await stop(`Read more, Enter ${press} on`, false))
+    }
+
+    // Into the trailer and back out.
+    await tabTo('Watch trailer')
+    await browser.press('Enter')
+    assert.ok(
+      await browser.waitFor(`document.querySelector('dialog.ab-trailer[open]')`, 5000),
+      `${screen.width}px: Watch trailer opened no trailer`,
+    )
+    await browser.animationsDone()
+    const trailer = [await stop('the trailer, opened on')]
+    await browser.press('Tab')
+    trailer.push(await stop('the trailer, Tab to'))
+    await browser.press('Tab', true)
+    trailer.push(await stop('the trailer, Shift+Tab to'))
+    await browser.press('Escape')
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog.ab-trailer')`, 5000),
+      `${screen.width}px: Esc left the trailer open`,
+    )
+    const out = await stop('Esc out of the trailer to')
+
+    // As AniList fails to give Frieren anew: its answer saved as an airing title's, aged past the
+    // 6 hours an airing title's is kept, then a 400 for it, which the app doesn't try again, so the
+    // status line offers Try again at once.
+    await browser.rewriteAniList(({ request, status, body }) => {
+      if (request.variables.id !== 154587) return null
+      body.data.Media.status = 'RELEASING'
+      return { status, body }
+    })
+    try {
+      await browser.forget()
+      await browser.load({ ...screen, url })
+      assert.ok(await browser.waitFor(`document.querySelector('dialog.ab-card.is-landed')`))
+      // The cache is saved at most once a second.
+      await sleep(1500)
+    } finally {
+      await browser.rewriteAniList(null)
+    }
+    assert.ok(
+      await browser.evaluate<boolean>(`(() => {
+        const copy = JSON.parse(localStorage.getItem('anibeam:cache') ?? 'null')
+        const title = copy?.clientState.queries.find((query) => query.queryKey[2]?.id === 154587)
+        if (!title) return false
+        title.state.dataUpdatedAt -= 7 * 60 * 60_000
+        localStorage.setItem('anibeam:cache', JSON.stringify(copy))
+        return true
+      })()`),
+      `${screen.width}px: Frieren's answer was never saved`,
+    )
+    await browser.rewriteAniList(({ request }) =>
+      request.variables.id === 154587
+        ? { status: 400, body: { data: null, errors: [{ message: 'Bad Request.', status: 400 }] } }
+        : null,
+    )
+    let failing: string[] = []
+    try {
+      await browser.load({ ...screen, url })
+      assert.ok(
+        await browser.waitFor(
+          `document.querySelector('dialog.ab-card.is-landed .ab-card-status.is-shown .ab-retry')`,
+          10_000,
+        ),
+        `${screen.width}px: no Try again in the card's status line`,
+      )
+      await browser.animationsDone()
+      await browser.evaluate(SETTLED)
+      await browser.evaluate(toClose)
+      failing = await round(false, 'with Try again, the card')
+    } finally {
+      await browser.rewriteAniList(null)
+    }
+
+    seen[`${screen.width}px`] = {
+      first,
+      round: forward,
+      back: back.join() === reversed.join() ? 'the same, reversed' : back,
+      more,
+      trailer,
+      out,
+      failing,
+      problems,
+    }
+  }
+  const expected = {
+    first: 'Close title card',
+    round: [
+      'Open on AniList',
+      'Watch trailer',
+      'Read more',
+      'Show spoiler tags',
+      'the browser',
+      'the card',
+      'Close title card',
+    ],
+    back: 'the same, reversed',
+    more: ['Show less', 'Read more'],
+    trailer: ['Close', 'Open on YouTube', 'Close'],
+    out: 'Watch trailer',
+    failing: [
+      'Open on AniList',
+      'Watch trailer',
+      'Read more',
+      'Show spoiler tags',
+      'Try again',
+      'the browser',
+      'the card',
+      'Close title card',
+    ],
+    problems: [],
+  }
+  assert.deepEqual(seen, { '1440px': expected, '390px': expected })
 })
 
 test('by keyboard alone, Esc empties the search box, arrow keys choose a vibe and a decade, and Space pulls, opens a title card on its Close button and closes it', async () => {
