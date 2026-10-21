@@ -5,6 +5,7 @@ import { test } from 'node:test'
 import {
   CAP,
   createListStore,
+  entryIn,
   KEY,
   listedIn,
   merge,
@@ -258,6 +259,14 @@ test('an edit that changes nothing gives back the same list, and writes no time'
   assert.deepEqual(list, { '1': saved(T), '2': removed(T) }, 'the list given was changed')
 })
 
+test("a title's entry reads as itself while it is on the list, and a delete marker as none", () => {
+  // As useEntry reads it for a title's buttons: a title taken off shows none of them pressed.
+  const list = { '1': saved(T), '2': removed(T + 1) }
+  assert.equal(entryIn(list, 1), list['1'], 'the very same entry')
+  assert.equal(entryIn(list, 2), undefined, 'a title taken off')
+  assert.equal(entryIn(list, 3), undefined, 'a title never on it')
+})
+
 test('a full list takes no new title, but its titles can still move, lose their heart or go', () => {
   // 2,000 titles on the list, and 500 taken off, whose delete markers don't count.
   const full: List = {}
@@ -321,7 +330,15 @@ const savedList = (storage: { items: Map<string, string> }) =>
 test('the list is saved under anibeam:list:v1 as it changes, and read back from there', () => {
   const storage = fakeStorage()
   storage.items.set(KEY, JSON.stringify({ '21': want(T - 5) }))
-  const store = createListStore({ storage, now: () => T })
+  let writes = 0
+  const counted = {
+    ...storage,
+    setItem: (key: string, value: string) => {
+      writes++
+      storage.setItem(key, value)
+    },
+  }
+  const store = createListStore({ storage: counted, now: () => T })
   assert.deepEqual(store.getSnapshot(), { '21': want(T - 5) }, 'the list saved before')
   assert.deepEqual(store.pressStatus(154587, 'SAVED'), { change: 'added', saved: true })
   assert.deepEqual(savedList(storage), { '21': want(T - 5), '154587': saved(T) })
@@ -330,6 +347,7 @@ test('the list is saved under anibeam:list:v1 as it changes, and read back from 
   assert.deepEqual([...storage.items.keys()], [KEY])
   assert.deepEqual(store.setStatus(21, 'WANT'), { change: 'none', saved: true })
   assert.deepEqual(savedList(storage), { '21': want(T - 5), '154587': saved(T) })
+  assert.equal(writes, 1, 'writes, with the edit that changed nothing')
 })
 
 test("another tab's edit since this one last read is kept, never written over", () => {
@@ -569,6 +587,18 @@ test('the first to listen reads the saved list again, as another tab may have ch
   there.setStatus(1, 'WANT')
   here.subscribe(() => {})
   assert.deepEqual(here.getSnapshot(), { '1': want(T) })
+})
+
+test('read outside React, the list is read from storage again while nothing listens', () => {
+  // As the gacha may read it (D13), with no list on the page to keep it up to date.
+  const storage = fakeStorage()
+  const here = createListStore({ storage, now: () => T })
+  const there = createListStore({ storage, now: () => T })
+  assert.deepEqual(here.read(), {})
+  there.setStatus(1, 'WANT')
+  assert.deepEqual(here.read(), { '1': want(T) }, "another tab's edit")
+  assert.equal(here.read(), here.read(), 'the very same list while nothing changes')
+  assert.deepEqual(listedIn(here.read()), [1])
 })
 
 test("ten listening add one listener for each of the page's events, and the last to stop removes it", () => {

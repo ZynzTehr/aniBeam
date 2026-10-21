@@ -113,8 +113,8 @@ export type Edited = { list: List; change: Change }
 // option a). Null would leave such a press doing nothing, for a heart shown disabled until then.
 const HEART_ADDS_AS: Status | null = 'SAVED'
 
-/** The title's entry while it is on the list: not a delete marker. */
-const onList = (list: List, id: number): Entry | undefined =>
+/** The title's entry while it is on the list, or undefined: a delete marker reads as none. */
+export const entryIn = (list: List, id: number): Entry | undefined =>
   list[id]?.deleted ? undefined : list[id]
 
 // The last time an entry can have: 2^53 - 1 ms, some 285,000 years on, which only a list edited by
@@ -153,7 +153,7 @@ function written(
  * lose it.
  */
 export function setStatusIn(list: List, id: number, status: Status | null, now: number): Edited {
-  const entry = onList(list, id)
+  const entry = entryIn(list, id)
   if (!ID.test(String(id))) return { list, change: 'none' }
   if (status === null) {
     if (!entry) return { list, change: 'none' }
@@ -172,14 +172,14 @@ export function setStatusIn(list: List, id: number, status: Status | null, now: 
  * the title off the list, and the other moves it there, or puts it on.
  */
 export const pressStatusIn = (list: List, id: number, status: Status, now: number) =>
-  setStatusIn(list, id, onList(list, id)?.status === status ? null : status, now)
+  setStatusIn(list, id, entryIn(list, id)?.status === status ? null : status, now)
 
 /**
  * A press on the title's heart: given or taken away while the title is on the list, its status
  * kept. On a title not on the list, it follows HEART_ADDS_AS, unless the list is full.
  */
 export function toggleFavoriteIn(list: List, id: number, now: number): Edited {
-  const entry = onList(list, id)
+  const entry = entryIn(list, id)
   if (!ID.test(String(id))) return { list, change: 'none' }
   if (entry)
     return {
@@ -195,8 +195,8 @@ export function toggleFavoriteIn(list: List, id: number, now: number): Edited {
 export const KEY = 'anibeam:list:v1'
 
 // The saved copy of AniList's answers (queryClient.ts), which can grow to about 4.3 MB of the
-// about 5 MB a site has. When storage is full, the list goes first: the answers can be asked for
-// again, and the visitor's own list can't.
+// about 5 MB a site has. When storage is full, the list wins: the answers are removed, as they can
+// be asked for again, and the visitor's own list can't.
 const CACHE = 'anibeam:cache'
 
 /** localStorage, as far as the list uses it. */
@@ -274,9 +274,9 @@ export function createListStore({
     }
   }
 
-  // Saves `next`, whether it was saved. When storage is full, the saved AniList answers go, and
-  // the list is tried once more. Each edit tries that again, as TanStack may save its answers
-  // again in between (see queryClient.ts).
+  // Saves `next`, and returns whether it was saved. When storage is full, the saved AniList
+  // answers go, and the list is tried once more. Each edit tries that again, as TanStack may save
+  // its answers again in between (see queryClient.ts).
   function save(next: List) {
     if (!storage) return false
     const json = JSON.stringify(next)
@@ -335,6 +335,15 @@ export function createListStore({
   }
 
   /**
+   * The list as saved now, for code outside React: read from storage again first while nothing
+   * listens, as no event keeps it up to date then (see subscribe).
+   */
+  function read() {
+    if (listeners.size === 0) refresh()
+    return getSnapshot()
+  }
+
+  /**
    * Calls `onChange` each time the list changes, in this tab or another, until the function it
    * returns is called. Made for React's useSyncExternalStore, with getSnapshot. The first to listen
    * starts the one listener for the page's events, and reads the saved list again, as another tab
@@ -356,6 +365,7 @@ export function createListStore({
   return {
     getSnapshot,
     subscribe,
+    read,
     /** Puts the title on the list with `status`, or takes it off with null (see setStatusIn). */
     setStatus: (id: number, status: Status | null) =>
       edit((list, now) => setStatusIn(list, id, status, now)),
@@ -378,14 +388,15 @@ function browserStorage() {
 }
 
 /** The visitor's list, in this browser's localStorage. */
-export const { getSnapshot, subscribe, setStatus, pressStatus, toggleFavorite } = createListStore({
-  storage: browserStorage(),
-  events: typeof window === 'undefined' ? undefined : window,
-})
+export const { getSnapshot, subscribe, read, setStatus, pressStatus, toggleFavorite } =
+  createListStore({
+    storage: browserStorage(),
+    events: typeof window === 'undefined' ? undefined : window,
+  })
 
-/** The title's entry while it is on the list (not a delete marker), or undefined. */
+/** The title's entry while it is on the list (see entryIn), kept up to date as it changes. */
 export const useEntry = (id: number) =>
-  useSyncExternalStore(subscribe, () => onList(getSnapshot(), id))
+  useSyncExternalStore(subscribe, () => entryIn(getSnapshot(), id))
 
 // Each list's ids, worked out once (see listedIn).
 const idsOf = new WeakMap<List, number[]>()
@@ -406,8 +417,11 @@ export function listedIn(list: List) {
   return ids
 }
 
-/** The ids of the titles on the visitor's list (see listedIn): the same array until it changes. */
-export const listedIds = () => listedIn(getSnapshot())
+/**
+ * The ids of the titles on the visitor's list as saved now (see listedIn and read), for code
+ * outside React: the same array until it changes.
+ */
+export const listedIds = () => listedIn(read())
 
-/** The ids of the titles on the visitor's list (see listedIds), kept up to date as it changes. */
-export const useListIds = () => useSyncExternalStore(subscribe, listedIds)
+/** The ids of the titles on the visitor's list (see listedIn), kept up to date as it changes. */
+export const useListIds = () => useSyncExternalStore(subscribe, () => listedIn(getSnapshot()))
