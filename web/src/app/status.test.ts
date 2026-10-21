@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { AniListError } from '../lib/anilist.ts'
 import {
+  cardNote,
   noteFor,
   NOT_FOUND,
   sampleNote,
@@ -387,4 +388,54 @@ test('a title held up says why, as a section does: offline, busy, rate-limited o
     titleNote({ ...idle, error: savedError }, false),
     statusText({ ...idle, error: savedError }, false),
   )
+})
+
+test('a card opened at its address says nothing while its title is there and nothing is wrong', () => {
+  const frieren = { ...idle, data: { id: 154587 } }
+  assert.equal(cardNote(frieren, false), null)
+  // A refresh, as of an airing title saved over 6 hours ago, stays quiet as a section's does.
+  assert.equal(cardNote({ ...frieren, isFetching: true }, false), null)
+  // With no title yet, the note in the card's place speaks (see titleNote), not the card.
+  assert.equal(cardNote({ ...idle, isFetching: true, failureReason: tooMany }, false), null)
+  assert.equal(cardNote({ ...idle, error: serverError }, false), null)
+})
+
+test('a card whose title AniList holds up keeps it, and says why in the outage wording', () => {
+  // Spec §3I: a 429 keeps what is shown, and says AniList is busy. The card keeps its title and
+  // reads as the note in its place would, so Try again offers itself once the retries end.
+  const frieren = { ...idle, data: { id: 154587 } }
+  assert.equal(
+    cardNote({ ...frieren, isFetching: true, failureReason: tooMany }, true),
+    'AniList is busy right now. It’s not something you did. Trying again within a minute.',
+  )
+  assert.equal(
+    cardNote({ ...frieren, isFetching: true }, true),
+    'Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.',
+  )
+  // A refresh that fails another way, a server error or no connection, says so through its
+  // retries too, with no rate limit on.
+  assert.equal(
+    cardNote({ ...frieren, isFetching: true, failureReason: serverError }, false),
+    'AniList had a problem. It’s not something you did. Trying again in a few seconds.',
+  )
+  assert.equal(
+    cardNote({ ...frieren, isFetching: true, failureReason: noConnection }, false),
+    'AniList isn’t responding right now. It’s not something you did. Trying again in a minute.',
+  )
+  assert.equal(
+    cardNote({ ...frieren, error: tooMany }, false),
+    'AniList, where AniBeam gets its anime, isn’t responding right now. It’s not something you did. Try again in a minute.',
+  )
+  // Try again keeps the failure while it asks, as a title shown keeps its answer.
+  assert.equal(
+    cardNote({ ...frieren, error: tooMany, isFetching: true }, false),
+    'Trying AniList again…',
+  )
+  assert.equal(
+    cardNote({ ...frieren, isPaused: true }, false),
+    'Offline: waiting for a connection.',
+  )
+  // A title gone from AniList since (404) stays as it was saved: asking again would find no more.
+  const notFound = new AniListError('Not Found.', 404)
+  assert.equal(cardNote({ ...frieren, error: notFound }, false), null)
 })

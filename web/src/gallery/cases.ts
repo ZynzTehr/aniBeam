@@ -41,7 +41,7 @@ const SOON = () => Math.floor(Date.now() / 1000) + (2 * 24 + 4) * 3600
 export const TITLE_CASES: TitleCase[] = [
   {
     label: 'No banner',
-    like: 'Black Clover Season 2 (55 of the 194 recorded titles have none)',
+    like: 'So What’s Wrong with Getting Reborn as a Goblin? (46 of the 181 recorded titles have none)',
     from: 154587,
     changes: { bannerImage: null },
   },
@@ -103,7 +103,7 @@ export const TITLE_CASES: TitleCase[] = [
   },
   {
     label: 'No native title',
-    like: 'none of the 194 recorded titles, but AniList allows it',
+    like: 'none of the 181 recorded titles, but AniList allows it',
     from: 199,
     changes: { title: { ...sample(199).title, native: null } },
   },
@@ -206,3 +206,15 @@ export const STATUS_CASES = statusCases({
     status: { ...IDLE, data: TITLES, isFetching: true, dataUpdatedAt: FETCHED },
   },
 })
+
+/**
+ * The states a title card's status line shows (see cardNote in app/status.ts), as the gallery
+ * labels them: AniList busy while the app tries again, then its tries ended, with Try again.
+ */
+export const CARD_STATES = {
+  'AniList busy (429), trying again': { status: STATUS_CASES.busy.status, retry: false },
+  'Its tries ended, with Try again': {
+    status: { ...IDLE, error: new AniListError('Too many requests', 429) },
+    retry: true,
+  },
+}

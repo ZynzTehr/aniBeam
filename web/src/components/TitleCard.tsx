@@ -1,10 +1,19 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
-import { formatOf, nextEpisode, seasonOf, studioOf, titleOf } from '../features/anime/format.ts'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  formatOf,
+  nextEpisode,
+  runtimeOf,
+  seasonOf,
+  studioOf,
+  titleOf,
+} from '../features/anime/format.ts'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
 import { reducedMotion, watchDeviceMotion } from '../lib/motion.ts'
 import { markBroken, markLoaded } from './cover.ts'
 import { cssVars } from './cssVars.ts'
+import { RetryButton } from './RetryButton.tsx'
+import { TitleDetails } from './TitleDetails.tsx'
 
 /** Called with the title and the element it was opened from (for the opening animation). */
 export type OpenTitle = (media: Media, from: HTMLElement) => void
@@ -15,17 +24,45 @@ export type OpenTitle = (media: Media, from: HTMLElement) => void
  * motion: it fades in, and fades out as it closes). It opens as a native modal dialog, so the
  * page behind goes inert, Esc closes it, and the browser returns focus to whatever opened it.
  * `from` is that element's position, where the wipe starts, and where it shrinks back to.
+ * `status` says why AniList holds up a newer answer for the title, and `onRetry` is Try again.
  */
 export function TitleCard({
   media,
   from,
+  status = null,
+  onRetry,
   onClose,
 }: {
   media: Media
   from: DOMRect
+  status?: string | null
+  onRetry?: () => void
   onClose: () => void
 }) {
   const ref = useRef<HTMLDialogElement>(null)
+  // Try again hands focus to the status line as it hides (see RetryButton). Once the answer has
+  // come and the line has nothing more to say, focus goes on to the close button, where the card
+  // started it, rather than staying on a line no longer shown; the card keeps its place.
+  const closeButton = useRef<HTMLButtonElement>(null)
+  const statusLine = useRef<HTMLParagraphElement>(null)
+  useLayoutEffect(() => {
+    if (!status && document.activeElement === statusLine.current)
+      closeButton.current?.focus({ preventScroll: true })
+  }, [status])
+  // The status line sticks to the screen's foot over the card's parts, so the card keeps its height
+  // (--status-h) for the space a part the keyboard focuses scrolls clear of (see .ab-card's
+  // scroll-padding-bottom): none is hidden under the line (WCAG 2.4.11), nor out of a click's reach.
+  const statusBox = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const card = ref.current
+    const line = statusBox.current
+    if (!card || !line) return
+    const resized = new ResizeObserver(() =>
+      card.style.setProperty('--status-h', `${line.offsetHeight}px`),
+    )
+    resized.observe(line)
+    return () => resized.disconnect()
+  }, [])
   // With reduced motion, the card fades out before it closes (see .ab-card.is-closing): the
   // dialog stays open while the fade plays, and closes as it ends, when the browser returns
   // focus. Asked to close again meanwhile, it closes at once.
@@ -134,6 +171,7 @@ export function TitleCard({
   const title = titleOf(media)
   const size = title.length > 44 ? 'ab-xl' : title.length > 22 ? 'ab-l' : ''
   const next = nextEpisode(media)
+  const runtime = runtimeOf(media)
   return (
     <dialog
       ref={ref}
@@ -176,7 +214,13 @@ export function TitleCard({
       <title>{`${title} · AniBeam`}</title>
       <div className="ab-wipe" aria-hidden="true" />
       <article className="ab-sheet">
-        <button type="button" className="ab-close" onClick={close} aria-label="Close title card">
+        <button
+          ref={closeButton}
+          type="button"
+          className="ab-close"
+          onClick={close}
+          aria-label="Close title card"
+        >
           {/* An X of three bars, so it can fold into a back arrow (see .ab-x). */}
           <span className="ab-x" aria-hidden="true">
             <i />
@@ -184,6 +228,19 @@ export function TitleCard({
             <i />
           </span>
         </button>
+        {/* The banner band (see .ab-band): the title's banner, where it has one, over its color.
+            Decoded off the main thread, so a large banner landing mid-opening holds up nothing. */}
+        <div className="ab-band" aria-hidden="true">
+          {media.bannerImage && (
+            <img
+              src={media.bannerImage}
+              alt=""
+              decoding="async"
+              onLoad={markLoaded}
+              onError={markBroken}
+            />
+          )}
+        </div>
         <div className="ab-sheet-art">
           {media.title.native && (
             <p className="ab-native" lang="ja" aria-hidden="true">
@@ -219,6 +276,15 @@ export function TitleCard({
               <dt>Episodes</dt>
               <dd>{media.episodes ?? 'TBA'}</dd>
             </div>
+            {runtime && (
+              <div>
+                <dt>Runtime</dt>
+                <dd>
+                  <span aria-hidden="true">{runtime.text}</span>
+                  <span className="sr-only">{runtime.spoken}</span>
+                </dd>
+              </div>
+            )}
             {next && (
               <div>
                 <dt>Next</dt>
@@ -242,8 +308,19 @@ export function TitleCard({
               Chat about it <small>Soon</small>
             </button>
           </div>
+          <TitleDetails media={media} />
         </div>
       </article>
+      {/* Why AniList holds up a newer answer for the title (spec §3I), which the card keeps
+          meanwhile, with Try again once the tries end. It sits past the sheet's end, so nothing
+          moves as it comes, and sticks to the screen's foot while the card scrolls (see
+          .ab-card-status). The line is always there, so a screen reader hears it change. */}
+      <div ref={statusBox} className={status ? 'ab-card-status is-shown' : 'ab-card-status'}>
+        <p ref={statusLine} id="ab-card-status" role="status" tabIndex={-1}>
+          {status}
+        </p>
+        {status && onRetry && <RetryButton headingId="ab-card-status" onRetry={onRetry} />}
+      </div>
     </dialog>
   )
 }

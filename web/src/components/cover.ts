@@ -8,6 +8,7 @@ import type { SyntheticEvent } from 'react'
  */
 export const markBroken = (event: SyntheticEvent<HTMLImageElement>) => {
   event.currentTarget.dataset.broken = ''
+  delete event.currentTarget.dataset.loaded
 }
 
 /**
@@ -15,7 +16,10 @@ export const markBroken = (event: SyntheticEvent<HTMLImageElement>) => {
  * from 900px wide the splash panel shows its title's banner and below that its cover, so
  * narrowing the window swaps one for the other, and a refresh can bring a cover's new address.
  * The mark belongs to the file that failed, so one that loads clears it and the cover shows.
+ * data-loaded marks a file that has loaded, for what waits for one, such as the title card's
+ * banner (see .ab-band img in components.css).
  */
 export const markLoaded = (event: SyntheticEvent<HTMLImageElement>) => {
   delete event.currentTarget.dataset.broken
+  event.currentTarget.dataset.loaded = ''
 }

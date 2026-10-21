@@ -1775,8 +1775,9 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 }
 
 /* And it fades out as it closes, the same way: gone at once, it changed most of the screen in a
-   single frame too. TitleCard holds the dialog open while the fade plays, and closes it as the
-   fade ends, only with reduced motion: with motion allowed, the card plays its opening backwards
+   single frame too, after its banner's own fade, if it has one (see .ab-band img). TitleCard
+   holds the dialog open while the fade plays, and closes it as the fade ends, only with reduced
+   motion: with motion allowed, the card plays its opening backwards
    instead (see .ab-card.is-leaving in the motion block). [open] ranks this rule above the motion
    block's animation: none, so a device that stops asking for reduced motion mid-fade can't cut
    the fade short and leave the card open: finishEntrances() in lib/motion.ts finishes it
@@ -1799,9 +1800,17 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 }
 
 .ab-close:focus-visible,
-.ab-btn:focus-visible {
+.ab-btn:focus-visible,
+.ab-more:focus-visible {
   outline: 4px solid var(--hot);
   outline-offset: 3px;
+}
+
+/* The close button stands over the band's corner, where its red with keyboard focus, and its red
+   ring, melted into a red banner or the brand-red frame of a title with no color: a white line
+   between the two keeps its shape. */
+.ab-close:focus-visible {
+  box-shadow: 0 0 0 3px #fff;
 }
 
 /* Taller than the screen, the card scrolls, and Chrome makes it a Tab stop of its own. Its edge is
@@ -1836,23 +1845,98 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   inset: 0;
 }
 
+/* --pad is its padding, which the banner band spans to sit flush at its top. Its rows start at its
+   top and stay there: centered in its height, they moved as the details arrived under the facts,
+   the cover down and the title up. */
 .ab-sheet {
+  --pad: clamp(28px, 4vw, 60px);
+
   position: relative;
   display: grid;
   width: min(100% - 32px, 1180px);
   min-height: min(100dvh - 48px, 760px);
-  align-items: center;
+  align-content: start;
+  align-items: start;
   gap: clamp(20px, 4vw, 60px);
   margin: 24px auto;
-  padding: clamp(28px, 4vw, 60px);
+  padding: 0 var(--pad) var(--pad);
   border: 5px solid var(--ink);
   background: var(--paper);
   box-shadow: 14px 14px 0 var(--ink);
   grid-template-columns: minmax(200px, 34%) minmax(0, 1fr);
 }
 
+/* The banner band (spec §3A): the title's banner across the sheet's top, flush inside its border,
+   inked along its foot, cropped to fill. Its height is its own, so it is as tall with a banner as
+   without one, or with one that fails and hides (see cover.ts), and nothing moves as one lands.
+   It stands over the art, so the Japanese title falls into view from behind it. Where there is
+   no banner, or it fails, the band is an impact frame in the title's color: the wipe's speed
+   lines, bursting from a bright middle, over the page's screentone, sharp, with no blur. */
+.ab-band {
+  position: relative;
+  z-index: 1;
+  height: clamp(200px, 25vw, 420px);
+  margin: 0 calc(-1 * var(--pad));
+  border-bottom: 5px solid var(--ink);
+  background-color: var(--anime-accent);
+  background-image:
+    radial-gradient(ellipse, rgb(255 255 255 / 0.85) 0 6%, transparent 34%),
+    radial-gradient(rgb(20 20 20 / 0.2) 1.1px, transparent 1.5px),
+    repeating-conic-gradient(transparent 0deg 5deg, rgb(255 255 255 / 0.4) 5deg 7deg);
+  background-size:
+    auto,
+    6px 6px,
+    auto;
+  grid-column: 1 / -1;
+}
+
+/* A contrast theme paints backgrounds in its page color and drops gradients, which left the frame
+   an empty box: it keeps its lines and dots, in the theme's text color on its page color. */
+@media (forced-colors: active) {
+  .ab-band {
+    border-bottom-color: CanvasText;
+    background-color: Canvas;
+    background-image:
+      radial-gradient(ellipse, Canvas 0 6%, transparent 34%),
+      radial-gradient(CanvasText 1px, transparent 1.4px),
+      repeating-conic-gradient(transparent 0deg 5deg, CanvasText 5deg 6deg);
+    forced-color-adjust: none;
+  }
+}
+
+.ab-band img {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  inset: 0;
+}
+
+/* The banner shows once it has loaded (data-loaded, see cover.ts). With reduced motion it then
+   fades in on its own, once the card's fade has played, however late it comes: fading in with
+   the card, a dark banner changed over a quarter of the screen in one frame (Cyberpunk:
+   Edgerunners 2's, 25% at 1440px), and one that came late appeared at once, about a third of a
+   wide screen. With motion allowed, the motion block shows it at once, behind the wipe. */
+.ab-band img:not([data-loaded]) {
+  opacity: 0;
+}
+
+.ab-card[open] .ab-band img[data-loaded] {
+  animation: ab-fade 0.15s linear 0.15s backwards;
+}
+
+/* As the card fades out, a banner fades out first, and the card after it, for the same reason. */
+.ab-card[open].is-closing .ab-band img[data-loaded] {
+  animation: ab-fade-out 0.15s linear forwards;
+}
+
+.ab-card[open].is-closing:has(.ab-band img[data-loaded]) {
+  animation-delay: 0.15s;
+}
+
 .ab-close {
   position: absolute;
+  z-index: 2;
   top: 14px;
   right: 14px;
   display: grid;
@@ -1948,6 +2032,22 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 @media (forced-colors: active) {
   .ab-x i {
     background: ButtonText;
+  }
+
+  /* The theme also drops the white line around the focused button (a box-shadow) and draws its
+     ring in its own highlight color, over the band, where a banner keeps its colors: in a dark
+     theme, on a light banner, the ring stood at about 1.3:1. A halo in the theme's page color,
+     from the button's edge out past the ring, keeps the ring on the theme's colors wherever the
+     button stands. Its 15px reach out of the button's padding box is 12px past its border. */
+  .ab-close:focus-visible::after {
+    position: absolute;
+    z-index: -1;
+    border: 12px solid Canvas;
+    border-radius: 50%;
+    content: '';
+    forced-color-adjust: none;
+    inset: -15px;
+    pointer-events: none;
   }
 }
 
@@ -2062,6 +2162,162 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   font-size: 22px;
 }
 
+/* The details, last in the card, under an ink rule (see TitleDetails): the synopsis, its source
+   as a caption, and the tags. */
+.ab-details {
+  display: grid;
+  gap: 18px;
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 3px solid var(--ink);
+}
+
+.ab-synopsis {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.ab-synopsis-text,
+.ab-synopsis-none {
+  max-width: 68ch;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.6;
+}
+
+.ab-synopsis-text p {
+  margin: 0 0 0.8em;
+}
+
+.ab-synopsis-text p:last-child {
+  margin-bottom: 0;
+}
+
+/* Five lines until Read more, in line heights, which the page's own font and a fallback share,
+   so the clamp is as tall before the font arrives as after. Where it hides some of the text, the
+   last lines fade into the paper. */
+.ab-synopsis-text.is-clamped {
+  max-height: 5lh;
+  overflow: hidden;
+}
+
+.ab-synopsis-text.is-cut {
+  mask-image: linear-gradient(#000 55%, transparent);
+}
+
+.ab-source {
+  margin: 0;
+  color: #3d3d3d;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+/* The tags: chips, squarer than the genres' pills. A spoiler tag, once shown, is marked as one by a
+   dashed border in the title's text color, which reads on white at 4.5:1 or better. */
+.ab-tag-set {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.ab-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ab-tags li {
+  padding: 3px 9px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ab-tags small {
+  color: #3d3d3d;
+  font-size: 11px;
+}
+
+.ab-tags .is-spoiler {
+  border-style: dashed;
+  border-color: var(--anime-accent-text);
+}
+
+/* Read more, Show less and Show spoiler tags: open, in the title's fill, which ink reads on at
+   4.5:1 or better (see deriveAccent), and with its ink border doubled inside it, 5px where it was
+   3px. The fill alone told open from closed by color, a pale title's as little as 1.5:1 on the
+   closed button's white, while Show spoiler tags keeps its words either way. */
+.ab-more {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font: 800 14px var(--body);
+  cursor: pointer;
+}
+
+.ab-more[aria-expanded='true'] {
+  background: var(--anime-accent);
+  box-shadow: inset 0 0 0 2px var(--ink);
+}
+
+/* A contrast theme paints every button alike, so open ones take its colors for selected things. */
+@media (forced-colors: active) {
+  .ab-more[aria-expanded='true'] {
+    border-color: ButtonText;
+    background: SelectedItem;
+    box-shadow: inset 0 0 0 2px ButtonText;
+    color: SelectedItemText;
+    forced-color-adjust: none;
+  }
+}
+
+/* Why AniList holds up a newer answer for a card's title, with Try again (see TitleCard), in the
+   look of a section's long status tag. In the card's flow past the sheet's end, so nothing moves
+   as it comes, and stuck to the screen's foot while the card scrolls above that. */
+.ab-card-status {
+  position: sticky;
+  z-index: 1;
+  bottom: 16px;
+  width: fit-content;
+  max-width: min(100% - 32px, 40ch);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.ab-card-status.is-shown {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin: 0 auto 24px;
+  padding: 10px 16px;
+  border: 3px solid var(--ink);
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.ab-card-status p {
+  margin: 0;
+}
+
+/* While it shows, a part the keyboard focuses scrolls clear of it, 16px above its top, rather than
+   under it (WCAG 2.4.11), where a click on it would reach the line instead. --status-h is the
+   line's height, which TitleCard keeps; the line stands 16px off the screen's foot. */
+.ab-card:has(.ab-card-status.is-shown) {
+  scroll-padding-bottom: calc(var(--status-h, 0px) + 32px);
+}
+
 /* ---------- Phone ---------- */
 @media (max-width: 820px) {
   .ab-pull-row,
@@ -2099,10 +2355,25 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   }
 
   .ab-sheet {
+    --pad: 20px;
+
     width: calc(100% - 20px);
     margin: 10px auto;
-    padding: 64px 20px 28px;
+    padding: 0 20px 28px;
     grid-template-columns: 1fr;
+  }
+
+  /* A short strip, 19:4, the banner's own shape, and never under 64px, which the close button
+     needs to stand clear of its ink line (8px down, 48px tall, the line's 5px and some air):
+     narrower than 320px, as on a phone zoomed past 125%, the strip was 53px tall at 280px, and
+     the button hung over the line. Held that tall, the ratio would widen the strip to match, and
+     the card's column with it: it stretches across the column as it is, and asks no width. */
+  .ab-band {
+    min-width: 0;
+    height: auto;
+    min-height: 64px;
+    aspect-ratio: 19 / 4;
+    justify-self: stretch;
   }
 
   /* Stacked, the art is as narrow as its cover, as it is beside the text, so the Japanese title
@@ -2114,15 +2385,39 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     justify-self: center;
   }
 
-  /* Its fall (ab-fall) starts 16% of its height higher, up to 60px here, but only about 45px of
-     card stand above it, under the close button: its first frames poked out of the card's top. */
+  /* Beside the cover, level with its top: 6% above it, the column's head hid under the band's
+     foot. Its fall (ab-fall) starts 40px higher, behind the band. One whole column, standing
+     out from the cover's left edge and ending with it, where there is room for one: a name of
+     two put its first column, the name's start, behind the cover, and only its second beside
+     it. A long name is cut at a whole character. */
   .ab-native {
     --fall: -40px;
-    left: -1em;
+    top: 0;
+    right: 100%;
+    left: auto;
+    max-width: 1em;
+    max-height: 100%;
+    max-height: round(down, 100%, 1em);
+  }
+
+  /* Over the band's short strip, the close button keeps clear of its ink line (see .ab-band). */
+  .ab-close {
+    top: 8px;
+    right: 8px;
   }
 
   .ab-sheet-art img {
     width: min(56vw, 230px);
+  }
+}
+
+/* On a short screen, as on a phone held sideways, the band, its ink line in, takes a third of the
+   screen's height at most, keeping the 64px the close button needs: sized by the width alone, it
+   took 211px of an 844x390 screen, more than half, and the cover started at 270px. Laptops and
+   phones held upright are taller than 500px, and keep the band as it is. */
+@media (max-height: 500px) {
+  .ab-band {
+    max-height: max(64px, 32svh);
   }
 }
 
@@ -2162,6 +2457,11 @@ body:has(.ab-card[open], .ab-drawer[open]) {
       animation: none;
     }
 
+    /* And the banner shows as it loads, with no fade of its own (see .ab-band img). */
+    .ab-card[open] .ab-band img[data-loaded] {
+      animation: none;
+    }
+
     .ab-card::backdrop {
       background: rgb(20 20 20 / 0.35);
     }
@@ -2189,8 +2489,15 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 
     .ab-card[open] .ab-genres,
     .ab-card[open] .ab-facts,
-    .ab-card[open] .ab-row-actions {
+    .ab-card[open] .ab-row-actions,
+    .ab-card[open] .ab-details,
+    .ab-card[open] .ab-card-status.is-shown {
       animation: ab-rise 0.6s var(--spring) both 0.9s;
+    }
+
+    /* A status line that comes once the card has landed rises in at once. */
+    .ab-card[open].is-landed .ab-card-status.is-shown {
+      animation-delay: 0s;
     }
 
     /* Closing plays all that backwards, twice as fast: each part's keyframes in reverse, in half
@@ -2203,7 +2510,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
       --T: max(1.55s, calc(1.3s + (var(--n) - 1) * 70ms));
     }
 
-    /* With no native title, the opening ends as the facts and buttons land, at 1.5s. */
+    /* With no native title, the opening ends as the facts, buttons and details land, at 1.5s. */
     .ab-card[open].is-leaving:not(:has(.ab-native)) {
       --T: max(1.5s, calc(1.3s + (var(--n) - 1) * 70ms));
     }
@@ -2220,7 +2527,9 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 
     .ab-card[open].is-leaving .ab-genres,
     .ab-card[open].is-leaving .ab-facts,
-    .ab-card[open].is-leaving .ab-row-actions {
+    .ab-card[open].is-leaving .ab-row-actions,
+    .ab-card[open].is-leaving .ab-details,
+    .ab-card[open].is-leaving .ab-card-status.is-shown {
       animation: ab-rise-back 0.3s var(--spring) reverse both;
       animation-delay: calc((var(--T) - 1.5s) / 2);
     }
@@ -2795,12 +3104,14 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 }
 
 /* Focused by Try again as it hides while its retry runs (see RetryButton). */
-.ab-notice-text:focus-visible {
+.ab-notice-text:focus-visible,
+.ab-card-status p:focus-visible {
   outline: 4px solid var(--hot);
   outline-offset: 3px;
 }
 
-.ab-notice .ab-retry {
+.ab-notice .ab-retry,
+.ab-card-status .ab-retry {
   margin: 0;
 }
 

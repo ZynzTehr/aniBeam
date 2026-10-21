@@ -3133,13 +3133,16 @@ describe('desktop (1440x900)', () => {
   test('with motion allowed, short and long titles’ cards play their way back on time, with a native title and without one', async () => {
     // The closing's timing counts from when the opening ended, T: for a long title, when its last
     // word lands; for a short one, when its native title does (1.55 s), or with none, its facts
-    // and buttons (1.5 s). The checks above open a nine-word title with a native title. Here the
-    // answers are rewritten, so the check doesn't hang on this week's titles: the third trending
-    // title becomes one word, first with its native title, then, on a fresh load, with every native
-    // title gone, when the long first title is opened too. The page is then loaded as recorded.
+    // and buttons (1.5 s). The checks above open this week's first trending title. Here the
+    // answers are rewritten, so the check doesn't hang on this week's titles: the first trending
+    // title becomes nine words and the third one word, first with its native title, then, on a
+    // fresh load, with every native title gone, when the long first title is opened too. The page
+    // is then loaded as recorded.
     const rewrite = (native: boolean) => (value: any) => {
       const copy = structuredClone(value)
-      const third = copy?.data?.trending?.media?.[2]
+      const [first, , third] = copy?.data?.trending?.media ?? []
+      const long = 'So What’s Wrong with Getting Reborn as a Goblin?'
+      if (first) first.title = { ...first.title, english: long, romaji: long }
       if (third) third.title = { ...third.title, english: 'Psyren', romaji: 'Psyren' }
       const drop = (node: any) => {
         if (Array.isArray(node)) return node.forEach(drop)
@@ -3399,12 +3402,26 @@ const BACK_ON = {
 }
 
 /**
+ * An animation in words, as the fade checks give it (a function's source, to run in the page):
+ * where it runs (the card, its banner or another part), what its keyframes change, any delay, how
+ * long it takes and how often it runs. `hold` pauses it first, at its start.
+ */
+const told = (hold: boolean) => `((a) => {
+  if (${hold}) a.pause()
+  const card = document.querySelector('dialog.ab-card')
+  const { target, pseudoElement } = a.effect
+  const where = target === card && !pseudoElement ? 'the card' : target.localName === 'img' && target.closest('.ab-band') ? 'the banner' : [target.localName, ...target.classList].join('.') + (pseudoElement ?? '')
+  const changes = a.transitionProperty ? [a.transitionProperty] : [...new Set(a.effect.getKeyframes().flatMap(Object.keys))].filter((key) => !['offset', 'computedOffset', 'easing', 'composite'].includes(key)).sort()
+  const { delay, duration, iterations } = a.effect.getTiming()
+  return where + ': ' + changes.join(', ') + ', ' + (delay > 0 ? 'after ' + Math.round(delay) + ' ms, ' : '') + (duration <= 150 ? 'in 150 ms or less' : 'in ' + Math.round(duration) + ' ms') + ', ' + (iterations === 1 ? 'once' : iterations === Infinity ? 'forever' : iterations + ' times')
+})`
+
+/**
  * From now on, notes what closing the open title card starts, from the moment it starts to close:
  * an attribute on it or on anything in it changes, or it leaves the page. Each animation started
  * by then is noted before a frame is drawn, and held at its start if `hold`, in window.__closing;
  * that moment, by the page's clock, is window.__closingAt. window.__closingStarted gives each one
- * in words, as the opening's check does (where it runs, what its keyframes change, how long it
- * takes and how often it runs), or null if the card hasn't started to close 5 s on.
+ * in words (see told), or null if the card hasn't started to close 5 s on.
  */
 const watchClosing = (hold: boolean) => `(() => {
   const card = document.querySelector('dialog.ab-card')
@@ -3414,15 +3431,7 @@ const watchClosing = (hold: boolean) => `(() => {
       watch.disconnect()
       window.__closingAt = performance.now()
       window.__closing = document.getAnimations().filter((a) => !running.has(a))
-      resolve(window.__closing.map((a) => {
-        if (${hold}) a.pause()
-        const { target, pseudoElement } = a.effect
-        const where = target === card && !pseudoElement ? 'the card' : [target.localName, ...target.classList].join('.') + (pseudoElement ?? '')
-        const changes = a.transitionProperty ? [a.transitionProperty] : [...new Set(a.effect.getKeyframes().flatMap(Object.keys))].filter((key) => !['offset', 'computedOffset', 'easing', 'composite'].includes(key)).sort()
-        const { delay, duration, iterations } = a.effect.getTiming()
-        const ms = delay + duration
-        return where + ': ' + changes.join(', ') + ', ' + (ms <= 150 ? 'in 150 ms or less' : 'in ' + Math.round(ms) + ' ms') + ', ' + (iterations === 1 ? 'once' : iterations === Infinity ? 'forever' : iterations + ' times')
-      }))
+      resolve(window.__closing.map(${told(hold)}))
     })
     watch.observe(card, { attributes: true, subtree: true })
     watch.observe(card.parentElement, { childList: true })
@@ -3634,13 +3643,18 @@ async function hoverClose(on: boolean) {
   await sleep(700)
 }
 
-/** Waits until the open title card shows in full: its fade done, and the images on screen drawn. */
+/**
+ * Waits until the open title card shows in full: its fade done, the images on screen drawn, and
+ * its banner, if it has one, loaded and faded in after it.
+ */
 async function cardInFull() {
   await browser.animationsDone()
   await browser.evaluate(`(async () => {
     const onScreen = (img) => { const r = img.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth }
     await Promise.all([...document.images].filter(onScreen).map((img) => img.decode().catch(() => {})))
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const banner = document.querySelector('dialog.ab-card .ab-band img')
+    if (banner) await Promise.all(banner.getAnimations().map((a) => a.finished.catch(() => {})))
     return true
   })()`)
 }
@@ -3815,10 +3829,26 @@ describe('reduced motion, set on the site', () => reducedMotionChecks('site'))
 
 function reducedMotionChecks(askedOn: 'device' | 'site') {
   before(async () => {
-    await browser.load({ reduceMotion: askedOn === 'device' })
-    if (askedOn === 'site')
-      await browser.evaluate(`document.documentElement.dataset.motion = 'reduce'; true`)
-    assert.ok(await browser.titlesShown())
+    // The card most of these checks open, the first trending title's, is staged with no banner,
+    // and the second's with the first's banner, dark (Cyberpunk: Edgerunners 2's, recorded on
+    // 2026-10-20), the steepest case for a fade: the fade checks open both. Fading with the card,
+    // that banner changed 25.1% of the screen in the opening's steepest 60 Hz frame at 1440px, and
+    // 26.4% in the closing's, so a banner now waits for the card's fade (see .ab-band img).
+    await browser.forget()
+    await browser.rewriteAniList(({ status, body }) => {
+      const copy = structuredClone(body)
+      const [first, second] = copy?.data?.trending?.media ?? []
+      if (first && second) [first.bannerImage, second.bannerImage] = [null, first.bannerImage]
+      return { status, body: copy }
+    })
+    try {
+      await browser.load({ reduceMotion: askedOn === 'device' })
+      if (askedOn === 'site')
+        await browser.evaluate(`document.documentElement.dataset.motion = 'reduce'; true`)
+      assert.ok(await browser.titlesShown())
+    } finally {
+      await browser.rewriteAniList(null)
+    }
   })
 
   test('the mouse just outside the close button neither turns it red nor reaches it: its hidden speed lines catch nothing', async () => {
@@ -3946,70 +3976,106 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     })
   })
 
-  test('opening a title card runs one fade of 150 ms or less, and no frame of it changes a quarter of the screen', async () => {
+  test('opening a title card runs one fade of 150 ms or less, then its banner’s, and no frame of them changes a quarter of the screen', async () => {
     // Spec §3J: with reduced motion, the card comes in with a 150 ms cross-fade, not its color
     // wipe. Shown at once, it switched most of the screen to the title's color in a single frame:
-    // 61% of it here, and 78-80% in the research's measurements (R1). Each animation the opening
-    // starts is noted as the card opens, before a frame is drawn, and held at its start: where it
-    // runs, what its keyframes change, how long it takes and how often it runs. Then the opening
-    // is played by hand, one 60 Hz frame at a time, each frame compared with the one before
-    // (screenChange). An even fade spreads the change over its nine frames, and no frame here
-    // changes more than 12% of the screen. The images on screen are drawn first, so that what
-    // changes is the card's doing.
-    await browser.evaluate(`(async () => {
-      const onScreen = (img) => { const r = img.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth }
-      await Promise.all([...document.images].filter(onScreen).map((img) => img.decode().catch(() => {})))
-      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-      return true
-    })()`)
-    await screenChange(true)
-    const started = await browser.evaluate<string[] | null>(`new Promise((resolve) => {
-      const running = new Set(document.getAnimations())
-      const watch = new MutationObserver(() => {
-        const card = document.querySelector('dialog.ab-card')
-        if (!card?.open) return
-        watch.disconnect()
-        window.__opening = document.getAnimations().filter((a) => !running.has(a))
-        resolve(window.__opening.map((a) => {
-          a.pause()
-          const { target, pseudoElement } = a.effect
-          const where = target === card && !pseudoElement ? 'the card' : [target.localName, ...target.classList].join('.') + (pseudoElement ?? '')
-          const changes = a.transitionProperty ? [a.transitionProperty] : [...new Set(a.effect.getKeyframes().flatMap(Object.keys))].filter((key) => !['offset', 'computedOffset', 'easing', 'composite'].includes(key)).sort()
-          const { delay, duration, iterations } = a.effect.getTiming()
-          const ms = delay + duration
-          return where + ': ' + changes.join(', ') + ', ' + (ms <= 150 ? 'in 150 ms or less' : 'in ' + Math.round(ms) + ' ms') + ', ' + (iterations === 1 ? 'once' : iterations === Infinity ? 'forever' : iterations + ' times')
-        }))
-      })
-      watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open'] })
-      setTimeout(() => resolve(null), 5000)
-      document.querySelector('.ab-grid .ab-link').click()
-    })`)
-    assert.ok(started, 'the title card did not open')
-    // The card's cover is drawn before the first frame is taken, so it can't come in between two.
-    await browser.evaluate(
-      `document.querySelector('dialog.ab-card img').decode().catch(() => {}).then(() => true)`,
-    )
-    // Frames up to the opening's end, and one past it; 300 ms at most, as longer fails anyway.
-    const end = await browser.evaluate<number>(
-      `Math.min(300, Math.max(0, ...window.__opening.map((a) => a.effect.getComputedTiming().endTime)))`,
-    )
-    const frames = [...Array(Math.ceil((end * 60) / 1000)).keys()].map((k) => (k * 1000) / 60)
-    const changed: number[] = []
-    for (const at of [...frames, end + 1]) {
-      await browser.evaluate(`(() => {
-        for (const a of window.__opening) a.currentTime = ${at}
-        return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))
-      })()`)
-      changed.push((await screenChange()) ?? 0)
+    // 61% of it here, and 78-80% in the research's measurements (R1). Its banner, once loaded,
+    // fades in on its own after the card's fade: fading with the card, a dark one changed 25.1% of
+    // the screen in one frame. So two cards are opened, the first trending title's, with no
+    // banner, and the second's, with a dark one (see before()). Each animation the opening starts
+    // is noted as the card opens, before a frame is drawn, and held at its start (see told); the
+    // banner's starts as it loads, and is noted and held then. Then the opening is played by hand,
+    // one 60 Hz frame at a time, each frame compared with the one before (screenChange), the
+    // banner's fade as though it had loaded at once. An even fade spreads the change over its nine
+    // frames: no frame here changed more than 11% of the screen with no banner, or 14% with the
+    // dark one (the band in the title's color as the card fades in, then the banner over it, at
+    // under 1% a frame). The images on screen are drawn first, so that what changes is the card's
+    // doing.
+    const seen: Record<string, object> = {}
+    try {
+      for (const [panel, which] of [
+        [0, 'with no banner'],
+        [1, 'with a dark banner'],
+      ] as const) {
+        await browser.evaluate(`(async () => {
+          document.querySelector('dialog.ab-card')?.close()
+          while (document.querySelector('dialog.ab-card')) await new Promise((resolve) => requestAnimationFrame(resolve))
+          const onScreen = (img) => { const r = img.getBoundingClientRect(); return r.bottom > 0 && r.top < innerHeight && r.right > 0 && r.left < innerWidth }
+          await Promise.all([...document.images].filter(onScreen).map((img) => img.decode().catch(() => {})))
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+          return true
+        })()`)
+        await screenChange(true)
+        const opened = await browser.evaluate<string[] | null>(`new Promise((resolve) => {
+          window.__running = new Set(document.getAnimations())
+          const watch = new MutationObserver(() => {
+            const card = document.querySelector('dialog.ab-card')
+            if (!card?.open) return
+            watch.disconnect()
+            window.__opening = document.getAnimations().filter((a) => !window.__running.has(a))
+            resolve(window.__opening.map(${told(true)}))
+          })
+          watch.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['open'] })
+          setTimeout(() => resolve(null), 5000)
+          document.querySelectorAll('.ab-grid .ab-link')[${panel}].click()
+        })`)
+        assert.ok(opened, `the title card ${which} did not open`)
+        // The card's cover is drawn before the first frame is taken, so it can't come in between
+        // two, and its banner too, whose fade starts as it loads.
+        const banner = await browser.evaluate<string[] | null>(`(async () => {
+          const card = document.querySelector('dialog.ab-card')
+          await card.querySelector('.ab-sheet-art img').decode().catch(() => {})
+          const img = card.querySelector('.ab-band img')
+          if (!img) return []
+          await img.decode().catch(() => {})
+          await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+          if (!img.complete || !img.naturalWidth) return null
+          const later = document.getAnimations().filter((a) => !window.__running.has(a) && !window.__opening.includes(a))
+          window.__opening.push(...later)
+          return later.map(${told(true)})
+        })()`)
+        assert.ok(banner, `the banner of the title card ${which} did not load`)
+        // Frames up to the opening's end, and one past it; 300 ms at most, as longer fails anyway.
+        const end = await browser.evaluate<number>(
+          `Math.min(300, Math.max(0, ...window.__opening.map((a) => a.effect.getComputedTiming().endTime)))`,
+        )
+        const frames = [...Array(Math.ceil((end * 60) / 1000)).keys()].map((k) => (k * 1000) / 60)
+        const changed: number[] = []
+        for (const at of [...frames, end + 1]) {
+          await browser.evaluate(`(() => {
+            for (const a of window.__opening) a.currentTime = ${at}
+            return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))
+          })()`)
+          changed.push((await screenChange()) ?? 0)
+        }
+        await browser.evaluate(
+          `for (const a of window.__opening) a.cancel(); for (const name of ['__opening', '__running', '__lastScreen']) delete window[name]; true`,
+        )
+        const most = Math.max(...changed)
+        seen[which] = {
+          started: [...opened, ...banner],
+          most: most < 25 ? 'under a quarter' : `${most}%`,
+        }
+      }
+    } finally {
+      await closeCardLeft()
     }
-    await browser.evaluate(
-      `for (const a of window.__opening) a.cancel(); delete window.__opening; delete window.__lastScreen; true`,
-    )
-    const most = Math.max(...changed)
     assert.deepEqual(
-      { started, most: most < 25 ? 'under a quarter' : `${most}%` },
-      { started: ['the card: opacity, in 150 ms or less, once'], most: 'under a quarter' },
-      'the animations opening the title card started (where each ran, what its keyframes change, how long it took and how often it ran), and the most of the screen one 60 Hz frame of the opening changed',
+      seen,
+      {
+        'with no banner': {
+          started: ['the card: opacity, in 150 ms or less, once'],
+          most: 'under a quarter',
+        },
+        'with a dark banner': {
+          started: [
+            'the card: opacity, in 150 ms or less, once',
+            'the banner: opacity, after 150 ms, in 150 ms or less, once',
+          ],
+          most: 'under a quarter',
+        },
+      },
+      'for each card, the animations opening it started (where each ran, what its keyframes change, any delay, how long it took and how often it ran), and the most of the screen one 60 Hz frame of the opening changed',
     )
   })
 
@@ -4060,73 +4126,87 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     )
   })
 
-  test('closing a title card with Esc runs one fade of 150 ms or less, no frame of it changes a quarter of the screen, and focus goes back to its panel', async () => {
+  test('closing a title card with Esc fades out its banner, then the card, each in 150 ms or less, no frame of them changes a quarter of the screen, and focus goes back to its panel', async () => {
     // The card fades out over 150 ms as it closes, as it fades in: gone at once, it changed 76% of
-    // the screen here in a single frame, the cut the fade in replaced (R1). It is opened as a
-    // visitor opens it, with Enter on a panel: the browser lets the page hold a dialog open on Esc
-    // only once the visitor has done something on the page, so Esc on a card a script opened
-    // still closes it at once. As for the opening, each animation the closing starts is noted and
-    // held as it starts, then played by hand one 60 Hz frame at a time, each frame compared with
-    // the one before. Once the fade has played, the card must leave the page, and the focus be
-    // back on the panel that opened it, where the browser puts it as the dialog closes.
-    try {
-      await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
-      await browser.evaluate(`(() => {
-        window.__opener = document.querySelector('.ab-grid .ab-link')
-        window.__opener.focus()
-        return true
-      })()`)
-      await browser.press('Enter')
-      assert.ok(
-        await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
-        'the title card did not open',
-      )
-      await cardInFull()
-      await screenChange(true)
-      await browser.evaluate(watchClosing(true))
-      await browser.press('Escape')
-      const started = await browser.evaluate<string[] | null>('window.__closingStarted')
-      assert.ok(started, 'the title card did not start to close')
-      // Frames up to the closing's end, and one past it; 300 ms at most, as longer fails anyway.
-      const end = await browser.evaluate<number>(
-        `Math.min(300, Math.max(0, ...window.__closing.map((a) => a.effect.getComputedTiming().endTime)))`,
-      )
-      const frames = [...Array(Math.ceil((end * 60) / 1000)).keys()].map((k) => (k * 1000) / 60)
-      const changed: number[] = []
-      for (const at of [...frames, end + 1]) {
+    // the screen here in a single frame, the cut the fade in replaced (R1). A banner fades out
+    // first, as it faded in after the card: fading with it, a dark one changed 26.4% of the screen
+    // in one frame. So, as for the opening, a card with no banner is closed, and one with a dark
+    // banner. Each is opened as a visitor opens it, with Enter on a panel: the browser lets the
+    // page hold a dialog open on Esc only once the visitor has done something on the page, so Esc
+    // on a card a script opened still closes it at once. As for the opening, each animation the
+    // closing starts is noted and held as it starts, then played by hand one 60 Hz frame at a
+    // time, each frame compared with the one before. Once the fades have played, the card must
+    // leave the page, and the focus be back on the panel that opened it, where the browser puts it
+    // as the dialog closes.
+    const seen: Record<string, object> = {}
+    for (const [panel, which] of [
+      [0, 'with no banner'],
+      [1, 'with a dark banner'],
+    ] as const) {
+      try {
+        await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
         await browser.evaluate(`(() => {
-          for (const a of window.__closing) a.currentTime = ${at}
-          return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))
+          window.__opener = document.querySelectorAll('.ab-grid .ab-link')[${panel}]
+          window.__opener.focus()
+          return true
         })()`)
-        changed.push((await screenChange()) ?? 0)
-      }
-      // Held, a fade set past its end has ended but never finishes, so it is finished here, unless
-      // it is endless, which can't be: the page may close the card as the fade ends or once it has
-      // finished.
-      await browser.evaluate(
-        `for (const a of window.__closing) if (a.playState === 'paused' && a.effect.getComputedTiming().endTime !== Infinity) a.finish(); true`,
-      )
-      const gone = await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000)
-      const focus = await browser.evaluate<string>(focusPlace)
-      const most = Math.max(...changed)
-      assert.deepEqual(
-        {
+        await browser.press('Enter')
+        assert.ok(
+          await browser.waitFor(`document.querySelector('dialog.ab-card')?.open`, 5000),
+          `the title card ${which} did not open`,
+        )
+        await cardInFull()
+        await screenChange(true)
+        await browser.evaluate(watchClosing(true))
+        await browser.press('Escape')
+        const started = await browser.evaluate<string[] | null>('window.__closingStarted')
+        assert.ok(started, `the title card ${which} did not start to close`)
+        // Frames up to the closing's end, and one past it; 300 ms at most, as longer fails anyway.
+        const end = await browser.evaluate<number>(
+          `Math.min(300, Math.max(0, ...window.__closing.map((a) => a.effect.getComputedTiming().endTime)))`,
+        )
+        const frames = [...Array(Math.ceil((end * 60) / 1000)).keys()].map((k) => (k * 1000) / 60)
+        const changed: number[] = []
+        for (const at of [...frames, end + 1]) {
+          await browser.evaluate(`(() => {
+            for (const a of window.__closing) a.currentTime = ${at}
+            return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))
+          })()`)
+          changed.push((await screenChange()) ?? 0)
+        }
+        // Held, a fade set past its end has ended but never finishes, so it is finished here,
+        // unless it is endless, which can't be: the page may close the card as the fade ends or
+        // once it has finished.
+        await browser.evaluate(
+          `for (const a of window.__closing) if (a.playState === 'paused' && a.effect.getComputedTiming().endTime !== Infinity) a.finish(); true`,
+        )
+        const gone = await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000)
+        const most = Math.max(...changed)
+        seen[which] = {
           started,
           most: most < 25 ? 'under a quarter' : `${most}%`,
           card: gone ? 'gone' : 'still on the page',
-          focus,
-        },
-        {
-          started: ['the card: opacity, in 150 ms or less, once'],
-          most: 'under a quarter',
-          card: 'gone',
-          focus: 'back on its panel',
-        },
-        'closing the title card with Esc: the animations it started (where each ran, what its keyframes change, how long it took and how often it ran), the most of the screen one 60 Hz frame of it changed, whether the card left the page once the fade had played, and where the focus went',
-      )
-    } finally {
-      await closeCardLeft()
+          focus: await browser.evaluate<string>(focusPlace),
+        }
+      } finally {
+        await closeCardLeft()
+      }
     }
+    const closed = { most: 'under a quarter', card: 'gone', focus: 'back on its panel' }
+    assert.deepEqual(
+      seen,
+      {
+        'with no banner': { started: ['the card: opacity, in 150 ms or less, once'], ...closed },
+        'with a dark banner': {
+          started: [
+            'the card: opacity, after 150 ms, in 150 ms or less, once',
+            'the banner: opacity, in 150 ms or less, once',
+          ],
+          ...closed,
+        },
+      },
+      'closing each title card with Esc: the animations it started (where each ran, what its keyframes change, any delay, how long it took and how often it ran), the most of the screen one 60 Hz frame of it changed, whether the card left the page once the fades had played, and where the focus went',
+    )
   })
 
   test('a title card closed with its button fades out and is gone 400 ms later, by the page’s own clock, with focus back on its panel', async () => {
@@ -5142,9 +5222,9 @@ describe('the title card, from a small phone to a wide screen', () => {
 
   /**
    * Plays what holdWhat held, one 60 Hz frame at a time to its end, and says how far past the
-   * screen `width`px wide (its sides and top) and past the card's sheet the Japanese title ever
-   * stood while it showed at all, side by side, in px, rounded, and when it stood furthest; or
-   * null if it never did. `when` names the moment, for the message.
+   * screen `width`px wide (its sides and top), past the card's sheet and, stacked, behind the
+   * cover the Japanese title ever stood while it showed at all, side by side, in px, rounded, and
+   * when it stood furthest; or null if it never did. `when` names the moment, for the message.
    */
   async function nativeOutside(width: number, when: string) {
     return browser.evaluate<string | null>(`(async () => {
@@ -5165,6 +5245,9 @@ describe('the title card, from a small phone to a wide screen', () => {
           'the right of the sheet': n.right - s.right,
           'the top of the sheet': s.top - n.top,
           'the bottom of the sheet': n.bottom - s.bottom,
+          // Stacked, the column stands beside the cover, none of it behind: its box as laid out,
+          // which the opening's turns and tilts leave as it is, from the cover's left edge.
+          'the left of the cover, behind it': ${width} <= 820 ? native.offsetLeft + native.offsetWidth : 0,
         }
         for (const [side, px] of Object.entries(past))
           if (px > 0.5 && px > (worst.get(side)?.px ?? 0))
@@ -5175,16 +5258,18 @@ describe('the title card, from a small phone to a wide screen', () => {
     })()`)
   }
 
-  test('the Japanese title behind the cover stays whole on the screen and inside the card, as it opens, at rest and as it closes', async () => {
-    // The title's Japanese name stands in a tall ghost column behind the cover, hanging off its
-    // top-left (6% of the art's width out beside the text, a whole character out when stacked). On
+  test('the Japanese title stays whole on the screen and inside the card, wholly beside the cover where the card stacks, as it opens, at rest and as it closes', async () => {
+    // The title's Japanese name stands in a tall ghost column hanging off the cover's top-left:
+    // beside the text, mostly behind the cover, 6% of the art's width out; stacked, beside it. On
     // a phone or a tablet in portrait the card stacks, and the art used to stretch across the
     // card with the cover in its middle, so 6% of the art put the
     // column on the card's border on a phone, and 7 to 10px off the screen and 17 to 20px out of
     // the card on a tablet in portrait, far from the cover. And the first frames of its fall
-    // poked up to 8px out of the card's top there. The first two trending titles are opened at
-    // each size, their opening and closing played by hand one 60 Hz frame at a time: wherever
-    // the column shows at all, it must lie on the screen and inside the card's sheet.
+    // poked up to 8px out of the card's top there. Then, stacked, a name of two columns stood
+    // with its first, the name's start, behind the cover, and only its second beside it. The
+    // first two trending titles are opened at each size, their opening and closing played by
+    // hand one 60 Hz frame at a time: wherever the column shows at all, it must lie on the screen
+    // and inside the card's sheet, and stacked, none of it behind the cover.
     const off: string[] = []
     for (const [width, height] of SCREENS) {
       await browser.load({ width, height, phone: width < 900 })

@@ -1,0 +1,325 @@
+{
+  "note": "Real AniList answers saved on 2026-10-11 (design-research/phase2-rest/title-pages/data, live1.json and live2.json): descriptions with asHtml: false, and tags as AniList orders them. One Piece and Sword Art Online were saved without tag names. Nausicaä, NARUTO×NINKU and Princess Mononoke come from the recordings of 2026-10-20 (web/e2e/anilist), and Heidi from the bundled samples (samples.ts).",
+  "descriptions": {
+    "Frieren": "The adventure is over but life goes on for an elf mage just beginning to learn what living is all about. Elf mage Frieren and her courageous fellow adventurers have defeated the Demon King and brought peace to the land. But Frieren will long outlive the rest of her former party. How will she come to understand what life means to the people around her? Decades after their victory, the funeral of one her friends confronts Frieren with her own near immortality. Frieren sets out to fulfill the last wishes of her comrades and finds herself beginning a new adventure…\n<br><br>\n(Source: Crunchyroll)",
+    "Attack on Titan": "Several hundred years ago, humans were nearly exterminated by titans. Titans are typically several stories tall, seem to have no intelligence, devour human beings and, worst of all, seem to do it for the pleasure rather than as a food source. A small percentage of humanity survived by walling themselves in a city protected by extremely high walls, even taller than the biggest of titans.<br><br>\r\nFlash forward to the present and the city has not seen a titan in over 100 years. Teenage boy Eren and his foster sister Mikasa witness something horrific as the city walls are destroyed by a colossal titan that appears out of thin air. As the smaller titans flood the city, the two kids watch in horror as their mother is eaten alive. Eren vows that he will murder every single titan and take revenge for all of mankind.<br><br>\r\n(Source: MangaHelpers)",
+    "One Piece": "Gold Roger was known as the Pirate King, the strongest and most infamous being to have sailed the Grand Line. The capture and death of Roger by the World Government brought a change throughout the world. His last words before his death revealed the location of the greatest treasure in the world, One Piece. It was this revelation that brought about the Grand Age of Pirates, men who dreamed of finding One Piece (which promises an unlimited amount of riches and fame), and quite possibly the most coveted of titles for the person who found it, the title of the Pirate King.<br><br>\nEnter Monkey D. Luffy, a 17-year-old boy that defies your standard definition of a pirate. Rather than the popular persona of a wicked, hardened, toothless pirate who ransacks villages for fun, Luffy’s reason for being a pirate is one of pure wonder; the thought of an exciting adventure and meeting new and intriguing people, along with finding One Piece, are his reasons of becoming a pirate. Following in the footsteps of his childhood hero, Luffy and his crew travel across the Grand Line, experiencing crazy adventures, unveiling dark mysteries and battling strong enemies, all in order to reach One Piece.<br><br>\n<b>*This includes the following special episodes:</b><br>\n- Chopperman to the Rescue! Protect the TV Station by the Shore! (Episode 336)<br>\n- The Strongest Tag-Team! Luffy and Toriko's Hard Struggle! (Episode 492)<br>\n- Team Formation! Save Chopper (Episode 542)<br>\n- History's Strongest Collaboration vs. Glutton of the Sea (Episode 590)<br>\n- 20th Anniversary! Special Romance Dawn (Episode 907)",
+    "Code Geass: Akito the Exiled 1": "It is the year 2017, and Europe is being invaded by the forces of the Holy Britannian Empire. In an attempt to combat the opposition's overwhelming pressure and put an end to the massive casualties, the army forms a special unit called Wyvern, or W-0, composed of former Japanese citizens referred to as \"Elevens.\" Recruited from ghettos, these young men and women pilot Knightmare frames—humanoid war machines—into dangerous operations where death awaits, hoping to make a name for themselves.\n<br><br>\nWhen a European regiment attempting to recapture a crucial city is pinned down by the enemy, it's up to W-0 to bail them out. Among those selected for the rescue operation is Lieutenant Akito Hyuuga, known as \"Hannibal's Ghost\" due to his prowess on the battlefield. However, the supposed rescue mission becomes suicidal when, in an attempt to take out as many Britannians as possible, the commanding officer initiates the Knightmare's self-destruct sequence. In its aftermath, Akito finds that he is the last one standing…\n<br><br>\n(Source: MAL Rewrite) <br><br>\n<i>Note: The film received a special pre-screening on July 16, 2012 at theatres in Shinjuku Ward 9 and Ikebukuro Cinema Sunshine.",
+    "The Melancholy of Haruhi Suzumiya": "Kyon, your typical high school student, has long given up his belief in the supernatural. However, upon meeting Haruhi Suzumiya, he quickly finds out that it is the supernatural that she is interested in; aliens, time travelers and espers among other things. When Haruhi laments about the lack of intriguing clubs around school, Kyon inspires Haruhi to form her own club. As a result, the SOS Brigade is formed, a club which specializes in all that is the supernatural.<br><br>\nMuch to his chagrin, Kyon, along with the silent bookworm, Yuki Nagato, the shy and timid Mikuru Asahina, and the perpetually smiling Itsuki Koizumi, are recruited as members. The story follows the crazy adventures that these four endure under their whimsical leader, Haruhi. The story is based on the light novels by Nagaru Tanigawa.<br><br>\n<i>Note: This entry is for the original 14-episode 2006 airing. The series was further expanded and reordered into <a href=\"https://anilist.co/anime/4382/Suzumiya-Haruhi-no-Yuuutsu-2009/\">a 28-episode series in 2009.</a>",
+    "Heavy Object": "In the distant future, the nature of war has changed. \"Objects\"—massive, spherical tanks impermeable to standard weaponry and armed with destructive firepower—rule the battlefield; their very deployment ensures victory, rendering traditional armies useless. However, this new method of warfare is about to be turned on its head.<br></br>\n\nQwenthur Barbotage, a student studying Object Design, and Havia Winchell, a radar analyst of noble birth, serve in the Legitimate Kingdom's 37th Mobile Maintenance Battalion, tasked with supporting the Baby Magnum, one of the nation's Objects. Unfortunately, a battle gone awry places the duo in a precarious situation: mere infantry stand face-to-face against the unfathomable might of an enemy Object. As they scramble to save themselves and their fellow soldiers, a glimmer of hope shines through, and the world's perception of Objects is changed forever.<br></br>\n\nHeavy Object follows these two soldiers alongside Milinda Brantini, the Baby Magnum's pilot, and their commanding officer Frolaytia Capistrano as the unit treks all over the globe to fight battle after battle. Facing one impossible situation after another, they must summon all their wit and courage to overcome the insurmountable foes that are Objects.<br></br>\n",
+    "Nausicaä of the Valley of the Wind": "A thousand years after a global war, a seaside kingdom known as the Valley Of The Wind remains one of only a few areas still populated. Led by the courageous Princess Nausica&auml;, the people of the Valley are engaged in a constant struggle with powerful insects called ohmu, who guard a poisonous jungle that is spreading across the Earth. Nausica&auml; and her brave companions, together with the people of the Valley, strive to restore the bond between humanity and the Earth. <br><br>\n(Source: Disney)",
+    "NARUTO×NINKU": "<i>\"I'm heading out on a mission for the ages, ya hear me?!\"</i>\n<br><br>\nTeam 7 members Naruto, Sasuke, and Sakura are given a mission by Kakashi.\nSince Kakashi cannot participate himself, Naruto is appointed acting leader.\nAs a result of this decision, Naruto is fully motivated to make the mission a success.\nHowever, on the way, Team 7 finds themselves lost in another world.<br><br>\nWhat appears before the bewildered trio is a boy with a face resembling a frog's, named Fūsuke.\nWhat awaits them in this strange new world?\n<br><br>\n(Source: NARUTO x NINKŪ Official Site) <br><br>\n<i>Note: The official website for the <i>NARUTO</i> anime franchise announced a new anime project: to air four \"brand-new\" episodes to celebrate the TV anime's 20th anniversary back in 2022. <br><br>(Source: Anime News Network, edited) </i>",
+    "Princess Mononoke": "A calm village residing in the mountains comes under attack from a demon-possessed boar one day.<br><br>\nAshitaka, a young man and prince of the tribe, engages the creature in an attempt to save his village. During the battle, the boar bites him on the arm, leaving it blackened and cursed. Following his village's traditions, Ashitaka is exiled and becomes a wanderer, looking for a solution to the curse before it engulfs him.<br><br>\nIron Town is a fortress under the leadership of Lady Eboshi. Through the clearing of the surrounding forests, Iron Town produces large amounts of Ironsand, used for gunpowder and other machinery. However, because of the forests destruction, nearby animal clans seek revenge led by a human girl of the Wolf clan called San.<br><br>\nWhen Ashitaka comes to Iron Town, he discovers the area consumed in battle. Horrified, he attempts to create peace and befriend the Wolf Clan. However, after the forest's eradication and the ongoing war between Human and Beast, will the Spirit of the Forest be forgiving and accept Ashitaka's request to expel his curse?<br><br>\n[Written by MAL Rewrite]",
+    "Heidi, Girl of the Alps": "After becoming an orphan, Heidi is forced to live with her grandfather &Ouml;hi, who lives in the Alps. She learns he's a very bitter man who only accepted by force to take her in. But Heidi's kindness may be able to open his heart. Together with the shepherd Peter and invalid Klara, she has lots of adventures.<br><br>\n(Source: Anime News Network, edited)"
+  },
+  "tags": {
+    "Attack on Titan": [
+      {
+        "name": "Kaiju",
+        "rank": 93,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Revenge",
+        "rank": 93,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Tragedy",
+        "rank": 89,
+        "isMediaSpoiler": true,
+        "isGeneralSpoiler": true,
+        "isAdult": false
+      },
+      {
+        "name": "Military",
+        "rank": 88,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Henshin",
+        "rank": 88,
+        "isMediaSpoiler": true,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Male Protagonist",
+        "rank": 86,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Primarily Teen Cast",
+        "rank": 86,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Post-Apocalyptic",
+        "rank": 84,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Survival",
+        "rank": 84,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Super Power",
+        "rank": 81,
+        "isMediaSpoiler": true,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Memory Manipulation",
+        "rank": 77,
+        "isMediaSpoiler": true,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Gore",
+        "rank": 77,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Steampunk",
+        "rank": 77,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Dystopian",
+        "rank": 77,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Swordplay",
+        "rank": 74,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Ensemble Cast",
+        "rank": 74,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Kuudere",
+        "rank": 70,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Cannibalism",
+        "rank": 69,
+        "isMediaSpoiler": true,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Espionage",
+        "rank": 68,
+        "isMediaSpoiler": true,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Orphan",
+        "rank": 67,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Shounen",
+        "rank": 63,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Medieval",
+        "rank": 60,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Coming of Age",
+        "rank": 60,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Amnesia",
+        "rank": 60,
+        "isMediaSpoiler": true,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Time Skip",
+        "rank": 60,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": true,
+        "isAdult": false
+      },
+      {
+        "name": "Suicide",
+        "rank": 55,
+        "isMediaSpoiler": true,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Rural",
+        "rank": 50,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Primarily Male Cast",
+        "rank": 33,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      },
+      {
+        "name": "Adoption",
+        "rank": 31,
+        "isMediaSpoiler": false,
+        "isGeneralSpoiler": false,
+        "isAdult": false
+      }
+    ],
+    "One Piece": [
+      { "rank": 98, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 94, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 93, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 93, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 90, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 88, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 83, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 81, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 81, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 81, "isMediaSpoiler": true, "isGeneralSpoiler": true, "isAdult": false },
+      { "rank": 80, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 80, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 79, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 79, "isMediaSpoiler": true, "isGeneralSpoiler": true, "isAdult": false },
+      { "rank": 79, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 77, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 76, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 76, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 74, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 73, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 73, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 70, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 70, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 67, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 66, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 66, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 65, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 65, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 65, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 65, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 65, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 64, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 64, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 64, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 63, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 62, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 62, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 62, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 61, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 61, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 61, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 61, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 60, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 60, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 58, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 58, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 58, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 57, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 57, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 57, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 57, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 57, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 56, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 55, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 54, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 54, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 52, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 51, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 51, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 50, "isMediaSpoiler": true, "isGeneralSpoiler": true, "isAdult": false },
+      { "rank": 50, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 50, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 50, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 50, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 49, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 48, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 47, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 46, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 46, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 42, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 42, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 40, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 33, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 20, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 20, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false }
+    ],
+    "Sword Art Online": [
+      { "rank": 97, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 92, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 90, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 88, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 88, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 85, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 84, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 80, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 79, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 75, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 75, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 67, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 65, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 61, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 60, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 60, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 60, "isMediaSpoiler": false, "isGeneralSpoiler": true, "isAdult": false },
+      { "rank": 58, "isMediaSpoiler": true, "isGeneralSpoiler": true, "isAdult": false },
+      { "rank": 58, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 50, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": true },
+      { "rank": 46, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 41, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 40, "isMediaSpoiler": false, "isGeneralSpoiler": false, "isAdult": false },
+      { "rank": 32, "isMediaSpoiler": true, "isGeneralSpoiler": false, "isAdult": false }
+    ]
+  }
+}

@@ -34,7 +34,7 @@ import { isOver, push, replace, titleIdFrom, titlePath, usePathname } from '../l
 import { startSectionNav } from '../lib/sectionNav.ts'
 import { useSteadyList } from '../lib/steadyList.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
-import { noteFor, NOT_FOUND, sampleNote, searchStatus, titleNote } from './status.ts'
+import { cardNote, noteFor, NOT_FOUND, sampleNote, searchStatus, titleNote } from './status.ts'
 
 const note = (query: UseQueryResult<Media[]>) => noteFor(query, isRateLimited())
 // The header's links: the page's three sections, and My List, to come.
@@ -189,6 +189,11 @@ export default function App() {
   const missing =
     titleSays ??
     (addressed !== null && noted === addressed && !shownMedia ? 'Trying AniList again…' : null)
+  // A card opened at its address keeps its title while AniList holds up a newer answer for it, as
+  // for an airing title saved over 6 hours ago, and says why, as the note in its place would (see
+  // cardNote), with Try again once the tries end. A card opened from a list asks for nothing.
+  const cardSays = addressed !== null && !fromList ? cardNote(title, isRateLimited()) : null
+  const retryTitle = () => void title.refetch()
   const close = () => {
     closedItself.current = true
     if (isOver(history.state)) history.back()
@@ -406,16 +411,21 @@ export default function App() {
         <p>Data from AniList. AniBeam is not affiliated with AniList.</p>
       </footer>
       {card && (
-        <TitleCard key={card.media.id} media={card.media} from={card.from} onClose={close} />
+        <TitleCard
+          key={card.media.id}
+          media={card.media}
+          from={card.from}
+          status={cardSays}
+          onRetry={cardSays && title.isError && !title.isFetching ? retryTitle : undefined}
+          onClose={close}
+        />
       )}
       {missing && (
         <TitleNotice
           text={missing}
           // Not for a title that isn't there: asking again finds it no more.
           onRetry={
-            missing !== NOT_FOUND && title.isError && !title.isFetching
-              ? () => void title.refetch()
-              : undefined
+            missing !== NOT_FOUND && title.isError && !title.isFetching ? retryTitle : undefined
           }
           onClose={close}
         />

@@ -101,3 +101,18 @@ export function titleNote(q: Omit<QueryStatus, 'data'> & { data: unknown }, rate
   if (!q.isFetching && q.error instanceof AniListError && q.error.status === 404) return NOT_FOUND
   return statusText(status, rateLimited)
 }
+
+/**
+ * The status line a card opened at its address shows while AniList holds up a newer answer for the
+ * title it shows, as for an airing title saved over 6 hours ago (see titleQuery), or null while
+ * nothing is wrong (a refresh stays quiet, as a section's does). The card keeps its title (spec
+ * §3I: a 429 keeps showing what is cached) and says why as the note in its place would. A title
+ * AniList says has gone (404) stays as it was: asking again would find no more.
+ */
+export function cardNote(q: Omit<QueryStatus, 'data'> & { data: unknown }, rateLimited: boolean) {
+  if (q.data === undefined) return null
+  const held = q.isFetching && (rateLimited || q.failureReason !== null)
+  if (!q.isPaused && !q.error && !held) return null
+  if (q.error instanceof AniListError && q.error.status === 404) return null
+  return statusText({ ...q, data: undefined, isPlaceholderData: false }, rateLimited)
+}

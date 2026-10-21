@@ -1,6 +1,6 @@
 {
   "request": {
-    "query": "query ($id: Int) { Media(id: $id, type: ANIME, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } status } }",
+    "query": "query ($id: Int) { Media(id: $id, type: ANIME, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } status } }",
     "variables": {
       "id": 154587
     }
@@ -35,6 +35,206 @@
           ]
         },
         "nextAiringEpisode": null,
+        "description": "The adventure is over but life goes on for an elf mage just beginning to learn what living is all about. Elf mage Frieren and her courageous fellow adventurers have defeated the Demon King and brought peace to the land. But Frieren will long outlive the rest of her former party. How will she come to understand what life means to the people around her? Decades after their victory, the funeral of one her friends confronts Frieren with her own near immortality. Frieren sets out to fulfill the last wishes of her comrades and finds herself beginning a new adventure…\n<br><br>\n(Source: Crunchyroll)",
+        "duration": 24,
+        "tags": [
+          {
+            "name": "Travel",
+            "rank": 96,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Magic",
+            "rank": 95,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Elf",
+            "rank": 91,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Female Protagonist",
+            "rank": 86,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Philosophy",
+            "rank": 83,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Medieval",
+            "rank": 83,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Time Skip",
+            "rank": 82,
+            "isAdult": false,
+            "isGeneralSpoiler": true,
+            "isMediaSpoiler": true
+          },
+          {
+            "name": "Found Family",
+            "rank": 80,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Kuudere",
+            "rank": 75,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Demons",
+            "rank": 71,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Shounen",
+            "rank": 71,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Foreign",
+            "rank": 69,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Iyashikei",
+            "rank": 63,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Adoption",
+            "rank": 61,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Rural",
+            "rank": 60,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Heterosexual",
+            "rank": 58,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Aromantic",
+            "rank": 58,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Dungeon",
+            "rank": 56,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Asexual",
+            "rank": 55,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Episodic",
+            "rank": 54,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Religion",
+            "rank": 47,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Rotoscoping",
+            "rank": 47,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Snowscape",
+            "rank": 43,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Spearplay",
+            "rank": 42,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Dragons",
+            "rank": 38,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "CGI",
+            "rank": 37,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Food",
+            "rank": 36,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          },
+          {
+            "name": "Horticulture",
+            "rank": 30,
+            "isAdult": false,
+            "isGeneralSpoiler": false,
+            "isMediaSpoiler": false
+          }
+        ],
         "status": "FINISHED"
       }
     }

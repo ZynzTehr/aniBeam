@@ -3,6 +3,7 @@ import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
+  cardOf,
   ERAS,
   eraQuery,
   isRefinement,
@@ -13,6 +14,7 @@ import {
   type Era,
   type Media,
 } from './queries.ts'
+import { tagsOf } from './tags.ts'
 import { AniListError } from '../../lib/anilist.ts'
 import { shouldRetry } from '../../lib/queryClient.ts'
 
@@ -45,6 +47,11 @@ const complete: Media = {
   seasonYear: 2023,
   studios: { nodes: [{ name: 'Madhouse' }] },
   nextAiringEpisode: { episode: 9, airingAt: 1_800_000_000 },
+  description: 'The adventure is over but life goes on for an elf mage.',
+  duration: 24,
+  tags: [
+    { name: 'Travel', rank: 96, isAdult: false, isGeneralSpoiler: false, isMediaSpoiler: false },
+  ],
 }
 
 /** "studios.nodes.name" and so on: the path of every field holding a plain value. */
@@ -95,6 +102,43 @@ test('every query asks AniList for exactly the fields of Media, and a title alon
       assert.deepEqual(fields, wanted, `${name} doesn't ask for exactly the fields it needs`)
     }
   }
+})
+
+// The test above skips arguments. Without asHtml: false, AniList turns the synopsis's line breaks
+// into more HTML than synopsis.ts reads.
+test('every query asks for the synopsis as AniList writes it, not as HTML', () => {
+  for (const [name, query] of Object.entries(QUERIES)) {
+    const asked = [...query.matchAll(/\bdescription\b(\s*\([^)]*\))?/g)]
+    assert.ok(asked.length > 0, `${name} doesn't ask for the synopsis`)
+    for (const [, args] of asked) assert.equal(args, '(asHtml: false)', name)
+  }
+})
+
+const saved = JSON.parse(readFileSync(new URL('./saved-details.json', import.meta.url), 'utf8'))
+/** One Piece's 75 tags as AniList sent them on 2026-10-11, saved without names, so named here. */
+const onePieceTags = (): Media['tags'] =>
+  saved.tags['One Piece'].map((tag: object, i: number) => ({ name: `tag ${i}`, ...tag }))
+
+// A title in a list carries its details, so the card opens on them with no request, and keeps the
+// tags it shows: of One Piece's 75, the top 8 and the top 8 spoilers (see tagsOf).
+test("cardOf keeps the tags a card shows, One Piece's top 8 and top 8 spoilers, and the rest", () => {
+  const media: Media = { ...complete, tags: onePieceTags() }
+  const card = cardOf(media)
+  assert.equal(card.tags.length, 16)
+  assert.deepEqual(
+    card.tags.map((tag) => tag.rank),
+    [98, 94, 93, 93, 90, 88, 83, 81, 81, 79, 76, 73, 67, 65, 61, 60],
+  )
+  const spoils = card.tags.map((tag) => Boolean(tag.isGeneralSpoiler || tag.isMediaSpoiler))
+  assert.deepEqual(spoils, [...Array(8).fill(false), ...Array(8).fill(true)])
+  assert.ok(
+    card.tags.every((tag) => media.tags.includes(tag)),
+    'a tag changed on the way',
+  )
+  assert.deepEqual({ ...card, tags: complete.tags }, complete, 'another field changed')
+  assert.equal(media.tags.length, 75, "cardOf cut the answer's own list")
+  // A title alone keeps its status, which titleQuery's staleTime reads.
+  assert.equal(cardOf({ ...media, status: 'FINISHED' }).status, 'FINISHED')
 })
 
 test('one title is asked for by its id, a number, with its own cache entry', () => {
@@ -231,8 +275,12 @@ test('Upcoming lists only unreleased titles, and the other eras leave them out',
 const decades = (...ids: string[]) => ids.map((id) => ERAS.find((era) => era.id === id)!)
 
 type Sent = { query: string; variables: Record<string, unknown> }
-// AniList's answer to a request for both of a first visit's lists.
-const both = { data: { trending: { media: [{ id: 1 }] }, era: { media: [{ id: 2 }] } } }
+// AniList's answer to a request for both of a first visit's lists. Its titles, and those of the
+// answers below, are an id and an empty list of tags, so that each list caches them just as they
+// came: cardOf changes only a title's tags.
+const both = {
+  data: { trending: { media: [{ id: 1, tags: [] }] }, era: { media: [{ id: 2, tags: [] }] } },
+}
 
 /** Sets up trending and a decade the way App does: both built first, then both subscribed. */
 function page(client: QueryClient, era: Era) {
@@ -266,15 +314,53 @@ test('a first visit asks AniList for trending and the 1990s in one request', asy
       `sends $${name}, which its query doesn't declare`,
     )
   }
-  assert.deepEqual(client.getQueryData(trendingQuery().queryKey), [{ id: 1 }])
-  assert.deepEqual(client.getQueryData(eraQuery(nineties).queryKey), [{ id: 2 }])
+  assert.deepEqual(client.getQueryData(trendingQuery().queryKey), [{ id: 1, tags: [] }])
+  assert.deepEqual(client.getQueryData(eraQuery(nineties).queryKey), [{ id: 2, tags: [] }])
+})
+
+test('every list, and a title alone, is cached with only the tags its card shows', async (t) => {
+  const answer = { ...complete, tags: onePieceTags() }
+  t.mock.method(globalThis, 'fetch', async () =>
+    Response.json({
+      data: {
+        Page: { media: [answer] },
+        trending: { media: [answer] },
+        era: { media: [answer] },
+        Media: answer,
+      },
+    }),
+  )
+  // The title as the card shows it, worked out here from tagsOf itself, not from cardOf.
+  const { shown, spoilers } = tagsOf(answer.tags)
+  const cut = { ...answer, tags: [...shown, ...spoilers] }
+  assert.equal(cut.tags.length, 16)
+  const signal = new AbortController().signal
+  for (const options of [
+    trendingQuery(),
+    ...ERAS.map((era) => eraQuery(era)),
+    searchQuery('one piece'),
+  ]) {
+    // The cast stands in for the context TanStack Query passes; only the signal is used.
+    const titles = await options.queryFn!({ signal } as never)
+    assert.deepEqual(titles, [cut], JSON.stringify(options.queryKey[2]))
+  }
+  assert.deepEqual(await titleQuery(21).queryFn!({ signal } as never), cut, 'a title alone')
+  // A first visit's request for both lists, which fills each list's cache entry.
+  const client = new QueryClient()
+  t.after(() => client.clear())
+  const [nineties] = decades('1990s')
+  const { leave } = page(client, nineties)
+  await new Promise((resolve) => setTimeout(resolve, 50))
+  leave()
+  assert.deepEqual(client.getQueryData(trendingQuery().queryKey), [cut], 'a first visit’s trending')
+  assert.deepEqual(client.getQueryData(eraQuery(nineties).queryKey), [cut], 'its 1990s')
 })
 
 test('with one of those lists saved, the other is asked for on its own', async (t) => {
   const sent: string[] = []
   t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
     sent.push(JSON.parse(init.body as string).query)
-    return new Response(JSON.stringify({ data: { Page: { media: [{ id: 3 }] } } }))
+    return new Response(JSON.stringify({ data: { Page: { media: [{ id: 3, tags: [] }] } } }))
   })
   const [nineties] = decades('1990s')
   // A returning visitor's saved list, and the one the page must then ask for.
@@ -301,7 +387,7 @@ test('a decade picked while a first visit loads asks for its own titles', async 
     sent.push(request)
     const answer = request.query.includes('trending:')
       ? both
-      : { data: { Page: { media: [{ id: 4 }] } } }
+      : { data: { Page: { media: [{ id: 4, tags: [] }] } } }
     return new Response(JSON.stringify(answer))
   })
   const client = new QueryClient()
@@ -314,7 +400,7 @@ test('a decade picked while a first visit loads asks for its own titles', async 
 
   assert.deepEqual(
     client.getQueryData(eraQuery(eighties).queryKey),
-    [{ id: 4 }],
+    [{ id: 4, tags: [] }],
     'the 1980s got another list',
   )
   assert.deepEqual(sent.at(-1), { query: QUERIES.era, variables: eighties.variables })
@@ -348,13 +434,13 @@ test('when that request fails, both lists retry it together, still one request a
   leave()
 
   assert.equal(sent.length, 2, `sent ${sent.length} requests over two tries`)
-  assert.deepEqual(client.getQueryData(trendingQuery().queryKey), [{ id: 1 }])
-  assert.deepEqual(client.getQueryData(eraQuery(nineties).queryKey), [{ id: 2 }])
+  assert.deepEqual(client.getQueryData(trendingQuery().queryKey), [{ id: 1, tags: [] }])
+  assert.deepEqual(client.getQueryData(eraQuery(nineties).queryKey), [{ id: 2, tags: [] }])
 })
 
 test('switching lists keeps a request that was already sent, so its result is cached', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => {
-    return new Response(JSON.stringify({ data: { Page: { media: [{ id: 1 }] } } }))
+    return new Response(JSON.stringify({ data: { Page: { media: [{ id: 1, tags: [] }] } } }))
   })
   const client = new QueryClient()
   t.after(() => client.clear())
@@ -366,7 +452,7 @@ test('switching lists keeps a request that was already sent, so its result is ca
   await new Promise((resolve) => setTimeout(resolve, 50))
   unsubscribe()
 
-  assert.deepEqual(client.getQueryData(eraQuery(eighties).queryKey), [{ id: 1 }])
+  assert.deepEqual(client.getQueryData(eraQuery(eighties).queryKey), [{ id: 1, tags: [] }])
 })
 
 test('while rate-limited, a request still waiting is dropped when the list changes', async (t) => {
@@ -442,7 +528,7 @@ test("while rate-limited, leaving the 1990s on a first visit doesn't cancel tren
 
   assert.deepEqual(
     client.getQueryData(trendingQuery().queryKey),
-    [{ id: 1 }],
+    [{ id: 1, tags: [] }],
     "leaving the 1990s also cancelled trending's half of their request",
   )
 })

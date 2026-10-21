@@ -5,9 +5,11 @@ import { hashKey, type QueryKey } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { titleOf } from '../src/features/anime/format.ts'
+import { runtimeOf, titleOf } from '../src/features/anime/format.ts'
 import { eraQuery, FIRST_ERA, trendingQuery, type Media } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
+import { parseSynopsis } from '../src/features/anime/synopsis.ts'
+import { tagsOf } from '../src/features/anime/tags.ts'
 import { deriveAccent } from '../src/features/theming/deriveAccent.ts'
 import { Browser } from './browser.ts'
 
@@ -78,7 +80,8 @@ test('covers that can’t load show no broken-image icon, and each panel shows i
   try {
     await browser.load()
     assert.ok(await browser.titlesShown(), 'the titles never came')
-    // Lazy covers are asked for as they near the screen. A pull and a title card add one each.
+    // Lazy covers are asked for as they near the screen. A pull adds one, and a title card its
+    // cover and its banner: the first trending title, opened here, is recorded with one.
     const finished = (selector: string) =>
       `[...document.querySelectorAll('${selector}')].every((img) => img.complete)`
     await browser.evaluate(`document.querySelector('#ab-trending').scrollIntoView(); true`)
@@ -146,8 +149,8 @@ test('covers that can’t load show no broken-image icon, and each panel shows i
     await browser.press('Escape')
     assert.deepEqual(
       covers.failed,
-      ['ab-img', 'ab-intro-cover', 'ab-result-panel', 'ab-sheet-art', 'ab-strip-panel'],
-      'places where no cover failed to load, so they went unchecked',
+      ['ab-band', 'ab-img', 'ab-intro-cover', 'ab-result-panel', 'ab-sheet-art', 'ab-strip-panel'],
+      'places where no cover or banner failed to load, so they went unchecked',
     )
     assert.deepEqual(covers.shown, [], 'covers that failed to load still show, as broken images')
     assert.deepEqual(covers.faint, [], 'rank numbers that don’t stand out from their panel at 3:1')
@@ -384,6 +387,84 @@ test('the splash panel shows its cover when the window narrows, even after its b
     await browser.send('Network.disable')
     await browser.blockAniList(false)
   }
+})
+
+// The samples carry each title's details as a list's titles do (see cardOf), so a sample's card
+// shows its synopsis, running time and tags at once while AniList is down, asking it for nothing.
+// samples.test.ts checks the data; this, that the card gets it: a sample path that rebuilt the
+// titles without their details would leave the card saying "Description unavailable." with every
+// unit test passing. The first sample is opened from Fan favorites, on a first visit with AniList
+// kept away, so no recording is needed.
+test('a sample’s card shows its synopsis, running time and tags while AniList is down, asking it for nothing', async () => {
+  const sample = SAMPLES[0]!
+  const { paragraphs, source } = parseSynopsis(sample.description)
+  const expected = {
+    id: sample.id,
+    text: paragraphs.map((lines) =>
+      lines.map((runs) => runs.map((run) => run.text).join('')).join('\n'),
+    ),
+    source: source && `Source: ${source}`,
+    runtime: runtimeOf(sample)?.text ?? null,
+    chips: tagsOf(sample.tags).shown.map(
+      (tag) => `${tag.name}${tag.rank === null ? '' : ` ${tag.rank}%`}`,
+    ),
+    asked: 0,
+  }
+  const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: countRequests,
+  })
+  await browser.blockAniList()
+  const seen: string[] = []
+  try {
+    for (const screen of [
+      { width: 390, height: 844, phone: true },
+      { width: 1440, height: 900 },
+    ]) {
+      await browser.forget()
+      await browser.load({ ...screen, reduceMotion: true })
+      assert.ok(
+        await browser.waitFor(
+          `document.getElementById('ab-trending').firstChild.textContent === 'Fan favorites' && document.querySelector('.ab-grid .ab-link')`,
+          15_000,
+        ),
+        `at ${screen.width}px, the samples never showed`,
+      )
+      // Requests from the click on: the lists' next try is a minute away.
+      await browser.evaluate(`(() => {
+        window.__asked = 0
+        document.querySelector('.ab-grid .ab-link').click()
+        return true
+      })()`)
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card[open] .ab-details')`),
+        `at ${screen.width}px, no card opened`,
+      )
+      await browser.animationsDone()
+      const shown = await browser.evaluate(`(() => {
+        const card = document.querySelector('dialog.ab-card[open]')
+        const text = card.querySelector('.ab-synopsis-text')
+        const fact = [...card.querySelectorAll('.ab-facts > div')].find((fact) => fact.querySelector('dt').textContent === 'Runtime')
+        return {
+          id: Number(document.querySelector('.ab-grid .ab-link').getAttribute('href').split('/').pop()),
+          text: text ? [...text.querySelectorAll('p')].map((p) => p.innerText) : card.querySelector('.ab-synopsis-none')?.textContent ?? 'none',
+          source: card.querySelector('.ab-source')?.textContent ?? null,
+          runtime: fact?.querySelector('dd [aria-hidden="true"]')?.textContent ?? null,
+          chips: [...card.querySelectorAll('.ab-tags li')].map((chip) => chip.textContent),
+          asked: window.__asked,
+        }
+      })()`)
+      if (JSON.stringify(shown) !== JSON.stringify(expected))
+        seen.push(`${screen.width}px: ${JSON.stringify(shown)}`)
+    }
+  } finally {
+    await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+    await browser.blockAniList(false)
+  }
+  assert.deepEqual(
+    seen,
+    [],
+    `sample cards without their details, or asking for them, not ${JSON.stringify(expected)}`,
+  )
 })
 
 // Spec §3H: a section that can't reach AniList shows bundled sample titles instead of an empty

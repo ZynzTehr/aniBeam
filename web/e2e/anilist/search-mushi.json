@@ -1,6 +1,6 @@
 {
   "request": {
-    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } } } }",
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } } } }",
     "variables": {
       "search": "mushi"
     }
@@ -32,7 +32,10 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Music video for the song <i>Mushi</i> by Japanese rock band GO!GO!7188 that was featured on NHK's Minna no Uta program. The video was made by Fuyumi Kawamura and Toyoaki Nakajima.",
+            "duration": 2,
+            "tags": []
           },
           {
             "id": 457,
@@ -55,7 +58,7 @@
               "Slice of Life",
               "Supernatural"
             ],
-            "averageScore": 84,
+            "averageScore": 85,
             "format": "TV",
             "episodes": 26,
             "season": "FALL",
@@ -67,7 +70,193 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Neither good nor evil, they are life in its purest form. Vulgar and strange, they have inspired fear in humans since the dawn of time and have, over the ages, come to be known as \"mushi.\" The stories of the Mushi and the people they affect are all linked together by a traveling Mushi-shi, or \"Mushi Master,\" who seeks rare Mushi sightings and uses his shaman-like knowledge of Mushi to help the affected people.<br>\n<br>\nWhat are the Mushi and what do they want?<br>\n<br>\n(Source: Funimation)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Environmental",
+                "rank": 98,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Iyashikei",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Youkai",
+                "rank": 94,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mythology",
+                "rank": 91,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Episodic",
+                "rank": 89,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Philosophy",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Outdoor Activities",
+                "rank": 77,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Exorcism",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Seinen",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Eco-Horror",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 61,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Wilderness",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Snowscape",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Amnesia",
+                "rank": 52,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coastal",
+                "rank": 48,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cult",
+                "rank": 43,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Monster Girl",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Skip",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Suicide",
+                "rank": 15,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ]
           },
           {
             "id": 2603,
@@ -95,7 +284,25 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Mushi-uta's story takes place in the near future. Ten years before the story's opening, strange insect-like creatures known as \"Mushi\" began appearing. The Mushi are able to consume peoples' dreams and thoughts in return for supernatural powers. At the end of episode one, protagonist Daisuke \"Kakkou\" Kusuriya encounters a young girl named Shiika Anmoto. The two, in time, become quite close. However, unbeknownst to Kakkou, Shiika is an escapee from a secret prison known as GARDEN where those posessed by the Mushi, known as the Mushitsuki are held. GARDEN's military force, the Special Environmental Conservation Executive Office, dispatches its finest killer to track down Shiika. However, they are faced with resistance from the Mushibane resistance organisation, led by the secretive \"Ladybird\".<br>\n<br>\n(Source: Anime News Network)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Super Power",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 16233,
@@ -111,7 +318,7 @@
             },
             "bannerImage": null,
             "genres": ["Drama", "Music"],
-            "averageScore": 54,
+            "averageScore": 55,
             "format": "MOVIE",
             "episodes": 1,
             "season": "FALL",
@@ -119,7 +326,39 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Another clip from Tekken, denouncing the intimidation experienced by certain Japanese.",
+            "duration": 4,
+            "tags": [
+              {
+                "name": "No Dialogue",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Bullying",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Work",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Family Life",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 20526,
@@ -154,7 +393,109 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "When an eclipse occurs, the sun remains dark in one area. The mushi expert Ginko must come and determine how to return the sun to the village before their crops die. The secret seems connected to twin girls who live nearby.<br>\n<br>\n(Source: Anime News Network)",
+            "duration": 45,
+            "tags": [
+              {
+                "name": "Environmental",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Youkai",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Philosophy",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Seinen",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Twins",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mythology",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 62,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Exorcism",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Denpa",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 10941,
@@ -178,7 +519,10 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Kousuke Sugimoto animates Handsome Kenya's song \"Mushi no Tameiki\" (Insect's Sigh).",
+            "duration": 3,
+            "tags": []
           },
           {
             "id": 139140,
@@ -202,7 +546,10 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Music video for the song <i>Mushi no Tsubuyaki</i> by Youko Oginome that was featured on NHK's Minna no Uta program.",
+            "duration": 2,
+            "tags": []
           },
           {
             "id": 20595,
@@ -237,7 +584,123 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "They existed long before anyone can remember. They are simple and strange in nature, not resembling any other plant or animal in this world. In ancient times, people revered these bizarre creatures and called them \"Mushi.\"<br>\n<br>\nPeople once again began to believe in the existence of these \"Mushi\" when they began affecting their lives in inexplicable ways.<br>\n<br>\nThe one who connects the world of \"Mushi\" to the world of humans—they were called the \"Mushi-shi.\"<br>\n<br>\nAll life exists not to hinder others in this world.<br>\n<br>\nThey are simply there to live as they were meant to.<br>\n<br>\n(Source: Aniplex of America)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Youkai",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Environmental",
+                "rank": 98,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Episodic",
+                "rank": 95,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Philosophy",
+                "rank": 95,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Iyashikei",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mythology",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Seinen",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Exorcism",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 48,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anachronism",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 8604,
@@ -261,7 +724,10 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "A funny video about a magical bug that likes to bite the people's derriere. The song was intended to encourage people who live in big cities to spontaneously interact with each other.",
+            "duration": 2,
+            "tags": []
           },
           {
             "id": 6397,
@@ -289,7 +755,18 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "After losing their parents in a traffic accident, seven brothers and sisters have to live on their own. Their struggle to maintain their lives through their family bond, sincerity and involvement wins the admiration and encouragement of their neighbors.\n<br><br>\n(Source: Tatsunoko Production)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Family Life",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 21008,
@@ -324,7 +801,102 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "The anime adaptation of the final Mushishi manga arc. Ginko stumbles upon a young girl in a mountain with branches and leaves growing out of her body. He later realises that she is the lord of that mountain but finds it strange that a human like her was chosen as the lord. He later meets her older brother who has continued to search for her ever since she disappeared while she was accompanying him on a stormy day. The story is about that girl, Kaya, and how she is torn between continuing her duty as a mushi lord and returning back to her loving human family.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 47,
+            "tags": [
+              {
+                "name": "Philosophy",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mythology",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Environmental",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Rural",
+                "rank": 77,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 71,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Youkai",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Seinen",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Exorcism",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 103943,
@@ -348,35 +920,10 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
-          },
-          {
-            "id": 15545,
-            "title": {
-              "romaji": "Oshiri Kajiri Mushi 1",
-              "english": "Bottom Biting Bug",
-              "native": "おしりかじり虫"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b15545-y3haG3QsLtS1.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b15545-y3haG3QsLtS1.jpg",
-              "color": "#e4ae5d"
-            },
-            "bannerImage": null,
-            "genres": [],
-            "averageScore": 42,
-            "format": "TV_SHORT",
-            "episodes": 20,
-            "season": "FALL",
-            "seasonYear": 2012,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "Kinema Citrus"
-                }
-              ]
-            },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Mr. Deniroo is an alien from the outer space, his space ship is broken and he can't come home his home planet. He encounters various Earth things.\n<br><br>\nA short movie directed by Tatsushi Momen (KOO-KI). \n<br><br>\n(Source: Official Viemo Channel)",
+            "duration": 8,
+            "tags": []
           },
           {
             "id": 19755,
@@ -404,7 +951,99 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Continuation of the gag comedy about Oshiri Kajiri Mushi XVIII, a 10-year-old insect who goes to Biting School to inherit his family's Biting Shop business.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 5,
+            "tags": [
+              {
+                "name": "Kids",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
+          },
+          {
+            "id": 15545,
+            "title": {
+              "romaji": "Oshiri Kajiri Mushi 1",
+              "english": "Bottom Biting Bug",
+              "native": "おしりかじり虫"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b15545-y3haG3QsLtS1.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b15545-y3haG3QsLtS1.jpg",
+              "color": "#e4ae5d"
+            },
+            "bannerImage": null,
+            "genres": [],
+            "averageScore": 42,
+            "format": "TV_SHORT",
+            "episodes": 20,
+            "season": "FALL",
+            "seasonYear": 2012,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Kinema Citrus"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "A gag comedy about Oshiri Kajiri Mushi XVIII, a 10-year-old insect who goes to Biting School to inherit his family's Biting Shop business.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 5,
+            "tags": [
+              {
+                "name": "Full CGI",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Suicide",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Nudity",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kids",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Drugs",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Metal Music",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "CGI",
+                "rank": 10,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 129933,
@@ -428,7 +1067,32 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "A music video as a part of the Minna no Uta series featuring a song by Duke Aces.\n<br><br>\n<i>Note: The winner song of 1973 NHK \"Minna no Melody.\"</i>",
+            "duration": 2,
+            "tags": [
+              {
+                "name": "Body Horror",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kids",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 20855,
@@ -444,7 +1108,7 @@
             },
             "bannerImage": null,
             "genres": ["Comedy"],
-            "averageScore": 44,
+            "averageScore": 45,
             "format": "TV_SHORT",
             "episodes": 10,
             "season": "FALL",
@@ -456,7 +1120,18 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Season 3 of the gag comedy about Oshiri Kajiri Mushi XVIII, a 10-year-old insect who goes to Biting School to inherit his family's Biting Shop business.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 5,
+            "tags": [
+              {
+                "name": "Kids",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 21408,
@@ -484,7 +1159,18 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Season 4 of the gag comedy about Oshiri Kajiri Mushi XVIII, a 10-year-old insect who goes to Biting School to inherit his family's Biting Shop business.",
+            "duration": 5,
+            "tags": [
+              {
+                "name": "Kids",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 10743,
@@ -508,7 +1194,53 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Tora-chan and Miike are working on the side of a tuna steamship and manage to run afoul of the short-tempered captain. But the captain makes plenty of trouble on his own!",
+            "duration": 10,
+            "tags": [
+              {
+                "name": "Ships",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Musical Theater",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Bullying",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Work",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 20751,
@@ -543,7 +1275,123 @@
                 }
               ]
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "Ghostly, primordial beings known as Mushi continue to cause mysterious changes in the lives of humans. The travelling Mushishi, Ginko, persists in trying to set right the strange and unsettling situations he encounters. Time loops, living shadows, and telepathy are among the overt effects of interference from Mushi, but more subtle symptoms that take years to be noticed also rouse Ginko's concern as he passes from village to village.",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Episodic",
+                "rank": 97,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Environmental",
+                "rank": 94,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Philosophy",
+                "rank": 93,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mythology",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 84,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Seinen",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Youkai",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Loop",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Tragedy",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Travel",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Exorcism",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           },
           {
             "id": 121656,
@@ -567,7 +1415,25 @@
             "studios": {
               "nodes": []
             },
-            "nextAiringEpisode": null
+            "nextAiringEpisode": null,
+            "description": "An educational film about traffic safety starring insects. This film tackles bullying between friends.",
+            "duration": 13,
+            "tags": [
+              {
+                "name": "Educational",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kids",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ]
           }
         ]
       }

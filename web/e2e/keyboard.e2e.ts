@@ -151,12 +151,26 @@ test('a title card taller than the screen shows its focus ring, inside its edge,
     )
     await browser.evaluate(`document.activeElement.blur(); true`)
     const unfocused = await edges()
+    // Scrolled to its foot, the top edge cuts through whatever the card holds there: where ink
+    // text meets it (as the title's tall letters did, once the details made the card longer), the
+    // ring's ink lies on ink and its white line on white paper, and changes nothing at those
+    // points, whatever the ring. So the top edge is read scrolled back to the card's head
+    // (Home), where the screen's edge is the title's color above the sheet. At the foot it must
+    // still show along most of the top edge, all but where the letters meet it.
+    const foot = { on: focused.top, off: unfocused.top }
+    await browser.evaluate(`document.querySelector('dialog.ab-card').focus(); true`)
+    await browser.press('Home')
+    await browser.evaluate(
+      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+    )
+    focused.top = (await edges()).top
+    await browser.evaluate(`document.activeElement.blur(); true`)
+    unfocused.top = (await edges()).top
     const at = ({ width, rgb }: { width: number; rgb: number[] }, x: number, y: number) =>
       rgb.slice((y * width + x) * 3, (y * width + x) * 3 + 3)
     // The share of the points along an edge where the ring changes any pixel across its depth.
-    const along = (side: keyof typeof focused) => {
-      const [on, off] = [focused[side], unfocused[side]]
-      const upright = side === 'left' || side === 'right'
+    type Shot = typeof focused.top
+    const share = (on: Shot, off: Shot, upright: boolean) => {
       const rows = on.rgb.length / 3 / on.width
       const [length, depth] = upright ? [rows, on.width] : [on.width, rows]
       const points = Array.from({ length }, (_, i) =>
@@ -166,12 +180,19 @@ test('a title card taller than the screen shows its focus ring, inside its edge,
       )
       return points.filter(Boolean).length / length
     }
+    const along = (side: keyof typeof focused) =>
+      share(focused[side], unfocused[side], side === 'left' || side === 'right')
     const short = (['left', 'right', 'top', 'bottom'] as const)
       .map((side) => [side, along(side)] as const)
       .filter(([, share]) => share < 0.95)
     if (short.length)
       seen.push(
         `${screen.width}px: ring ${ring}, at 3:1 on ${short.map(([side, share]) => `${Math.round(share * 100)}% of the ${side} edge`).join(', ')}`,
+      )
+    const atFoot = share(foot.on, foot.off, false)
+    if (atFoot < 0.75)
+      seen.push(
+        `${screen.width}px: ring ${ring}, at 3:1 on ${Math.round(atFoot * 100)}% of the top edge, scrolled to the foot`,
       )
     await browser.press('Escape')
   }

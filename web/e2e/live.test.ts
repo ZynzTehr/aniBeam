@@ -63,15 +63,15 @@ test('every recording is in the formats the app reads AniList’s answers in', (
 })
 
 // A field the app asks for with no format to be held to would let a title in any form pass. Each
-// field the first visit's query asks for is set to true, which no format allows, in a title that
-// holds them all (a next episode and a studio too), and must be named, or the object or list it
-// is in.
+// field the first visit's query asks for is set to 0.5, which no format allows (no text, flag,
+// whole number or list), in a title that holds them all (a next episode, a studio and a tag too),
+// and must be named, or the object or list it is in.
 test('every field the app asks AniList for is held to a format', () => {
   const answer = recorded('first-visit')
   const i = answer.body.data.trending.media.findIndex(
-    (media: any) => media.nextAiringEpisode && media.studios.nodes.length,
+    (media: any) => media.nextAiringEpisode && media.studios.nodes.length && media.tags.length,
   )
-  assert.ok(i >= 0, 'no trending title has a next episode and a studio')
+  assert.ok(i >= 0, 'no trending title has a next episode, a studio and a tag')
   const fields = [...new Set([...listsAsked(QUERIES.firstVisit).values()].flat())]
   assert.ok(fields.length > 0, 'no field read from the first visit’s query')
   for (const field of fields) {
@@ -83,13 +83,13 @@ test('every field the app asks AniList for is held to a format', () => {
         (at, key) => (Array.isArray(at[key]) ? at[key][0] : at[key]),
         broken.body.data.trending.media[i],
       )
-    parent[keys.at(-1)!] = true
+    parent[keys.at(-1)!] = 0.5
     const named = keys.map(
       (_, n) => `data.trending.media[${i}].${keys.slice(0, n + 1).join('.')} is `,
     )
     assert.ok(
       answerProblems(broken).some((problem) => named.some((start) => problem.startsWith(start))),
-      `${field} set to true went unnoticed`,
+      `${field} set to 0.5 went unnoticed`,
     )
   }
 })
@@ -151,6 +151,11 @@ const unreadable: [string, () => string[], string][] = [
     'an adult title past the filter',
     () => brokenAnswer('first-visit', (data) => data.trending.media[2].genres.push('Hentai')),
     'data.trending.media[2] is in the Hentai genre',
+  ],
+  [
+    'a tag’s adult flag gone null, which would show it',
+    () => brokenAnswer('first-visit', (data) => (data.era.media[0].tags[0].isAdult = null)),
+    'data.era.media[0].tags is [{"name":',
   ],
   [
     'a title twice in a list',
