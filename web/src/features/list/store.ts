@@ -292,6 +292,8 @@ export function createListStore({
 
   // Each edit reads the saved list and merges it with this tab's before it changes anything, then
   // saves the result: another tab's edit since this one last read is kept, never written over.
+  // Should two tabs' edits cross even so, the storage event that follows puts back what was lost
+  // (see onEvent).
   function edit(change: (list: List, now: number) => Edited): Outcome {
     const saved = stored()
     const edited = change(saved ? merge(getSnapshot(), saved) : getSnapshot(), now())
@@ -303,18 +305,28 @@ export function createListStore({
   /** The list as this tab has it: the very same object until it changes. */
   const getSnapshot = () => (list ??= stored() ?? {})
 
-  // Reads the saved list again, and merges it with this tab's.
-  function refresh() {
+  // Reads the saved list again, and merges it with this tab's; and with `write`, saves the result
+  // if the saved list lacks any of it.
+  function refresh(write = false) {
     const saved = stored()
-    if (saved) publish(merge(getSnapshot(), saved))
+    if (!saved) return
+    const merged = merge(getSnapshot(), saved)
+    publish(merged)
+    if (write && !sameList(merged, saved)) save(merged)
   }
 
-  // One listener for the events above, however many are listening to the list.
+  // One listener for the events above, however many are listening to the list. Two tabs' read,
+  // merge and write can cross, as a browser's copy of storage in each tab can lag another's write
+  // for a moment: one tab then writes over the other's edit. So after another tab writes the list,
+  // this one saves its own edits again if the saved list lacks them, or one kept for the visit when
+  // storage was full. It writes only what is missing, so two tabs settle after a write each. After
+  // a clear, or the list's key removed, it waits for this tab's next edit, so the clear stands
+  // until then.
   function onEvent(event: Event) {
-    const { key } = event as StorageEvent
+    const { key, newValue } = event as StorageEvent
     if (event.type === 'storage' && key !== KEY && key !== null) return
     if (event.type === 'pageshow' && !(event as PageTransitionEvent).persisted) return
-    refresh()
+    refresh(event.type === 'storage' && key === KEY && newValue !== null)
   }
 
   /**

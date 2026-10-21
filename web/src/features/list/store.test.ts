@@ -474,10 +474,14 @@ test("another tab's edit reaches this tab by the page's events, and its listener
   assert.deepEqual([here.getSnapshot(), heard], [{}, 0], 'another key changed')
   events.fire('storage', { key: KEY })
   assert.deepEqual([here.getSnapshot(), heard], [{ '1': saved(T) }, 2], 'the list changed')
-  // After a clear, as by the browser's tools: this tab keeps the list, and saves it at its next edit.
+  // After a clear, as by the browser's tools: this tab keeps the list, and saves it at its next
+  // edit, not before, so the clear stands until then.
   storage.items.clear()
   events.fire('storage', { key: null })
   assert.deepEqual([here.getSnapshot(), heard], [{ '1': saved(T) }, 2], 'after a clear')
+  assert.equal(storage.items.has(KEY), false, 'the list saved again after a clear')
+  events.fire('storage', { key: KEY, newValue: null })
+  assert.equal(storage.items.has(KEY), false, "the list saved again after its key's removal")
   // Back or Forward to the page from the browser's cache, which pageshow without persisted is not.
   there.setStatus(2, 'WANT')
   events.fire('pageshow', { persisted: false })
@@ -488,6 +492,58 @@ test("another tab's edit reaches this tab by the page's events, and its listener
   there.toggleFavorite(2)
   events.fire('visibilitychange')
   assert.deepEqual([here.getSnapshot(), heard], [{ '1': saved(T), '2': want(T + 2, true) }, 6])
+})
+
+test("when two tabs' edits cross and one is written over, the storage event puts it back", () => {
+  const storage = fakeStorage()
+  const events = fakeWindow()
+  let time = T
+  const here = createListStore({ storage, events, now: () => time++ })
+  // The other tab reads the list as it was before this tab's write, as a browser's copy of storage
+  // in each tab can be for a moment: its read, merge and write crosses this tab's.
+  const there = createListStore({
+    storage: { ...storage, getItem: () => null },
+    now: () => time++,
+  })
+  here.subscribe(() => {})
+  here.setStatus(1, 'SAVED')
+  there.setStatus(2, 'WANT')
+  assert.deepEqual(savedList(storage), { '2': want(T + 1) }, "this tab's edit, written over")
+  events.fire('storage', { key: KEY, newValue: storage.items.get(KEY) })
+  assert.deepEqual(here.getSnapshot(), { '1': saved(T), '2': want(T + 1) })
+  assert.deepEqual(savedList(storage), here.getSnapshot(), 'both edits saved again')
+  const reloaded = createListStore({ storage })
+  assert.deepEqual(reloaded.getSnapshot(), here.getSnapshot(), 'the list after a reload')
+  // Once the saved list holds all this tab has, an event writes nothing more.
+  let writes = 0
+  const settled = createListStore({ storage: { ...storage, setItem: () => writes++ }, events })
+  settled.subscribe(() => {})
+  events.fire('storage', { key: KEY, newValue: storage.items.get(KEY) })
+  assert.equal(writes, 0, 'writes of a list already saved')
+})
+
+test('an edit kept for the visit when storage was full is saved after another tab writes', () => {
+  const storage = fakeStorage()
+  const events = fakeWindow()
+  let full = true
+  const here = createListStore({
+    storage: {
+      ...storage,
+      setItem: (key: string, value: string) => {
+        if (full) throw new DOMException('The quota has been exceeded.', 'QuotaExceededError')
+        storage.setItem(key, value)
+      },
+    },
+    events,
+    now: () => T,
+  })
+  here.subscribe(() => {})
+  assert.deepEqual(here.setStatus(1, 'SAVED'), { change: 'added', saved: false })
+  // Room again, and another tab saves an edit of its own.
+  full = false
+  createListStore({ storage, now: () => T + 1 }).setStatus(2, 'WANT')
+  events.fire('storage', { key: KEY, newValue: storage.items.get(KEY) })
+  assert.deepEqual(savedList(storage), { '1': saved(T), '2': want(T + 1) })
 })
 
 test('the first to listen reads the saved list again, as another tab may have changed it', () => {
