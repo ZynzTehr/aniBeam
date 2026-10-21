@@ -1089,6 +1089,53 @@ test('in a contrast theme, open buttons show they are open, in the theme’s col
   )
 })
 
+test('an open button shows it is open by its border too, not by its fill alone', async () => {
+  // Show spoiler tags says the same open or closed, and its open fill, the title's, can be as
+  // little as 1.5:1 on the closed button's white: told by that alone, the state is told by color
+  // alone (WCAG 1.4.1). Open, its ink border doubles inside it. Frieren's button is drawn
+  // closed and open with the title's fill made white, and the ink in each counted: open, it has
+  // a fifth more at least (the doubled border adds nearly half).
+  const seen: string[] = []
+  const ink = async () => {
+    const clip = await browser.evaluate<{
+      x: number
+      y: number
+      width: number
+      height: number
+    }>(`(() => {
+      const button = document.querySelector('dialog.ab-card[open] .ab-tag-set .ab-more')
+      button.style.setProperty('--anime-accent', '#fff')
+      button.scrollIntoView({ block: 'center' })
+      const box = button.getBoundingClientRect()
+      return { x: box.left + scrollX, y: box.top + scrollY, width: box.width, height: box.height }
+    })()`)
+    const png = await browser.screenshot(clip)
+    return browser.evaluate<number>(`(async () => {
+      const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+      const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+      const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+      context.drawImage(image, 0, 0)
+      const { data } = context.getImageData(0, 0, image.width, image.height)
+      let dark = 0
+      for (let i = 0; i < data.length; i += 4) if (data[i] + data[i + 1] + data[i + 2] < 3 * 96) dark++
+      return dark
+    })()`)
+  }
+  for (const screen of [SCREENS[0], SCREENS[2]]) {
+    await openFrieren(screen)
+    const closed = await ink()
+    await browser.evaluate(`(async () => {
+      document.querySelector('dialog.ab-card[open] .ab-tag-set .ab-more').click()
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      return true
+    })()`)
+    const open = await ink()
+    if (open < closed * 1.2)
+      seen.push(`${screen.width}px: ${open} ink pixels open, ${closed} closed, with a white fill`)
+  }
+  assert.deepEqual(seen, [], 'Show spoiler tags, open, told from closed only by its fill')
+})
+
 test('a card opened from a list, or cold at its address, with AniList’s answers held 2 s, opens with its details and shifts nothing', async () => {
   // The plan's guard: layout shift (CLS, as web-vitals counts it) under 0.1, from the page's first
   // moment until the card has opened and settled, its banner and cover in, with AniList's answers

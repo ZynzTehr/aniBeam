@@ -2252,7 +2252,9 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 }
 
 /* Read more, Show less and Show spoiler tags: open, in the title's fill, which ink reads on at
-   4.5:1 or better (see deriveAccent). */
+   4.5:1 or better (see deriveAccent), and with its ink border doubled inside it, 5px where it was
+   3px. The fill alone told open from closed by color, a pale title's as little as 1.5:1 on the
+   closed button's white, while Show spoiler tags keeps its words either way. */
 .ab-more {
   min-height: 44px;
   padding: 0 16px;
@@ -2266,6 +2268,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 
 .ab-more[aria-expanded='true'] {
   background: var(--anime-accent);
+  box-shadow: inset 0 0 0 2px var(--ink);
 }
 
 /* A contrast theme paints every button alike, so open ones take its colors for selected things. */
@@ -2273,6 +2276,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   .ab-more[aria-expanded='true'] {
     border-color: ButtonText;
     background: SelectedItem;
+    box-shadow: inset 0 0 0 2px ButtonText;
     color: SelectedItemText;
     forced-color-adjust: none;
   }
