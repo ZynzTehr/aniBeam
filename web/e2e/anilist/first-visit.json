@@ -1,6 +1,6 @@
 {
   "request": {
-    "query": "query ($from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus) { trending: Page(perPage: 20) { media(type: ANIME, sort: TRENDING_DESC, countryOfOrigin: \"JP\", isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } } } era: Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: \"JP\", startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } } } }",
+    "query": "query ($from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus) { trending: Page(perPage: 20) { media(type: ANIME, sort: TRENDING_DESC, countryOfOrigin: \"JP\", isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } trailer { id site } } } era: Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: \"JP\", startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } trailer { id site } } } }",
     "variables": {
       "from": 19899999,
       "to": 20000000,
@@ -44,7 +44,7 @@
             "tags": [
               {
                 "name": "Cyberpunk",
-                "rank": 96,
+                "rank": 97,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
@@ -71,6 +71,13 @@
                 "isMediaSpoiler": false
               },
               {
+                "name": "Gore",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
                 "name": "Crime",
                 "rank": 79,
                 "isAdult": false,
@@ -85,8 +92,29 @@
                 "isMediaSpoiler": false
               },
               {
-                "name": "Gore",
+                "name": "Revenge",
                 "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Dissociative Identities",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Ensemble Cast",
+                "rank": 40,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
@@ -99,20 +127,361 @@
                 "isMediaSpoiler": false
               },
               {
-                "name": "Dissociative Identities",
+                "name": "Advertisement",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Software Development",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Robots",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Politics",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Denpa",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Class Struggle",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "AtJMSUpG9GQ",
+              "site": "youtube"
+            }
+          },
+          {
+            "id": 207329,
+            "title": {
+              "romaji": "Tsuihou Sareta Cheat Fuyo Majutsushi wa Kimama na Second Life wo Ouka Suru.: Ore wa Buki dake ja Naku, Arayuru Mono ni \"Kyouka Point\" wo Fuyo Dekiru shi, Ore no Ishi de Itsudemo Kouka wo Kaijo Dekiru kedo, Nokotta Hitotachi Daijoubu?",
+              "english": "The Laid-Off Cheat-Granting Mage Enjoys a Second Lease on Life",
+              "native": "追放されたチート付与魔術師は気ままなセカンドライフを謳歌する。　～俺は武器だけじゃなく、あらゆるものに『強化ポイント』を付与できるし、俺の意思でいつでも効果を解除できるけど、残った人たち大丈夫？～"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b207329-6VPeZIDfF4Sr.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b207329-6VPeZIDfF4Sr.png",
+              "color": "#f1e4c9"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/207329-9IqRSKIsM3TC.jpg",
+            "genres": ["Adventure", "Comedy", "Fantasy", "Slice of Life"],
+            "averageScore": 74,
+            "format": "TV",
+            "episodes": null,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "P.A.WORKS"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 4,
+              "airingAt": 1793113200
+            },
+            "description": "Rein, an enchanter, is suddenly expelled from his guild one day. But instead of despairing, he declares, “Now I can do anything!” and begins reclaiming the massive number of enhancement points he once poured into his guildmates’ gear, setting off on a brand-new path as an adventurer.<br><br>\nGathering around him are people carrying wounds that don’t fade easily: a genius adventurer who shut her heart after her party was slaughtered, a warrior who lost her family, and an assassin raised from childhood to kill. Yet Rein never rejects their pasts or their scars—he accepts them all with bright, straightforward warmth.<br><br>\nThe stage is a unique fantasy world where Uzis, slingshots, and even yakuza exist side by side. But in this world, the more people rely on convenient technology, the more their magic weakens, and adventurers grow fragile.<br><br>\nIntelligent, vicious monsters roam freely, while in the underworld, outlaws bare their greed and ambition as schemes and betrayals intertwine. In a world where ideals and justice are easily crushed, adventurers fight on with nothing but their magic and their convictions.<br><br>\nThis is the story of those who have lost their place in the world finding a new way to live. Rein and his companions’ wild, free-spirited second life begins now!\n<br><br>(Source: The Laid-Off Cheat-Granting Mage Enjoys a Second Lease on Life Site)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Surreal Comedy",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban Fantasy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Found Family",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Slapstick",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Chibi",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Exiled",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gore",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Delinquents",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gangs",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rehabilitation",
                 "rank": 20,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               },
               {
-                "name": "Ensemble Cast",
+                "name": "Revenge",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Dragons",
                 "rank": 20,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "BJXBr_aFF8s",
+              "site": "youtube"
+            }
+          },
+          {
+            "id": 206949,
+            "title": {
+              "romaji": "Kyouran Reijou Nia Liston",
+              "english": "Nia Liston: The Merciless Maiden",
+              "native": "凶乱令嬢ニア・リストン"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx206949-4HYI3YuP0eLI.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx206949-4HYI3YuP0eLI.png",
+              "color": "#f15dbb"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/206949-c5hfhixdgvy5.jpg",
+            "genres": ["Action", "Fantasy"],
+            "averageScore": 75,
+            "format": "TV",
+            "episodes": 25,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "KONAMI animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 4,
+              "airingAt": 1793103960
+            },
+            "description": "A great hero lies undefeated on her deathbed, regretting that she never found a foe who could take her down. She never intended to meet her fate anywhere other than on the battlefield, and her peaceful demise has her wishing desperately that things could have been different... But when she suddenly comes to in the body of the young, frail Nia Liston, she’s got an all-new fight ahead of her. Nia is a sickly child, meaning she has a long way to go before she’s in fighting form. Now that she’s been given a second shot at life, however, she’s determined to get what she wants. She’s going to live—and die—for battle this time! Make way for the Merciless Maiden!<br>\n<br>\n(Source: J-Novel Club)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Female Protagonist",
+                "rank": 86,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Age Regression",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Reincarnation",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cultivation",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Maids",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ojou-sama",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Acting",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Seinen",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tsundere",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Gender Bending",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Circus",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Crime",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Criminal Organization",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "CGI",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "gxG4vntLtbk",
+              "site": "youtube"
+            }
           },
           {
             "id": 185874,
@@ -252,7 +621,106 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "IJONbpfIlUg",
+              "site": "youtube"
+            }
+          },
+          {
+            "id": 209502,
+            "title": {
+              "romaji": "Shiotaiou no Satou-san ga Ore ni dake Amai",
+              "english": "The Cold Sato-san is Only Sweet to Me",
+              "native": "塩対応の佐藤さんが俺にだけ甘い"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx209502-C81oN8M4Smlo.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx209502-C81oN8M4Smlo.jpg",
+              "color": "#f1bb50"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/209502-TATgyznMxQOe.jpg",
+            "genres": ["Comedy", "Romance"],
+            "averageScore": 68,
+            "format": "TV",
+            "episodes": 12,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Tezuka Productions"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 4,
+              "airingAt": 1793106000
+            },
+            "description": "Sato-san is the unattainable flower of the class. She is always cold and curt with classmates, but only I know she's actually very cute when she smiles, even if she's not much of a photographer.\n<br><br>\nOshio-kun is friendly and lively, but only I know he works at his family's cafe after school. He does a great job with the cafe's SNS account, and his mischievous smile makes my heart skip a beat!\n<br><br>\nInnocent and sweet, but sometimes frustrating, this is a 120%-pure fluffy story about two people falling in love for the first time.",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Heterosexual",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Photography",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Food",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Seinen",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Teen Cast",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Work",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kuudere",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "8XgKVzuLmJw",
+              "site": "youtube"
+            }
           },
           {
             "id": 21,
@@ -603,13 +1071,6 @@
                 "isMediaSpoiler": false
               },
               {
-                "name": "Marriage",
-                "rank": 58,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
                 "name": "Artificial Intelligence",
                 "rank": 58,
                 "isAdult": false,
@@ -652,7 +1113,7 @@
                 "isMediaSpoiler": false
               },
               {
-                "name": "Dragons",
+                "name": "Marriage",
                 "rank": 56,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
@@ -664,6 +1125,13 @@
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
               },
               {
                 "name": "Battle Royale",
@@ -720,13 +1188,6 @@
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
-              },
-              {
-                "name": "Dinosaurs",
-                "rank": 50,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
               },
               {
                 "name": "Kaiju",
@@ -792,6 +1253,13 @@
                 "isMediaSpoiler": true
               },
               {
+                "name": "Dinosaurs",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
                 "name": "Interspecies",
                 "rank": 33,
                 "isAdult": false,
@@ -819,7 +1287,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 97940,
@@ -1159,7 +1628,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "vUjAxk1qYzQ",
+              "site": "youtube"
+            }
           },
           {
             "id": 212888,
@@ -1264,77 +1737,538 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "e1Km0FqUZl0",
+              "site": "youtube"
+            }
           },
           {
-            "id": 209219,
+            "id": 198727,
             "title": {
-              "romaji": "Tensei Goblin Dakedo Shitsumon Aru?",
-              "english": "So What's Wrong with Getting Reborn as a Goblin?",
-              "native": "転生ゴブリンだけど質問ある？"
+              "romaji": "Chitose-kun wa Ramune Bin no Naka Part 2",
+              "english": "Chitose Is in the Ramune Bottle 2nd Cour",
+              "native": "千歳くんはラムネ瓶のなか 2クール"
             },
             "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx209219-3yhKlRx0LX3p.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx209219-3yhKlRx0LX3p.jpg",
-              "color": "#a1c950"
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx198727-BL0JTpg0G8tq.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx198727-BL0JTpg0G8tq.jpg",
+              "color": "#bbe4f1"
             },
             "bannerImage": null,
-            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy", "Romance"],
-            "averageScore": 66,
-            "format": "ONA",
-            "episodes": null,
+            "genres": ["Comedy", "Romance"],
+            "averageScore": 76,
+            "format": "TV",
+            "episodes": 11,
             "season": "FALL",
             "seasonYear": 2026,
             "studios": {
               "nodes": [
                 {
-                  "name": "BAKKKA"
+                  "name": "feel."
                 }
               ]
             },
             "nextAiringEpisode": {
-              "episode": 5,
-              "airingAt": 1793019600
+              "episode": 3,
+              "airingAt": 1793109600
             },
-            "description": "Office worker Akira Yagami’s altruistic nature usually gets him the short end of the stick. When he dies after saving a kid from oncoming traffic...he reincarnates in another world as a goblin?! Normally, goblins only live for seven days, but Akira’s newfound powers let him defy the species’ normal life span...and are the key to his path to becoming the strongest goblin ever!\n<br><br>\n(Source: Yen Press)<br><br>\n\n<i>Note: Tensei Goblin Dakedo Shitsumon Aru? is streaming 1 week in advance of the TV broadcast on ABEMA and Prime Video beginning with episode 2 on October 5th, 2026</i>",
+            "description": "The second part of <i>Chitose-kun wa Ramune Bin no Naka</i>.",
             "duration": 24,
             "tags": [
               {
-                "name": "Reincarnation",
-                "rank": 79,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Goblin",
-                "rank": 79,
+                "name": "Female Harem",
+                "rank": 84,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               },
               {
-                "name": "Isekai",
+                "name": "Primarily Female Cast",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Teen Cast",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
                 "rank": 60,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               },
               {
-                "name": "Magic",
+                "name": "Philosophy",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
                 "rank": 20,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               },
               {
-                "name": "Seinen",
+                "name": "Baseball",
                 "rank": 20,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "8RHh2AyKRfY",
+              "site": "youtube"
+            }
+          },
+          {
+            "id": 195516,
+            "title": {
+              "romaji": "Kusuriya no Hitorigoto 3rd Season",
+              "english": "The Apothecary Diaries Season 3",
+              "native": "薬屋のひとりごと 第3期"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195516-MJpUZlOberqH.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx195516-MJpUZlOberqH.jpg",
+              "color": "#e4a128"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195516-B5M0cPaQbQXI.jpg",
+            "genres": ["Drama", "Mystery"],
+            "averageScore": 85,
+            "format": "TV",
+            "episodes": 12,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "OLM"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 4,
+              "airingAt": 1792764000
+            },
+            "description": "In the aftermath of the Shi Clan’s rebellion, things have finally settled down, and Maomao has returned to her old life as a pharmacist in the pleasure district.\n<br><br>\nOne day, triggered by a breakfast served at the Verdigris House, Maomao senses an anomaly and begins investigating its true nature.\n<br><br>\nMeanwhile, Jinshi, who has revealed his true identity as the Imperial brother and begun to face his heavy responsibilities, is deeply troubled by the final message left by Loulan: a warning of an impending \"disaster that will strike the nation.\"\n<br><br>\nTo make matters worse, rumors of a mysterious shrine maiden who deceives the people begin to spread, casting a dark shadow over the country of Li once again.\n<br><br>\nFrom the depths of the inner court to the city streets, and across foreign borders—the world grows wider, and the stakes even higher for Maomao and Jinshi.\n<br><br>\n(Source: Crunchyroll)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Medicine",
+                "rank": 98,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 96,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Politics",
+                "rank": 91,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ancient China",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Detective",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Royal Affairs",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 77,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Seinen",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Class Struggle",
+                "rank": 62,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Foreign",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Prostitution",
+                "rank": 60,
+                "isAdult": true,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Maids",
+                "rank": 56,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Work",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Amnesia",
+                "rank": 12,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ],
+            "trailer": {
+              "id": "YvNvvUeCztE",
+              "site": "youtube"
+            }
+          },
+          {
+            "id": 120377,
+            "title": {
+              "romaji": "Cyberpunk: Edgerunners",
+              "english": "Cyberpunk: Edgerunners",
+              "native": "サイバーパンク エッジランナーズ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx120377-ayZPoxiWt4Li.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx120377-ayZPoxiWt4Li.jpg",
+              "color": "#78f150"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/120377-c15oLS8CA31s.jpg",
+            "genres": ["Action", "Drama", "Psychological", "Sci-Fi"],
+            "averageScore": 85,
+            "format": "ONA",
+            "episodes": 10,
+            "season": "SUMMER",
+            "seasonYear": 2022,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "TRIGGER"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "<i>Cyberpunk: Edgerunners</i> tells a standalone, 10-episode story about a street kid trying to survive in a technology and body modification-obsessed city of the future. Having everything to lose, he chooses to stay alive by becoming an edgerunner—a mercenary outlaw also known as a cyberpunk.<br>\n<br>\n(Source: CD PROJEKT RED)<br>\n<br>\n<i>Note: The first episode received a pre-screening at Anime Expo on July 2, 2022. The first 3 dubbed episodes were streamed on Twitch as part of a co-stream promotion on September 12, a day before the show’s premiere.</i>",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Cyberpunk",
+                "rank": 97,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 95,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Crime",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dystopian",
+                "rank": 91,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cyborg",
+                "rank": 91,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Urban",
+                "rank": 87,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gangs",
+                "rank": 86,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Class Struggle",
+                "rank": 86,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Body Horror",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Orphan",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gore",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Guns",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Revenge",
+                "rank": 81,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anti-Hero",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Drugs",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Terrorism",
+                "rank": 74,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Nudity",
+                "rank": 71,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coming of Age",
+                "rank": 69,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ensemble Cast",
+                "rank": 61,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Artificial Intelligence",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Skip",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Robots",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 59,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Software Development",
+                "rank": 49,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Space",
+                "rank": 48,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Age Gap",
+                "rank": 47,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cars",
+                "rank": 43,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tomboy",
+                "rank": 36,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Bar",
+                "rank": 25,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Advertisement",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "ax5YUmkWf_Y",
+              "site": "youtube"
+            }
           },
           {
             "id": 207191,
@@ -1432,7 +2366,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": {
+              "id": "hGRtocAh3iw",
+              "site": "youtube"
+            }
           },
           {
             "id": 269,
@@ -1758,91 +2696,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
-          },
-          {
-            "id": 204011,
-            "title": {
-              "romaji": "PSYЯEN",
-              "english": "PSYREN",
-              "native": "PSYREN -サイレン-"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx204011-j45RZoqYbdZK.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx204011-j45RZoqYbdZK.jpg",
-              "color": "#0dd6e4"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/204011-hBOwte9MzykA.jpg",
-            "genres": ["Action", "Adventure", "Sci-Fi"],
-            "averageScore": 69,
-            "format": "TV",
-            "episodes": null,
-            "season": "FALL",
-            "seasonYear": 2026,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "Satelight"
-                }
-              ]
-            },
-            "nextAiringEpisode": {
-              "episode": 4,
-              "airingAt": 1793023200
-            },
-            "description": "One day, high schooler Ageha Yoshina picks up a mysterious “red phone card” left behind in a public telephone booth.\nA few days later, his childhood friend and classmate, Sakurako Amamiya—who possessed the same card—suddenly vanishes without a trace. In search of her, Ageha finds himself drawn into the rumors surrounding a nationwide string of mysterious disappearances, said to be the work of a secret organization known only as “Psyren.”<br><br>\nWhen he accesses the group, a deadly game begins—one that will change his fate forever.\n<br><br>\n(Source: PSYЯEN Official Site)",
-            "duration": 24,
-            "tags": [
-              {
-                "name": "Death Game",
-                "rank": 73,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Isekai",
-                "rank": 73,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Shounen",
-                "rank": 60,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Super Power",
-                "rank": 60,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Male Protagonist",
-                "rank": 60,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Dystopian",
-                "rank": 40,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Time Manipulation",
-                "rank": 10,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": true
-              }
-            ]
+            ],
+            "trailer": {
+              "id": "0c4IoCA5fY0",
+              "site": "youtube"
+            }
           },
           {
             "id": 195604,
@@ -2017,1161 +2875,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
-          },
-          {
-            "id": 195516,
-            "title": {
-              "romaji": "Kusuriya no Hitorigoto 3rd Season",
-              "english": "The Apothecary Diaries Season 3",
-              "native": "薬屋のひとりごと 第3期"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195516-MJpUZlOberqH.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx195516-MJpUZlOberqH.jpg",
-              "color": "#e4a128"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195516-B5M0cPaQbQXI.jpg",
-            "genres": ["Drama", "Mystery"],
-            "averageScore": 85,
-            "format": "TV",
-            "episodes": 12,
-            "season": "FALL",
-            "seasonYear": 2026,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "OLM"
-                }
-              ]
-            },
-            "nextAiringEpisode": {
-              "episode": 4,
-              "airingAt": 1792764000
-            },
-            "description": "In the aftermath of the Shi Clan’s rebellion, things have finally settled down, and Maomao has returned to her old life as a pharmacist in the pleasure district.\n<br><br>\nOne day, triggered by a breakfast served at the Verdigris House, Maomao senses an anomaly and begins investigating its true nature.\n<br><br>\nMeanwhile, Jinshi, who has revealed his true identity as the Imperial brother and begun to face his heavy responsibilities, is deeply troubled by the final message left by Loulan: a warning of an impending \"disaster that will strike the nation.\"\n<br><br>\nTo make matters worse, rumors of a mysterious shrine maiden who deceives the people begin to spread, casting a dark shadow over the country of Li once again.\n<br><br>\nFrom the depths of the inner court to the city streets, and across foreign borders—the world grows wider, and the stakes even higher for Maomao and Jinshi.\n<br><br>\n(Source: Crunchyroll)",
-            "duration": 24,
-            "tags": [
-              {
-                "name": "Medicine",
-                "rank": 98,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Female Protagonist",
-                "rank": 96,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Politics",
-                "rank": 91,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Ancient China",
-                "rank": 87,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Detective",
-                "rank": 81,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Royal Affairs",
-                "rank": 79,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Historical",
-                "rank": 77,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Heterosexual",
-                "rank": 65,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Seinen",
-                "rank": 64,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Class Struggle",
-                "rank": 62,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Foreign",
-                "rank": 60,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Prostitution",
-                "rank": 60,
-                "isAdult": true,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Maids",
-                "rank": 56,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Work",
-                "rank": 50,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Primarily Adult Cast",
-                "rank": 40,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Male Protagonist",
-                "rank": 20,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Amnesia",
-                "rank": 12,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              }
-            ]
-          },
-          {
-            "id": 120377,
-            "title": {
-              "romaji": "Cyberpunk: Edgerunners",
-              "english": "Cyberpunk: Edgerunners",
-              "native": "サイバーパンク エッジランナーズ"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx120377-ayZPoxiWt4Li.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx120377-ayZPoxiWt4Li.jpg",
-              "color": "#78f150"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/120377-c15oLS8CA31s.jpg",
-            "genres": ["Action", "Drama", "Psychological", "Sci-Fi"],
-            "averageScore": 85,
-            "format": "ONA",
-            "episodes": 10,
-            "season": "SUMMER",
-            "seasonYear": 2022,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "TRIGGER"
-                }
-              ]
-            },
-            "nextAiringEpisode": null,
-            "description": "<i>Cyberpunk: Edgerunners</i> tells a standalone, 10-episode story about a street kid trying to survive in a technology and body modification-obsessed city of the future. Having everything to lose, he chooses to stay alive by becoming an edgerunner—a mercenary outlaw also known as a cyberpunk.<br>\n<br>\n(Source: CD PROJEKT RED)<br>\n<br>\n<i>Note: The first episode received a pre-screening at Anime Expo on July 2, 2022. The first 3 dubbed episodes were streamed on Twitch as part of a co-stream promotion on September 12, a day before the show’s premiere.</i>",
-            "duration": 24,
-            "tags": [
-              {
-                "name": "Cyberpunk",
-                "rank": 97,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Tragedy",
-                "rank": 95,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Crime",
-                "rank": 92,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Dystopian",
-                "rank": 91,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Cyborg",
-                "rank": 91,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Male Protagonist",
-                "rank": 87,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Urban",
-                "rank": 87,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Gangs",
-                "rank": 86,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Class Struggle",
-                "rank": 86,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Body Horror",
-                "rank": 85,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Orphan",
-                "rank": 85,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Gore",
-                "rank": 83,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Guns",
-                "rank": 83,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Revenge",
-                "rank": 81,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Primarily Adult Cast",
-                "rank": 80,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Anti-Hero",
-                "rank": 80,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Heterosexual",
-                "rank": 80,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Drugs",
-                "rank": 76,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Terrorism",
-                "rank": 74,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Nudity",
-                "rank": 71,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Coming of Age",
-                "rank": 69,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Ensemble Cast",
-                "rank": 61,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Artificial Intelligence",
-                "rank": 60,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Time Skip",
-                "rank": 60,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Robots",
-                "rank": 60,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Time Manipulation",
-                "rank": 59,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Software Development",
-                "rank": 49,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Space",
-                "rank": 48,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Age Gap",
-                "rank": 47,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Cars",
-                "rank": 43,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Tomboy",
-                "rank": 36,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Bar",
-                "rank": 25,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              }
-            ]
-          },
-          {
-            "id": 178789,
-            "title": {
-              "romaji": "Mushoku Tensei III: Isekai Ittara Honki Dasu",
-              "english": "Mushoku Tensei: Jobless Reincarnation Season 3",
-              "native": "無職転生Ⅲ ～異世界行ったら本気だす～"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx178789-hNXjKFzUq7mk.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx178789-hNXjKFzUq7mk.jpg",
-              "color": "#28bbe4"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/178789-9nHWmoRLlcLu.jpg",
-            "genres": ["Adventure", "Drama", "Ecchi", "Fantasy"],
-            "averageScore": 86,
-            "format": "TV",
-            "episodes": 14,
-            "season": "SUMMER",
-            "seasonYear": 2026,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "Studio Bind"
-                }
-              ]
-            },
-            "nextAiringEpisode": null,
-            "description": "The third season of <i>Mushoku Tensei: Isekai Ittara Honki Dasu</i>.",
-            "duration": 24,
-            "tags": [
-              {
-                "name": "Male Protagonist",
-                "rank": 95,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Tragedy",
-                "rank": 92,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Isekai",
-                "rank": 91,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Reincarnation",
-                "rank": 90,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Polyamorous",
-                "rank": 89,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Alternate Universe",
-                "rank": 82,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Magic",
-                "rank": 81,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Time Loop",
-                "rank": 81,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Time Manipulation",
-                "rank": 80,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Female Harem",
-                "rank": 80,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Family Life",
-                "rank": 80,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Coming of Age",
-                "rank": 78,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Marriage",
-                "rank": 78,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Medieval",
-                "rank": 78,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Heterosexual",
-                "rank": 77,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Swordplay",
-                "rank": 75,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Revenge",
-                "rank": 74,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Gods",
-                "rank": 70,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Elf",
-                "rank": 70,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Disability",
-                "rank": 70,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Demons",
-                "rank": 67,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Age Gap",
-                "rank": 67,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Love Triangle",
-                "rank": 66,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Primarily Adult Cast",
-                "rank": 62,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Maids",
-                "rank": 60,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Politics",
-                "rank": 56,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Delinquents",
-                "rank": 55,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "College",
-                "rank": 52,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Desert",
-                "rank": 51,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Kemonomimi",
-                "rank": 46,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Gore",
-                "rank": 45,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Amnesia",
-                "rank": 43,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Snowscape",
-                "rank": 40,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              }
-            ]
-          },
-          {
-            "id": 185756,
-            "title": {
-              "romaji": "Tensei Kizoku, Kantei Skill de Nariagaru 3rd Season",
-              "english": "As a Reincarnated Aristocrat, I'll Use My Appraisal Skill to Rise in the World Season 3",
-              "native": "転生貴族、鑑定スキルで成り上がる 第3期"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx185756-xPCl0RyQ7fXD.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx185756-xPCl0RyQ7fXD.jpg",
-              "color": "#d6f1c9"
-            },
-            "bannerImage": null,
-            "genres": ["Adventure", "Fantasy"],
-            "averageScore": 70,
-            "format": "TV",
-            "episodes": null,
-            "season": "FALL",
-            "seasonYear": 2026,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "GeyeG Pictures"
-                }
-              ]
-            },
-            "nextAiringEpisode": {
-              "episode": 5,
-              "airingAt": 1792938600
-            },
-            "description": "The third season of <i>Tensei Kizoku, Kantei Skill de Nariagaru</i>.\n<br><br>\n<i>Note: On September 4, 2026, it was announced that GeyeG Pictures would take over the production from studio MOTHER while keeping the same staff.</i>",
-            "duration": 24,
-            "tags": [
-              {
-                "name": "Kingdom Management",
-                "rank": 73,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Isekai",
-                "rank": 40,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Yandere",
-                "rank": 20,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Medieval",
-                "rank": 20,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Reincarnation",
-                "rank": 20,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Age Regression",
-                "rank": 20,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Orphan",
-                "rank": 20,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              }
-            ]
-          },
-          {
-            "id": 189046,
-            "title": {
-              "romaji": "Re:Zero kara Hajimeru Isekai Seikatsu 4th Season",
-              "english": "Re:ZERO -Starting Life in Another World- Season 4",
-              "native": "Re:ゼロから始める異世界生活 4th season"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx189046-yaHWtS5FII46.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx189046-yaHWtS5FII46.jpg",
-              "color": "#e49350"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/189046-MDk2CaVuRWpb.jpg",
-            "genres": [
-              "Action",
-              "Adventure",
-              "Drama",
-              "Fantasy",
-              "Psychological",
-              "Romance",
-              "Thriller"
             ],
-            "averageScore": 90,
-            "format": "TV",
-            "episodes": 19,
-            "season": "SPRING",
-            "seasonYear": 2026,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "WHITE FOX"
-                }
-              ]
-            },
-            "nextAiringEpisode": null,
-            "description": "In the deadly battle at Priestella, Subaru and his allies emerged victorious, but at great cost. As Subaru searches for a way to save Rem, Crusch, and Julius, he learns of a \"wise woman,\" Shaula, an all-seeing being said to possess every form of knowledge, who resides at the Pleiades Watchtower. Subaru and his crew must brave the uncharted Auguria Dunes to reclaim what was lost.\n<br><br>\n(Source: Crunchyroll)\n<br><br>\n<i>Note: Lucca Comics & Games pre-screened episode 1 early on November 1, 2025, prior to the Japanese television broadcast on July 8th, 2026.",
-            "duration": 24,
-            "tags": [
-              {
-                "name": "Seinen",
-                "rank": 97,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Memory Manipulation",
-                "rank": 96,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Time Loop",
-                "rank": 93,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Male Protagonist",
-                "rank": 92,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Amnesia",
-                "rank": 92,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Dissociative Identities",
-                "rank": 91,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Tragedy",
-                "rank": 88,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Time Manipulation",
-                "rank": 88,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Magic",
-                "rank": 87,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Witch",
-                "rank": 85,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Denpa",
-                "rank": 84,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Gore",
-                "rank": 83,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Philosophy",
-                "rank": 79,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Cult",
-                "rank": 75,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Female Protagonist",
-                "rank": 74,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Medieval",
-                "rank": 72,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Isekai",
-                "rank": 72,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Desert",
-                "rank": 70,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Heterosexual",
-                "rank": 68,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Travel",
-                "rank": 66,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Clone",
-                "rank": 65,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Elf",
-                "rank": 63,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Interspecies",
-                "rank": 62,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Astronomy",
-                "rank": 60,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Anthropomorphism",
-                "rank": 58,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Shapeshifting",
-                "rank": 56,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Dragons",
-                "rank": 54,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Creature Taming",
-                "rank": 53,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
-                "name": "Spearplay",
-                "rank": 52,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Twins",
-                "rank": 50,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Maids",
-                "rank": 47,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Gods",
-                "rank": 42,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              }
-            ]
-          },
-          {
-            "id": 189123,
-            "title": {
-              "romaji": "Ao no Hako Season 2",
-              "english": "Blue Box Season 2",
-              "native": "アオのハコ Season２"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx189123-0secXELIhkIW.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx189123-0secXELIhkIW.jpg",
-              "color": "#e4ae50"
-            },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/189123-s2oirY2r1Svy.jpg",
-            "genres": ["Romance", "Slice of Life", "Sports"],
-            "averageScore": 81,
-            "format": "TV",
-            "episodes": 12,
-            "season": "FALL",
-            "seasonYear": 2026,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "Electric Circus"
-                }
-              ]
-            },
-            "nextAiringEpisode": {
-              "episode": 4,
-              "airingAt": 1792913400
-            },
-            "description": "The second season of <i>Ao no Hako</i>.\n",
-            "duration": 24,
-            "tags": [
-              {
-                "name": "Primarily Teen Cast",
-                "rank": 97,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Heterosexual",
-                "rank": 96,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "School",
-                "rank": 91,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Badminton",
-                "rank": 84,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Male Protagonist",
-                "rank": 84,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Iyashikei",
-                "rank": 80,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Coming of Age",
-                "rank": 80,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Athletics",
-                "rank": 79,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "School Club",
-                "rank": 79,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Basketball",
-                "rank": 70,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Shounen",
-                "rank": 64,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Acrobatics",
-                "rank": 60,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Female Protagonist",
-                "rank": 56,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Unrequited Love",
-                "rank": 20,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              }
-            ]
+            "trailer": {
+              "id": "4MYo8FfiXMA",
+              "site": "youtube"
+            }
           },
           {
             "id": 191656,
@@ -3304,7 +3012,85 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "VTRVLnzhl90",
+              "site": "youtube"
+            }
+          },
+          {
+            "id": 209219,
+            "title": {
+              "romaji": "Tensei Goblin Dakedo Shitsumon Aru?",
+              "english": "So What's Wrong with Getting Reborn as a Goblin?",
+              "native": "転生ゴブリンだけど質問ある？"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx209219-3yhKlRx0LX3p.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx209219-3yhKlRx0LX3p.jpg",
+              "color": "#a1c950"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Adventure", "Comedy", "Drama", "Fantasy", "Romance"],
+            "averageScore": 66,
+            "format": "ONA",
+            "episodes": null,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "BAKKKA"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 5,
+              "airingAt": 1793019600
+            },
+            "description": "Office worker Akira Yagami’s altruistic nature usually gets him the short end of the stick. When he dies after saving a kid from oncoming traffic...he reincarnates in another world as a goblin?! Normally, goblins only live for seven days, but Akira’s newfound powers let him defy the species’ normal life span...and are the key to his path to becoming the strongest goblin ever!\n<br><br>\n(Source: Yen Press)<br><br>\n\n<i>Note: Tensei Goblin Dakedo Shitsumon Aru? is streaming 1 week in advance of the TV broadcast on ABEMA and Prime Video beginning with episode 2 on October 5th, 2026</i>",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Reincarnation",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Goblin",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Isekai",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Seinen",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "ynr8tFWrK4c",
+              "site": "youtube"
+            }
           },
           {
             "id": 1735,
@@ -3581,93 +3367,354 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": null
           },
           {
-            "id": 210031,
+            "id": 182205,
             "title": {
-              "romaji": "Seihantai na Kimi to Boku 2nd Season",
-              "english": "You and I Are Polar Opposites Season 2",
-              "native": "正反対な君と僕 第2期"
+              "romaji": "Tensei Shitara Slime Datta Ken 4th Season Part 1 & 2",
+              "english": "That Time I Got Reincarnated as a Slime Season 4",
+              "native": "転生したらスライムだった件 第4期 第1&2クール"
             },
             "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx210031-TppgcHZh46LY.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx210031-TppgcHZh46LY.jpg",
-              "color": "#fe5093"
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx182205-q2AeO1owuQbO.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx182205-q2AeO1owuQbO.jpg",
+              "color": "#1abbd6"
             },
-            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/210031-M4bt0rAmWk5Q.jpg",
-            "genres": ["Comedy", "Drama", "Romance", "Slice of Life"],
-            "averageScore": 84,
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/182205-fRUoKv6f2JAq.jpg",
+            "genres": ["Action", "Adventure", "Comedy", "Fantasy"],
+            "averageScore": 83,
             "format": "TV",
-            "episodes": 13,
-            "season": "SUMMER",
+            "episodes": 24,
+            "season": "SPRING",
             "seasonYear": 2026,
             "studios": {
               "nodes": [
                 {
-                  "name": "Lapin Track"
+                  "name": "8-bit"
                 }
               ]
             },
             "nextAiringEpisode": null,
-            "description": "Six months have passed since the polar opposite classmates Miyu Suzuki and Yuusuke Tani started dating. Through spending time together along with their friends from school, the two have been happier than ever. As the year nears its end, the new couple plans to celebrate Christmas and the New Year together, making memories for years to come.<br>\n<br>\nMeanwhile, Miyu and Yuusuke's friends Shuuji Taira and Kentarou Yamada are puzzled by their own situations. Due to his bad experiences in middle school, Taira still overthinks everything around him, especially after his classmate Shino Azuma began giving him more attention. Simultaneously, the usually energetic and outspoken Yamada finds it difficult to find the perfect time to confess his feelings to his shy schoolmate Natsumi Nishi. Despite everyone's differences, they continue enjoying their adolescence together and find their own ways to turn the winter break into a cherished memory.<br>\n<br>\n(Source: MAL Rewrite)",
+            "description": "Demon Lord Rimuru's dream of creating an alliance between humans and monsters takes a step closer to being realized. As Tempest continues to prosper, Granville Rozzo and his granddaughter, Maribel Rozzo, clash with Demon Lord Rimuru over their plan to protect mankind by ruling over them. Meanwhile, in El Dorado, Demon Lord Leon works toward goals of his own. The awakening of a new Hero draws near!<br><br>\n\n(Source: Crunchyroll News)",
             "duration": 24,
             "tags": [
               {
-                "name": "Heterosexual",
-                "rank": 98,
+                "name": "Kingdom Management",
+                "rank": 97,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               },
               {
-                "name": "Ensemble Cast",
-                "rank": 96,
+                "name": "Isekai",
+                "rank": 93,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               },
               {
-                "name": "Coming of Age",
-                "rank": 91,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Primarily Teen Cast",
+                "name": "Time Loop",
                 "rank": 90,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
+                "isMediaSpoiler": true
               },
               {
-                "name": "Iyashikei",
-                "rank": 86,
+                "name": "Ensemble Cast",
+                "rank": 88,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               },
               {
-                "name": "School",
-                "rank": 80,
+                "name": "Magic",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Politics",
+                "rank": 82,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Conspiracy",
+                "rank": 72,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Henshin",
+                "rank": 70,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               },
               {
                 "name": "Male Protagonist",
-                "rank": 72,
+                "rank": 64,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               },
               {
-                "name": "Female Protagonist",
-                "rank": 71,
+                "name": "Medieval",
+                "rank": 62,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 62,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Spearplay",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Agender",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dungeon",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gender Bending",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Crossdressing",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Femboy",
+                "rank": 45,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Asexual",
+                "rank": 43,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Guns",
+                "rank": 37,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Skeleton",
+                "rank": 36,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Archery",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Yuri",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ],
+            "trailer": {
+              "id": "ikxIrDr72iA",
+              "site": "youtube"
+            }
+          },
+          {
+            "id": 185756,
+            "title": {
+              "romaji": "Tensei Kizoku, Kantei Skill de Nariagaru 3rd Season",
+              "english": "As a Reincarnated Aristocrat, I'll Use My Appraisal Skill to Rise in the World Season 3",
+              "native": "転生貴族、鑑定スキルで成り上がる 第3期"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx185756-xPCl0RyQ7fXD.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx185756-xPCl0RyQ7fXD.jpg",
+              "color": "#d6f1c9"
+            },
+            "bannerImage": null,
+            "genres": ["Adventure", "Fantasy"],
+            "averageScore": 70,
+            "format": "TV",
+            "episodes": null,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "GeyeG Pictures"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 5,
+              "airingAt": 1792938600
+            },
+            "description": "The third season of <i>Tensei Kizoku, Kantei Skill de Nariagaru</i>.\n<br><br>\n<i>Note: On September 4, 2026, it was announced that GeyeG Pictures would take over the production from studio MOTHER while keeping the same staff.</i>",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Kingdom Management",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Isekai",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Yandere",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Medieval",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Reincarnation",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Age Regression",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "8_Lxr7vO9l0",
+              "site": "youtube"
+            }
+          },
+          {
+            "id": 204011,
+            "title": {
+              "romaji": "PSYЯEN",
+              "english": "PSYREN",
+              "native": "PSYREN -サイレン-"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx204011-j45RZoqYbdZK.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx204011-j45RZoqYbdZK.jpg",
+              "color": "#0dd6e4"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/204011-hBOwte9MzykA.jpg",
+            "genres": ["Action", "Adventure", "Sci-Fi"],
+            "averageScore": 69,
+            "format": "TV",
+            "episodes": null,
+            "season": "FALL",
+            "seasonYear": 2026,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Satelight"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 4,
+              "airingAt": 1793023200
+            },
+            "description": "One day, high schooler Ageha Yoshina picks up a mysterious “red phone card” left behind in a public telephone booth.\nA few days later, his childhood friend and classmate, Sakurako Amamiya—who possessed the same card—suddenly vanishes without a trace. In search of her, Ageha finds himself drawn into the rumors surrounding a nationwide string of mysterious disappearances, said to be the work of a secret organization known only as “Psyren.”<br><br>\nWhen he accesses the group, a deadly game begins—one that will change his fate forever.\n<br><br>\n(Source: PSYЯEN Official Site)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Death Game",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Isekai",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
               },
               {
                 "name": "Shounen",
@@ -3677,104 +3724,38 @@
                 "isMediaSpoiler": false
               },
               {
-                "name": "Tsundere",
-                "rank": 40,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Trains",
-                "rank": 30,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Time Skip",
-                "rank": 20,
-                "isAdult": false,
-                "isGeneralSpoiler": true,
-                "isMediaSpoiler": true
-              }
-            ]
-          },
-          {
-            "id": 205896,
-            "title": {
-              "romaji": "Shinja Zero no Megami-sama to Hajimeru Isekai Kouryaku",
-              "english": "Full Clearing Another World under a Goddess with Zero Believers",
-              "native": "信者ゼロの女神サマと始める異世界攻略"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx205896-ElrV8oVAsuax.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx205896-ElrV8oVAsuax.jpg",
-              "color": "#5dbbe4"
-            },
-            "bannerImage": null,
-            "genres": ["Adventure", "Fantasy"],
-            "averageScore": 64,
-            "format": "TV",
-            "episodes": null,
-            "season": "FALL",
-            "seasonYear": 2026,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "HORNETS"
-                }
-              ]
-            },
-            "nextAiringEpisode": {
-              "episode": 3,
-              "airingAt": 1792938600
-            },
-            "description": "RPG player Makoto Takatsuki is hurled into another world with awful skills and stats. But he soon meets a goddess named Noah, who asks him to become her 1st believer in return for blessings.<br>\n<br>\n(Source: J-Novel Club)",
-            "duration": null,
-            "tags": [
-              {
-                "name": "Isekai",
-                "rank": 80,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Female Harem",
-                "rank": 79,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Male Protagonist",
-                "rank": 73,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Gods",
-                "rank": 66,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              },
-              {
-                "name": "Magic",
+                "name": "Super Power",
                 "rank": 60,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               },
               {
-                "name": "Seinen",
-                "rank": 20,
+                "name": "Male Protagonist",
+                "rank": 60,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
+              },
+              {
+                "name": "Dystopian",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Manipulation",
+                "rank": 10,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": {
+              "id": "fmUpSXFbSK0",
+              "site": "youtube"
+            }
           }
         ]
       },
@@ -4129,13 +4110,6 @@
                 "isMediaSpoiler": false
               },
               {
-                "name": "Marriage",
-                "rank": 58,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
-              },
-              {
                 "name": "Artificial Intelligence",
                 "rank": 58,
                 "isAdult": false,
@@ -4178,7 +4152,7 @@
                 "isMediaSpoiler": false
               },
               {
-                "name": "Dragons",
+                "name": "Marriage",
                 "rank": 56,
                 "isAdult": false,
                 "isGeneralSpoiler": false,
@@ -4190,6 +4164,13 @@
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
               },
               {
                 "name": "Battle Royale",
@@ -4246,13 +4227,6 @@
                 "isAdult": false,
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
-              },
-              {
-                "name": "Dinosaurs",
-                "rank": 50,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": true
               },
               {
                 "name": "Kaiju",
@@ -4318,6 +4292,13 @@
                 "isMediaSpoiler": true
               },
               {
+                "name": "Dinosaurs",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
                 "name": "Interspecies",
                 "rank": 33,
                 "isAdult": false,
@@ -4345,7 +4326,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 30,
@@ -4674,7 +4656,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "kOH2_8MkgZY",
+              "site": "youtube"
+            }
           },
           {
             "id": 1,
@@ -4937,7 +4923,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "OhNwckCLzis",
+              "site": "youtube"
+            }
           },
           {
             "id": 164,
@@ -5193,7 +5183,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "4OiMOHRDs14",
+              "site": "youtube"
+            }
           },
           {
             "id": 339,
@@ -5477,7 +5471,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "lpv7Wv-sDAo",
+              "site": "youtube"
+            }
           },
           {
             "id": 32,
@@ -5764,7 +5762,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": {
+              "id": "v1pWyWIu8x4",
+              "site": "youtube"
+            }
           },
           {
             "id": 437,
@@ -5915,7 +5917,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "UXQraSkOOGs",
+              "site": "youtube"
+            }
           },
           {
             "id": 33,
@@ -6199,7 +6205,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "odIwkGztmcc",
+              "site": "youtube"
+            }
           },
           {
             "id": 43,
@@ -6371,7 +6381,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "8RF09G8Ymqg",
+              "site": "youtube"
+            }
           },
           {
             "id": 245,
@@ -6620,7 +6634,8 @@
                 "isGeneralSpoiler": true,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 6,
@@ -6806,7 +6821,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": {
+              "id": "bJVyIXeUznY",
+              "site": "youtube"
+            }
           },
           {
             "id": 392,
@@ -6978,7 +6997,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "UuRNnGmwVc4",
+              "site": "youtube"
+            }
           },
           {
             "id": 527,
@@ -7164,7 +7187,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "nS0ico6na_U",
+              "site": "youtube"
+            }
           },
           {
             "id": 136,
@@ -7294,7 +7321,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 225,
@@ -7410,7 +7438,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 185,
@@ -7529,7 +7558,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "sQArIPVsz78",
+              "site": "youtube"
+            }
           },
           {
             "id": 268,
@@ -7687,7 +7720,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 585,
@@ -7838,7 +7872,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "0pVkiod6V0U",
+              "site": "youtube"
+            }
           },
           {
             "id": 530,
@@ -8136,7 +8174,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": {
+              "id": "UL_F6L1tSAM",
+              "site": "youtube"
+            }
           },
           {
             "id": 232,
@@ -8385,7 +8427,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "W8pQIpheFSw",
+              "site": "youtube"
+            }
           }
         ]
       }

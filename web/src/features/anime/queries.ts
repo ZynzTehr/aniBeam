@@ -26,6 +26,12 @@ export type Media = {
   duration: number | null
   /** Only those the card shows (see cardOf): the top few, and the top few spoilers. */
   tags: Tag[]
+  /**
+   * Where its trailer is: a site's video id. Carried with the lists, like its details, so a card
+   * knows at once whether to offer "Watch trailer"; nothing from the site loads before that press
+   * (no thumbnail is asked for).
+   */
+  trailer: { id: string | null; site: string | null } | null
 }
 
 /**
@@ -43,7 +49,7 @@ export const SAFE = 'isAdult: false, genre_not_in: ["Hentai"]'
 const CARD = `id title { romaji english native } coverImage { extraLarge large color } bannerImage
   genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }
   nextAiringEpisode { episode airingAt } description(asHtml: false) duration
-  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler }`
+  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } trailer { id site }`
 
 /**
  * A title as the cache keeps it: its tags cut to those the card shows, the top 8 and the top 8

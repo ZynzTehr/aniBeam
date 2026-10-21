@@ -1,6 +1,6 @@
 {
   "request": {
-    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } } } }",
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } trailer { id site } } } }",
     "variables": {
       "search": "mushishi"
     }
@@ -229,7 +229,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": {
+              "id": "h371H0KIuPo",
+              "site": "youtube"
+            }
           },
           {
             "id": 20595,
@@ -380,7 +384,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "CXhPRWY1L0E",
+              "site": "youtube"
+            }
           },
           {
             "id": 20526,
@@ -517,7 +525,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 20752,
@@ -633,7 +642,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 20751,
@@ -784,7 +794,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "zuX3P6ynAgc",
+              "site": "youtube"
+            }
           },
           {
             "id": 21008,
@@ -914,7 +928,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "BDdPKndfd68",
+              "site": "youtube"
+            }
           }
         ]
       }

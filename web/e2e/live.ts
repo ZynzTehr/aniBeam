@@ -270,6 +270,16 @@ const FORMATS: [path: string, needs: string, holds: (value: any) => boolean][] =
           ),
       ),
   ],
+  [
+    // The card offers "Watch trailer" for a trailer it can play, by its site and video id, and
+    // none for one it can't (AniList has sent a YouTube id with a tab after it), so any text does,
+    // but an id that isn't text, or a trailer that isn't an object, the page can't read.
+    'trailer',
+    'null, or a site and a video id, each a text or null',
+    (trailer) =>
+      trailer === null ||
+      (typeof trailer === 'object' && nameOrNull(trailer.id) && nameOrNull(trailer.site)),
+  ],
 ]
 
 /** Whether `field`, named as listsAsked() names it, is at `path` in a title, or under it. */

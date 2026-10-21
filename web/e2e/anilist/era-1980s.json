@@ -1,6 +1,6 @@
 {
   "request": {
-    "query": "query ($from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus) { Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: \"JP\", startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } } } }",
+    "query": "query ($from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus) { Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: \"JP\", startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } trailer { id site } } } }",
     "variables": {
       "from": 19799999,
       "to": 19900000,
@@ -133,7 +133,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "92a7Hj0ijLs",
+              "site": "youtube"
+            }
           },
           {
             "id": 813,
@@ -389,7 +393,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 223,
@@ -631,7 +636,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 47,
@@ -859,7 +865,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "SyM8JyyUTjc",
+              "site": "youtube"
+            }
           },
           {
             "id": 578,
@@ -989,7 +999,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "4vPeTSRd580",
+              "site": "youtube"
+            }
           },
           {
             "id": 512,
@@ -1147,7 +1161,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "4bG17OYs-GA",
+              "site": "youtube"
+            }
           },
           {
             "id": 513,
@@ -1298,7 +1316,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "5lMRfLJGXSM",
+              "site": "youtube"
+            }
           },
           {
             "id": 572,
@@ -1512,7 +1534,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "6zhLBe319KE",
+              "site": "youtube"
+            }
           },
           {
             "id": 820,
@@ -1732,7 +1758,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": {
+              "id": "Ou37P25tjJY",
+              "site": "youtube"
+            }
           },
           {
             "id": 885,
@@ -1890,7 +1920,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "j3qMwnMtnhQ",
+              "site": "youtube"
+            }
           },
           {
             "id": 210,
@@ -2062,7 +2096,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 949,
@@ -2283,7 +2318,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 1254,
@@ -2413,7 +2449,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 732,
@@ -2581,7 +2618,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "6bc9z5Tmq4w",
+              "site": "youtube"
+            }
           },
           {
             "id": 967,
@@ -2760,7 +2801,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 1088,
@@ -3005,7 +3047,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 1293,
@@ -3285,7 +3328,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "vPJ3TwG63Hk",
+              "site": "youtube"
+            }
           },
           {
             "id": 894,
@@ -3387,7 +3434,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 85,
@@ -3559,7 +3607,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 1470,
@@ -3703,7 +3752,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           }
         ]
       }

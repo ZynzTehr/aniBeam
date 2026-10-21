@@ -1,6 +1,6 @@
 {
   "request": {
-    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } } } }",
+    "query": "query ($search: String) { Page(perPage: 20) { media(type: ANIME, sort: SEARCH_MATCH, search: $search, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } trailer { id site } } } }",
     "variables": {
       "search": "mushi"
     }
@@ -35,7 +35,8 @@
             "nextAiringEpisode": null,
             "description": "Music video for the song <i>Mushi</i> by Japanese rock band GO!GO!7188 that was featured on NHK's Minna no Uta program. The video was made by Fuyumi Kawamura and Toyoaki Nakajima.",
             "duration": 2,
-            "tags": []
+            "tags": [],
+            "trailer": null
           },
           {
             "id": 457,
@@ -256,7 +257,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": true
               }
-            ]
+            ],
+            "trailer": {
+              "id": "h371H0KIuPo",
+              "site": "youtube"
+            }
           },
           {
             "id": 2603,
@@ -302,7 +307,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 16233,
@@ -358,7 +364,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 20526,
@@ -495,7 +502,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 10941,
@@ -522,7 +530,11 @@
             "nextAiringEpisode": null,
             "description": "Kousuke Sugimoto animates Handsome Kenya's song \"Mushi no Tameiki\" (Insect's Sigh).",
             "duration": 3,
-            "tags": []
+            "tags": [],
+            "trailer": {
+              "id": "iDMXNTKX2-Y",
+              "site": "youtube"
+            }
           },
           {
             "id": 139140,
@@ -549,7 +561,8 @@
             "nextAiringEpisode": null,
             "description": "Music video for the song <i>Mushi no Tsubuyaki</i> by Youko Oginome that was featured on NHK's Minna no Uta program.",
             "duration": 2,
-            "tags": []
+            "tags": [],
+            "trailer": null
           },
           {
             "id": 20595,
@@ -700,7 +713,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "CXhPRWY1L0E",
+              "site": "youtube"
+            }
           },
           {
             "id": 8604,
@@ -727,7 +744,8 @@
             "nextAiringEpisode": null,
             "description": "A funny video about a magical bug that likes to bite the people's derriere. The song was intended to encourage people who live in big cities to spontaneously interact with each other.",
             "duration": 2,
-            "tags": []
+            "tags": [],
+            "trailer": null
           },
           {
             "id": 6397,
@@ -766,7 +784,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 21008,
@@ -896,7 +915,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "BDdPKndfd68",
+              "site": "youtube"
+            }
           },
           {
             "id": 103943,
@@ -923,46 +946,8 @@
             "nextAiringEpisode": null,
             "description": "Mr. Deniroo is an alien from the outer space, his space ship is broken and he can't come home his home planet. He encounters various Earth things.\n<br><br>\nA short movie directed by Tatsushi Momen (KOO-KI). \n<br><br>\n(Source: Official Viemo Channel)",
             "duration": 8,
-            "tags": []
-          },
-          {
-            "id": 19755,
-            "title": {
-              "romaji": "Oshiri Kajiri Mushi 2",
-              "english": "Bottom Biting Bug 2",
-              "native": "おしりかじり虫 2"
-            },
-            "coverImage": {
-              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/19755.jpg",
-              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/19755.jpg",
-              "color": "#e40d78"
-            },
-            "bannerImage": null,
-            "genres": ["Comedy"],
-            "averageScore": 46,
-            "format": "TV_SHORT",
-            "episodes": 32,
-            "season": "FALL",
-            "seasonYear": 2013,
-            "studios": {
-              "nodes": [
-                {
-                  "name": "Kinema Citrus"
-                }
-              ]
-            },
-            "nextAiringEpisode": null,
-            "description": "Continuation of the gag comedy about Oshiri Kajiri Mushi XVIII, a 10-year-old insect who goes to Biting School to inherit his family's Biting Shop business.\n<br><br>\n(Source: Anime News Network)",
-            "duration": 5,
-            "tags": [
-              {
-                "name": "Kids",
-                "rank": 50,
-                "isAdult": false,
-                "isGeneralSpoiler": false,
-                "isMediaSpoiler": false
-              }
-            ]
+            "tags": [],
+            "trailer": null
           },
           {
             "id": 15545,
@@ -1043,7 +1028,48 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
+          },
+          {
+            "id": 19755,
+            "title": {
+              "romaji": "Oshiri Kajiri Mushi 2",
+              "english": "Bottom Biting Bug 2",
+              "native": "おしりかじり虫 2"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/19755.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/19755.jpg",
+              "color": "#e40d78"
+            },
+            "bannerImage": null,
+            "genres": ["Comedy"],
+            "averageScore": 46,
+            "format": "TV_SHORT",
+            "episodes": 32,
+            "season": "FALL",
+            "seasonYear": 2013,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Kinema Citrus"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Continuation of the gag comedy about Oshiri Kajiri Mushi XVIII, a 10-year-old insect who goes to Biting School to inherit his family's Biting Shop business.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 5,
+            "tags": [
+              {
+                "name": "Kids",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null
           },
           {
             "id": 129933,
@@ -1092,7 +1118,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "RVpjoWtkbsk",
+              "site": "youtube"
+            }
           },
           {
             "id": 20855,
@@ -1131,7 +1161,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 21408,
@@ -1170,7 +1201,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 10743,
@@ -1240,7 +1272,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           },
           {
             "id": 20751,
@@ -1391,7 +1424,11 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": {
+              "id": "zuX3P6ynAgc",
+              "site": "youtube"
+            }
           },
           {
             "id": 121656,
@@ -1433,7 +1470,8 @@
                 "isGeneralSpoiler": false,
                 "isMediaSpoiler": false
               }
-            ]
+            ],
+            "trailer": null
           }
         ]
       }
