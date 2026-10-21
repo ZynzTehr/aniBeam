@@ -403,6 +403,17 @@
   letter-spacing: 0.02em;
 }
 
+/* Under 600px the card centres its action row: the row above it follows. */
+@media (max-width: 599px) {
+  .ab-lab-at-t2 {
+    justify-content: center;
+  }
+
+  .ab-lab-at-t2 .ab-lab-mylist-name {
+    text-align: center;
+  }
+}
+
 /* Save and Want to try joined as a pair, sharing one border between them. */
 .ab-lab-pair {
   display: inline-flex;
@@ -497,9 +508,10 @@
   pointer-events: none;
 }
 
+/* A fixed size, so a new line in it moves nothing. */
 .ab-lab-heard {
-  width: fit-content;
-  max-width: calc(100% - 24px);
+  width: min(100% - 24px, 46ch);
+  min-height: calc(2lh + 16px);
   margin: 0 auto 8px;
   padding: 6px 12px;
   border: 2px dashed var(--ink);
@@ -604,4 +616,335 @@
   .ab-cut-right > .ab-lab-mark-host .ab-lab-mark {
     right: calc(var(--cut) + 14px);
   }
+}
+
+/* ---------- The site around a section (see SiteFrame) ---------- */
+.ab-lab-site {
+  min-height: 100svh;
+}
+
+/* D11 (b): no search on My List. */
+.ab-lab-nosearch .ab-search {
+  display: none;
+}
+
+/* Where a link would have gone, or what typing in the search would do. */
+.ab-lab-notice {
+  position: sticky;
+  z-index: 25;
+  top: calc(var(--top-h, 70px) + 8px);
+  width: fit-content;
+  max-width: calc(100% - 32px);
+  margin: 8px auto 0;
+  padding: 8px 12px;
+  border: 2px dashed var(--ink);
+  border-radius: 12px;
+  background: var(--sun);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ab-lab-contents {
+  display: contents;
+}
+
+/* D12 (b): the count on the header's My List link. */
+.ab-lab-count {
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 13px;
+}
+
+/* ---------- The My List page (see PageStage) ---------- */
+.ab-lab-mylist-page .ab-strip {
+  padding-top: clamp(24px, 4vw, 48px);
+}
+
+.ab-lab-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 10px;
+}
+
+.ab-lab-tabs [role='tablist'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ab-lab-tabs a,
+.ab-lab-tabs button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 16px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  font: 800 var(--text-label) var(--body);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+/* The current tab, and the filter when on: sound-effect yellow, raised, as the header's current
+   link is. */
+.ab-lab-tabs a[aria-current],
+.ab-lab-tabs [aria-selected='true'],
+.ab-lab-tabs [aria-pressed='true'] {
+  background: var(--sun);
+  box-shadow: 3px 3px 0 var(--ink);
+  transform: translate(-2px, -2px);
+}
+
+.ab-lab-tabs .ab-lab-filter {
+  border-style: dashed;
+}
+
+.ab-lab-tabs .ab-lab-filter[aria-current],
+.ab-lab-tabs .ab-lab-filter[aria-pressed='true'] {
+  border-style: solid;
+}
+
+.ab-lab-tabs a:focus-visible,
+.ab-lab-tabs button:focus-visible,
+.ab-lab-track:focus-visible,
+.ab-lab-order select:focus-visible {
+  outline: 4px solid var(--hot);
+  outline-offset: 3px;
+}
+
+.ab-lab-address,
+.ab-lab-order,
+.ab-lab-line {
+  margin: 0 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ab-lab-address code {
+  padding: 1px 6px;
+  border: 2px dashed var(--ink);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+}
+
+.ab-lab-order select {
+  min-height: 40px;
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  background: #fff;
+  font: 800 14px var(--body);
+}
+
+.ab-lab-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ab-lab-empty {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  margin: 12px 0 24px;
+  padding: 20px;
+  border: var(--border) dashed var(--ink);
+  background: #fff;
+}
+
+.ab-lab-empty p {
+  margin: 0;
+  font: 400 22px / 1.2 var(--display);
+}
+
+.ab-lab-foot {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  margin-top: -72px;
+  padding: 0 var(--page-x) 96px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ab-lab-foot p {
+  margin: 0;
+}
+
+/* The loading tag over the first empty card, as the strip's own is. */
+.ab-strip-item:has(> .ab-lab-tag-over) {
+  position: relative;
+}
+
+.ab-lab-tag-over {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+}
+
+/* A card with no details: offline with nothing cached, or AniList out of reach. */
+.ab-lab-unknown {
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background-color: #e7e1d6;
+  background-image: radial-gradient(rgb(0 0 0 / 0.1) 1.2px, transparent 1.5px);
+  background-size: 7px 7px;
+  font-size: 13px;
+  font-weight: 800;
+  text-align: center;
+}
+
+/* Under each cover: L1's slim row, D6's link, or in its place the Undo slot. */
+.ab-lab-item {
+  display: grid;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ab-lab-item:empty {
+  display: none;
+}
+
+/* With only the Undo slot in it, which lies over the cover, it takes no room: nothing moves. */
+.ab-lab-item:has(> .ab-lab-undo:only-child) {
+  margin: 0;
+}
+
+.ab-strip-item:has(> .ab-lab-item .ab-lab-undo) {
+  position: relative;
+}
+
+.ab-strip-item:has(> .ab-lab-item .ab-lab-undo) > .ab-strip-panel {
+  visibility: hidden;
+}
+
+.ab-lab-at-slim {
+  gap: 4px;
+}
+
+.ab-lab-at-slim .ab-btn {
+  min-height: 44px;
+  padding: 0 9px;
+  box-shadow: none;
+  font-size: 12.5px;
+}
+
+.ab-lab-at-slim .ab-lab-heart {
+  padding: 0 12px;
+}
+
+.ab-lab-track {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+/* D7: the inline Undo, over the removed cover's own place, so nothing moves. */
+.ab-lab-undo {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: grid;
+  aspect-ratio: 2 / 3;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: var(--border) dashed var(--ink);
+  background: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+
+/* D7's toast, to compare: a timer at the screen's foot. */
+.ab-lab-toast {
+  position: fixed;
+  z-index: 30;
+  bottom: 16px;
+  left: 50%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 16px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 800;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+/* ---------- Header and intro (see HeaderStage) ---------- */
+.ab-lab-compare {
+  display: grid;
+  gap: 12px;
+  padding: 24px var(--page-x) 96px;
+}
+
+.ab-lab-compare-row {
+  display: grid;
+  gap: 16px;
+}
+
+.ab-lab-compare .ab-nav.ab-lab-docked {
+  display: flex;
+  visibility: visible;
+}
+
+/* ---------- The pull (see PullStage) ---------- */
+.ab-lab-new {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 2px dashed var(--ink);
+  background: #fff;
+}
+
+/* ---------- The wording (see Wording) ---------- */
+.ab-lab-room-text {
+  overflow: auto;
+  background: var(--paper);
+}
+
+.ab-lab-wording {
+  display: grid;
+  max-width: 80ch;
+  gap: 16px;
+  padding: 16px 16px 48px;
+}
+
+.ab-lab-lines {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ab-lab-lines li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ab-lab-lines q {
+  padding: 2px 8px;
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  background: #fff;
+  font-weight: 800;
 }

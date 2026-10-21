@@ -203,3 +203,11 @@ export function fill60() {
 export const stageMissing = () => {
   if (!entryOf(list, MISSING_ID)) addAll([MISSING_ID])
 }
+
+/** Takes the staged title off again, leaving no trace: the lab put it there. */
+export function unstageMissing() {
+  if (!(MISSING_ID in list)) return
+  const { [MISSING_ID]: staged, ...rest } = list
+  void staged
+  write(rest)
+}

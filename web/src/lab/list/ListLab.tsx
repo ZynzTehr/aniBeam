@@ -1,8 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import css from './lab.css?inline'
 import { Panel } from './Panel.tsx'
-import { setStorage } from './sandbox.ts'
+import { setStorage, stageMissing, unstageMissing } from './sandbox.ts'
 import { Stage } from './Stage.tsx'
+import { Wording, type GoTo } from './Wording.tsx'
 import { read, SECTIONS, write, type Lab, type Options, type Section } from './switches.ts'
 
 const params = () => new URLSearchParams(location.search)
@@ -52,9 +53,24 @@ function Shell() {
     update({ options: { ...options, [key]: value }, lab })
   const setLab = (patch: Partial<Lab>) => update({ options, lab: { ...lab, ...patch } })
   useEffect(() => setStorage(lab.storage), [lab.storage])
+  // "Titles missing" stages the missing id on the lab's list, from here, so the stage hears it as
+  // a change from outside and takes its titles again.
+  useEffect(() => {
+    if (lab.state === 'missing') stageMissing()
+    else unstageMissing()
+  }, [lab.state])
 
   const frame = useRef<HTMLIFrameElement>(null)
   const [replays, setReplays] = useState(0)
+  // The wording's "See it": the stage at a section, with what the lab shows, its own view (a
+  // tab, the filter) and any choices, loaded again.
+  const goTo: GoTo = (section, patch = {}, view = {}, picks = {}) => {
+    const next = { options: { ...options, ...picks }, lab: { ...lab, ...patch, section } }
+    setState(next)
+    history.replaceState(null, '', write(next.options, next.lab))
+    setSrc(write(next.options, next.lab, { stage: section, ...view }))
+    setReplays(replays + 1)
+  }
   const post = () =>
     frame.current?.contentWindow?.postMessage({ type: 'ab-lab', options, lab }, location.origin)
   useEffect(post)
@@ -94,6 +110,9 @@ function Shell() {
       }
     : undefined
   const sectionName = SECTIONS.find(({ key }) => key === lab.section)?.name
+  // The wording is text in the shell, which scrolls; every other section is the stage's frame.
+  const text = lab.section === 'wording'
+  const roomClass = text ? 'ab-lab-room ab-lab-room-text' : 'ab-lab-room'
 
   return (
     <div ref={root} className="ab-lab">
@@ -124,9 +143,9 @@ function Shell() {
               ? `at ${fixed}px${scale < 1 ? `, shown at ${Math.round(scale * 100)}%` : ''}`
               : `at ${Math.round(room.width)}px, the room there is`}
           </p>
-          <div ref={box} className="ab-lab-room">
-            {lab.section === 'wording' ? (
-              <p className="ab-lab-why">The wording comes in a later commit.</p>
+          <div ref={box} className={roomClass}>
+            {text ? (
+              <Wording goTo={goTo} />
             ) : (
               <iframe
                 key={`${src}-${replays}`}

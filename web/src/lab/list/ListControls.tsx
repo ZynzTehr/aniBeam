@@ -57,7 +57,7 @@ export function ListControls({
       <svg viewBox="0 0 24 22" aria-hidden="true">
         <path d="M12 20.5 3.1 11.8a5.3 5.3 0 0 1 0-7.5 5.3 5.3 0 0 1 7.5 0L12 5.7l1.4-1.4a5.3 5.3 0 0 1 7.5 7.5Z" />
       </svg>
-      {WORDS.favorite}
+      {placement === 'slim' ? <span className="sr-only">{WORDS.favorite}</span> : WORDS.favorite}
     </button>
   )
   const statuses =

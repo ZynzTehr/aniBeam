@@ -195,7 +195,10 @@ export function Panel({
               <button
                 type="button"
                 className="ab-lab-see"
-                onClick={() => onLab({ section: choice.section })}
+                onClick={() => {
+                  setOpen(false)
+                  onLab({ section: choice.section })
+                }}
               >
                 See it: {SECTIONS.find(({ key }) => key === choice.section)?.name}
               </button>

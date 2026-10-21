@@ -1,6 +1,9 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { CardStage } from './CardStage.tsx'
 import { CoversStage } from './CoversStage.tsx'
+import { HeaderStage } from './HeaderStage.tsx'
+import { PageStage } from './PageStage.tsx'
+import { PullStage } from './PullStage.tsx'
 import { setStorage } from './sandbox.ts'
 import { read, SECTIONS, type Lab, type Options, type Section } from './switches.ts'
 
@@ -42,6 +45,12 @@ export function Stage({ section }: { section: Section }) {
         <CardStage options={options} title={lab.title} />
       ) : section === 'covers' ? (
         <CoversStage options={options} />
+      ) : section === 'page' ? (
+        <PageStage options={options} lab={lab} />
+      ) : section === 'header' ? (
+        <HeaderStage options={options} />
+      ) : section === 'pull' ? (
+        <PullStage options={options} />
       ) : (
         <main id="main">
           <p className="ab-lab-why">{name}: built in a later commit.</p>
