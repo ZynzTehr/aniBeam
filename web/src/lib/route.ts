@@ -85,12 +85,16 @@ export function pushTrailer() {
 
 /**
  * Takes the trailer's mark off the history entry the page is at, keeping the rest of its state and
- * adding no entry: for a card opened at an entry the trailer was open at, as after a reload there,
- * which opens without its trailer, as only a press loads YouTube (spec §5).
+ * adding no entry, and goes Back to the card's own entry, just before it at the same address: for a
+ * card opened at an entry the trailer was open at, as after a reload there, which opens without its
+ * trailer, as only a press loads YouTube (spec §5). Left there, the card would have two entries, so
+ * Back after its trailer played again would land on the other, the card still open. The mark goes
+ * first, so the entry, now ahead, opens no trailer by Forward, nor if Back has nowhere to go.
  */
 export function dropTrailer() {
   if (!isTrailer(history.state)) return
   const state = { ...(history.state as object) } as { trailer?: true }
   delete state.trailer
   replace(`${location.pathname}${location.search}${location.hash}`, state)
+  history.back()
 }

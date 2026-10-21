@@ -44,13 +44,18 @@ test('a title’s address reads back as its id', () => {
 
 // A stand-in for the browser's address and history, on globalThis until the test ends, as Node has
 // none: replaceState and pushState change the path, as the browser's do (pushState in a new entry),
-// and fire no popstate, as the browser's don't. In a browser, window is globalThis, so addEventListener is the window's.
+// and fire no popstate, as the browser's don't; back() only counts its calls. In a browser, window is
+// globalThis, so addEventListener is the window's.
 function fakeWindow(t: import('node:test').TestContext, path = '/') {
   const events = new EventTarget()
   const location = { pathname: path, search: '', hash: '' }
   const history = {
     state: null as unknown,
     entries: [path],
+    backs: 0,
+    back() {
+      history.backs++
+    },
     replaceState(state: unknown, _title: string, url: string) {
       const next = new URL(url, `https://ani-beam.vercel.app${location.pathname}`)
       Object.assign(location, { pathname: next.pathname, search: next.search, hash: next.hash })
@@ -149,15 +154,17 @@ test('only the trailer’s mark says a trailer is open', () => {
     assert.equal(isTrailer(state), false, JSON.stringify(state))
 })
 
-test('a card opened at the trailer’s entry takes its mark off, keeping the rest and adding no entry', (t) => {
+test('a card opened at the trailer’s entry takes its mark off, keeping the rest and adding no entry, and goes Back to the card’s own', (t) => {
   const { history } = fakeWindow(t, '/anime/154587')
   history.state = { over: '/', trailer: true }
   dropTrailer()
   assert.deepEqual(history.state, { over: '/' })
   assert.deepEqual(history.entries, ['/anime/154587'])
-  // An entry with no mark is left as it is.
+  assert.equal(history.backs, 1, 'the card stayed at the trailer’s entry')
+  // An entry with no mark is left as it is, and the page where it is.
   const state = { over: '/' }
   history.state = state
   dropTrailer()
   assert.equal(history.state, state)
+  assert.equal(history.backs, 1)
 })

@@ -170,7 +170,8 @@ export function TitleCard({
   // playing over the card. Pressing Watch trailer adds a history entry at the card's address (see
   // pushTrailer), so Back closes the trailer and leaves the card, and Forward back to it opens the
   // trailer again, as Forward does a card. A card opened at such an entry, as after a reload there,
-  // opens without its trailer: only a press loads anything from YouTube (spec §5).
+  // opens without its trailer, and goes Back to its own entry (see dropTrailer): only a press loads
+  // anything from YouTube (spec §5).
   const trailer = trailerOf(media)
   const [watching, setWatching] = useState(false)
   const watchButton = useRef<HTMLButtonElement>(null)

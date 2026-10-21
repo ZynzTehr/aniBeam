@@ -359,6 +359,44 @@ test('Back closes the trailer, then the card, and Forward opens the trailer agai
   })
 })
 
+test('reloaded with the trailer open, the card comes back without it, back at its own entry, and Back after Watch trailer and Close still closes the card', async () => {
+  // A reload loads nothing from YouTube until Watch trailer is pressed again (spec §5), so the
+  // card comes back alone. The trailer's entry it reloaded at, the card's own entry just before
+  // it, would leave the card two entries: the card goes Back to its own, so one Back still closes
+  // it, as for a card that never had a trailer.
+  const state = () =>
+    browser.evaluate<object>(`({
+      trailer: Boolean(document.querySelector('dialog.ab-trailer')),
+      card: Boolean(document.querySelector('dialog.ab-card')),
+      address: location.pathname,
+    })`)
+  const seen: Record<string, unknown> = {}
+  await openFromSearch(DESKTOP, FRIEREN)
+  await watchTrailer()
+  const from = requests.length
+  await browser.send('Page.reload')
+  await browser.waitFor(
+    `document.readyState === 'complete' && document.querySelector('dialog.ab-card.is-landed')`,
+    10_000,
+  )
+  await browser.animationsDone()
+  await browser.waitFor('false', 500)
+  seen['reloaded'] = { ...(await state()), google: fromGoogle(from) }
+  await watchTrailer()
+  await browser.press('Enter')
+  await browser.waitFor(`!document.querySelector('dialog.ab-trailer')`, 5_000)
+  await browser.waitFor('false', 500)
+  seen['Watch trailer, then Close'] = await state()
+  await browser.evaluate(`history.back(); true`)
+  await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000)
+  seen['then Back'] = await state()
+  assert.deepEqual(seen, {
+    reloaded: { trailer: false, card: true, address: '/anime/154587', google: [] },
+    'Watch trailer, then Close': { trailer: false, card: true, address: '/anime/154587' },
+    'then Back': { trailer: false, card: false, address: '/' },
+  })
+})
+
 test('a card at its address that closes while the trailer’s Back is still on its way leaves the page at /, the card not coming back', async () => {
   // Closed by itself, the trailer goes Back from its history entry, which the browser does a
   // moment later. A card opened at its address puts / in place of the address it is at as it
