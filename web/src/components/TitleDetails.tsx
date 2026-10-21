@@ -1,4 +1,5 @@
 import { useId, useLayoutEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import type { Media, Tag } from '../features/anime/queries.ts'
 import { parseSynopsis, type Run } from '../features/anime/synopsis.ts'
 import { tagsOf } from '../features/anime/tags.ts'
@@ -32,7 +33,10 @@ const runs = (line: Run[]) =>
  * place of a fallback or the screen turns: so the button comes with the text, and is there only
  * while the clamp hides something. The text is watched whole, inside the clamp, as well as the
  * clamp itself: text that reflows past five lines, or back to five, leaves the clamp as tall as
- * it was, and watching only the clamp would miss it.
+ * it was, and watching only the clamp would miss it. A card opened from a list lays out its text
+ * only as the dialog opens, after this has rendered, so the first measure that counts is the
+ * watcher's, which the browser makes before it draws the frame: it renders the button at once
+ * (flushSync), rather than a frame later, when it pushed the tags down.
  */
 function Synopsis({ description }: { description: string | null }) {
   const id = useId()
@@ -45,7 +49,7 @@ function Synopsis({ description }: { description: string | null }) {
     if (!element || !whole.current || open) return
     const measure = () => setCut(element.scrollHeight > element.clientHeight + 1)
     measure()
-    const resized = new ResizeObserver(measure)
+    const resized = new ResizeObserver(() => flushSync(measure))
     resized.observe(element)
     resized.observe(whole.current)
     return () => resized.disconnect()

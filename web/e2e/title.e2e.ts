@@ -553,11 +553,14 @@ async function noteRequests() {
   return asked
 }
 
-test('a card opened from a list shows its synopsis and running time at once, asking AniList for nothing', async () => {
+test('a card opened from a list shows its synopsis and running time at once, Read more with them, asking AniList for nothing', async () => {
   // The lists carry each title's details (see cardOf), so a card opened from one shows them as it
   // opens, with no request: AniList allows 30 a minute, and a class on one network shares them.
   // The first trending title is opened at each size and read in the card's first frames, before
-  // its fade has ended; and nothing may be asked of AniList from the click on.
+  // its fade has ended; and nothing may be asked of AniList from the click on. Read more must be
+  // there, or not, in the first frame the card is drawn as it is once settled: coming a frame
+  // later, it pushed the tags 54px down. That frame is read as it is laid out, before it is drawn,
+  // by a ResizeObserver made after the card's own, so it calls back after them.
   const seen: string[] = []
   for (const screen of [SCREENS[0], SCREENS[2]]) {
     await browser.forget()
@@ -567,6 +570,20 @@ test('a card opened from a list shows its synopsis and running time at once, ask
     try {
       const { id, shown } = await browser.evaluate<{ id: number; shown: unknown }>(`(async () => {
         const link = document.querySelector('.ab-grid .ab-link')
+        window.__firstFrame = new Promise((resolve) => {
+          const watch = new MutationObserver(() => {
+            const card = document.querySelector('dialog.ab-card')
+            if (!card) return
+            watch.disconnect()
+            const sized = new ResizeObserver(() => {
+              if (!card.open || !card.offsetHeight) return
+              sized.disconnect()
+              resolve(card.querySelector('.ab-synopsis .ab-more')?.textContent ?? 'none')
+            })
+            sized.observe(card)
+          })
+          watch.observe(document.body, { childList: true, subtree: true })
+        })
         link.click()
         for (let frame = 0; frame < 30 && !document.querySelector('dialog.ab-card[open]'); frame++)
           await new Promise((resolve) => requestAnimationFrame(resolve))
@@ -579,6 +596,14 @@ test('a card opened from a list shows its synopsis and running time at once, ask
       const expected = { ...synopsisOf(media.description), runtime: runtimeOf(media) }
       if (JSON.stringify(shown) !== JSON.stringify(expected))
         seen.push(`${screen.width}px: ${JSON.stringify(shown)}, not ${JSON.stringify(expected)}`)
+      const more = await browser.evaluate<{ first: string; settled: string }>(`(async () => ({
+        first: await window.__firstFrame,
+        settled: document.querySelector('dialog.ab-card[open] .ab-synopsis .ab-more')?.textContent ?? 'none',
+      }))()`)
+      if (more.first !== more.settled)
+        seen.push(
+          `${screen.width}px: Read more ${more.first} in the first frame, ${more.settled} once settled`,
+        )
       if (asked.length) seen.push(`${screen.width}px: asked AniList for ${asked.join(', ')}`)
     } finally {
       await browser.rewriteAniList(null)
@@ -664,9 +689,12 @@ const press = (into: 'start' | 'end') => `(async () => {
 test('the synopsis shows five lines, and where they hide some of it, Read more opens the rest and Show less closes it', async () => {
   // The title lab's choice: five lines of the synopsis, the last fading into the paper, and a
   // Read more button that opens the rest (Show less closes it again), saying which to screen
-  // readers with aria-expanded and naming the text it opens with aria-controls. Closing from the
-  // foot of a long synopsis brings the button back into view. A synopsis of five lines or fewer
-  // shows whole, with no button and no fade. Reduced motion, as here, keeps the clamp.
+  // readers with aria-expanded and naming the text it opens with aria-controls. A synopsis of five
+  // lines or fewer shows whole, with no button and no fade. Reduced motion, as here, keeps the
+  // clamp. Closed from far down a long synopsis, the button would move up with the text's foot,
+  // off the screen: it is brought back into view at once. Chrome's scroll anchoring holds it in
+  // place anyway, and the card's scroll stops at its foot, so neither is left to do it: a long
+  // synopsis is staged, in a card without anchoring, as in a browser that has none, and room below.
   const seen: string[] = []
   const expect = (where: string, actual: unknown, expected: unknown) => {
     if (JSON.stringify(actual) !== JSON.stringify(expected))
@@ -715,6 +743,28 @@ test('the synopsis shows five lines, and where they hide some of it, Read more o
         `${screen.width}px, a synopsis of a line`,
         { ...short, lines: short.lines <= 2 },
         { lines: true, of: short.lines, fades: false, button: null },
+      )
+    }
+    const paragraph =
+      'Frieren walks on, year after year, through towns and seasons, remembering the friends she outlived and learning, too late and just in time, what their years together meant.'
+    await stageDescription(Array(12).fill(paragraph).join('<br><br>'))
+    for (const screen of [SCREENS[0], SCREENS[2]]) {
+      await openFrieren(screen)
+      await browser.evaluate(`(() => {
+        const card = document.querySelector('dialog.ab-card[open]')
+        card.style.overflowAnchor = 'none'
+        const room = document.createElement('div')
+        room.style.height = 2 * innerHeight + 'px'
+        card.querySelector('.ab-details').after(room)
+        return true
+      })()`)
+      await browser.evaluate(press('start'))
+      // Show less, with the button at the screen's top, the long text above it.
+      await browser.evaluate(press('start'))
+      expect(
+        `${screen.width}px, Show less far down a long synopsis`,
+        (await browser.evaluate<Clamp>(CLAMP)).button,
+        READ_MORE,
       )
     }
   } finally {
