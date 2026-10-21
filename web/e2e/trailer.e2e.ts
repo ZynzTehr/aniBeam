@@ -297,35 +297,86 @@ test('with reduced motion asked for, on the device or with the site’s switch, 
   })
 })
 
-test('Esc closes the trailer, then the card: focus goes back to Watch trailer, then to the title that opened the card', async () => {
+test('Esc closes the trailer, then the card, which fades or plays back out: focus goes back to Watch trailer, then to the title that opened the card', async () => {
   // Spec §3J: a modal dialog returns focus to what opened it. The trailer's frame goes as it
-  // closes, which stops the video; the card stays, at its address, until the second Esc.
+  // closes, which stops the video; the card stays, at its address, until the second Esc, which
+  // fades it out over 150 ms under reduced motion, and plays its opening backwards with motion
+  // allowed, as Esc on a card alone does. The browser lets the page hold a dialog open on Esc once
+  // for each thing the visitor does, and Esc is no such thing, so the trailer's Esc mustn't use
+  // that up. Safari focuses no button it clicks, so a press there leaves focus where it was, here
+  // on the card's Close (as element.click() does): focus still goes back to Watch trailer.
   const seen: Record<string, unknown> = {}
-  for (const screen of [PHONE, DESKTOP]) {
-    await openFromSearch(screen, FRIEREN)
-    await watchTrailer()
+  for (const [name, screen, reduceMotion, clicked] of [
+    ['390px', PHONE, true, false],
+    ['1440px', DESKTOP, true, false],
+    ['1440px, motion allowed, pressed as Safari clicks', DESKTOP, false, true],
+  ] as const) {
+    await openFromSearch(screen, FRIEREN, reduceMotion)
+    if (clicked) {
+      await browser.evaluate(`${WATCH}.click(); true`)
+      assert.ok(await browser.waitFor(TRAILER, 5_000), 'Watch trailer opened no trailer')
+      await browser.animationsDone()
+    } else await watchTrailer()
     await browser.press('Escape')
     await browser.waitFor(`!document.querySelector('dialog.ab-trailer')`, 5_000)
+    // Long enough for the card to have faded out, had the same Esc closed it too.
+    await browser.waitFor('false', 500)
     const first = await browser.evaluate(`({
-      card: Boolean(${CARD}),
+      card: ${CARD}?.className ?? 'gone',
       frames: document.querySelectorAll('iframe').length,
       focus: ${FOCUS},
       address: location.pathname,
     })`)
     await browser.press('Escape')
+    const leaving = await browser.evaluate(`${CARD}?.className ?? 'gone'`)
     await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000)
     const second = await browser.evaluate(`({
       card: Boolean(document.querySelector('dialog.ab-card')),
       focus: document.activeElement.getAttribute('href'),
       address: location.pathname,
     })`)
-    seen[`${screen.width}px`] = { first, second }
+    seen[name] = { first, 'as the second Esc lands': leaving, second }
   }
-  const expected = {
-    first: { card: true, frames: 0, focus: 'Watch trailer', address: '/anime/154587' },
+  const expected = (leaving: string) => ({
+    first: {
+      card: 'ab-card is-landed',
+      frames: 0,
+      focus: 'Watch trailer',
+      address: '/anime/154587',
+    },
+    'as the second Esc lands': `ab-card is-landed ${leaving}`,
     second: { card: false, focus: '/anime/154587', address: '/' },
-  }
-  assert.deepEqual(seen, { '390px': expected, '1440px': expected })
+  })
+  assert.deepEqual(seen, {
+    '390px': expected('is-closing'),
+    '1440px': expected('is-closing'),
+    '1440px, motion allowed, pressed as Safari clicks': expected('is-leaving'),
+  })
+})
+
+test('a request to close the trailer that comes as its cancel event, as Android’s Back gesture makes, closes the trailer alone', async () => {
+  // Esc closes the trailer as a key (see the check above), so here the cancel event the browser
+  // sends for any other request to close, which no check here can make, is sent to the trailer by
+  // hand. React hands it to the card's handler too, which must leave it to the trailer: the card
+  // stays, at its address, and Esc then closes it.
+  await openFromSearch(DESKTOP, FRIEREN)
+  await watchTrailer()
+  await browser.evaluate(
+    `${TRAILER}.dispatchEvent(new Event('cancel', { cancelable: true })); true`,
+  )
+  await browser.waitFor(`!document.querySelector('dialog.ab-trailer')`, 5_000)
+  // Long enough for the card to have faded out, had the request closed it too.
+  await browser.waitFor('false', 500)
+  const seen = await browser.evaluate(`({
+    card: ${CARD}?.className ?? 'gone',
+    focus: ${FOCUS},
+    address: location.pathname,
+  })`)
+  assert.deepEqual(seen, {
+    card: 'ab-card is-landed',
+    focus: 'Watch trailer',
+    address: '/anime/154587',
+  })
 })
 
 test('Back closes the trailer, then the card, and Forward opens the trailer again; after Close, Back closes the card', async () => {

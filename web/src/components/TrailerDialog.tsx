@@ -60,8 +60,18 @@ export function TrailerDialog({
       ref={ref}
       className={closing ? 'ab-trailer is-closing' : 'ab-trailer'}
       aria-labelledby="ab-trailer-title"
-      // Esc fades it out too, unless the page holds it open, which the browser allows once for each
-      // thing the visitor does on the page: the cancel event is cancelable then.
+      // Esc fades it out too, as a key pressed in the page, not as the browser's request to close:
+      // a key whose own action is cancelled makes no request. The page can hold a dialog open on
+      // that request (its cancel event cancelable) only once for each thing the visitor does, and
+      // Esc is no such thing, so holding the trailer open would use it up, and the card, closed by
+      // the next Esc, would vanish at once, its fade or way back unplayed.
+      onKeyDown={(event) => {
+        if (event.key !== 'Escape' || event.defaultPrevented) return
+        event.preventDefault()
+        leave()
+      }}
+      // Any other request to close, as Android's Back gesture makes, fades it out too, unless the
+      // page can't hold it open then: the cancel event is cancelable only once, as above.
       onCancel={(event) => {
         if (!event.cancelable || closing) return
         event.preventDefault()
