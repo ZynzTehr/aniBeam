@@ -2,7 +2,7 @@
 // localStorage, under anibeam:list:v1 (spec §3F).
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { parse } from './store.ts'
+import { merge, parse, type Entry, type List, type Status } from './store.ts'
 
 const T = Date.UTC(2026, 9, 21, 12)
 
@@ -80,4 +80,99 @@ test('nothing saved, broken JSON or a list of the wrong shape gives an empty lis
     '[{"status": "SAVED", "favorite": false, "updatedAt": 1}]',
   ])
     assert.deepEqual(parse(raw), {}, `reading ${raw}`)
+})
+
+const saved = (updatedAt: number, favorite = false): Entry => ({
+  status: 'SAVED',
+  favorite,
+  updatedAt,
+})
+const want = (updatedAt: number, favorite = false): Entry => ({
+  status: 'WANT',
+  favorite,
+  updatedAt,
+})
+const removed = (updatedAt: number, status: Status = 'SAVED'): Entry => ({
+  status,
+  favorite: false,
+  updatedAt,
+  deleted: true,
+})
+
+// Random numbers from a seed, the same each run (mulberry32), so a failure can be run again.
+function seeded(seed: number) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0
+    let t = Math.imul(seed ^ (seed >>> 15), seed | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+// A random list over a few ids and a few moments, so that copies share titles and tie often.
+function randomList(random: () => number): List {
+  const list: List = {}
+  for (let id = 1; id <= 6; id++) {
+    if (random() < 0.3) continue
+    const updatedAt = T + Math.floor(random() * 3)
+    const status = random() < 0.5 ? 'SAVED' : 'WANT'
+    list[id] =
+      random() < 0.3
+        ? { status, favorite: random() < 0.5, updatedAt, deleted: true }
+        : { status, favorite: random() < 0.5, updatedAt }
+  }
+  return list
+}
+
+test('two copies merge to the same list in either order, in any grouping, and when merged again', () => {
+  for (let seed = 1; seed <= 500; seed++) {
+    const random = seeded(seed)
+    const [a, b, c] = [randomList(random), randomList(random), randomList(random)]
+    const copies = JSON.stringify([a, b, c])
+    const ab = merge(a, b)
+    assert.deepEqual(ab, merge(b, a), `seed ${seed}: in either order`)
+    assert.deepEqual(merge(ab, c), merge(a, merge(b, c)), `seed ${seed}: in any grouping`)
+    assert.deepEqual(merge(a, a), a, `seed ${seed}: with itself`)
+    assert.deepEqual(merge(ab, b), ab, `seed ${seed}: merged again`)
+    assert.equal(JSON.stringify([a, b, c]), copies, `seed ${seed}: a copy was changed`)
+  }
+})
+
+test('the later change to a title wins, and a title in one copy only is kept', () => {
+  const merged = merge(
+    { '1': saved(T), '2': want(T + 5), '3': saved(T) },
+    { '1': want(T + 1, true), '2': saved(T + 4), '4': want(T) },
+  )
+  assert.deepEqual(merged, {
+    '1': want(T + 1, true),
+    '2': want(T + 5),
+    '3': saved(T),
+    '4': want(T),
+  })
+})
+
+test('made at the same moment, a delete marker wins, then Saved, then the heart', () => {
+  const ties: [winner: Entry, loser: Entry][] = [
+    [removed(T), saved(T, true)],
+    [removed(T, 'WANT'), saved(T)],
+    [removed(T, 'SAVED'), removed(T, 'WANT')],
+    [saved(T), want(T, true)],
+    [saved(T, true), saved(T)],
+    [want(T, true), want(T)],
+  ]
+  for (const [wins, loses] of ties) {
+    const name = `${JSON.stringify(wins)} over ${JSON.stringify(loses)}`
+    assert.deepEqual(merge({ '1': wins }, { '1': loses }), { '1': wins }, name)
+    assert.deepEqual(merge({ '1': loses }, { '1': wins }), { '1': wins }, name)
+  }
+})
+
+test("an older copy can't bring back a removed title, and delete markers are kept", () => {
+  // Removed in this tab; another tab, or a copy from before, still has it.
+  const here = { '1': removed(T + 10), '2': saved(T) }
+  const older = { '1': saved(T + 9, true), '3': removed(T) }
+  for (const merged of [merge(here, older), merge(older, here)])
+    assert.deepEqual(merged, { '1': removed(T + 10), '2': saved(T), '3': removed(T) })
+  // Saved again after the removal, it comes back.
+  assert.deepEqual(merge(here, { '1': want(T + 11) }), { '1': want(T + 11), '2': saved(T) })
 })

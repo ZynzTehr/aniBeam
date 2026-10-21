@@ -61,3 +61,35 @@ export function parse(raw: string | null): List {
   }
   return list
 }
+
+// Which of two entries for one title wins: the later change; and, made at the same moment, the
+// delete marker, then Saved, then the heart. An entry has these four fields and no others (see
+// parse), so this orders every two that differ, and two copies merged settle on one list whichever
+// is merged into which: two tabs, or later two devices (spec §6), always agree.
+const rank = ({ updatedAt, deleted, status, favorite }: Entry) => [
+  updatedAt,
+  deleted ? 1 : 0,
+  status === 'SAVED' ? 1 : 0,
+  favorite ? 1 : 0,
+]
+
+/** The entry that wins of two for one title (see rank): `a` when they are the same. */
+function winner(a: Entry, b: Entry) {
+  const [first, second] = [rank(a), rank(b)]
+  const i = first.findIndex((value, at) => value !== second[at])
+  return i === -1 || first[i] > second[i] ? a : b
+}
+
+/**
+ * Two copies of the list as one, title by title: a title in one copy only keeps its entry, and one
+ * in both the entry that wins (see rank), delete markers included, so a copy from before a title
+ * was taken off can't bring it back. The same two copies give the same list in either order, merged
+ * in any grouping and merged again. Neither copy is changed, and an entry that wins is the very
+ * object it was in `a`, or else in `b`.
+ */
+export function merge(a: List, b: List): List {
+  const list = { ...a }
+  for (const [id, entry] of Object.entries(b))
+    list[id] = Object.hasOwn(a, id) ? winner(a[id], entry) : entry
+  return list
+}
