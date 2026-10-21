@@ -2,7 +2,7 @@
 
 AniBeam is an anime discovery app drawn like a manga page. It shows what's trending, lets you search and browse by decade, and pulls a random title from a gacha machine. Each title tints the page in its own cover color. Live chat about episodes is planned for a later phase. Anime data comes from the [AniList GraphQL API](https://docs.anilist.co/). AniBeam is not affiliated with AniList.
 
-> The project is in Phase 3. The app is one Discover page: an intro, this week's trending titles as a manga page, a random pull, titles by decade, and search. Each title opens in a full-screen title card. My List, mood sliders, live chat and sync come after the course presentation.
+> Phase 2, the design phase, is complete (see [Phase 2 complete](#phase-2-complete)). The app is one Discover page: an intro, this week's trending titles as a manga page, a random pull, titles by decade, and search. Every title has its own address, where it opens in a full-screen title card with its banner, synopsis, tags and trailer. My List, mood sliders, live chat and sync come next, in Phases 4 to 8.
 
 ## Prerequisites
 
@@ -81,6 +81,61 @@ AniBeam/
 ```
 
 Empty folders hold a `.gitkeep` file so git tracks them; each one is removed once real code lands in that folder. Unit tests live next to the code they test (`*.test.ts`). The browser checks live in `web/e2e` (`*.e2e.ts`).
+
+## Phase 2 complete
+
+Phase 2 was the front-end design phase: the look and the components it is built from, tried against AniList's real titles and changed with the user until they signed it off (spec §8). It was built out of order. Its design system came first (#4), then the Discover page for the course presentation (Phase 3's MVP, #5), and the rest of Phase 2 followed in pull requests from #11 to the sign-off, from 2026-10-12 to 2026-10-21.
+
+What it delivered:
+
+- The manga-page look: paper, ink and screentone, the design tokens, `deriveAccent` (each title's own color, kept readable), the components in `web/src/components`, and the component gallery at `?gallery` (#4, #18).
+- The Reduce motion switch, with one source of truth for motion, and a calm version of every effect (#14).
+- A page that holds still while titles load (#15, #19), and keyboard focus that always shows whole (#19).
+- The title card's close, its opening played backwards, with the red-burst close button (#17).
+- The scroll slam: parts of the page land once, as they scroll into view (#20).
+- Title addresses: every title at `/anime/` and its id, with Back and Forward (#21).
+- Section links that fly from the intro into the header, and on phones a one-row header with a comic menu that a swipe opens (#22 to #25).
+- The title page: the banner band, the synopsis with Read more, the tags with spoiler tags behind a button, and the running time (#27).
+- Finished titles saved for 30 days, and a title's trailer, loaded from YouTube's privacy-enhanced address only when asked for (#28).
+- The sign-off checks, in the last pull request: a Tab walk of a title's card and its trailer, a walk of every moving part under reduced motion, and Read more kept in view on phones.
+
+The tests grew from 286 unit tests and 126 browser checks (2026-10-14) to 419 and 329. Brotli-compressed, the JS every visit loads grew from 78,032 B to 87,701 B, the CSS from 8,356 B to 11,488 B, and the samples, loaded only while AniList can't be reached, from 3,337 B to 14,350 B, as they now carry each title's synopsis and tags. The fonts are unchanged, at about 100 KB.
+
+### Measured, before and after
+
+The spec's three measurements (§9) were taken again on a production build at four sizes: 390x844 and 360x740 as phones, 768x1024, and 1440x900. Before is `6f0f33e` (#10, 2026-10-11), where the rest of Phase 2 began; after is `af176d6` (#28, 2026-10-21). AniList's answers came from the recordings (see Browser checks), and nothing reached AniList's API or YouTube. Layout shift is CLS as web-vitals counts it, where under 0.1 is good.
+
+| Measurement                                                            | Before (`6f0f33e`)                                                                                          | After (`af176d6`)                                                                                                                                  |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Layout shift, a first visit                                            | Up to 0.061 on a phone (usually 0.0012 or less), at most 0.0007 at 1440, 0.017 to 0.021 at 768              | At most 0.0007                                                                                                                                     |
+| Layout shift, a pull                                                   | 0.18 to 0.24 on phones and at 768 (0 at 1440)                                                               | 0 at every size                                                                                                                                    |
+| Layout shift, a slow first load (AniList held 3 s) seen at the decades | 0.17 to 0.32 at every size                                                                                  | 0 at every size                                                                                                                                    |
+| Layout shift, a title opened at its address                            | No title addresses yet                                                                                      | 0 at every size, answered at once or held 3 s                                                                                                      |
+| Keyboard, Tab through the page                                         | 41 stops; rings cut by the screen's edge at every size, and at 1440 Shift+Tab left 4 stops under the header | 40 stops (38 under 900 px), each whole on the screen, both ways; no control left out                                                               |
+| Keyboard, a title's card and its trailer                               | Only Open on AniList                                                                                        | Every control reached; Esc closes the trailer, then the card, and focus goes back each time                                                        |
+| Reduced motion, from the device or the switch                          | The device only (no switch); nothing moved, but the card opened as a hard cut                               | Nothing moves anywhere, from either; only fades and color changes of 150 to 250 ms; the trailer doesn't play by itself, and nothing is left hidden |
+| Core flow 2: search "frieren", open it, watch the trailer              | No title address, no trailer                                                                                | Passes at every size: 1 request to AniList for the search, none to open the title, nothing from YouTube before Watch trailer                       |
+
+The measuring found one real problem, fixed with the sign-off checks: on a phone, Read more opened the synopsis above itself and pushed its own focused button below the screen (see Design). Two smaller ones are left open. In the checks, Tab past Open on YouTube goes into the trailer's frame, blocked there, and doesn't come back to Close; a real trailer is a hand check (below). At 768 px a pull pushes the decade strip down 377 px as the lever is pressed: web-vitals doesn't count it, as it comes with the press, and keeping the room for the result at that width is a choice still to make.
+
+### Still to check by hand, outside Chromium
+
+The browser checks run only in headless Chrome. These are still open:
+
+- **iPhone Safari:** Reduce Motion in the phone's settings (the fades, the switch, the skip link); how VoiceOver reads the switch, a checkbox with `role="switch"`; the scroll slam, and `overflow-x: clip` with the splash cover's drift; the menu's swipe and drag; Back (a swipe from the screen's edge) with a title card open, and with its trailer open; a trailer playing in the page (`playsinline`).
+- **Safari on a Mac, and Firefox:** Reduce motion from the system's setting; Back and Forward through title addresses, and Back after a reload; Esc twice with a trailer open over its card; the mood slider in the gallery, a tap against a drag.
+- **A real trailer, on a phone and a laptop:** that it plays; Esc pressed inside YouTube's player; and Tab past Open on YouTube, which should come back round to Close.
+- **Windows:** the real contrast themes, which the checks only emulate, on a Windows PC or a Windows 11 ARM virtual machine.
+
+### What comes next: Phases 4 to 8
+
+- **Phase 4, My List:** Saved, Want to try and a Favorite, kept on the device, with a My List page at `/list`. Done when saving survives a reload and My List loads with one request. Core flow 2's last step, Favorite, waits for it.
+- **Phase 5, Mood matcher and gacha:** the mood sliders on the pull machine, scoring titles in the browser, and "why this matched". Done when moving a slider costs no request and 20 pulls give 20 different titles.
+- **Phase 6, Chat server:** Fastify with Socket.IO and Postgres, with optional sign-in through Firebase. Done when two browser tabs exchange messages and tests cover the validation and the limits.
+- **Phase 7, Chat UI:** episode chat inside the title card, at `/anime/:id?ep=N`. Done when a signed-in visitor posts and signed-out visitors can read.
+- **Phase 8, Sync (a stretch goal):** a list linked across devices through Firebase. Done when a save on the phone appears on the desktop.
+
+A Browse page, and Discover's This Season and All-Time Top rows (spec §3.0), belong to no phase yet, and wait for a decision.
 
 ## Notes
 
@@ -210,7 +265,7 @@ To run them, start the app with `npm run dev`, then point `CHROME_BIN` at a Chro
 CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm run test:browser
 ```
 
-A run takes about eight minutes. The outage checks take about two of them, because the app waits a minute before retrying a failed connection.
+A run takes about 18 minutes. The outage checks take about two of them, because the app waits a minute before retrying a failed connection.
 
 #### Recorded answers
 
