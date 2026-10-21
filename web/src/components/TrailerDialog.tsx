@@ -43,6 +43,8 @@ export function TrailerDialog({
     const timer = window.setTimeout(() => trailer.close(), 150)
     return () => clearTimeout(timer)
   }, [closing])
+  // Whether the press that ends in a click began on the dimmed card itself (see onClick).
+  const pressedAround = useRef(false)
   // Back (on an iPhone, a swipe from the screen's edge) leaves the history entry that pressing
   // Watch trailer made (see pushTrailer), and the trailer goes with it, leaving the card.
   useEffect(() => {
@@ -65,8 +67,18 @@ export function TrailerDialog({
         event.preventDefault()
         setClosing(true)
       }}
-      // The dimmed card around the panel is the dialog itself.
-      onClick={(event) => event.target === event.currentTarget && leave()}
+      // The dimmed card around the panel is the dialog itself. A click there closes the trailer only
+      // if its press began there too, not in the panel, as in selecting the title and letting go
+      // past its edge, which hands the click to the dialog; and only a click on its own, not the
+      // second of a double-click (or a phone's double tap), whose first opened the trailer over
+      // Watch trailer, so the second lands around it.
+      onPointerDown={(event) => {
+        pressedAround.current = event.target === event.currentTarget
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget && pressedAround.current && event.detail <= 1)
+          leave()
+      }}
       onAnimationEnd={(event) => {
         if (closing && event.target === event.currentTarget) event.currentTarget.close()
       }}

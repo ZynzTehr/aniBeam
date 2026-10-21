@@ -5,6 +5,7 @@
 // nothing reaches them: the embed's frame shows Chrome's error page in the video's place.
 import assert from 'node:assert/strict'
 import { after, afterEach, before, beforeEach, test } from 'node:test'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { BASE_URL, Browser, GOOGLE } from './browser.ts'
 
 let browser: Browser
@@ -87,6 +88,26 @@ async function watchTrailer() {
   assert.ok(await browser.waitFor(TRAILER, 5_000), 'Watch trailer opened no trailer')
   await browser.animationsDone()
 }
+
+/**
+ * Presses the mouse at a point on the screen and lets it go there, as a mouse does: the `count`th
+ * click of a run, so 2 is a double-click's second.
+ */
+async function click(x: number, y: number, count = 1) {
+  const point = { x, y, button: 'left', clickCount: count }
+  await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y })
+  await browser.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...point })
+  await browser.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...point })
+}
+
+/** Where on the screen the middle of what `part` finds is, in the page's pixels. */
+const middleOf = (part: string) =>
+  browser.evaluate<{ x: number; y: number }>(`(() => {
+    const r = ${part}.getBoundingClientRect()
+    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) }
+  })()`)
+
+const WATCH = `[...document.querySelectorAll('dialog.ab-card[open] button')].find((button) => button.textContent.trim() === 'Watch trailer')`
 
 // The card's buttons and links in its row of actions, as words.
 const ACTIONS = `[...document.querySelectorAll('dialog.ab-card[open] .ab-row-actions > *')].map((part) => part.textContent.replace(/\\s+/g, ' ').trim() + (part.disabled ? ' (disabled)' : ''))`
@@ -357,6 +378,108 @@ test('Back closes the trailer, then the card, and Forward opens the trailer agai
       focus: '/anime/154587',
     },
   })
+})
+
+test('a double-click on Watch trailer opens the trailer and leaves it open, its second click landing on the dimmed card', async () => {
+  // Many visitors double-click a button out of habit, and a phone hands both taps of a double tap
+  // to the page as clicks. The first opens the trailer, whose dimmed card then covers the button,
+  // so the second lands on it, outside the panel: it is one press, not a click around the trailer.
+  // The button is where the card shows it on a laptop, and scrolled to the screen's foot on a
+  // phone, both outside the panel, as the check reads once the trailer is open.
+  const seen: Record<string, unknown> = {}
+  for (const screen of [PHONE, DESKTOP]) {
+    await openFromSearch(screen, FRIEREN)
+    if (screen.phone) await browser.evaluate(`${WATCH}.scrollIntoView({ block: 'end' }); true`)
+    const { x, y } = await middleOf(WATCH)
+    const from = requests.length
+    await click(x, y, 1)
+    await sleep(90)
+    await click(x, y, 2)
+    await browser.waitFor('false', 600)
+    seen[`${screen.width}px`] = await browser.evaluate(`({
+      trailer: Boolean(${TRAILER}),
+      'under the pointer': document.elementFromPoint(${x}, ${y})?.className ?? null,
+      entry: history.state,
+    })`)
+    seen[`${screen.width}px, from YouTube or Google`] = fromGoogle(from).length
+  }
+  const expected = {
+    trailer: true,
+    'under the pointer': 'ab-trailer',
+    entry: { over: '/', trailer: true },
+  }
+  assert.deepEqual(seen, {
+    '390px': expected,
+    '390px, from YouTube or Google': 1,
+    '1440px': expected,
+    '1440px, from YouTube or Google': 1,
+  })
+})
+
+test('a click on the dimmed card around the trailer closes it, and a click or a drag that starts in its panel doesn’t', async () => {
+  // Spec §3A: a click around the trailer closes it, as Close does: focus goes back to Watch
+  // trailer, the card stays at its address, and Back then closes the card. A click on the panel
+  // (here its title) leaves it open, as does a drag that starts there, as in selecting the title,
+  // and ends outside it: the browser hands that drag's click to the dialog, as it holds both ends.
+  const state = () =>
+    browser.evaluate<Record<string, unknown>>(`({
+      trailer: Boolean(document.querySelector('dialog.ab-trailer')),
+      card: Boolean(document.querySelector('dialog.ab-card')),
+      address: location.pathname,
+      focus: document.activeElement.getAttribute('href') ?? ${FOCUS},
+    })`)
+  const seen: Record<string, unknown> = {}
+  for (const screen of [PHONE, DESKTOP]) {
+    await openFromSearch(screen, FRIEREN)
+    await watchTrailer()
+    const title = await middleOf(`${TRAILER}.querySelector('.ab-trailer-title')`)
+    await click(title.x, title.y)
+    await browser.waitFor('false', 400)
+    // Where focus goes, Chrome decides for a click on text in a modal dialog: the dialog itself.
+    const { focus: _clicked, ...clicked } = await state()
+    // From the title to the dimmed card's corner, above and left of the panel.
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...title })
+    await browser.send('Input.dispatchMouseEvent', {
+      type: 'mousePressed',
+      ...title,
+      button: 'left',
+      clickCount: 1,
+    })
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 6, y: 6, buttons: 1 })
+    await browser.send('Input.dispatchMouseEvent', {
+      type: 'mouseReleased',
+      x: 6,
+      y: 6,
+      button: 'left',
+      clickCount: 1,
+    })
+    await browser.waitFor('false', 400)
+    const { focus: _dragged, ...dragged } = await state()
+    await click(6, 6)
+    await browser.waitFor(`!document.querySelector('dialog.ab-trailer')`, 5_000)
+    const around = await state()
+    await browser.evaluate(`history.back(); true`)
+    await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000)
+    seen[`${screen.width}px`] = {
+      'a click on its title': clicked,
+      'a drag from its title': dragged,
+      'a click around it': around,
+      'then Back': await state(),
+    }
+  }
+  const open = { trailer: true, card: true, address: '/anime/154587' }
+  const expected = {
+    'a click on its title': open,
+    'a drag from its title': open,
+    'a click around it': {
+      trailer: false,
+      card: true,
+      address: '/anime/154587',
+      focus: 'Watch trailer',
+    },
+    'then Back': { trailer: false, card: false, address: '/', focus: '/anime/154587' },
+  }
+  assert.deepEqual(seen, { '390px': expected, '1440px': expected })
 })
 
 test('reloaded with the trailer open, the card comes back without it, back at its own entry, and Back after Watch trailer and Close still closes the card', async () => {
