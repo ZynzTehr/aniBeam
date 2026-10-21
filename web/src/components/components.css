@@ -2254,7 +2254,9 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 /* Read more, Show less and Show spoiler tags: open, in the title's fill, which ink reads on at
    4.5:1 or better (see deriveAccent), and with its ink border doubled inside it, 5px where it was
    3px. The fill alone told open from closed by color, a pale title's as little as 1.5:1 on the
-   closed button's white, while Show spoiler tags keeps its words either way. */
+   closed button's white, while Show spoiler tags keeps its words either way. Brought into view,
+   as by Tab or as Read more opens the text above it, it keeps 8px clear of the card's edge, for
+   its 4px ring 3px out. */
 .ab-more {
   min-height: 44px;
   padding: 0 16px;
@@ -2264,6 +2266,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   color: var(--ink);
   font: 800 14px var(--body);
   cursor: pointer;
+  scroll-margin: 8px;
 }
 
 .ab-more[aria-expanded='true'] {

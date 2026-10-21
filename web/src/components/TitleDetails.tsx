@@ -85,11 +85,13 @@ function Synopsis({ description }: { description: string | null }) {
           aria-expanded={open}
           aria-controls={id}
           onClick={(event) => {
-            // Closed from under a long synopsis, the button moves up with the text's foot, maybe
-            // off the screen: it is brought back into view, at once, once the text has closed.
+            // The button moves with the text's foot, maybe off the screen: down below it as the
+            // text opens above it (on a phone, a long synopsis pushes it past the screen's foot),
+            // and up as it closes from under it. Either way it is brought back into view, its ring
+            // too (see .ab-more's scroll-margin), before the browser draws the text's new height.
             const button = event.currentTarget
             setOpen(!open)
-            if (open) requestAnimationFrame(() => button.scrollIntoView({ block: 'nearest' }))
+            requestAnimationFrame(() => button.scrollIntoView({ block: 'nearest' }))
           }}
         >
           {open ? 'Show less' : 'Read more'}
