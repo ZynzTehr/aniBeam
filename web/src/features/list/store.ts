@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from 'react'
+
 // My List (spec §3F): the titles the visitor saves, kept in this browser's localStorage under one
 // key, anibeam:list:v1, as { [AniList id]: { status, favorite, updatedAt, deleted? } }. It holds
 // ids and statuses only, never a title's details (spec §5), and nothing else writes it.
@@ -208,20 +210,55 @@ const isQuota = (error: unknown) =>
   error instanceof DOMException &&
   (error.name === 'QuotaExceededError' || error.name === 'NS_ERROR_DOM_QUOTA_REACHED')
 
+const sameEntry = (a: Entry, b: Entry) =>
+  a === b ||
+  (a.status === b.status &&
+    a.favorite === b.favorite &&
+    a.updatedAt === b.updatedAt &&
+    a.deleted === b.deleted)
+
+/** Whether two lists hold the same entries. */
+function sameList(a: List, b: List) {
+  const ids = Object.keys(a)
+  return (
+    ids.length === Object.keys(b).length &&
+    ids.every((id) => Object.hasOwn(b, id) && sameEntry(a[id], b[id]))
+  )
+}
+
+// What tells a tab that the saved list may have changed without it: another tab's write (storage,
+// with the list's key, or none after a clear); the browser bringing the page back from its cache on
+// Back or Forward (pageshow, persisted), with the list as it was when the page was left; and the
+// visitor coming back to the tab (visibilitychange), in case a storage event was missed.
+const EVENTS = ['storage', 'pageshow', 'visibilitychange']
+
 /**
  * A list kept in `storage`, which is undefined when the browser blocks it (as some private modes
- * do), and then kept for the visit only. Several, given one storage, act as several tabs do. `now`
- * is the clock, which tests can set.
+ * do), and then kept for the visit only. Several, given one storage, act as several tabs do.
+ * `events` is where the page's events arrive (the window), and `now` the clock, which tests can
+ * set.
  */
 export function createListStore({
   storage,
+  events,
   now = Date.now,
 }: {
   storage: ListStorage | undefined
+  events?: Pick<EventTarget, 'addEventListener' | 'removeEventListener'>
   now?: () => number
 }) {
-  // The list as this tab has it, read from storage when first asked for.
+  // The list as this tab has it, read from storage when first asked for. It stays the very same
+  // object until an entry in it changes, as React's useSyncExternalStore needs: a new one each time
+  // it is read would draw the page again, and again, without end.
   let list: List | undefined
+  const listeners = new Set<() => void>()
+
+  // Makes `next` the list, if it differs from it, and tells those listening.
+  function publish(next: List) {
+    if (list && sameList(next, list)) return
+    list = next
+    for (const listener of listeners) listener()
+  }
 
   // The saved list (empty when none is), or undefined when storage is blocked or can't be read.
   function stored() {
@@ -258,16 +295,50 @@ export function createListStore({
   function edit(change: (list: List, now: number) => Edited): Outcome {
     const saved = stored()
     const edited = change(saved ? merge(getSnapshot(), saved) : getSnapshot(), now())
-    list = edited.list
+    publish(edited.list)
     const unchanged = edited.change === 'none' || edited.change === 'full'
     return { change: edited.change, saved: unchanged || save(edited.list) }
   }
 
-  /** The list as this tab has it. */
+  /** The list as this tab has it: the very same object until it changes. */
   const getSnapshot = () => (list ??= stored() ?? {})
+
+  // Reads the saved list again, and merges it with this tab's.
+  function refresh() {
+    const saved = stored()
+    if (saved) publish(merge(getSnapshot(), saved))
+  }
+
+  // One listener for the events above, however many are listening to the list.
+  function onEvent(event: Event) {
+    const { key } = event as StorageEvent
+    if (event.type === 'storage' && key !== KEY && key !== null) return
+    if (event.type === 'pageshow' && !(event as PageTransitionEvent).persisted) return
+    refresh()
+  }
+
+  /**
+   * Calls `onChange` each time the list changes, in this tab or another, until the function it
+   * returns is called. Made for React's useSyncExternalStore, with getSnapshot. The first to listen
+   * starts the one listener for the page's events, and reads the saved list again, as another tab
+   * may have changed it while none was; the last to stop stops it. So React subscribing twice, as
+   * it does in development, still adds one.
+   */
+  function subscribe(onChange: () => void) {
+    listeners.add(onChange)
+    if (listeners.size === 1) {
+      for (const type of EVENTS) events?.addEventListener(type, onEvent)
+      refresh()
+    }
+    return () => {
+      if (listeners.delete(onChange) && listeners.size === 0)
+        for (const type of EVENTS) events?.removeEventListener(type, onEvent)
+    }
+  }
 
   return {
     getSnapshot,
+    subscribe,
     /** Puts the title on the list with `status`, or takes it off with null (see setStatusIn). */
     setStatus: (id: number, status: Status | null) =>
       edit((list, now) => setStatusIn(list, id, status, now)),
@@ -290,6 +361,36 @@ function browserStorage() {
 }
 
 /** The visitor's list, in this browser's localStorage. */
-export const { getSnapshot, setStatus, pressStatus, toggleFavorite } = createListStore({
+export const { getSnapshot, subscribe, setStatus, pressStatus, toggleFavorite } = createListStore({
   storage: browserStorage(),
+  events: typeof window === 'undefined' ? undefined : window,
 })
+
+/** The title's entry while it is on the list (not a delete marker), or undefined. */
+export const useEntry = (id: number) =>
+  useSyncExternalStore(subscribe, () => onList(getSnapshot(), id))
+
+// Each list's ids, worked out once (see listedIn).
+const idsOf = new WeakMap<List, number[]>()
+
+/**
+ * The ids of the titles on `list`, the most lately changed first (the order the plan recommends
+ * for D8, "Recently changed"): the very same array each time for the same list.
+ */
+export function listedIn(list: List) {
+  let ids = idsOf.get(list)
+  if (!ids) {
+    ids = Object.keys(list)
+      .filter((id) => !list[id].deleted)
+      .sort((a, b) => list[b].updatedAt - list[a].updatedAt || Number(b) - Number(a))
+      .map(Number)
+    idsOf.set(list, ids)
+  }
+  return ids
+}
+
+/** The ids of the titles on the visitor's list (see listedIn): the same array until it changes. */
+export const listedIds = () => listedIn(getSnapshot())
+
+/** The ids of the titles on the visitor's list (see listedIds), kept up to date as it changes. */
+export const useListIds = () => useSyncExternalStore(subscribe, listedIds)

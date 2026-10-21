@@ -6,6 +6,7 @@ import {
   CAP,
   createListStore,
   KEY,
+  listedIn,
   merge,
   parse,
   pressStatusIn,
@@ -405,4 +406,127 @@ test('with storage blocked, the list lives for the visit, and nothing throws', (
     // The move came 1 ms after the add, as the clock stood still.
     assert.deepEqual(store.getSnapshot(), { '1': want(T + 1), '2': saved(T, true) })
   }
+})
+
+/**
+ * The page's events, as the window gives them, counting the listeners added and removed for each
+ * kind; `fire` sends one, with the fields given (a storage event's key, pageshow's persisted).
+ */
+function fakeWindow() {
+  const target = new EventTarget()
+  const added: string[] = []
+  const removed: string[] = []
+  return {
+    added,
+    removed,
+    addEventListener: (type: string, listener: EventListenerOrEventListenerObject | null) => {
+      added.push(type)
+      target.addEventListener(type, listener)
+    },
+    removeEventListener: (type: string, listener: EventListenerOrEventListenerObject | null) => {
+      removed.push(type)
+      target.removeEventListener(type, listener)
+    },
+    fire: (type: string, fields: object = {}) =>
+      target.dispatchEvent(Object.assign(new Event(type), fields)),
+  }
+}
+
+test('the list stays the very same object between reads, until an entry in it changes', () => {
+  const storage = fakeStorage()
+  storage.items.set(KEY, JSON.stringify({ '1': saved(T) }))
+  const events = fakeWindow()
+  const store = createListStore({ storage, events, now: () => T + 1 })
+  const first = store.getSnapshot()
+  assert.equal(store.getSnapshot(), first, 'read again')
+  // Nothing changes: an edit that changes nothing, listening (which reads the saved list again),
+  // and each event that does.
+  store.setStatus(1, 'SAVED')
+  assert.equal(store.getSnapshot(), first, 'after an edit that changed nothing')
+  const stop = store.subscribe(() => assert.fail('told of a change when nothing changed'))
+  events.fire('storage', { key: KEY })
+  events.fire('storage', { key: null })
+  events.fire('pageshow', { persisted: true })
+  events.fire('visibilitychange')
+  assert.equal(store.getSnapshot(), first, 'after reading the saved list again')
+  stop()
+  assert.equal(listedIn(first), listedIn(first), 'its ids, worked out again')
+  // A change makes a new list, and new ids.
+  store.setStatus(2, 'WANT')
+  assert.notEqual(store.getSnapshot(), first)
+  assert.notEqual(listedIn(store.getSnapshot()), listedIn(first))
+  // An entry that didn't change is the very same object, so a cover showing it needn't redraw.
+  assert.equal(store.getSnapshot()['1'], first['1'])
+})
+
+test("another tab's edit reaches this tab by the page's events, and its listeners hear it once", () => {
+  const storage = fakeStorage()
+  const events = fakeWindow()
+  let time = T
+  const here = createListStore({ storage, events, now: () => time++ })
+  const there = createListStore({ storage, now: () => time++ })
+  let heard = 0
+  here.subscribe(() => heard++)
+  here.subscribe(() => heard++)
+  // The storage event comes for the list's key.
+  there.setStatus(1, 'SAVED')
+  events.fire('storage', { key: 'anibeam:cache' })
+  assert.deepEqual([here.getSnapshot(), heard], [{}, 0], 'another key changed')
+  events.fire('storage', { key: KEY })
+  assert.deepEqual([here.getSnapshot(), heard], [{ '1': saved(T) }, 2], 'the list changed')
+  // After a clear, as by the browser's tools: this tab keeps the list, and saves it at its next edit.
+  storage.items.clear()
+  events.fire('storage', { key: null })
+  assert.deepEqual([here.getSnapshot(), heard], [{ '1': saved(T) }, 2], 'after a clear')
+  // Back or Forward to the page from the browser's cache, which pageshow without persisted is not.
+  there.setStatus(2, 'WANT')
+  events.fire('pageshow', { persisted: false })
+  assert.equal(heard, 2, 'a page loaded anew')
+  events.fire('pageshow', { persisted: true })
+  assert.deepEqual([here.getSnapshot(), heard], [{ '1': saved(T), '2': want(T + 1) }, 4])
+  // The visitor coming back to the tab.
+  there.toggleFavorite(2)
+  events.fire('visibilitychange')
+  assert.deepEqual([here.getSnapshot(), heard], [{ '1': saved(T), '2': want(T + 2, true) }, 6])
+})
+
+test('the first to listen reads the saved list again, as another tab may have changed it', () => {
+  const storage = fakeStorage()
+  const here = createListStore({ storage, now: () => T })
+  const there = createListStore({ storage, now: () => T })
+  assert.deepEqual(here.getSnapshot(), {})
+  there.setStatus(1, 'WANT')
+  here.subscribe(() => {})
+  assert.deepEqual(here.getSnapshot(), { '1': want(T) })
+})
+
+test("ten listening add one listener for each of the page's events, and the last to stop removes it", () => {
+  const events = fakeWindow()
+  const store = createListStore({ storage: fakeStorage(), events })
+  const stops = Array.from({ length: 10 }, () => store.subscribe(() => {}))
+  const kinds = ['storage', 'pageshow', 'visibilitychange']
+  assert.deepEqual(events.added, kinds)
+  // React subscribes, stops and subscribes again in development: still one each.
+  stops[0]()
+  stops[0] = store.subscribe(() => {})
+  assert.deepEqual(events.added, kinds)
+  for (const stop of stops.slice(1)) stop()
+  // Stopping twice changes nothing.
+  stops[1]()
+  assert.deepEqual(events.removed, [], 'removed while one still listens')
+  stops[0]()
+  assert.deepEqual(events.removed, kinds)
+  assert.deepEqual(events.added, kinds)
+})
+
+test('the ids on the list come most lately changed first, delete markers left out', () => {
+  const list = {
+    '1': saved(T),
+    '2': want(T + 2),
+    '3': removed(T + 5),
+    '4': saved(T + 1, true),
+    '5': want(T + 2),
+  }
+  assert.deepEqual(listedIn(list), [5, 2, 4, 1])
+  assert.equal(listedIn(list), listedIn(list), 'the very same array')
 })
