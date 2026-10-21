@@ -2407,6 +2407,16 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   }
 }
 
+/* On a short screen, as on a phone held sideways, the band, its ink line in, takes a third of the
+   screen's height at most, keeping the 64px the close button needs: sized by the width alone, it
+   took 211px of an 844x390 screen, more than half, and the cover started at 270px. Laptops and
+   phones held upright are taller than 500px, and keep the band as it is. */
+@media (max-height: 500px) {
+  .ab-band {
+    max-height: max(64px, 32svh);
+  }
+}
+
 /* Beside the machine on screens up to about 1170px wide (an iPad Pro 11" in portrait is 834px),
    the reveal is too narrow for the poster and its text side by side: long title words such as
    "Reincarnated" or "Bakemonogatari" would break mid-word. They stack as on phones. */

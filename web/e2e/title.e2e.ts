@@ -98,12 +98,19 @@ test('the banner band crowns the card in an ink frame, the same size with a bann
   // button needs to stand clear of the ink line, 64px. At 280px the copy's Soon buttons (213px)
   // already push the card's column 2.5px past the sheet's padding, and the band follows the
   // column: that is the buttons' to settle, so there the band's place inside the border is not
-  // held to.
+  // held to. On a screen under 500px tall, as a phone held sideways, stacked (667x375) or not
+  // (844x390), the band, its ink line in, is a third of the screen's height at most (32svh), and
+  // never under 64px.
   const seen: string[] = []
   try {
     for (const banner of Object.keys(BANNERS) as Banner[]) {
       await stage(banner)
-      for (const screen of [{ width: 280, height: 653, phone: true }, ...SCREENS]) {
+      for (const screen of [
+        { width: 280, height: 653, phone: true },
+        ...SCREENS,
+        { width: 667, height: 375, phone: true },
+        { width: 844, height: 390, phone: true },
+      ]) {
         await openFrieren(screen)
         await browser.evaluate(BANNER_SETTLED)
         const band = await browser.evaluate<Record<string, unknown> | null>(`(() => {
@@ -114,7 +121,9 @@ test('the banner band crowns the card in an ink frame, the same size with a bann
           const style = getComputedStyle(band), img = band.querySelector('img')
           const px = (n) => Math.round(n * 10) / 10
           // Phones and tablets up to 820px stack the card: there the band is a 19:4 strip, 64px at least.
-          const height = innerWidth <= 820 ? Math.max(64, box.width * 4 / 19) : Math.min(420, Math.max(200, innerWidth / 4))
+          const wide = innerWidth <= 820 ? Math.max(64, box.width * 4 / 19) : Math.min(420, Math.max(200, innerWidth / 4))
+          // Under 500px tall, a third of the screen at most.
+          const height = innerHeight <= 500 ? Math.min(wide, Math.max(64, innerHeight * 0.32)) : wide
           const shown = img && img.checkVisibility({ visibilityProperty: true, opacityProperty: true })
           const inside = { top: box.top, left: box.left, right: box.right, bottom: box.bottom - parseFloat(style.borderBottomWidth) }
           const fills = img && ['top', 'left', 'right', 'bottom'].every((side) => Math.abs(img.getBoundingClientRect()[side] - inside[side]) < 1)
