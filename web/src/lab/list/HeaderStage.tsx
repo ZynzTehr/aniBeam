@@ -95,6 +95,10 @@ function Compare() {
         {shift.nav}px more, and each change in the count can move them again. The intro’s dock lines
         its buttons up with these links by their measured places.
       </p>
+      <p className="ab-lab-why">
+        The intro’s flight into the header isn’t run here: the links above show only where it lands.
+        PR 3 pairs My List by its address, and its flight is checked on PR 3’s preview.
+      </p>
     </section>
   )
 }
