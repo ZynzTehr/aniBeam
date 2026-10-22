@@ -1124,6 +1124,75 @@ test('the My List line and the card’s status line, with Try again, are there a
   }
 })
 
+// How the open card's My List row and actions sit in its copy's column: each button or link that
+// reaches past the column, and by how much, or whose label wraps onto a second line, taller than
+// the 48px of one; and whether the card scrolls sideways.
+const FITS = `(() => {
+  const card = document.querySelector('dialog.ab-card[open]')
+  const copy = card.querySelector('.ab-sheet-copy'), style = getComputedStyle(copy), box = copy.getBoundingClientRect()
+  const left = box.left + parseFloat(style.paddingLeft), right = box.right - parseFloat(style.paddingRight)
+  const past = [], wrapped = []
+  for (const part of card.querySelectorAll('.ab-mylist button, .ab-row-actions > *')) {
+    const r = part.getBoundingClientRect(), over = Math.max(left - r.left, r.right - right)
+    if (over > 0.5) past.push(part.textContent.trim() + ' by ' + Math.round(over * 10) / 10 + 'px')
+    if (r.height > 50) wrapped.push(part.textContent.trim() + ', ' + Math.round(r.height) + 'px tall')
+  }
+  return { past, wrapped, sideways: card.scrollWidth > card.clientWidth }
+})()`
+
+// What hides any of the focused part or its focus ring: its ring (4px, 3px out) past the screen's
+// edge, or, 2px in from each of its edges at the edge's middle, something else that a click there
+// would reach, as a neighbour drawn over it would be, its ring hidden under that neighbour too.
+const DRAWN_WHOLE = `(() => {
+  const part = document.activeElement, r = part.getBoundingClientRect(), ring = 7
+  const x = (r.left + r.right) / 2, y = (r.top + r.bottom) / 2
+  const hid = []
+  if (r.left - ring < 0 || r.top - ring < 0 || r.right + ring > innerWidth || r.bottom + ring > innerHeight)
+    hid.push('its ring off the screen')
+  const edges = { left: [r.left + 2, y], right: [r.right - 2, y], top: [x, r.top + 2], bottom: [x, r.bottom - 2] }
+  for (const [edge, [px, py]] of Object.entries(edges)) {
+    const hit = document.elementFromPoint(px, py)
+    if (!part.contains(hit)) hid.push('its ' + edge + ' edge under ' + (hit?.textContent.trim() || hit?.className || hit?.tagName))
+  }
+  return hid
+})()`
+
+// Every part of the open card's sheet by its box on the screen, to tell whether a press moved one.
+const PLACES = `[...document.querySelectorAll('dialog.ab-card[open] .ab-sheet *')].map((part) => { const r = part.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map((n) => Math.round(n * 10) / 10).join(' ') })`
+
+test('from 280 to 1440px the My List row and the actions stay in the card’s column, each My List button shows whole with its ring, and a press moves nothing', async () => {
+  // The plan's PR 1, commit 7. At 280px, a phone zoomed to 125% or more, the pair, Favorite and
+  // the actions each fit the copy's column, each label on one line, and the card scrolls nowhere
+  // sideways; so at 390px, 834px and 1440px. Save and Want to try share one border, so whichever
+  // is focused, or pressed, is drawn over the other: its edges are its own, and so is its focus
+  // ring beyond them, which stays on the screen. A press changes a button's fill and nothing
+  // else, its label never changing, so no part of the card moves.
+  const seen: Record<string, unknown> = {}
+  const frames = `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))`
+  for (const screen of [{ width: 280, height: 653, phone: true }, ...SCREENS]) {
+    await openFrieren(screen)
+    const fits = await browser.evaluate(FITS)
+    const hidden: string[] = []
+    const moved: string[] = []
+    await browser.evaluate(`document.querySelector('dialog.ab-card[open] .ab-close').focus(); true`)
+    for (const label of ['Save', 'Want to try', 'Favorite']) {
+      await browser.press('Tab')
+      await browser.evaluate(frames)
+      for (const hid of await browser.evaluate<string[]>(DRAWN_WHOLE))
+        hidden.push(`${label}, focused: ${hid}`)
+      const before = await browser.evaluate<string[]>(PLACES)
+      await browser.press('Enter')
+      await browser.evaluate(frames)
+      for (const hid of await browser.evaluate<string[]>(DRAWN_WHOLE))
+        hidden.push(`${label}, pressed: ${hid}`)
+      if ((await browser.evaluate<string[]>(PLACES)).join() !== before.join()) moved.push(label)
+    }
+    seen[`${screen.width}px`] = { fits, hidden, moved }
+  }
+  const whole = { fits: { past: [], wrapped: [], sideways: false }, hidden: [], moved: [] }
+  assert.deepEqual(seen, { '280px': whole, '390px': whole, '834px': whole, '1440px': whole })
+})
+
 /**
  * Every color the open card's details paint, each with what it stands on, in words: a part's text
  * on its background, and its border on what lies around it, with their contrast; and whether each
