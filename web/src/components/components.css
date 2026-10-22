@@ -1737,10 +1737,99 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   color: #fff;
 }
 
-/* The Save to My List button, which comes back with My List in Phase 4. Nothing uses it yet. */
+/* A pressed My List button (see ListControls): filled in brand hot, with a white line inside its
+   border, so it shows it is pressed by more than its color. */
 .ab-btn-hot {
   background: var(--hot-deep);
+  box-shadow:
+    inset 0 0 0 2px #fff,
+    3px 3px 0 var(--ink);
   color: #fff;
+}
+
+.ab-btn-hot:hover {
+  box-shadow:
+    inset 0 0 0 2px #fff,
+    6px 6px 0 var(--ink);
+}
+
+/* The title card's My List row, above its actions: its name, in the look of the facts' labels,
+   over Save and Want to try, joined as a pair, and Favorite. */
+.ab-mylist {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.ab-mylist ~ .ab-row-actions {
+  margin-top: 14px;
+}
+
+/* Below the row, the card's actions can stand at the screen's foot as it opens, as on a laptop:
+   Tab brings each into view 8px in from the edge, so its focus ring, 7px beyond it, shows whole,
+   as .ab-more's does. */
+.ab-card .ab-btn {
+  scroll-margin: 8px;
+}
+
+.ab-mylist-name {
+  flex-basis: 100%;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* The pair shares one border between its buttons. The pressed one, or the focused one, is drawn
+   over the other, so its shadow and its focus ring show whole. */
+.ab-pair {
+  display: inline-flex;
+}
+
+.ab-pair .ab-btn:first-child {
+  border-radius: 999px 0 0 999px;
+}
+
+.ab-pair .ab-btn:last-child {
+  margin-left: -3px;
+  border-radius: 0 999px 999px 0;
+}
+
+.ab-pair .ab-btn:focus-visible,
+.ab-pair .ab-btn-hot {
+  position: relative;
+  z-index: 1;
+}
+
+.ab-heart {
+  gap: 8px;
+}
+
+.ab-heart svg {
+  width: 18px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.6;
+  stroke-linejoin: round;
+}
+
+.ab-heart[aria-pressed='true'] svg {
+  fill: currentColor;
+}
+
+/* A contrast theme paints every button alike, so a pressed one takes its colors for selected
+   things, as an open one does (see .ab-more). */
+@media (forced-colors: active) {
+  .ab-mylist [aria-pressed='true'] {
+    border-color: ButtonText;
+    background: SelectedItem;
+    box-shadow: inset 0 0 0 2px ButtonText;
+    color: SelectedItemText;
+    forced-color-adjust: none;
+  }
 }
 
 /* ---------- Title card (opens over the page) ---------- */
@@ -2478,8 +2567,13 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     width: min(64vw, 240px);
   }
 
-  .ab-row-actions {
+  .ab-row-actions,
+  .ab-mylist {
     justify-content: center;
+  }
+
+  .ab-mylist-name {
+    text-align: center;
   }
 
   .ab-drop {
@@ -2622,6 +2716,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 
     .ab-card[open] .ab-genres,
     .ab-card[open] .ab-facts,
+    .ab-card[open] .ab-mylist,
     .ab-card[open] .ab-row-actions,
     .ab-card[open] .ab-details,
     .ab-card[open] .ab-card-status.is-shown {
@@ -2670,6 +2765,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 
     .ab-card[open].is-leaving .ab-genres,
     .ab-card[open].is-leaving .ab-facts,
+    .ab-card[open].is-leaving .ab-mylist,
     .ab-card[open].is-leaving .ab-row-actions,
     .ab-card[open].is-leaving .ab-details,
     .ab-card[open].is-leaving .ab-card-status.is-shown {

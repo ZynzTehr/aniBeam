@@ -95,12 +95,12 @@ test('the banner band crowns the card in an ink frame, the same size with a bann
   // looks the same either way and nothing moves as a banner loads or fails; a failed one hides,
   // rather than show Chrome's broken-image icon.
   // A phone zoomed past 125% is under 320px wide: there the strip keeps the height the close
-  // button needs to stand clear of the ink line, 64px. At 280px the copy's Soon buttons (213px)
-  // already push the card's column 2.5px past the sheet's padding, and the band follows the
-  // column: that is the buttons' to settle, so there the band's place inside the border is not
-  // held to. On a screen under 500px tall, as a phone held sideways, stacked (667x375) or not
-  // (844x390), the band, its ink line in, is a third of the screen's height at most (32svh), and
-  // never under 64px.
+  // button needs to stand clear of the ink line, 64px, and the band keeps its place inside the
+  // border there too: no button in the copy is wider than its column, as "Save to My List Soon"
+  // (213px) was, pushing the column, and the band with it, 2.5px past the sheet's padding. On a
+  // screen under 500px tall, as a phone held sideways, stacked (667x375) or not (844x390), the
+  // band, its ink line in, is a third of the screen's height at most (32svh), and never under
+  // 64px.
   const seen: string[] = []
   try {
     for (const banner of Object.keys(BANNERS) as Banner[]) {
@@ -148,8 +148,6 @@ test('the banner band crowns the card in an ink frame, the same size with a bann
           'the cover': 'below it',
           'the close button': 'clear of the ink line',
         }
-        if (band && screen.width < 320)
-          band['inside the sheet border'] = expected['inside the sheet border']
         if (JSON.stringify(band) !== JSON.stringify(expected))
           seen.push(`${screen.width}px, ${banner}: ${JSON.stringify(band)}`)
       }
@@ -901,11 +899,15 @@ test('the clamp is as tall in a fallback font as in the page’s own, and Read m
 
 test('Tab reaches the details’ buttons after the card’s own, each showing its focus, and Shift+Tab goes back', async () => {
   // Every interactive part is reachable by Tab, with visible focus (the acceptance checks). The
-  // card's stops, from its close button: Open on AniList (the Soon buttons are disabled), Watch
-  // trailer (Frieren has one), then the details' buttons in reading order, Read more and Show
-  // spoiler tags, each with the card's focus ring, 4px in brand hot.
+  // card's stops, from its close button: the My List row's Save, Want to try and Favorite, Open on
+  // AniList (the Soon button is disabled), Watch trailer (Frieren has one), then the details'
+  // buttons in reading order, Read more and Show spoiler tags, each with the card's focus ring,
+  // 4px in brand hot.
   const STOPS = [
     'Close title card',
+    'Save',
+    'Want to try',
+    'Favorite',
     'Open on AniList',
     'Watch trailer',
     'Read more',
@@ -938,6 +940,188 @@ test('Tab reaches the details’ buttons after the card’s own, each showing it
       seen.push(`${screen.width}px, Shift+Tab: ${backward.join(' → ')}`)
   }
   assert.deepEqual(seen, [], 'the card’s Tab stops, each with its ring')
+})
+
+// The open card's My List group as words: its role and name, and each button's name, its
+// aria-pressed as written (none if missing) and " hot" where it is filled in brand hot (--hot-deep);
+// and the group's own line, its role, whether it sits inside the card's dialog, and what it says.
+const MY_LIST = `(() => {
+  const card = document.querySelector('dialog.ab-card[open]')
+  const group = card?.querySelector('.ab-sheet [role="group"]')
+  const line = document.getElementById('ab-list-status')
+  return {
+    group: group ? (group.getAttribute('aria-labelledby') ?? '').split(' ').map((id) => document.getElementById(id)?.textContent.trim()).join(' ') : 'none',
+    buttons: group ? [...group.querySelectorAll('button')].map((button) => button.textContent.trim() + ' ' + (button.getAttribute('aria-pressed') ?? 'none') + (getComputedStyle(button).backgroundColor === 'rgb(214, 0, 42)' ? ' hot' : '')) : [],
+    line: line ? { role: line.getAttribute('role'), 'in the card': card.contains(line), says: line.textContent.trim() } : 'none',
+  }
+})()`
+
+// The list as this browser saved it, read back.
+const SAVED_LIST = `JSON.parse(localStorage.getItem('anibeam:list:v1') ?? 'null')`
+
+test('the card’s My List group offers Save, Want to try and Favorite, none pressed for a title not listed, and Save stays pressed after a reload', async () => {
+  // The plan's PR 1, commit 6, as the visitor chose in the mockup (D3, T2): a group of its own
+  // named "My List", each button with an explicit aria-pressed and a label that never changes,
+  // filled in brand hot while pressed. Saving survives a reload (Phase 4's first done-when), and
+  // the saved list holds the title's id, its status, its heart and the time, nothing of the title
+  // itself (spec §5). The group's line, which a screen reader hears, sits inside the dialog, where
+  // the page behind is inert, and is there before anything is pressed.
+  await openFrieren(SCREENS[2])
+  const fresh = await browser.evaluate(MY_LIST)
+  await browser.evaluate(
+    `[...document.querySelectorAll('dialog.ab-card[open] button')].find((button) => button.textContent.trim() === 'Save').click(); true`,
+  )
+  const pressed = await browser.evaluate(MY_LIST)
+  await browser.load({ ...SCREENS[2], reduceMotion: true, url: at('/anime/154587') })
+  assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000), 'no card after the reload')
+  const reloaded = await browser.evaluate(MY_LIST)
+  const saved = await browser.evaluate<Record<string, Record<string, unknown>> | null>(SAVED_LIST)
+  const entry = saved?.['154587']
+  assert.deepEqual(
+    {
+      fresh,
+      pressed,
+      reloaded,
+      saved: saved && Object.keys(saved),
+      entry: entry && {
+        fields: Object.keys(entry).sort(),
+        status: entry.status,
+        favorite: entry.favorite,
+        time: Math.abs(Date.now() - Number(entry.updatedAt)) < 60_000 ? 'now' : entry.updatedAt,
+      },
+    },
+    {
+      fresh: {
+        group: 'My List',
+        buttons: ['Save false', 'Want to try false', 'Favorite false'],
+        line: { role: 'status', 'in the card': true, says: '' },
+      },
+      pressed: {
+        group: 'My List',
+        buttons: ['Save true hot', 'Want to try false', 'Favorite false'],
+        line: { role: 'status', 'in the card': true, says: '' },
+      },
+      reloaded: {
+        group: 'My List',
+        buttons: ['Save true hot', 'Want to try false', 'Favorite false'],
+        line: { role: 'status', 'in the card': true, says: '' },
+      },
+      saved: ['154587'],
+      entry: {
+        fields: ['favorite', 'status', 'updatedAt'],
+        status: 'SAVED',
+        favorite: false,
+        time: 'now',
+      },
+    },
+  )
+})
+
+test('Space and Enter press each My List button, Want to try moves a saved title and the line says so, and the heart saves a title not listed', async () => {
+  // D1: one status per title, Save and Want to try as a pair: the other one moves the title, the
+  // pressed one removes it. D2 (a): the heart on a title not listed puts it on as Saved, with the
+  // heart, and removing the title takes the heart too. The line speaks for a move and a removal
+  // only, never for a plain press, which the button's own state says.
+  await openFrieren(SCREENS[0])
+  const steps: string[] = []
+  const note = async (did: string) => {
+    const { buttons, line } = await browser.evaluate<{
+      buttons: string[]
+      line: { says: string }
+    }>(MY_LIST)
+    steps.push(`${did}: ${buttons.join(', ')}${line.says ? ` | ${line.says}` : ''}`)
+  }
+  const focus = (label: string) =>
+    browser.evaluate(
+      `[...document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].find((button) => button.textContent.trim() === ${JSON.stringify(label)}).focus(); true`,
+    )
+  for (const label of ['Save', 'Want to try', 'Favorite']) {
+    await focus(label)
+    await browser.press('Space')
+    await note(`Space on ${label}`)
+    await browser.press('Enter')
+    await note(`Enter on ${label}`)
+  }
+  for (const label of ['Want to try', 'Save', 'Favorite', 'Save']) {
+    await focus(label)
+    await browser.press('Enter')
+    await note(`Enter on ${label}`)
+  }
+  assert.deepEqual(steps, [
+    'Space on Save: Save true hot, Want to try false, Favorite false',
+    'Enter on Save: Save false, Want to try false, Favorite false | Removed from My List',
+    'Space on Want to try: Save false, Want to try true hot, Favorite false',
+    'Enter on Want to try: Save false, Want to try false, Favorite false | Removed from My List',
+    'Space on Favorite: Save true hot, Want to try false, Favorite true hot',
+    'Enter on Favorite: Save true hot, Want to try false, Favorite false',
+    'Enter on Want to try: Save false, Want to try true hot, Favorite false | Moved to Want to try',
+    'Enter on Save: Save true hot, Want to try false, Favorite false | Moved to Saved',
+    'Enter on Favorite: Save true hot, Want to try false, Favorite true hot',
+    'Enter on Save: Save false, Want to try false, Favorite false | Removed from My List',
+  ])
+})
+
+test('the My List line and the card’s status line, with Try again, are there at once, each saying its own', async () => {
+  // The card's own status line (#ab-card-status) says why AniList holds up a newer answer, with
+  // Try again; the My List line is a second one, so a press says its piece while the first keeps
+  // saying its own. Frieren's answer is saved as an airing title's, aged past its 6 hours, and
+  // AniList then answers 400, which the app doesn't try again, so Try again shows at once.
+  await browser.forget()
+  await browser.rewriteAniList(({ request, status, body }) => {
+    if (request.variables.id !== 154587) return null
+    body.data.Media.status = 'RELEASING'
+    return { status, body }
+  })
+  try {
+    await browser.load({ ...SCREENS[2], reduceMotion: true, url: at('/anime/154587') })
+    assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000), 'no card')
+    // The cache is saved at most once a second.
+    await sleep(1500)
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+  assert.ok(
+    await browser.evaluate<boolean>(`(() => {
+      const copy = JSON.parse(localStorage.getItem('anibeam:cache') ?? 'null')
+      const title = copy?.clientState.queries.find((query) => query.queryKey[2]?.id === 154587)
+      if (!title) return false
+      title.state.dataUpdatedAt -= 7 * 60 * 60_000
+      localStorage.setItem('anibeam:cache', JSON.stringify(copy))
+      return true
+    })()`),
+    "Frieren's answer was never saved",
+  )
+  await browser.rewriteAniList(({ request }) =>
+    request.variables.id === 154587
+      ? { status: 400, body: { data: null, errors: [{ message: 'Bad Request.', status: 400 }] } }
+      : null,
+  )
+  try {
+    await browser.load({ ...SCREENS[2], reduceMotion: true, url: at('/anime/154587') })
+    assert.ok(
+      await browser.waitFor(`${STATUS}?.buttons.includes('Try again')`, 10_000),
+      'no Try again in the card’s status line',
+    )
+    for (const label of ['Save', 'Want to try'])
+      await browser.evaluate(
+        `[...document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].find((button) => button.textContent.trim() === ${JSON.stringify(label)}).click(); true`,
+      )
+    const lines = await browser.evaluate(`(() => {
+      const card = document.querySelector('dialog.ab-card[open]')
+      return [...card.querySelectorAll('[role="status"]')].map((line) => (line.id || 'unnamed') + ': ' + (line.textContent.trim() ? 'says something' : 'empty'))
+    })()`)
+    const list = await browser.evaluate<{ line: { says: string } }>(MY_LIST)
+    assert.deepEqual(
+      { lines, list: list.line.says, status: (await browser.evaluate(STATUS)) !== null },
+      {
+        lines: ['ab-list-status: says something', 'ab-card-status: says something'],
+        list: 'Moved to Want to try',
+        status: true,
+      },
+    )
+  } finally {
+    await browser.rewriteAniList(null)
+  }
 })
 
 /**
@@ -1475,7 +1659,15 @@ test('a card opened at its address keeps its title while AniList answers 429, sa
       // Each of the card's Tab stops scrolls clear of the line, whole and in reach of a click.
       assert.deepEqual(
         await tabStops(),
-        ['Open on AniList', 'Watch trailer', 'Read more', 'Show spoiler tags'],
+        [
+          'Save',
+          'Want to try',
+          'Favorite',
+          'Open on AniList',
+          'Watch trailer',
+          'Read more',
+          'Show spoiler tags',
+        ],
         `${where}: Tab through the card while the app tries again`,
       )
       assert.ok(
@@ -1490,7 +1682,16 @@ test('a card opened at its address keeps its title while AniList answers 429, sa
       assert.equal(asked.length, 4, `${where}: Frieren asked for, then tried 3 times more`)
       assert.deepEqual(
         await tabStops(),
-        ['Open on AniList', 'Watch trailer', 'Read more', 'Show spoiler tags', 'Try again'],
+        [
+          'Save',
+          'Want to try',
+          'Favorite',
+          'Open on AniList',
+          'Watch trailer',
+          'Read more',
+          'Show spoiler tags',
+          'Try again',
+        ],
         `${where}: Tab through the card once the tries ended`,
       )
       assert.match(

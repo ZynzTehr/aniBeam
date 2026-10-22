@@ -457,7 +457,7 @@ test('Tab walks every stop of the page in order and Shift+Tab walks them back, e
 
 test("Tab walks a title's card round from its Close and Shift+Tab walks it back, through its trailer's dialog and out, each stop whole on the screen with its focus showing", async () => {
   // Frieren at its address (/anime/154587), whose card has a trailer, a synopsis over five lines
-  // and spoiler tags, so every button the card can have: on a desktop with motion, once the card
+  // and spoiler tags, so every button the card can have, its My List row's three first: on a desktop with motion, once the card
   // has landed, and on a phone with reduced motion. Each stop is read as the page walk reads one,
   // forward with WCAG's measure for a focus indicator too. Past its last control Chrome takes focus
   // to its own (the browser), then to the card itself, which scrolls, and on to Close. Read more,
@@ -610,6 +610,9 @@ test("Tab walks a title's card round from its Close and Shift+Tab walks it back,
   const expected = {
     first: 'Close title card',
     round: [
+      'Save',
+      'Want to try',
+      'Favorite',
       'Open on AniList',
       'Watch trailer',
       'Read more',
@@ -623,6 +626,9 @@ test("Tab walks a title's card round from its Close and Shift+Tab walks it back,
     trailer: ['Close', 'Open on YouTube', 'Close'],
     out: 'Watch trailer',
     failing: [
+      'Save',
+      'Want to try',
+      'Favorite',
       'Open on AniList',
       'Watch trailer',
       'Read more',
@@ -756,7 +762,8 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
   // this), then back to the card. Taller than the screen, the card is a stop of its own. How many
   // stops a round has depends on the pulled title (Watch trailer, Read more and Show spoiler tags
   // show only for a trailer, a synopsis over five lines and spoiler tags), so Tab goes on until
-  // focus is back on Close, ten presses at most.
+  // focus is back on Close, 13 presses at most: Save, Want to try, Favorite, Open on AniList, those
+  // three, Chrome's own, the card and Close.
   const opener = await focus()
   await browser.press('Space')
   if (!(await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 5_000))) {
@@ -765,7 +772,7 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
   }
   const first = await focus()
   const round: string[] = []
-  for (let stop = 0; stop < 10 && round.at(-1) !== 'Close title card'; stop++) {
+  for (let stop = 0; stop < 13 && round.at(-1) !== 'Close title card'; stop++) {
     await browser.press('Tab')
     const where = await browser.evaluate<string>(`(() => {
       const focused = document.activeElement
@@ -780,7 +787,7 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
   journey.card = { first, round: goesRound ? 'round the card' : round }
 
   // Space on Close closes the card, with focus back on what opened it.
-  for (let stop = 0; stop < 10 && (await focus()) !== 'Close title card'; stop++)
+  for (let stop = 0; stop < 13 && (await focus()) !== 'Close title card'; stop++)
     await browser.press('Tab')
   await browser.press('Space')
   if (!(await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000))) {

@@ -849,10 +849,7 @@ describe('desktop (1440x900)', () => {
       soon: [...document.querySelectorAll('.ab-card button.ab-soon')].map((b) => b.textContent.replace(/\\s+/g, ' ').trim() + (b.disabled ? ' (disabled)' : '')),
     })`)
     assert.match(card.title, /Frieren/i)
-    assert.deepEqual(card.soon, [
-      'Save to My List Soon (disabled)',
-      'Chat about it Soon (disabled)',
-    ])
+    assert.deepEqual(card.soon, ['Chat about it Soon (disabled)'])
     await browser.press('Escape')
     // With motion allowed, the card plays its opening backwards before it closes.
     await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000)
