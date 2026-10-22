@@ -459,12 +459,13 @@ test("Tab walks a title's card round from its Close and Shift+Tab walks it back,
   // Frieren at its address (/anime/154587), whose card has a trailer, a synopsis over five lines
   // and spoiler tags, so every button the card can have, its My List row's three first: on a
   // desktop with motion, once the card has landed, and on a phone with reduced motion. Each stop
-  // is read as the page walk reads one, forward with WCAG's measure for a focus indicator too. Past its last control Chrome takes focus
-  // to its own (the browser), then to the card itself, which scrolls, and on to Close. Read more,
-  // pressed, opens the synopsis above it, and as Show less it must still show, as must Read more
-  // again. Watch trailer opens the trailer on its Close; Tab goes on to Open on YouTube and back;
-  // Esc closes it, with focus back on Watch trailer. Then, as AniList fails to give the title a
-  // newer answer than the saved one, the walk again, with the status line's Try again in it.
+  // is read as the page walk reads one, forward with WCAG's measure for a focus indicator too.
+  // Past its last control Chrome takes focus to its own (the browser), then to the card itself,
+  // which scrolls, and on to Close. Read more, pressed, opens the synopsis above it, and as Show
+  // less it must still show, as must Read more again. Watch trailer opens the trailer on its
+  // Close; Tab goes on to Open on YouTube and back; Esc closes it, with focus back on Watch
+  // trailer. Then, as AniList fails to give the title a newer answer than the saved one, the walk
+  // again, with the status line's Try again in it.
   const seen: Record<string, unknown> = {}
   const name = async () =>
     (await browser.evaluate<{ name: string } | null>(STOP))?.name ?? 'the browser'
@@ -762,8 +763,8 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
   // this), then back to the card. Taller than the screen, the card is a stop of its own. How many
   // stops a round has depends on the pulled title (Watch trailer, Read more and Show spoiler tags
   // show only for a trailer, a synopsis over five lines and spoiler tags), so Tab goes on until
-  // focus is back on Close, 13 presses at most: Save, Want to try, Favorite, Open on AniList, those
-  // three, Chrome's own, the card and Close.
+  // focus is back on Close, 13 presses at most: up to 10 stops (Save, Want to try, Favorite,
+  // Open on AniList, those three, Chrome's own, the card and Close) and 3 to spare.
   const opener = await focus()
   await browser.press('Space')
   if (!(await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 5_000))) {
