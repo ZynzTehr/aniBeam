@@ -148,7 +148,7 @@ test('every state of each section shows, each as it should', { skip }, async () 
         state.querySelector('.ab-note')?.textContent ?? '',
       ].join(', '),
       lines: (state) => [...state.querySelectorAll('dd')].map((dd) => dd.textContent).join(' | '),
-      controls: () => '',
+      controls: (state) => [...state.querySelectorAll('button, .ab-soon')].map((part) => part.textContent.replace(/\\s+/g, ' ').trim() + (part.hasAttribute('aria-pressed') ? ', pressed ' + part.getAttribute('aria-pressed') : '')).join(' | '),
     }
     return Object.fromEntries(Object.entries(looks).map(([group, look]) => [
       group,
@@ -185,8 +185,17 @@ test('every state of each section shows, each as it should', { skip }, async () 
   )
   assert.deepEqual(shown.lines, lines, 'the status lines')
   assert.deepEqual(
-    shown.controls.map(({ label }) => label),
-    ['Buttons', 'Chips', 'Soon tags', 'Accent swatches'],
+    shown.controls,
+    [
+      { label: 'Buttons', look: 'Try again' },
+      {
+        label: 'My List row',
+        look: 'Save, pressed true | Want to try, pressed false | Favorite, pressed true',
+      },
+      { label: 'Chips', look: '' },
+      { label: 'Soon tags', look: 'My List Soon' },
+      { label: 'Accent swatches', look: '' },
+    ],
     'the controls',
   )
 })

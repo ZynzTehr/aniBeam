@@ -457,9 +457,9 @@ test('Tab walks every stop of the page in order and Shift+Tab walks them back, e
 
 test("Tab walks a title's card round from its Close and Shift+Tab walks it back, through its trailer's dialog and out, each stop whole on the screen with its focus showing", async () => {
   // Frieren at its address (/anime/154587), whose card has a trailer, a synopsis over five lines
-  // and spoiler tags, so every button the card can have, its My List row's three first: on a desktop with motion, once the card
-  // has landed, and on a phone with reduced motion. Each stop is read as the page walk reads one,
-  // forward with WCAG's measure for a focus indicator too. Past its last control Chrome takes focus
+  // and spoiler tags, so every button the card can have, its My List row's three first: on a
+  // desktop with motion, once the card has landed, and on a phone with reduced motion. Each stop
+  // is read as the page walk reads one, forward with WCAG's measure for a focus indicator too. Past its last control Chrome takes focus
   // to its own (the browser), then to the card itself, which scrolls, and on to Close. Read more,
   // pressed, opens the synopsis above it, and as Show less it must still show, as must Read more
   // again. Watch trailer opens the trailer on its Close; Tab goes on to Open on YouTube and back;
