@@ -1142,11 +1142,11 @@ const FITS = `(() => {
   return { row, past, wrapped, sideways: card.scrollWidth > card.clientWidth }
 })()`
 
-// What hides any of the focused part or its focus ring: its ring (4px, 3px out) past the screen's
-// edge, or, 2px in from each of its edges at the edge's middle, something else that a click there
-// would reach, as a neighbour drawn over it would be, its ring hidden under that neighbour too.
-const DRAWN_WHOLE = `(() => {
-  const part = document.activeElement, r = part.getBoundingClientRect(), ring = 7
+// What hides any of the focused part (or `part`) or its focus ring: its ring (4px, 3px out) past
+// the screen's edge, or, 2px in from each of its edges at the edge's middle, something else that a
+// click there would reach, as a neighbour drawn over it would be, its ring hidden under it too.
+const DRAWN_WHOLE = (part = 'document.activeElement') => `(() => {
+  const part = ${part}, r = part.getBoundingClientRect(), ring = 7
   const x = (r.left + r.right) / 2, y = (r.top + r.bottom) / 2
   const hid = []
   if (r.left - ring < 0 || r.top - ring < 0 || r.right + ring > innerWidth || r.bottom + ring > innerHeight)
@@ -1166,8 +1166,8 @@ test('from 280 to 1440px the My List row and the actions stay in the card’s co
   // The plan's PR 1, commit 7. At 280px, a phone zoomed to 125% or more, the pair, Favorite and
   // the actions each fit the copy's column, each label on one line, and the card scrolls nowhere
   // sideways; so at 390px, 834px and 1440px. Save and Want to try share one border, so whichever
-  // is focused, or pressed, is drawn over the other: its edges are its own, and so is its focus
-  // ring beyond them, which stays on the screen. A press changes a button's fill and nothing
+  // is focused, or pressed, is drawn over the other, and a focused one over a pressed one: its
+  // edges are its own, and so is its focus ring beyond them, which stays on the screen. A press changes a button's fill and nothing
   // else, its label never changing, so no part of the card moves. The row has its three buttons,
   // and Tab from the close button reaches Save, Want to try and Favorite in turn.
   const seen: Record<string, unknown> = {}
@@ -1189,15 +1189,32 @@ test('from 280 to 1440px the My List row and the actions stay in the card’s co
         reached.push(`Tab ${n + 1} reached ${stop || 'nothing named'}, not ${label}`)
         continue
       }
-      for (const hid of await browser.evaluate<string[]>(DRAWN_WHOLE))
+      for (const hid of await browser.evaluate<string[]>(DRAWN_WHOLE()))
         hidden.push(`${label}, focused: ${hid}`)
       const before = await browser.evaluate<string[]>(PLACES)
       await browser.press('Enter')
       await browser.evaluate(frames)
-      for (const hid of await browser.evaluate<string[]>(DRAWN_WHOLE))
+      for (const hid of await browser.evaluate<string[]>(DRAWN_WHOLE()))
         hidden.push(`${label}, pressed: ${hid}`)
       if ((await browser.evaluate<string[]>(PLACES)).join() !== before.join()) moved.push(label)
     }
+    // Want to try is pressed now. Shift+Tab back to Save: focused, it is drawn over the pressed
+    // one. Pressed in turn, then left with neither focus nor a pointer on it, it is still drawn
+    // over Want to try, which comes after it.
+    await browser.press('Tab', true)
+    await browser.press('Tab', true)
+    await browser.evaluate(frames)
+    const stop = await browser.evaluate<string>(`document.activeElement.textContent.trim()`)
+    if (stop === 'Save') {
+      for (const hid of await browser.evaluate<string[]>(DRAWN_WHOLE()))
+        hidden.push(`Save, focused, Want to try pressed: ${hid}`)
+      await browser.press('Enter')
+      await browser.evaluate(`document.activeElement.blur(); true`)
+      await browser.evaluate(frames)
+      const save = `[...document.querySelectorAll('dialog.ab-card[open] .ab-mylist button')].find((button) => button.textContent.trim() === 'Save')`
+      for (const hid of await browser.evaluate<string[]>(DRAWN_WHOLE(save)))
+        hidden.push(`Save, pressed, not focused: ${hid}`)
+    } else reached.push(`Shift+Tab twice reached ${stop || 'nothing named'}, not Save`)
     seen[`${screen.width}px`] = { fits, reached, hidden, moved }
   }
   const whole = {
@@ -1209,14 +1226,24 @@ test('from 280 to 1440px the My List row and the actions stay in the card’s co
   assert.deepEqual(seen, { '280px': whole, '390px': whole, '834px': whole, '1440px': whole })
 })
 
-test('hovered, Save is drawn over Want to try, its deeper shadow whole, with motion allowed or not', async () => {
+// The My List buttons in the open card of the tab `tab` (window, or another tab's window this one
+// opened), each with its aria-pressed, or 'no card' while it has none open.
+const PRESSED_IN = (tab: string) => `(() => {
+  const group = ${tab}?.document.querySelector('dialog.ab-card[open] [role="group"]')
+  return group ? [...group.querySelectorAll('button')].map((button) => button.textContent.trim() + ' ' + button.getAttribute('aria-pressed')).join(', ') : 'no card'
+})()`
+// Clicks the My List button labelled `label` in the open card of the tab `tab`.
+const PRESS_IN = (tab: string, label: string) =>
+  `[...${tab}.document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].find((button) => button.textContent.trim() === ${JSON.stringify(label)}).click(), true`
+
+test('hovered, Save is drawn over Want to try, pressed or not, its deeper shadow whole, with motion allowed or not', async () => {
   // Save and Want to try share one border (see the check above), and Want to try, after Save, is
   // drawn over it. Hovered, Save takes a deeper shadow, 6px right and down, as every button does.
   // With motion allowed it also lifts 3px, and a moved part is drawn over its neighbours; with
   // reduced motion it doesn't, and the shadow's right strip went under Want to try, unseen. So
-  // hovered it is drawn over, as it is focused or pressed, either way: 4px right of its edge, in
-  // its shadow, the screen shows ink, not Want to try's white. Read from a screenshot of that one
-  // pixel, at 1440px, where a pointer hovers.
+  // hovered it is drawn over, as it is focused or pressed, either way, and over Want to try
+  // pressed too: 4px right of its edge, in its shadow, the screen shows ink, not Want to try's
+  // white or red. Read from a screenshot of that one pixel, at 1440px, where a pointer hovers.
   const seen: Record<string, string> = {}
   const SAVE = `[...document.querySelectorAll('dialog.ab-card[open] .ab-mylist button')].find((button) => button.textContent.trim() === 'Save').getBoundingClientRect()`
   for (const reduceMotion of [false, true]) {
@@ -1232,33 +1259,35 @@ test('hovered, Save is drawn over Want to try, its deeper shadow whole, with mot
     )
     await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...middle })
     await browser.animationsDone()
-    const clip = await browser.evaluate<{ x: number; y: number; width: number; height: number }>(
-      `(() => { const r = ${SAVE}; return { x: Math.round(r.right + 4 + scrollX), y: Math.round((r.top + r.bottom) / 2 + scrollY), width: 1, height: 1 } })()`,
-    )
-    const png = await browser.screenshot(clip)
-    seen[reduceMotion ? 'reduced motion' : 'motion'] =
-      await browser.evaluate<string>(`(async () => {
-      const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
-      const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
-      const context = new OffscreenCanvas(1, 1).getContext('2d')
-      context.drawImage(image, 0, 0)
-      const [r, g, b] = context.getImageData(0, 0, 1, 1).data
-      return r + g + b < 120 ? 'ink' : 'rgb(' + [r, g, b].join(', ') + ')'
-    })()`)
+    for (const wantPressed of [false, true]) {
+      if (wantPressed) {
+        await browser.evaluate(PRESS_IN('window', 'Want to try'))
+        await browser.animationsDone()
+      }
+      const clip = await browser.evaluate<{ x: number; y: number; width: number; height: number }>(
+        `(() => { const r = ${SAVE}; return { x: Math.round(r.right + 4 + scrollX), y: Math.round((r.top + r.bottom) / 2 + scrollY), width: 1, height: 1 } })()`,
+      )
+      const png = await browser.screenshot(clip)
+      seen[
+        `${reduceMotion ? 'reduced motion' : 'motion'}${wantPressed ? ', Want to try pressed' : ''}`
+      ] = await browser.evaluate<string>(`(async () => {
+        const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+        const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+        const context = new OffscreenCanvas(1, 1).getContext('2d')
+        context.drawImage(image, 0, 0)
+        const [r, g, b] = context.getImageData(0, 0, 1, 1).data
+        return r + g + b < 120 ? 'ink' : 'rgb(' + [r, g, b].join(', ') + ')'
+      })()`)
+    }
     await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
   }
-  assert.deepEqual(seen, { motion: 'ink', 'reduced motion': 'ink' })
+  assert.deepEqual(seen, {
+    motion: 'ink',
+    'motion, Want to try pressed': 'ink',
+    'reduced motion': 'ink',
+    'reduced motion, Want to try pressed': 'ink',
+  })
 })
-
-// The My List buttons in the open card of the tab `tab` (window, or another tab's window this one
-// opened), each with its aria-pressed, or 'no card' while it has none open.
-const PRESSED_IN = (tab: string) => `(() => {
-  const group = ${tab}?.document.querySelector('dialog.ab-card[open] [role="group"]')
-  return group ? [...group.querySelectorAll('button')].map((button) => button.textContent.trim() + ' ' + button.getAttribute('aria-pressed')).join(', ') : 'no card'
-})()`
-// Clicks the My List button labelled `label` in the open card of the tab `tab`.
-const PRESS_IN = (tab: string, label: string) =>
-  `[...${tab}.document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].find((button) => button.textContent.trim() === ${JSON.stringify(label)}).click(), true`
 
 test('a press in one tab shows in another tab’s card for the same title, with no reload, and says nothing there', async () => {
   // The plan's PR 1, commit 8: two tabs of one browser, both on Frieren's address. The list store
