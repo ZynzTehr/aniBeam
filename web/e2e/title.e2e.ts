@@ -1355,11 +1355,12 @@ test('a press in one tab shows in another tab’s card for the same title, with 
   }
 })
 
-test('in a contrast theme, a pressed My List button takes the theme’s colors for a selected thing, and one not pressed doesn’t', async () => {
+test('in a contrast theme, a pressed My List button takes the theme’s colors for a selected thing and a ring inside, and one not pressed doesn’t', async () => {
   // A contrast theme paints every button alike, so the brand hot fill of a pressed one would go:
   // a pressed one takes the theme's colors for something selected, as an open Read more does, in
-  // a light palette and a dark one. Saved with the heart, Save and Favorite are pressed, Want to
-  // try isn't.
+  // a light palette and a dark one, with a ring inside its border in the theme's text color (a
+  // theme drops every shadow it paints itself, so a pressed one keeps its own). Saved with the
+  // heart, Save and Favorite are pressed, Want to try isn't.
   const seen: string[] = []
   await openFrieren(SCREENS[2])
   for (const label of ['Save', 'Favorite']) await browser.evaluate(PRESS_IN('window', label))
@@ -1378,12 +1379,12 @@ test('in a contrast theme, a pressed My List button takes the theme’s colors f
         const selected = getComputedStyle(probe).backgroundColor
         probe.remove()
         return [...document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].map((button) =>
-          button.textContent.trim() + ' ' + button.getAttribute('aria-pressed') + ': ' + (getComputedStyle(button).backgroundColor === selected ? 'selected' : 'not selected'))
+          button.textContent.trim() + ' ' + button.getAttribute('aria-pressed') + ': ' + (getComputedStyle(button).backgroundColor === selected ? 'selected' : 'not selected') + (getComputedStyle(button).boxShadow !== 'none' ? ', ringed' : ''))
       })()`)
       const expected = [
-        'Save true: selected',
+        'Save true: selected, ringed',
         'Want to try false: not selected',
-        'Favorite true: selected',
+        'Favorite true: selected, ringed',
       ]
       if (JSON.stringify(buttons) !== JSON.stringify(expected))
         seen.push(`${scheme}: ${buttons.join(', ')}`)
