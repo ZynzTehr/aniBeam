@@ -370,7 +370,7 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // and Favorite with their line for a screen reader, which empties once another tab changes what
 // the buttons show: 89,274 B; their row, its pair and its pressed look, in a contrast theme too,
 // and the pair's hovered or focused button drawn over a pressed one, took the CSS past 11,500 B,
-// to 11,668 B (the 11,647 B first written here was 18 B short), so the CSS's budget is now
+// to 11,668 B (the 11,647 B first written here was 21 B short), so the CSS's budget is now
 // 12,000 B; the user agreed to the raises My List needs), so its budget is 89,500 B. The JS
 // loaded only when needed rose to 14,028 B when the samples began to carry each title's
 // synopsis, running time and the tags its card shows, as the lists' titles do, so that a sample's

@@ -943,8 +943,9 @@ test('Tab reaches the details’ buttons after the card’s own, each showing it
 })
 
 // The open card's My List group as words: its role and name, and each button's name, its
-// aria-pressed as written (none if missing) and " hot" where it is filled in brand hot (--hot-deep);
-// and the group's own line, its role, whether it sits inside the card's dialog, and what it says.
+// aria-pressed as written (none if missing) and " hot" where it is filled in brand hot
+// (--hot-deep); and the group's own line, its role, whether it sits inside the card's dialog, and
+// what it says.
 const MY_LIST = `(() => {
   const card = document.querySelector('dialog.ab-card[open]')
   const group = card?.querySelector('.ab-sheet [role="group"]')
@@ -1167,8 +1168,9 @@ test('from 280 to 1440px the My List row and the actions stay in the card’s co
   // the actions each fit the copy's column, each label on one line, and the card scrolls nowhere
   // sideways; so at 390px, 834px and 1440px. Save and Want to try share one border, so whichever
   // is focused, or pressed, is drawn over the other, and a focused one over a pressed one: its
-  // edges are its own, and so is its focus ring beyond them, which stays on the screen. A press changes a button's fill and nothing
-  // else, its label never changing, so no part of the card moves. The row has its three buttons,
+  // edges are its own, and so is its focus ring beyond them, which stays on the screen. A press
+  // changes a button's fill and nothing else, its label never changing, so no part of the card
+  // moves. The row has its three buttons,
   // and Tab from the close button reaches Save, Want to try and Favorite in turn.
   const seen: Record<string, unknown> = {}
   const frames = `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))`
@@ -1294,9 +1296,9 @@ test('a press in one tab shows in another tab’s card for the same title, with 
   // hears the other tab's write (a storage event) and the open card's buttons follow it at once,
   // either way. The tab that didn't press says nothing of it: its line speaks for its own presses
   // only, and one that spoke of an earlier press (the second tab's "Moved to Want to try") empties,
-  // so it never sits beside buttons that now show something else. The second tab is opened from the first once Frieren's answer is saved, so it opens
-  // from the saved copy and asks AniList for nothing (this browser answers only the first tab's
-  // requests).
+  // so it never sits beside buttons that now show something else. The second tab is opened from
+  // the first once Frieren's answer is saved, so it opens from the saved copy and asks AniList for
+  // nothing (this browser answers only the first tab's requests).
   await openFrieren(SCREENS[2])
   assert.ok(
     await browser.waitFor(
