@@ -1124,9 +1124,10 @@ test('the My List line and the card’s status line, with Try again, are there a
   }
 })
 
-// How the open card's My List row and actions sit in its copy's column: each button or link that
-// reaches past the column, and by how much, or whose label wraps onto a second line, taller than
-// the 48px of one; and whether the card scrolls sideways.
+// How the open card's My List row and actions sit in its copy's column: how many buttons the row
+// has, so a card with no row can't pass; each button or link that reaches past the column, and by
+// how much, or whose label wraps onto a second line, taller than the 48px of one; and whether the
+// card scrolls sideways.
 const FITS = `(() => {
   const card = document.querySelector('dialog.ab-card[open]')
   const copy = card.querySelector('.ab-sheet-copy'), style = getComputedStyle(copy), box = copy.getBoundingClientRect()
@@ -1137,7 +1138,8 @@ const FITS = `(() => {
     if (over > 0.5) past.push(part.textContent.trim() + ' by ' + Math.round(over * 10) / 10 + 'px')
     if (r.height > 50) wrapped.push(part.textContent.trim() + ', ' + Math.round(r.height) + 'px tall')
   }
-  return { past, wrapped, sideways: card.scrollWidth > card.clientWidth }
+  const row = card.querySelectorAll('.ab-mylist button').length
+  return { row, past, wrapped, sideways: card.scrollWidth > card.clientWidth }
 })()`
 
 // What hides any of the focused part or its focus ring: its ring (4px, 3px out) past the screen's
@@ -1166,7 +1168,8 @@ test('from 280 to 1440px the My List row and the actions stay in the card’s co
   // sideways; so at 390px, 834px and 1440px. Save and Want to try share one border, so whichever
   // is focused, or pressed, is drawn over the other: its edges are its own, and so is its focus
   // ring beyond them, which stays on the screen. A press changes a button's fill and nothing
-  // else, its label never changing, so no part of the card moves.
+  // else, its label never changing, so no part of the card moves. The row has its three buttons,
+  // and Tab from the close button reaches Save, Want to try and Favorite in turn.
   const seen: Record<string, unknown> = {}
   const frames = `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))`
   for (const screen of [{ width: 280, height: 653, phone: true }, ...SCREENS]) {
@@ -1174,10 +1177,18 @@ test('from 280 to 1440px the My List row and the actions stay in the card’s co
     const fits = await browser.evaluate(FITS)
     const hidden: string[] = []
     const moved: string[] = []
+    const reached: string[] = []
     await browser.evaluate(`document.querySelector('dialog.ab-card[open] .ab-close').focus(); true`)
-    for (const label of ['Save', 'Want to try', 'Favorite']) {
+    for (const [n, label] of ['Save', 'Want to try', 'Favorite'].entries()) {
       await browser.press('Tab')
       await browser.evaluate(frames)
+      // Tab lands on the button it names, or nothing here is pressed: the next stop could be a
+      // link out of the site, and what it showed would be reported under a My List label.
+      const stop = await browser.evaluate<string>(`document.activeElement.textContent.trim()`)
+      if (stop !== label) {
+        reached.push(`Tab ${n + 1} reached ${stop || 'nothing named'}, not ${label}`)
+        continue
+      }
       for (const hid of await browser.evaluate<string[]>(DRAWN_WHOLE))
         hidden.push(`${label}, focused: ${hid}`)
       const before = await browser.evaluate<string[]>(PLACES)
@@ -1187,9 +1198,14 @@ test('from 280 to 1440px the My List row and the actions stay in the card’s co
         hidden.push(`${label}, pressed: ${hid}`)
       if ((await browser.evaluate<string[]>(PLACES)).join() !== before.join()) moved.push(label)
     }
-    seen[`${screen.width}px`] = { fits, hidden, moved }
+    seen[`${screen.width}px`] = { fits, reached, hidden, moved }
   }
-  const whole = { fits: { past: [], wrapped: [], sideways: false }, hidden: [], moved: [] }
+  const whole = {
+    fits: { row: 3, past: [], wrapped: [], sideways: false },
+    reached: [],
+    hidden: [],
+    moved: [],
+  }
   assert.deepEqual(seen, { '280px': whole, '390px': whole, '834px': whole, '1440px': whole })
 })
 
