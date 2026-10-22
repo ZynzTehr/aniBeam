@@ -1,9 +1,10 @@
 // What the title card's My List line says after a press (said.ts): only a move, a removal, the cap
 // and an edit storage refused, never a plain press (the plan's PR 1, commit 6); and the same words
-// twice in a row changed just enough to be heard again (nextLine).
+// twice in a row changed just enough to be heard again (nextLine); and what the note under the
+// row shows (noted): the cap and an edit storage refused, and nothing else.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { nextLine, said } from './said.ts'
+import { nextLine, noted, said } from './said.ts'
 
 test('a move says where the title went, and a removal that it went', () => {
   assert.equal(said({ change: 'moved', saved: true }, 'WANT'), 'Moved to Want to try')
@@ -39,4 +40,14 @@ test('the same words twice in a row end in a no-break space, so the line changes
   assert.equal(nextLine(`${full}\u00a0`, 'Removed from My List'), 'Removed from My List')
   assert.equal(nextLine(full, ''), '')
   assert.equal(nextLine('', ''), '')
+})
+
+test('the note under the row shows the cap, or an edit storage refused, and nothing for any other press', () => {
+  const kept = 'Couldn’t save on this device. Kept for this visit.'
+  assert.equal(noted({ change: 'full', saved: true }), 'My List is full (2,000)')
+  for (const change of ['added', 'moved', 'removed', 'favorited', 'unfavorited', 'none'] as const) {
+    assert.equal(noted({ change, saved: true }), '', `${change}, saved`)
+    // A move or a removal storage refused shows only that it is kept: the buttons show the rest.
+    assert.equal(noted({ change, saved: false }), kept, `${change}, refused`)
+  }
 })

@@ -1764,7 +1764,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 }
 
 .ab-mylist ~ .ab-row-actions {
-  margin-top: 14px;
+  margin-top: 8px;
 }
 
 /* Below the row, the card's actions can stand at the screen's foot as it opens, as on a laptop:
@@ -1824,6 +1824,26 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 
 .ab-heart[aria-pressed='true'] svg {
   fill: currentColor;
+}
+
+/* Under the row, the note of what its buttons can't show: the list full, or an edit storage
+   refused (see ListControls). Its room, as tall as the longer note at any width, is kept for it,
+   so it moves nothing as it comes and goes; the actions sit closer below to make up for it. */
+.ab-list-note {
+  display: grid;
+  flex-basis: 100%;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.35;
+  text-wrap: balance;
+}
+
+.ab-list-note > * {
+  grid-area: 1 / 1;
+}
+
+.ab-list-room {
+  visibility: hidden;
 }
 
 /* A contrast theme paints every button alike, so a pressed one takes its colors for selected
@@ -2578,7 +2598,8 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     justify-content: center;
   }
 
-  .ab-mylist-name {
+  .ab-mylist-name,
+  .ab-list-note {
     text-align: center;
   }
 

@@ -1358,6 +1358,168 @@ test('a press in one tab shows in another tab’s card for the same title, with 
   }
 })
 
+// The two things a press can say that the buttons can't show, in the words of the plan's D14.
+const FULL = 'My List is full (2,000)'
+const KEPT = 'Couldn’t save on this device. Kept for this visit.'
+
+// What the open card shows and says of the two notes: the parts that show one on the screen, as
+// a sighted visitor reads them, and for the one shown, what's wrong with where it is (over the
+// row's buttons or their shadow, over the actions, past the copy's column, its words cut off, its
+// text under 4.5:1 on what it stands on, moving, or in a contrast theme not in its text color);
+// the parts a screen reader reads that say one, by id or class (aria-hidden or not drawn, a part
+// is never read); and the My List line.
+const LIST_NOTE = `(() => {
+  const card = document.querySelector('dialog.ab-card[open]')
+  const words = ${JSON.stringify([FULL, KEPT])}
+  const copy = card.querySelector('.ab-sheet-copy'), style = getComputedStyle(copy), box = copy.getBoundingClientRect()
+  const left = box.left + parseFloat(style.paddingLeft), right = box.right - parseFloat(style.paddingRight)
+  const rowFoot = Math.max(...[...card.querySelectorAll('.ab-mylist button')].map((button) => button.getBoundingClientRect().bottom)) + 3
+  const actionsTop = card.querySelector('.ab-row-actions').getBoundingClientRect().top
+  const text = (part) => part.textContent.trim()
+  const saying = [...card.querySelectorAll('*')].filter((part) => words.includes(text(part)) && ![...part.children].some((child) => text(child) === text(part)))
+  const shown = saying.filter((part) => { const r = part.getBoundingClientRect(); return r.width > 2 && r.height > 2 && part.checkVisibility({ opacityProperty: true, visibilityProperty: true }) })
+  const heard = saying.filter((part) => !part.closest('[aria-hidden="true"]') && part.checkVisibility({ visibilityProperty: true }))
+  const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+  const lum = (color) => { const [r, g, b] = color.match(/[\\d.]+/g).map(Number); return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b) }
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05) }
+  const under = (part) => { for (let at = part; at; at = at.parentElement) { const bg = getComputedStyle(at).backgroundColor; if (!/rgba\\(.*, 0\\)$/.test(bg) && bg !== 'transparent') return bg } return 'rgb(255, 255, 255)' }
+  const probe = document.body.appendChild(document.createElement('i'))
+  probe.style.color = 'CanvasText'
+  const canvasText = getComputedStyle(probe).color
+  probe.remove()
+  const placed = shown.flatMap((part) => {
+    const r = part.getBoundingClientRect(), wrong = []
+    if (r.top < rowFoot - 0.5) wrong.push('over the row by ' + Math.round(rowFoot - r.top) + 'px')
+    if (r.bottom > actionsTop + 0.5) wrong.push('over the actions by ' + Math.round(r.bottom - actionsTop) + 'px')
+    if (r.left < left - 0.5 || r.right > right + 0.5) wrong.push('past the column')
+    if (part.scrollWidth > part.clientWidth + 1 || part.scrollHeight > part.clientHeight + 1) wrong.push('cut off')
+    const contrast = ratio(getComputedStyle(part).color, under(part))
+    if (contrast < 4.5) wrong.push('text at ' + Math.round(contrast * 10) / 10 + ':1')
+    if (part.getAnimations({ subtree: true }).length > 0) wrong.push('moving')
+    if (matchMedia('(forced-colors: active)').matches && getComputedStyle(part).color !== canvasText) wrong.push('not in the theme’s text color')
+    return wrong
+  })
+  return {
+    shown: shown.map(text),
+    placed,
+    heard: heard.map((part) => part.id || String(part.className)),
+    says: text(document.getElementById('ab-list-status')),
+  }
+})()`
+
+// Notes each part of the open card's sheet by its box, for MOVED.
+const BOXES = `(() => {
+  window.__boxes = new Map([...document.querySelectorAll('dialog.ab-card[open] .ab-sheet *')].map((part) => [part, JSON.stringify(part.getBoundingClientRect())]))
+  return true
+})()`
+// The parts BOXES noted that have moved or changed size since, but for a note's own (see
+// LIST_NOTE): a note that pushed another part would move that part.
+const MOVED = `(() => {
+  const words = ${JSON.stringify([FULL, KEPT])}
+  const notes = [...document.querySelectorAll('dialog.ab-card[open] *')].filter((part) => words.includes(part.textContent.trim()))
+  return [...window.__boxes].filter(([part, box]) => !notes.some((note) => note.contains(part)) && (!part.isConnected || JSON.stringify(part.getBoundingClientRect()) !== box)).map(([part]) => part.localName + '.' + String(part.className).split(' ')[0])
+})()`
+
+test('a full list and a refused save show their note under the My List row until the next press, moving nothing, and a screen reader hears each once', async () => {
+  // The review found that "My List is full" and "Couldn't save on this device" were heard by a
+  // screen reader only: nothing changes on the screen for the first, and the second looks saved.
+  // The user chose a short line under the row in those two cases only, as a sighted visitor's
+  // note of them. It sits under the row's buttons and their shadow, above the card's actions,
+  // inside the copy's column, its words whole and in ink on the paper, from 280 to 1440px; it
+  // moves nothing as it comes or goes (the room is kept for it), and nothing in it moves, under
+  // reduced motion as here. A screen reader hears it from the My List line alone. The next
+  // press in the row takes it away, as a move here does. The list is staged full with 2,000
+  // other titles, saved as another tab would; then those are taken off and the list's key
+  // refused by storage, as a browser that can't save would.
+  const seen: Record<string, unknown> = {}
+  const frames = `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))`
+  const listOf = (entry: string) =>
+    `(() => { const list = {}; for (let id = 1; id <= 2000; id++) list[id] = ${entry}; localStorage.setItem('anibeam:list:v1', JSON.stringify(list)); return true })()`
+  const refuse = `(() => { const set = Storage.prototype.setItem; window.__set = set; Storage.prototype.setItem = function (key, value) { if (key === 'anibeam:list:v1') throw new Error('refused'); return set.call(this, key, value) }; return true })()`
+  const press = async (label: string) => {
+    await browser.evaluate(BOXES)
+    await browser.evaluate(PRESS_IN('window', label))
+    await browser.evaluate(frames)
+    return {
+      buttons: await browser.evaluate<string>(PRESSED_IN('window')),
+      ...(await browser.evaluate<object>(LIST_NOTE)),
+      moved: await browser.evaluate<string[]>(MOVED),
+    }
+  }
+  for (const screen of [{ width: 280, height: 653, phone: true }, ...SCREENS]) {
+    await openFrieren(screen)
+    const fresh = await browser.evaluate(LIST_NOTE)
+    await browser.evaluate(listOf(`{ status: 'SAVED', favorite: false, updatedAt: 1 }`))
+    const full = await press('Save')
+    await browser.evaluate(
+      listOf(`{ status: 'SAVED', favorite: false, updatedAt: 2, deleted: true }`),
+    )
+    await browser.evaluate(refuse)
+    let kept = {}
+    const contrast: string[] = []
+    try {
+      kept = await press('Save')
+      // In a contrast theme, light or dark, the note takes the theme's text color.
+      if (!screen.phone)
+        for (const scheme of ['light', 'dark']) {
+          await browser.send('Emulation.setEmulatedMedia', {
+            features: [
+              { name: 'prefers-reduced-motion', value: 'reduce' },
+              { name: 'forced-colors', value: 'active' },
+              { name: 'prefers-color-scheme', value: scheme },
+            ],
+          })
+          const { shown, placed } = await browser.evaluate<{ shown: string[]; placed: string[] }>(
+            LIST_NOTE,
+          )
+          if (shown.join() !== KEPT || placed.length > 0)
+            contrast.push(`${scheme}: ${shown.join() || 'no note'} ${placed.join(', ')}`)
+        }
+    } finally {
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+      })
+      await browser.evaluate(`window.__set && (Storage.prototype.setItem = window.__set), true`)
+    }
+    await browser.evaluate(frames)
+    const after = await press('Want to try')
+    seen[`${screen.width}px`] = { fresh, full, kept, contrast, after }
+  }
+  const nothing = { shown: [], placed: [], heard: [], says: '' }
+  const expected = {
+    fresh: nothing,
+    full: {
+      buttons: 'Save false, Want to try false, Favorite false',
+      shown: [FULL],
+      placed: [],
+      heard: ['ab-list-status'],
+      says: FULL,
+      moved: [],
+    },
+    kept: {
+      buttons: 'Save true, Want to try false, Favorite false',
+      shown: [KEPT],
+      placed: [],
+      heard: ['ab-list-status'],
+      says: KEPT,
+      moved: [],
+    },
+    contrast: [],
+    after: {
+      buttons: 'Save false, Want to try true, Favorite false',
+      ...nothing,
+      says: 'Moved to Want to try',
+      moved: [],
+    },
+  }
+  assert.deepEqual(seen, {
+    '280px': expected,
+    '390px': expected,
+    '834px': expected,
+    '1440px': expected,
+  })
+})
+
 test('in a contrast theme, a pressed My List button takes the theme’s colors for a selected thing and a ring inside, and one not pressed doesn’t', async () => {
   // A contrast theme paints every button alike, so the brand hot fill of a pressed one would go:
   // a pressed one takes the theme's colors for something selected, as an open Read more does, in
