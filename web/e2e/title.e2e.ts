@@ -1193,6 +1193,125 @@ test('from 280 to 1440px the My List row and the actions stay in the card’s co
   assert.deepEqual(seen, { '280px': whole, '390px': whole, '834px': whole, '1440px': whole })
 })
 
+// The My List buttons in the open card of the tab `tab` (window, or another tab's window this one
+// opened), each with its aria-pressed, or 'no card' while it has none open.
+const PRESSED_IN = (tab: string) => `(() => {
+  const group = ${tab}?.document.querySelector('dialog.ab-card[open] [role="group"]')
+  return group ? [...group.querySelectorAll('button')].map((button) => button.textContent.trim() + ' ' + button.getAttribute('aria-pressed')).join(', ') : 'no card'
+})()`
+// Clicks the My List button labelled `label` in the open card of the tab `tab`.
+const PRESS_IN = (tab: string, label: string) =>
+  `[...${tab}.document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].find((button) => button.textContent.trim() === ${JSON.stringify(label)}).click(), true`
+
+test('a press in one tab shows in another tab’s card for the same title, with no reload, and says nothing there', async () => {
+  // The plan's PR 1, commit 8: two tabs of one browser, both on Frieren's address. The list store
+  // hears the other tab's write (a storage event) and the open card's buttons follow it at once,
+  // either way. The tab that didn't press leaves its line as it was: it speaks for its own presses
+  // only. The second tab is opened from the first once Frieren's answer is saved, so it opens
+  // from the saved copy and asks AniList for nothing (this browser answers only the first tab's
+  // requests).
+  await openFrieren(SCREENS[2])
+  assert.ok(
+    await browser.waitFor(
+      `localStorage.getItem('anibeam:cache')?.includes('"id":154587') ?? false`,
+      5000,
+    ),
+    "Frieren's answer was never saved",
+  )
+  const other = 'window.__other'
+  try {
+    assert.ok(
+      await browser.evaluate(`Boolean(${other} = window.open(location.href, '_blank'))`),
+      'no second tab opened',
+    )
+    assert.ok(
+      await browser.waitFor(`${PRESSED_IN(other)} !== 'no card'`, 10_000),
+      'the second tab opened no card for Frieren',
+    )
+    const steps: string[] = []
+    for (const [tab, label, watched] of [
+      ['window', 'Save', other],
+      [other, 'Favorite', 'window'],
+      [other, 'Want to try', 'window'],
+      ['window', 'Want to try', other],
+    ]) {
+      const line = `${watched}.document.getElementById('ab-list-status').textContent`
+      const before = await browser.evaluate<string>(PRESSED_IN(watched))
+      const said = await browser.evaluate<string>(line)
+      await browser.evaluate(PRESS_IN(tab, label))
+      const expected = await browser.evaluate<string>(PRESSED_IN(tab))
+      const followed = await browser.waitFor(
+        `${PRESSED_IN(watched)} === ${JSON.stringify(expected)}`,
+        3000,
+      )
+      const now = await browser.evaluate<string>(line)
+      steps.push(
+        `${label} in ${tab === 'window' ? 'the first' : 'the second'} tab: ${
+          followed
+            ? 'followed'
+            : `not followed (was ${before}, is ${await browser.evaluate(PRESSED_IN(watched))}, not ${expected})`
+        }${now !== said ? `, the other tab's line now saying ${JSON.stringify(now)}` : ''}`,
+      )
+    }
+    assert.deepEqual(steps, [
+      'Save in the first tab: followed',
+      'Favorite in the second tab: followed',
+      'Want to try in the second tab: followed',
+      'Want to try in the first tab: followed',
+    ])
+    assert.equal(
+      await browser.evaluate(PRESSED_IN('window')),
+      'Save false, Want to try false, Favorite false',
+      'the title, taken off in the last step, with its heart',
+    )
+  } finally {
+    await browser.evaluate(`${other}?.close(), true`)
+  }
+})
+
+test('in a contrast theme, a pressed My List button takes the theme’s colors for a selected thing, and one not pressed doesn’t', async () => {
+  // A contrast theme paints every button alike, so the brand hot fill of a pressed one would go:
+  // a pressed one takes the theme's colors for something selected, as an open Read more does, in
+  // a light palette and a dark one. Saved with the heart, Save and Favorite are pressed, Want to
+  // try isn't.
+  const seen: string[] = []
+  await openFrieren(SCREENS[2])
+  for (const label of ['Save', 'Favorite']) await browser.evaluate(PRESS_IN('window', label))
+  try {
+    for (const scheme of ['light', 'dark']) {
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [
+          { name: 'prefers-reduced-motion', value: 'reduce' },
+          { name: 'forced-colors', value: 'active' },
+          { name: 'prefers-color-scheme', value: scheme },
+        ],
+      })
+      const buttons = await browser.evaluate<string[]>(`(() => {
+        const probe = document.body.appendChild(document.createElement('i'))
+        probe.style.backgroundColor = 'SelectedItem'
+        const selected = getComputedStyle(probe).backgroundColor
+        probe.remove()
+        return [...document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].map((button) =>
+          button.textContent.trim() + ' ' + button.getAttribute('aria-pressed') + ': ' + (getComputedStyle(button).backgroundColor === selected ? 'selected' : 'not selected'))
+      })()`)
+      const expected = [
+        'Save true: selected',
+        'Want to try false: not selected',
+        'Favorite true: selected',
+      ]
+      if (JSON.stringify(buttons) !== JSON.stringify(expected))
+        seen.push(`${scheme}: ${buttons.join(', ')}`)
+    }
+  } finally {
+    await browser.send('Emulation.setEmulatedMedia', { features: [] })
+  }
+  assert.deepEqual(
+    seen,
+    [],
+    'My List buttons whose look, in a contrast theme, says the wrong thing',
+  )
+})
+
 /**
  * Every color the open card's details paint, each with what it stands on, in words: a part's text
  * on its background, and its border on what lies around it, with their contrast; and whether each
