@@ -25,3 +25,12 @@ export function said({ change, saved }: Outcome, pressed: Status | null) {
   if (!saved) lines.push(SAID.kept)
   return lines.join('. ')
 }
+
+/**
+ * What the line says next, given what it says now (`before`) and the words for this press: the
+ * same words twice in a row would leave the line as it was, and go unheard, so the second time
+ * they end in a no-break space, which a screen reader doesn't say; the third time they are plain
+ * again.
+ */
+export const nextLine = (before: string, words: string) =>
+  words && words === before ? `${words}\u00a0` : words

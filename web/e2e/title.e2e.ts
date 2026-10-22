@@ -1292,8 +1292,9 @@ test('hovered, Save is drawn over Want to try, pressed or not, its deeper shadow
 test('a press in one tab shows in another tab’s card for the same title, with no reload, and says nothing there', async () => {
   // The plan's PR 1, commit 8: two tabs of one browser, both on Frieren's address. The list store
   // hears the other tab's write (a storage event) and the open card's buttons follow it at once,
-  // either way. The tab that didn't press leaves its line as it was: it speaks for its own presses
-  // only. The second tab is opened from the first once Frieren's answer is saved, so it opens
+  // either way. The tab that didn't press says nothing of it: its line speaks for its own presses
+  // only, and one that spoke of an earlier press (the second tab's "Moved to Want to try") empties,
+  // so it never sits beside buttons that now show something else. The second tab is opened from the first once Frieren's answer is saved, so it opens
   // from the saved copy and asks AniList for nothing (this browser answers only the first tab's
   // requests).
   await openFrieren(SCREENS[2])
@@ -1343,7 +1344,7 @@ test('a press in one tab shows in another tab’s card for the same title, with 
       'Save in the first tab: followed',
       'Favorite in the second tab: followed',
       'Want to try in the second tab: followed',
-      'Want to try in the first tab: followed',
+      `Want to try in the first tab: followed, the other tab's line now saying ""`,
     ])
     assert.equal(
       await browser.evaluate(PRESSED_IN('window')),

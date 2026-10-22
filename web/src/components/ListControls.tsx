@@ -1,12 +1,18 @@
 import { useId, useState } from 'react'
-import { said } from '../features/list/said.ts'
+import { nextLine, said } from '../features/list/said.ts'
 import {
+  entryIn,
+  getSnapshot,
   pressStatus,
   toggleFavorite,
   useEntry,
+  type Entry,
   type Outcome,
   type Status,
 } from '../features/list/store.ts'
+
+// What the buttons show for a title's entry: its status, and its heart.
+const shownFor = (entry: Entry | undefined) => `${entry?.status} ${Boolean(entry?.favorite)}`
 
 /**
  * The title card's My List row (spec §3F, as the visitor chose in the mockup: the plan's D1 to D3):
@@ -20,17 +26,24 @@ import {
  * Its own line, inside the dialog (the page behind is inert, so a line there would go unheard),
  * says what a screen reader can't tell from the button pressed: a move, a removal, the cap, or an
  * edit storage refused (see said). It is always there, so a change in it is heard, and visually
- * hidden: the buttons show the same. The card's other line, for AniList's hold-ups, stays its own.
+ * hidden, as the plan has it. The buttons show a move or a removal too, but not the cap or a
+ * refused edit (nothing changes, or the press looks saved), so only a screen reader hears those
+ * two. The line speaks of the buttons as this tab's last press left them: once another tab
+ * changes what they show, it empties, saying nothing. The card's other line, for AniList's
+ * hold-ups, stays its own.
  */
 export function ListControls({ id }: { id: number }) {
   const name = useId()
   const entry = useEntry(id)
-  const [line, setLine] = useState('')
-  // The same words twice in a row would leave the line as it was, and go unheard: the second time
-  // they end in a no-break space, which a screen reader doesn't say.
+  const shown = shownFor(entry)
+  // The line's words, with what the buttons showed when they were written. Once the buttons show
+  // something else, another tab's edit, the line empties as this renders (React's way to follow a
+  // change with state, with no effect and no second paint).
+  const [line, setLine] = useState({ says: '', about: shown })
+  if (line.says && line.about !== shown) setLine({ says: '', about: shown })
   const say = (outcome: Outcome, pressed: Status | null) => {
-    const words = said(outcome, pressed)
-    setLine((before) => (words && words === before ? `${words} ` : words))
+    const about = shownFor(entryIn(getSnapshot(), id))
+    setLine((before) => ({ says: nextLine(before.says, said(outcome, pressed)), about }))
   }
   const statusButton = (status: Status, label: string) => {
     const pressed = entry?.status === status
@@ -70,7 +83,7 @@ export function ListControls({ id }: { id: number }) {
         </button>
       </div>
       <p id="ab-list-status" role="status" className="sr-only">
-        {line}
+        {line.says}
       </p>
     </>
   )

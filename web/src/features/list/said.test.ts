@@ -1,8 +1,9 @@
 // What the title card's My List line says after a press (said.ts): only a move, a removal, the cap
-// and an edit storage refused, never a plain press (the plan's PR 1, commit 6).
+// and an edit storage refused, never a plain press (the plan's PR 1, commit 6); and the same words
+// twice in a row changed just enough to be heard again (nextLine).
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { said } from './said.ts'
+import { nextLine, said } from './said.ts'
 
 test('a move says where the title went, and a removal that it went', () => {
   assert.equal(said({ change: 'moved', saved: true }, 'WANT'), 'Moved to Want to try')
@@ -26,4 +27,16 @@ test('the cap says the list is full, and an edit storage refused says it is kept
   // A move or a removal storage refused says both, the move first.
   assert.equal(said({ change: 'moved', saved: false }, 'WANT'), `Moved to Want to try. ${kept}`)
   assert.equal(said({ change: 'removed', saved: false }, 'SAVED'), `Removed from My List. ${kept}`)
+})
+
+test('the same words twice in a row end in a no-break space, so the line changes and is heard again', () => {
+  const full = 'My List is full (2,000)'
+  assert.equal(nextLine('', full), full)
+  assert.equal(nextLine(full, full), `${full}\u00a0`)
+  assert.equal(nextLine(`${full}\u00a0`, full), full)
+  // Other words, and nothing to say, pass through as they are.
+  assert.equal(nextLine(full, 'Removed from My List'), 'Removed from My List')
+  assert.equal(nextLine(`${full}\u00a0`, 'Removed from My List'), 'Removed from My List')
+  assert.equal(nextLine(full, ''), '')
+  assert.equal(nextLine('', ''), '')
 })
