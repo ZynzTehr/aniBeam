@@ -1209,6 +1209,47 @@ test('from 280 to 1440px the My List row and the actions stay in the card’s co
   assert.deepEqual(seen, { '280px': whole, '390px': whole, '834px': whole, '1440px': whole })
 })
 
+test('hovered, Save is drawn over Want to try, its deeper shadow whole, with motion allowed or not', async () => {
+  // Save and Want to try share one border (see the check above), and Want to try, after Save, is
+  // drawn over it. Hovered, Save takes a deeper shadow, 6px right and down, as every button does.
+  // With motion allowed it also lifts 3px, and a moved part is drawn over its neighbours; with
+  // reduced motion it doesn't, and the shadow's right strip went under Want to try, unseen. So
+  // hovered it is drawn over, as it is focused or pressed, either way: 4px right of its edge, in
+  // its shadow, the screen shows ink, not Want to try's white. Read from a screenshot of that one
+  // pixel, at 1440px, where a pointer hovers.
+  const seen: Record<string, string> = {}
+  const SAVE = `[...document.querySelectorAll('dialog.ab-card[open] .ab-mylist button')].find((button) => button.textContent.trim() === 'Save').getBoundingClientRect()`
+  for (const reduceMotion of [false, true]) {
+    await browser.forget()
+    await browser.load({ ...SCREENS[2], reduceMotion, url: at('/anime/154587') })
+    assert.ok(
+      await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000),
+      'no card opened for Frieren',
+    )
+    await browser.animationsDone()
+    const middle = await browser.evaluate<{ x: number; y: number }>(
+      `(() => { const r = ${SAVE}; return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 } })()`,
+    )
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...middle })
+    await browser.animationsDone()
+    const clip = await browser.evaluate<{ x: number; y: number; width: number; height: number }>(
+      `(() => { const r = ${SAVE}; return { x: Math.round(r.right + 4 + scrollX), y: Math.round((r.top + r.bottom) / 2 + scrollY), width: 1, height: 1 } })()`,
+    )
+    const png = await browser.screenshot(clip)
+    seen[reduceMotion ? 'reduced motion' : 'motion'] =
+      await browser.evaluate<string>(`(async () => {
+      const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+      const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+      const context = new OffscreenCanvas(1, 1).getContext('2d')
+      context.drawImage(image, 0, 0)
+      const [r, g, b] = context.getImageData(0, 0, 1, 1).data
+      return r + g + b < 120 ? 'ink' : 'rgb(' + [r, g, b].join(', ') + ')'
+    })()`)
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
+  }
+  assert.deepEqual(seen, { motion: 'ink', 'reduced motion': 'ink' })
+})
+
 // The My List buttons in the open card of the tab `tab` (window, or another tab's window this one
 // opened), each with its aria-pressed, or 'no card' while it has none open.
 const PRESSED_IN = (tab: string) => `(() => {

@@ -1782,8 +1782,8 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   text-transform: uppercase;
 }
 
-/* The pair shares one border between its buttons. The pressed one, or the focused one, is drawn
-   over the other, so its shadow and its focus ring show whole. */
+/* The pair shares one border between its buttons. The pressed one, the focused one or the
+   hovered one is drawn over the other, so its shadow and its focus ring show whole. */
 .ab-pair {
   display: inline-flex;
 }
@@ -1797,6 +1797,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   border-radius: 0 999px 999px 0;
 }
 
+.ab-pair .ab-btn:hover,
 .ab-pair .ab-btn:focus-visible,
 .ab-pair .ab-btn-hot {
   position: relative;
