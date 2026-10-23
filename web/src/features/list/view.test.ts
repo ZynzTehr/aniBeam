@@ -1,10 +1,10 @@
 // Which of the list's titles My List shows (view.ts): a tab, Saved or Want to try, and Favorites
 // only, read from the page's address and written back to it (the plan's D9), and the titles each
-// holds, in the list's own order.
+// holds, in the list's own order; and those AniList's answer left out.
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import type { List } from './store.ts'
-import { countsIn, inView, viewOf, viewPath, type View } from './view.ts'
+import { countsIn, inView, missing, viewOf, viewPath, type View } from './view.ts'
 
 const T = Date.UTC(2026, 9, 22, 12)
 
@@ -57,4 +57,16 @@ test('a view holds the titles of its tab, only the favorites with the filter, in
 test('each tab counts the titles on the list with its status, delete markers left out', () => {
   assert.deepEqual(countsIn(list), { SAVED: 3, WANT: 2 })
   assert.deepEqual(countsIn({}), { SAVED: 0, WANT: 0 })
+})
+
+test('the titles AniList’s answer leaves out are those of the ids it has no title for, in their order', () => {
+  // AniList gives them in an order of its own.
+  const answer = [{ id: 30 }, { id: 154587 }]
+  assert.deepEqual(missing([154587, 1, 30], answer), [1])
+  assert.deepEqual(missing([154587, 1, 30, 21], answer), [1, 21])
+  assert.deepEqual(missing([154587, 30], answer), [])
+  // A title in the answer that wasn't asked for leaves out nothing.
+  assert.deepEqual(missing([30], [{ id: 30 }, { id: 1 }]), [])
+  assert.deepEqual(missing([1, 21], []), [1, 21])
+  assert.deepEqual(missing([], answer), [])
 })

@@ -38,3 +38,13 @@ export function countsIn(list: List): Record<Status, number> {
   for (const id of listedIn(list)) counts[list[id].status]++
   return counts
 }
+
+/**
+ * Of `ids`, in their order, those AniList's answer (`media`) leaves out: a title it no longer has,
+ * or one its adult-content guard drops (see QUERIES.list). Only for an answer that came: a failed
+ * one leaves out nothing (the page says why it has no titles instead).
+ */
+export function missing(ids: number[], media: readonly { id: number }[]) {
+  const given = new Set(media.map(({ id }) => id))
+  return ids.filter((id) => !given.has(id))
+}

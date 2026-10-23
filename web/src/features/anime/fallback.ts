@@ -1,3 +1,5 @@
+import type { UseQueryResult } from '@tanstack/react-query'
+import { useState } from 'react'
 import { AniListError } from '../../lib/anilist.ts'
 import type { Era, Media } from './queries.ts'
 
@@ -45,3 +47,20 @@ export function samplesFor(samples: Media[], era: Era): Media[] {
 export const outOfReach = (error: unknown) =>
   error instanceof TypeError ||
   (error instanceof AniListError && (error.status === 403 || error.status === 429))
+
+/**
+ * Whether a section shows the sample titles in place of its own (spec §3H): from the moment it has
+ * no titles and a try can't reach AniList (outOfReach) until it gets titles. Placeholder titles,
+ * such as the last decade's while a new one loads, count as titles. It holds through the tries
+ * that follow, because TanStack clears a list's failure when it tries again: Try again would
+ * otherwise take the samples away while anilist() waits out its pause, for up to a minute.
+ * Discover's sections use it, and My List (see ListPage).
+ */
+export function useOutage(query: UseQueryResult<Media[]>) {
+  const [latched, setLatched] = useState(false)
+  const outage =
+    query.data === undefined && (latched || outOfReach(query.failureReason ?? query.error))
+  // React lets a component update its own state as it renders: it renders again at once.
+  if (outage !== latched) setLatched(outage)
+  return outage
+}

@@ -60,15 +60,22 @@ export function noteFor(q: QueryStatus, rateLimited: boolean): string | null {
 }
 
 /**
- * The status line of a section showing sample titles because it can't reach AniList (see App):
- * `what` says what the titles are, then statusText says why the section's own are held up.
+ * Why a section showing sample titles because it can't reach AniList has none of its own (see
+ * statusText).
  */
-export function sampleNote(what: string, q: QueryStatus, rateLimited: boolean): string {
+export function heldUp(q: QueryStatus, rateLimited: boolean): string {
   const status = statusText(q, rateLimited)
   // The samples show only once a try has failed, so a try while they show is never a first load.
   // statusText can't tell: TanStack forgets the failure of a list with no titles as it tries again.
-  return `${what} ${status === 'Loading…' ? 'Trying AniList again…' : status}`
+  return status === 'Loading…' ? 'Trying AniList again…' : status
 }
+
+/**
+ * The status line of a section showing sample titles because it can't reach AniList (see App):
+ * `what` says what the titles are, then why the section's own are held up (see heldUp).
+ */
+export const sampleNote = (what: string, q: QueryStatus, rateLimited: boolean) =>
+  `${what} ${heldUp(q, rateLimited)}`
 
 /**
  * What a screen reader hears about a search, from one status line that is always on the page.

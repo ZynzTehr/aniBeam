@@ -743,3 +743,216 @@ test('the Undo has no timer, and a change of tab or filter clears it', async () 
     await still.close()
   }
 })
+
+// My List's status line, over its titles, and the line about titles AniList's answer left out,
+// under them, with its button.
+const NOTE = `document.querySelector('#main .ab-strip .ab-note').textContent`
+const LOST = `document.querySelector('#main .ab-list-lost')?.textContent ?? null`
+// What My List's own line for screen readers last said.
+const SAID = `document.querySelector('#main > .ab-list > [role="status"]').textContent`
+const FAILED =
+  'AniList, where AniBeam gets its anime, isn’t responding right now. It’s not something you did. Try again in a minute.'
+/** Answers My List's request with `status`, as AniList fails, and every other as recorded. */
+const failList = (status: number) => (request: Answer['request']) =>
+  request.query === QUERIES.list
+    ? { ...listAnswer([]), status, body: { data: null, errors: [{ message: 'No', status }] } }
+    : null
+
+test('a title AniList’s answer leaves out keeps its place with no details, the page says how many, and Remove them takes them off in one edit, asking for nothing', async () => {
+  // Neon Genesis Evangelion left out, as AniList leaves out a title it no longer has.
+  const asked = await noteRequests((request) =>
+    request.query === QUERIES.list ? listAnswer([154587, 1]) : null,
+  )
+  try {
+    await saveList(SAVED.map((id) => ({ id })))
+    assert.ok(
+      await browser.waitFor(`document.querySelectorAll(${COVERS}).length === 2`, 10_000),
+      'My List didn’t show the 2 titles AniList gave',
+    )
+    assert.deepEqual(
+      await browser.evaluate(`({ row: ${SLOTS}, lost: ${LOST} })`),
+      {
+        row: ['154587', '1', 'Details unavailable'],
+        lost: '1 title couldn’t be shown. Remove them',
+      },
+      'with one title left out',
+    )
+    const shift = await browser.layoutShift()
+    assert.equal(
+      shift.value.toFixed(4),
+      '0.0000',
+      `as the answer came: ${JSON.stringify(shift.shifts)}`,
+    )
+    asked.length = 0
+    const button = `document.querySelector('#main .ab-list-lost button')`
+    await browser.evaluate(`${button}.focus(); ${button}.click(); true`)
+    assert.ok(await browser.waitFor(`!${LOST}`, 2000), 'the line stayed after Remove them')
+    assert.deepEqual(
+      await browser.evaluate(
+        `({ row: ${SLOTS}, focused: document.activeElement.id, said: ${SAID} })`,
+      ),
+      { row: ['154587', '1'], focused: 'ab-list', said: 'Removed from My List' },
+      'after Remove them',
+    )
+    assert.equal((await entryOf(30)).deleted, true, 'Neon Genesis Evangelion has no delete marker')
+    assert.equal((await entryOf(1)).deleted, undefined, 'a title AniList gave was taken off')
+    await sleep(1500)
+    assert.deepEqual(asked, [], 'Remove them asked AniList')
+
+    // Two left out of three.
+    await browser.rewriteAniList(({ request }) =>
+      request.query === QUERIES.list ? listAnswer([1]) : null,
+    )
+    await saveList(SAVED.map((id) => ({ id })))
+    assert.ok(
+      await browser.waitFor(`${LOST} === '2 titles couldn’t be shown. Remove them'`, 10_000),
+      `with two left out: ${await browser.evaluate(LOST)}`,
+    )
+    assert.deepEqual(await browser.evaluate(SLOTS), [
+      'Details unavailable',
+      '1',
+      'Details unavailable',
+    ])
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+})
+
+test('a failed answer (500) leaves out no title: none is offered for removal or taken off, and Try again shows', async () => {
+  await browser.rewriteAniList(({ request }) => failList(500)(request))
+  try {
+    await saveList(SAVED.map((id) => ({ id })))
+    // A server error is retried after 1, 2 and 4 seconds (see shouldRetry).
+    assert.ok(
+      await browser.waitFor(`document.querySelector('#main .ab-retry')`, 20_000),
+      'no Try again after the answer failed',
+    )
+    assert.deepEqual(
+      await browser.evaluate(`({ row: ${SLOTS}, lost: ${LOST}, note: ${NOTE} })`),
+      { row: SAVED.map(() => 'Details unavailable'), lost: null, note: FAILED },
+      'after the failed answer',
+    )
+    for (const id of SAVED) assert.equal((await entryOf(id)).deleted, undefined, `${id} went`)
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+})
+
+test('with AniList out of reach (403), the sample titles on the list fill in their places, with the outage line, never saved as its answer', async () => {
+  await browser.rewriteAniList(({ request }) => failList(403)(request))
+  try {
+    await saveList(TWELVE)
+    // Cowboy Bebop, Neon Genesis Evangelion, AKIRA and Totoro are samples.
+    const saved = SAVED_8.map((id) =>
+      [1, 30, 47, 523].includes(id) ? String(id) : 'Details unavailable',
+    )
+    assert.ok(
+      await browser.waitFor(`document.querySelectorAll(${COVERS}).length === 4`, 10_000),
+      'My List didn’t show its 4 samples in Saved',
+    )
+    assert.deepEqual(
+      await browser.evaluate(`({ row: ${SLOTS}, lost: ${LOST}, note: ${NOTE} })`),
+      { row: saved, lost: null, note: `${FAILED} Sample titles fill in what they can.` },
+      'Saved, out of reach',
+    )
+    assert.ok(await browser.evaluate(`Boolean(document.querySelector('#main .ab-retry'))`))
+    await follow('Want to try', '/list?tab=want')
+    assert.deepEqual(await browser.evaluate(SLOTS), [
+      '154587',
+      'Details unavailable',
+      'Details unavailable',
+      'Details unavailable',
+    ])
+    // Long enough for the saved copy to have been written.
+    await sleep(1500)
+    assert.equal(
+      await browser.evaluate(SAVED_ANSWER),
+      undefined,
+      'the samples were saved as the answer',
+    )
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+})
+
+const DAY = 24 * 60 * 60 * 1000
+const goOffline = (offline: boolean) =>
+  browser.send('Network.emulateNetworkConditions', {
+    offline,
+    latency: 0,
+    downloadThroughput: -1,
+    uploadThroughput: -1,
+  })
+/** Goes to `path` as the page's own links do, with no new page (see route.ts's push). */
+const goTo = (path: string) =>
+  browser.evaluate(
+    `history.pushState(null, '', ${JSON.stringify(path)}); dispatchEvent(new PopStateEvent('popstate')); true`,
+  )
+
+test('offline, My List shows the answer saved 2 days before; with none saved, each title says its details are unavailable offline, until the connection is back', async () => {
+  try {
+    await saveList(TWELVE)
+    assert.ok(
+      await browser.waitFor(`${SAVED_ANSWER}?.ids.length === 12`, 10_000),
+      'My List’s answer wasn’t saved',
+    )
+    // Two days on: the answer saved then, past its 6 hours, kept as long as a list is (keptFor).
+    await browser.evaluate(`(() => {
+      const saved = JSON.parse(localStorage.getItem('anibeam:cache'))
+      for (const query of saved.clientState.queries) query.state.dataUpdatedAt -= 2 * ${DAY}
+      localStorage.setItem('anibeam:cache', JSON.stringify(saved))
+      return true
+    })()`)
+    // A visit that asks for no list: Frieren's card, at its address, holds Discover's lists back.
+    await browser.load({ ...DESKTOP, reduceMotion: true, url: at('/anime/154587') })
+    assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000), 'no card opened')
+    sent.length = 0
+    await goOffline(true)
+    await goTo('/list?tab=want')
+    assert.ok(
+      await browser.waitFor(`document.querySelectorAll(${COVERS}).length === 4`, 5000),
+      `offline, My List didn’t show its 4 covers in Want to try: ${JSON.stringify(await browser.evaluate(SLOTS))}`,
+    )
+    assert.deepEqual(
+      await browser.evaluate(`({ row: ${SLOTS}, note: ${NOTE} })`),
+      { row: WANT_4.map(String), note: 'Offline: waiting for a connection.' },
+      'offline, 2 days on',
+    )
+
+    // Nothing saved but the list. Back online, the page asks for the list again first.
+    await goOffline(false)
+    await browser.forget()
+    await browser.load({ ...DESKTOP, reduceMotion: true, url: at('/list') })
+    await writeList(TWELVE)
+    sent.length = 0
+    await goOffline(true)
+    // Discover, then My List again, which takes the list as it opens.
+    await goTo('/')
+    await goTo('/list?tab=want')
+    assert.ok(
+      await browser.waitFor(
+        `document.querySelectorAll('#main .ab-strip-words').length === 4`,
+        5000,
+      ),
+      `offline with nothing saved: ${JSON.stringify(await browser.evaluate(SLOTS))}`,
+    )
+    assert.deepEqual(
+      await browser.evaluate(`({ row: ${SLOTS}, note: ${NOTE}, lost: ${LOST} })`),
+      {
+        row: WANT_4.map(() => 'Details unavailable offline'),
+        note: 'Offline: waiting for a connection.',
+        lost: null,
+      },
+      'offline with nothing saved',
+    )
+    assert.deepEqual(sent, [], 'offline, the page sent AniList a request')
+    await goOffline(false)
+    assert.ok(
+      await browser.waitFor(`document.querySelectorAll(${COVERS}).length === 4`, 10_000),
+      'back online, My List didn’t show its 4 covers',
+    )
+    assert.deepEqual(await browser.evaluate(SLOTS), WANT_4.map(String))
+  } finally {
+    await goOffline(false)
+  }
+})

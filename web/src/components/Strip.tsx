@@ -31,9 +31,10 @@ export function Strip({
   sfx: string
   /**
    * The titles, in order. Null holds a title's place with an empty card while it loads, as on My
-   * List, where titles another answer brought already show in theirs.
+   * List, where titles another answer brought already show in theirs; and words, on a plain card,
+   * one whose details there are none of to show, as My List's "Details unavailable offline".
    */
-  titles: readonly (Media | null)[]
+  titles: readonly (Media | string | null)[]
   /**
    * Which list the titles are, such as a decade. A different list opens at Ch.1, so change it as
    * the new list's titles arrive, not while the last list's stand in for them. The same list is
@@ -109,6 +110,11 @@ export function Strip({
             // Not a part that lands (see lib/landing.ts): the title that takes its place does.
             <li key={`wait-${i}`} aria-hidden="true">
               <span className="ab-strip-panel ab-skeleton-fill" />
+            </li>
+          ) : typeof media === 'string' ? (
+            // Nor this: the title, should its details come, lands in its place.
+            <li key={`words-${i}`}>
+              <span className="ab-strip-panel ab-strip-words">{media}</span>
             </li>
           ) : (
             <li key={media.id} className="ab-strip-item" style={cssVars({ '--i': i })}>

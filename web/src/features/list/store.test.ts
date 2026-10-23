@@ -11,6 +11,7 @@ import {
   merge,
   parse,
   pressStatusIn,
+  removeAllIn,
   restoreIn,
   setStatusIn,
   toggleFavoriteIn,
@@ -662,4 +663,30 @@ test('Undo leaves a title back on the list already, a full list, and an id that 
     list: {},
     change: 'none',
   })
+})
+
+test('Remove them takes each title off in one edit, each with its marker, and leaves the rest', () => {
+  const list = { '1': saved(T, true), '21': want(T + 1), '30': saved(T + 2), '47': removed(T) }
+  assert.deepEqual(removeAllIn(list, [21, 1, 47, 572], T + 5), {
+    list: {
+      '1': removed(T + 5),
+      '21': removed(T + 5, 'WANT'),
+      '30': saved(T + 2),
+      '47': removed(T),
+    },
+    change: 'removed',
+  })
+  assert.deepEqual(removeAllIn(list, [47, 572], T + 5), { list, change: 'none' })
+  assert.deepEqual(removeAllIn(list, [], T + 5), { list, change: 'none' })
+  // Saved at once, in one write.
+  const storage = fakeStorage()
+  storage.items.set(KEY, JSON.stringify(list))
+  let writes = 0
+  const store = createListStore({
+    storage: { ...storage, setItem: (key, value) => (writes++, storage.setItem(key, value)) },
+    now: () => T + 5,
+  })
+  assert.deepEqual(store.removeAll([21, 1]), { change: 'removed', saved: true })
+  assert.deepEqual(savedList(storage), removeAllIn(list, [21, 1], T + 5).list)
+  assert.equal(writes, 1)
 })

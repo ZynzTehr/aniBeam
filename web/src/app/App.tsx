@@ -13,7 +13,7 @@ import { SiteHeader, type NavLink } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
 import { TitleNotice } from '../components/TitleNotice.tsx'
-import { loadSamples, outOfReach, samplesFor } from '../features/anime/fallback.ts'
+import { loadSamples, samplesFor, useOutage } from '../features/anime/fallback.ts'
 import { ListPage } from '../features/list/ListPage.tsx'
 import {
   ERAS,
@@ -61,23 +61,6 @@ const retryFor = (query: UseQueryResult<Media[]>, retryFailed: () => void) =>
 const eraName = (era: Era) => (era.id === 'pre-1970' ? 'before 1970' : `the ${era.label}`)
 // No titles yet: one array for every render, as useSteadyList needs.
 const EMPTY: Media[] = []
-
-/**
- * Whether a section shows the sample titles (spec §3H, see fallback.ts) in place of its own: from
- * the moment it has no titles and a try can't reach AniList (outOfReach) until it gets titles.
- * Placeholder titles, such as the last decade's while a new one loads, count as titles. It holds
- * through the tries that follow, because TanStack clears a list's failure when it tries again:
- * Try again would otherwise take the samples away while anilist() waits out its pause, for up to
- * a minute.
- */
-function useOutage(query: UseQueryResult<Media[]>) {
-  const [latched, setLatched] = useState(false)
-  const outage =
-    query.data === undefined && (latched || outOfReach(query.failureReason ?? query.error))
-  // React lets a component update its own state as it renders: it renders again at once.
-  if (outage !== latched) setLatched(outage)
-  return outage
-}
 
 /** AniBeam's page: the intro, this week's trending titles, the pull, and titles by decade. */
 export default function App() {

@@ -1,5 +1,6 @@
 import { useIsRestoring, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import {
+  useEffect,
   useId,
   useLayoutEffect,
   useMemo,
@@ -9,29 +10,37 @@ import {
   type MouseEvent,
 } from 'react'
 import { flushSync } from 'react-dom'
-import { noteFor } from '../../app/status.ts'
+import { heldUp, noteFor } from '../../app/status.ts'
 import { isPlainClick } from '../../components/plainClick.ts'
 import { Strip } from '../../components/Strip.tsx'
 import type { OpenTitle } from '../../components/TitleCard.tsx'
 import { isRateLimited } from '../../lib/anilist.ts'
 import { isListPath, isOver, push, titlePath, watchPath } from '../../lib/route.ts'
+import { loadSamples, useOutage } from '../anime/fallback.ts'
 import { listQuery, type Media } from '../anime/queries.ts'
-import { nextLine, noted } from './said.ts'
+import { nextLine, noted, said as saidAfter } from './said.ts'
 import {
   entryIn,
   getSnapshot,
   listedIds,
   listedIn,
+  removeAll,
   restore,
   subscribe,
   type Entry,
   type List,
 } from './store.ts'
-import { countsIn, inView, viewOf, viewPath, type View } from './view.ts'
+import { countsIn, inView, missing, viewOf, viewPath, type View } from './view.ts'
 
 // The most titles one request gives: AniList's page (spec §3F). With more on the list, the page
 // shows the most lately changed, and says so (the plan's D10).
 const PAGE = 50
+
+// What a title's place says with no details to show (see Strip), and what the outage line adds
+// while the samples show, in the words the visitor approved in the mockup (the plan's D14).
+const OFFLINE = 'Details unavailable offline'
+const UNAVAILABLE = 'Details unavailable'
+const SAMPLES_FILL = 'Sample titles fill in what they can.'
 
 const TABS = [
   { status: 'SAVED', name: 'Saved' },
@@ -90,7 +99,10 @@ function copiesIn(client: QueryClient, ids: number[]) {
  * from a card opened over the page, a heart or a move, changes neither which titles show nor their
  * order, and asks for nothing (spec §3H); a title taken off the list leaves an Undo in its place
  * (D7). Titles are edited in their card (the plan's D5, L2), whose "Open on AniList" is the spec's
- * "Track on AniList" link (D6). `covered` says a title's card is open over the page.
+ * "Track on AniList" link (D6). A title AniList's answer leaves out keeps its place, with no
+ * details, and the page offers to take such titles off; a failed answer leaves out none. With
+ * AniList out of reach, the sample titles fill in theirs (spec §3H), and offline, those with no
+ * copy saved say so. `covered` says a title's card is open over the page.
  */
 export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: boolean }) {
   // Read first: listedIds reads the saved list again while nothing listens to it, so the snapshot
@@ -98,6 +110,9 @@ export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: bool
   const [ids] = useState(() => listedIds().slice(0, PAGE))
   const list = useSyncExternalStore(subscribe, getSnapshot)
   const query = useQuery({ ...listQuery(ids), enabled: ids.length > 0 })
+  // The titles AniList's answer left out (see missing): only of an answer that came, never of a
+  // failed one (a 500, a refusal), which says nothing about which titles AniList has.
+  const left = useMemo(() => (query.data ? missing(ids, query.data) : []), [ids, query.data])
   const view = viewOf(useSyncExternalStore(watchPath, listSearch))
   const path = viewPath(view)
   // The view's titles as it opened, set as the page renders, as App's useOutage does, so a new
@@ -111,7 +126,10 @@ export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: bool
   const [seen, setSeen] = useState(list)
   if (seen !== list) {
     setSeen(list)
-    const gone = taken.ids.filter((id) => entryIn(seen, id) && !entryIn(list, id))
+    // Not a title the answer left out: "Remove them" takes those off for good.
+    const gone = taken.ids.filter(
+      (id) => entryIn(seen, id) && !entryIn(list, id) && !left.includes(id),
+    )
     if (gone.length)
       setTaken({
         ...taken,
@@ -156,10 +174,44 @@ export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: bool
     () => new Map(query.data?.map((media) => [media.id, media])),
     [query.data],
   )
-  const shown = taken.ids.filter((id) => entryIn(list, id) || Object.hasOwn(taken.removed, id))
-  const titles = shown.flatMap((id) =>
-    query.data ? (answered.get(id) ?? []) : [copies.get(id) ?? null],
+  // AniList out of reach, with no answer saved: the sample titles on the list show in their places
+  // (see useOutage), swapped in here, as the page renders, never put in the query cache, as App's
+  // are not. They load the first time they are needed, or are null if their file fails to load.
+  const outage = useOutage(query)
+  const [samples, setSamples] = useState<Media[] | null>()
+  useEffect(() => {
+    if (outage) void loadSamples().then(setSamples, () => setSamples(null))
+  }, [outage])
+  const sampled = useMemo(
+    () => new Map((outage && samples ? samples : []).map((media) => [media.id, media])),
+    [outage, samples],
   )
+  // A title with no details to show, and none coming for now: offline, as TanStack holds the
+  // request until the connection is back; a failed answer; or AniList out of reach, once the
+  // samples have filled in theirs. Else an empty card, as its details are on their way.
+  const none = query.isPaused
+    ? OFFLINE
+    : query.isError || (outage && samples !== undefined)
+      ? UNAVAILABLE
+      : null
+  const shown = taken.ids.filter((id) => entryIn(list, id) || Object.hasOwn(taken.removed, id))
+  // Each title's place: AniList's answer, or while it has none, a copy another answer brought, or
+  // a sample. A title the answer left out keeps its place, with no details, so nothing moves. One
+  // taken off with none shows nothing: there's no cover to put back.
+  const titles = shown.flatMap((id): (Media | string | null)[] => {
+    const media = query.data ? answered.get(id) : (copies.get(id) ?? sampled.get(id))
+    return media ? [media] : entryIn(list, id) ? [query.data ? UNAVAILABLE : none] : []
+  })
+  // The view's titles the answer left out, which "Remove them" takes off the list, in one edit.
+  // Focus, on the button that goes with them, moves to the page's heading, as Try again's does.
+  const lost = shown.filter((id) => entryIn(list, id) && left.includes(id))
+  const removeLost = (event: MouseEvent<HTMLButtonElement>) => {
+    const outcome = removeAll(lost)
+    document
+      .getElementById('ab-list')
+      ?.focus({ preventScroll: !event.currentTarget.matches(':focus-visible') })
+    setSaid((before) => nextLine(before, saidAfter(outcome, null)))
+  }
   const counts = countsIn(list)
   const empty = !shown.length && !inView(list, listedIn(list), view).length
 
@@ -179,8 +231,14 @@ export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: bool
         heading="My List"
         sfx="マイリスト"
         titles={titles}
-        note={shown.length ? noteFor(query, isRateLimited()) : null}
-        loading={shown.length > 0 && query.isPending}
+        note={
+          !shown.length
+            ? null
+            : outage && samples
+              ? `${heldUp(query, isRateLimited())} ${SAMPLES_FILL}`
+              : noteFor(query, isRateLimited())
+        }
+        loading={titles.includes(null)}
         onRetry={query.isError && !query.isFetching ? () => void query.refetch() : undefined}
         onOpen={onOpen}
         grid
@@ -222,6 +280,15 @@ export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: bool
       <div className="ab-list-foot">
         {listedIn(list).length > PAGE && <p>Showing your {PAGE} most recent.</p>}
         <p>Saved in this browser only.</p>
+        {/* Last, under the rest, so nothing moves as it comes with AniList's answer. */}
+        {lost.length > 0 && (
+          <p className="ab-list-lost">
+            {lost.length} {lost.length === 1 ? 'title' : 'titles'} couldn’t be shown.{' '}
+            <button type="button" className="ab-btn" onClick={removeLost}>
+              Remove them
+            </button>
+          </p>
+        )}
       </div>
     </div>
   )

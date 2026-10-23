@@ -3590,6 +3590,29 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   text-align: center;
 }
 
+/* A title's place with no details to show, as My List's offline: its words on the empty card's
+   screentone, the size of a cover, so nothing moves as a cover takes its place (see Strip). */
+.ab-strip-words {
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  background-color: #e7e1d6;
+  background-image: radial-gradient(rgb(0 0 0 / 0.1) 1.2px, transparent 1.5px);
+  background-size: 7px 7px;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+
+/* The titles AniList's answer left out, with Remove them, last under the titles (see ListPage). */
+.ab-list-foot .ab-list-lost {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+
 /* A view with nothing in it: what to say, and a way on. */
 .ab-list-empty {
   display: grid;

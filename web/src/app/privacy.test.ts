@@ -378,14 +378,17 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // and Favorites only as links that change the address, each view's titles taken as it opens, empty
 // cards holding the places of titles still to come, the copies other answers hold shown at once,
 // the empty states and notes: 90,549 B; their styles brought the CSS to 11,824 B, still within its
-// budget); the page loads with every visit until it becomes a lazy chunk (commit 9 of the plan's
-// PR 2), so its budget is 91,000 B. The JS loaded only when needed rose to 14,028 B when the
+// budget), and 91,500 B with its states (90,840 B with the Undo before them: the titles AniList's
+// answer leaves out, holding their places, with Remove them, a failed answer leaving out none, the
+// samples filling in while AniList is out of reach, and offline: 91,172 B; their styles brought the
+// CSS to 11,849 B); the page loads with every visit until it becomes a lazy chunk (commit 9 of the
+// plan's PR 2), so its budget is 91,500 B. The JS loaded only when needed rose to 14,028 B when the
 // samples began to carry each title's synopsis, running time and the tags its card shows, as the
-// lists' titles do, so that a sample's card opens on them with no request (the user agreed to
-// about 15 KB more, gzipped), so its budget is 14,500 B.
+// lists' titles do, so that a sample's card opens on them with no request (the user agreed to about
+// 15 KB more, gzipped), so its budget is 14,500 B.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 91_000,
+  'the JS every visit loads': 91_500,
   'the CSS': 12_000,
   'the JS loaded only when needed': 14_500,
   'every other file': 500,
