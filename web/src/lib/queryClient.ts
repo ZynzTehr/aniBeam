@@ -26,7 +26,8 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       // Must be at least as long as a list is kept (a day, see keptFor), or TanStack drops a list
-      // no component is using before then, and the next save leaves it out of the copy.
+      // no component is using before then, and the next save leaves it out of the copy. Titles
+      // and My List, kept longer, have their own below.
       gcTime: DAY,
       retry: shouldRetry,
     },
@@ -37,6 +38,9 @@ export const queryClient = new QueryClient({
 // the tab stays open, restored from a copy or asked for. Not 30 days: setTimeout waits at most
 // about 24.8 days, and given longer waits no time at all, so the title would go at once.
 queryClient.setQueryDefaults(['anilist', QUERIES.title], { gcTime: Infinity })
+// My List's titles too, kept 30 days so the list shows offline: with a day's gcTime, a tab left
+// open a day away from My List would drop them, and the next save would leave them out.
+queryClient.setQueryDefaults(['anilist', QUERIES.list], { gcTime: Infinity })
 
 // Browsers can block storage entirely (e.g. "block all site data"); the app then
 // still works, just without a saved cache.

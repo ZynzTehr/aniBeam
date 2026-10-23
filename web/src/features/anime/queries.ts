@@ -1,4 +1,4 @@
-import { queryOptions, type QueryClient, type QueryKey } from '@tanstack/react-query'
+import { hashKey, queryOptions, type QueryClient, type QueryKey } from '@tanstack/react-query'
 import { anilist, AniListError, isRateLimited, type Variables } from '../../lib/anilist.ts'
 import { tagsOf, type TagFlags } from './tags.ts'
 
@@ -82,6 +82,10 @@ export const QUERIES = {
   // for an id it has no anime for, and for an adult title, which SAFE keeps out.
   title: `query ($id: Int) { Media(id: $id, type: ANIME, ${SAFE}) { ${CARD} status } }`,
   samples: `query ($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, status: FINISHED, type: ANIME, ${SAFE}) { ${CARD} } } }`,
+  // The titles on the visitor's list (spec §3F), by id, at most 50, a page of AniList's: the
+  // samples' query without their FINISHED filter, as the list holds airing titles too (see
+  // listQuery). AniList gives them in an order of its own.
+  list: `query ($ids: [Int]) { Page(perPage: 50) { media(id_in: $ids, type: ANIME, ${SAFE}) { ${CARD} } } }`,
 }
 
 export type Era = { id: string; label: string; variables: Variables }
@@ -182,6 +186,31 @@ export const searchQuery = (term: string) =>
   mediaQuery(QUERIES.search, { search: searchTerm(term) }, 6 * HOUR)
 
 /**
+ * The titles on the visitor's list, by their ids, in one request (spec §3F): at most 50, AniList's
+ * page, which the caller picks. The ids are sorted in the key, as numbers, so the same titles saved
+ * in another order share one request and one saved answer. Fresh for 6 hours, as airing titles
+ * are, and kept 30 days (see keptFor), so My List still shows offline (spec §3H).
+ */
+export const listQuery = (ids: number[]) => {
+  const options = mediaQuery(QUERIES.list, { ids: ids.toSorted((a, b) => a - b) }, 6 * HOUR)
+  return queryOptions({
+    ...options,
+    // Each change to the list makes a new key, and each answer, up to 50 whole titles, would stay
+    // its 30 days in the saved copy, pushing useful answers out of it once storage is full. So an
+    // answer for the list takes the place of the earlier ones no page is showing.
+    queryFn: async (context) => {
+      const titles = await options.queryFn!(context)
+      const hash = hashKey(context.queryKey)
+      context.client?.removeQueries({
+        queryKey: ['anilist', QUERIES.list],
+        predicate: (query) => query.queryHash !== hash && !query.getObserversCount(),
+      })
+      return titles
+    },
+  })
+}
+
+/**
  * One title, by its AniList id: a number, as each title's id in the lists is, so a card opened from
  * a list and one opened at its address share the key. TanStack's default staleTime (0) would ask
  * AniList again at each opening: a finished title's details don't change, so they stay fresh for
@@ -212,13 +241,15 @@ export const titleQuery = (id: number) =>
 
 /**
  * How long the saved cache keeps an answer, from when it came (see lib/queryClient.ts): a title
- * AniList says is finished, 30 days, as its details won't change; anything else a day, a list or a
- * title still airing (its next episode changes), so a visitor back after a week never sees that
- * week's lists. Not how long an answer stays fresh (staleTime): a trending list out of date after
- * 30 minutes still shows while the page asks for a newer one.
+ * AniList says is finished, 30 days, as its details won't change, and My List's titles 30 days, so
+ * the list still shows offline (spec §3H) a month after its last visit; anything else a day, a
+ * list or a title still airing (its next episode changes), so a visitor back after a week never
+ * sees that week's lists. Not how long an answer stays fresh (staleTime): a trending list out of
+ * date after 30 minutes still shows while the page asks for a newer one.
  */
 export const keptFor = (queryKey: QueryKey, data: unknown) =>
-  queryKey[1] === QUERIES.title && (data as Title | undefined)?.status === 'FINISHED'
+  queryKey[1] === QUERIES.list ||
+  (queryKey[1] === QUERIES.title && (data as Title | undefined)?.status === 'FINISHED')
     ? 30 * DAY
     : DAY
 

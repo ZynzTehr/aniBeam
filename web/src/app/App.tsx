@@ -13,7 +13,8 @@ import { SiteHeader, type NavLink } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
 import { TitleNotice } from '../components/TitleNotice.tsx'
-import { loadSamples, outOfReach, samplesFor } from '../features/anime/fallback.ts'
+import { loadSamples, samplesFor, useOutage } from '../features/anime/fallback.ts'
+import { loaded, loadListPage } from '../features/list/page.ts'
 import {
   ERAS,
   eraQuery,
@@ -31,8 +32,10 @@ import { markPointerJumps } from '../lib/jumps.ts'
 import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
 import {
+  isListPath,
   isOver,
   isTrailer,
+  pageBeneath,
   push,
   replace,
   titleIdFrom,
@@ -59,23 +62,6 @@ const retryFor = (query: UseQueryResult<Media[]>, retryFailed: () => void) =>
 const eraName = (era: Era) => (era.id === 'pre-1970' ? 'before 1970' : `the ${era.label}`)
 // No titles yet: one array for every render, as useSteadyList needs.
 const EMPTY: Media[] = []
-
-/**
- * Whether a section shows the sample titles (spec §3H, see fallback.ts) in place of its own: from
- * the moment it has no titles and a try can't reach AniList (outOfReach) until it gets titles.
- * Placeholder titles, such as the last decade's while a new one loads, count as titles. It holds
- * through the tries that follow, because TanStack clears a list's failure when it tries again:
- * Try again would otherwise take the samples away while anilist() waits out its pause, for up to
- * a minute.
- */
-function useOutage(query: UseQueryResult<Media[]>) {
-  const [latched, setLatched] = useState(false)
-  const outage =
-    query.data === undefined && (latched || outOfReach(query.failureReason ?? query.error))
-  // React lets a component update its own state as it renders: it renders again at once.
-  if (outage !== latched) setLatched(outage)
-  return outage
-}
 
 /** AniBeam's page: the intro, this week's trending titles, the pull, and titles by decade. */
 export default function App() {
@@ -121,16 +107,51 @@ export default function App() {
   // its list had it, and what opened it, for focus to return to (see below).
   const path = usePathname()
   const addressed = titleIdFrom(path)
+  // The page under the card: the address it was opened over, which its history entry keeps with
+  // its query (see open), after a reload there too; / under a card opened at its address. With no
+  // card, the page at the address.
+  const beneath = pageBeneath(path, history.state)
+  // My List (/list) takes Discover's place, under a card opened over it too: Discover's lists are
+  // left off, as they are asked for here in App, not where they are drawn, so not drawing them
+  // would still send their requests.
+  const onList = isListPath(beneath)
+  // My List's page is a file of its own (see features/list/page.ts), loaded by now on a visit that
+  // starts on it, and most often before it is opened. Else it loads as it is opened, with nothing
+  // in its place meanwhile. Should that fail, as offline before it ever loaded, a line says so, in
+  // the approved words, with Try again, and it tries again as the connection comes back. It stands
+  // in the page's own frame (ab-list), so the page draws with its heading where that one was.
+  const [, setListLoaded] = useState(false)
+  const [listFailed, setListFailed] = useState(false)
+  useEffect(() => {
+    if (!onList || loaded.ListPage || listFailed) return
+    void loadListPage().then(
+      () => setListLoaded(true),
+      () => setListFailed(true),
+    )
+  }, [onList, listFailed])
+  useEffect(() => {
+    if (!listFailed) return
+    const retry = () => setListFailed(false)
+    addEventListener('online', retry)
+    return () => removeEventListener('online', retry)
+  }, [listFailed])
   const [opened, setOpened] = useState<{ media: Media; element: HTMLElement } | null>(null)
   const open: OpenTitle = (media, from) => {
     setOpened({ media, element: from })
     // Back from the title returns to this address without its #fragment, as a link to a section
     // leaves one: returning to a fragment, the browser jumps to it again, scrolling to it and
-    // focusing it, so closing the card would lose the visitor's place and focus. Opened while a
-    // shared title still loads at its address, before its card shows, the new title takes that
-    // address's place, so closing it returns to the page, not to the shared title's card.
-    const over = addressed !== null ? '/' : path
-    if (addressed !== null || location.hash) replace(`${over}${location.search}`)
+    // focusing it, so closing the card would lose the visitor's place and focus. The entry keeps
+    // the address with its query, as My List's holds its view (?tab=want), which the page under
+    // the card shows. Opened while a shared title still loads at its address, before its card
+    // shows, the new title takes that address's place, so closing it returns to the page under it,
+    // not to the shared title's card.
+    const over =
+      addressed === null
+        ? `${path}${location.search}`
+        : isOver(history.state)
+          ? history.state.over
+          : `/${location.search}`
+    if (addressed !== null || location.hash) replace(over)
     push(titlePath(media.id), { over })
   }
 
@@ -139,8 +160,9 @@ export default function App() {
   // Back to the address it was opened over, or, opened at its address, puts / in its place. An
   // address the app doesn't know becomes /, before the browser draws the page.
   useLayoutEffect(() => {
-    if (path !== '/' && addressed === null) replace(`/${location.search}${location.hash}`)
-  }, [path, addressed])
+    if (path !== '/' && addressed === null && !onList)
+      replace(`/${location.search}${location.hash}`)
+  }, [path, addressed, onList])
   // A title opened on the page shows its list's copy, at once and again on Forward, with no
   // request. That copy is never saved as AniList's answer for the title: it may be a sample, shown
   // while AniList can't be reached, or older than an answer saved for it.
@@ -223,7 +245,18 @@ export default function App() {
   // Debounce every change to the box, then trim what is searched: a typed space, or a letter an
   // input method is still converting, is typing too, so it restarts the pause.
   const term = useDebounced(search, 300).text.trim()
-  const searching = term.length >= 2
+  // Results show on Discover, not on My List: a search typed there goes to /, as a new history
+  // entry, so Back returns to My List, and shows its results there (the plan's D11). Only as the
+  // search starts or changes: back on My List with a search still in the box, the page stays My
+  // List until the box changes again. Before the browser draws the page, so My List never shows
+  // the results.
+  const searching = term.length >= 2 && !onList
+  const searched = useRef(term)
+  useLayoutEffect(() => {
+    const changed = searched.current !== term
+    searched.current = term
+    if (changed && term.length >= 2 && onList && addressed === null) push('/', null)
+  }, [term, onList, addressed])
 
   // The page opens on FIRST_ERA, which a first visit asks AniList for in one request with
   // trending. Arrowing through the decade chips changes the choice once per chip; wait like
@@ -240,13 +273,13 @@ export default function App() {
   // as in useOutage.
   const [listsWait, setListsWait] = useState(addressed !== null)
   if (listsWait && addressed === null) setListsWait(false)
-  const trending = useQuery({ ...trendingQuery(), enabled: !listsWait })
+  const trending = useQuery({ ...trendingQuery(), enabled: !listsWait && !onList })
   // While a new decade loads, the previous decade's titles stay on screen instead of
   // flashing to empty cards.
   const decade = useQuery({
     ...eraQuery(era),
     placeholderData: keepPreviousData,
-    enabled: !listsWait,
+    enabled: !listsWait && !onList,
   })
 
   // A section that can't reach AniList shows sample titles instead, labelled (see useOutage):
@@ -299,10 +332,11 @@ export default function App() {
     return all.filter((media, i) => all.findIndex((other) => other.id === media.id) === i)
   }, [trendingShown, decadeShown])
 
-  // The intro's buttons, for the section links: none while searching, as results take its place.
+  // The intro's buttons, for the section links: none while searching, as results take its place,
+  // nor on My List, which has no intro.
   useLayoutEffect(() => {
-    sectionNav.current?.intro(searching ? null : actionsRef.current)
-  }, [searching])
+    sectionNav.current?.intro(searching || onList ? null : actionsRef.current)
+  }, [searching, onList])
 
   // Search results take the intro's place at the top of the page; bring them into view.
   useEffect(() => {
@@ -336,6 +370,25 @@ export default function App() {
             retryFailed={retryFailed}
             onStatus={setAnnouncement}
           />
+        ) : onList ? (
+          loaded.ListPage ? (
+            <loaded.ListPage onOpen={open} covered={card !== null} />
+          ) : (
+            listFailed && (
+              <div className="ab-list">
+                <Strip
+                  id="ab-list"
+                  level="h1"
+                  heading="My List"
+                  sfx="マイリスト"
+                  titles={EMPTY}
+                  note={navigator.onLine ? 'Details unavailable' : 'Details unavailable offline'}
+                  onRetry={() => setListFailed(false)}
+                  grid
+                />
+              </div>
+            )
+          )
         ) : (
           <IntroHero
             titles={trending.data ? introCovers : trendingSamples}
@@ -364,63 +417,68 @@ export default function App() {
             ]}
           />
         )}
-        <MangaPage
-          id="ab-trending"
-          heading={trendingSamples.length ? 'Fan favorites' : 'Trending now'}
-          sfx="ドン!"
-          titles={trendingShown}
-          titlesRef={trendingRef}
-          // The samples have no rank: they are well-loved titles, not this week's trending.
-          ranked={!trendingSamples.length}
-          note={
-            trendingSamples.length
-              ? sampleNote(
-                  'These are fan favorites, not this week’s trending.',
-                  trending,
-                  isRateLimited(),
-                )
-              : note(trending)
-          }
-          loading={trending.isPending}
-          onRetry={retryFor(trending, retryFailed)}
-          onOpen={open}
-        />
-        <PullMachine pool={pool} onOpen={open} />
-        <Strip
-          id="decades"
-          heading="Browse by decade"
-          sfx="バーン"
-          titles={decadeShown}
-          list={decadeList}
-          note={
-            decadeSamples.length
-              ? sampleNote(
-                  `A few fan favorites from ${eraName(era)}, not the full list.`,
-                  decade,
-                  isRateLimited(),
-                )
-              : note(decade)
-          }
-          loading={decade.isPending || decade.isPlaceholderData}
-          onRetry={retryFor(decade, retryFailed)}
-          onOpen={open}
-        >
-          <fieldset className="ab-eras">
-            <legend className="sr-only">Decade</legend>
-            {ERAS.map((e) => (
-              <label key={e.id} className="ab-chip">
-                <input
-                  type="radio"
-                  name="era"
-                  value={e.id}
-                  checked={eraId === e.id}
-                  onChange={() => setEraId(e.id)}
-                />
-                <span>{e.label}</span>
-              </label>
-            ))}
-          </fieldset>
-        </Strip>
+        {/* Discover's sections, not on My List. */}
+        {!onList && (
+          <>
+            <MangaPage
+              id="ab-trending"
+              heading={trendingSamples.length ? 'Fan favorites' : 'Trending now'}
+              sfx="ドン!"
+              titles={trendingShown}
+              titlesRef={trendingRef}
+              // The samples have no rank: they are well-loved titles, not this week's trending.
+              ranked={!trendingSamples.length}
+              note={
+                trendingSamples.length
+                  ? sampleNote(
+                      'These are fan favorites, not this week’s trending.',
+                      trending,
+                      isRateLimited(),
+                    )
+                  : note(trending)
+              }
+              loading={trending.isPending}
+              onRetry={retryFor(trending, retryFailed)}
+              onOpen={open}
+            />
+            <PullMachine pool={pool} onOpen={open} />
+            <Strip
+              id="decades"
+              heading="Browse by decade"
+              sfx="バーン"
+              titles={decadeShown}
+              list={decadeList}
+              note={
+                decadeSamples.length
+                  ? sampleNote(
+                      `A few fan favorites from ${eraName(era)}, not the full list.`,
+                      decade,
+                      isRateLimited(),
+                    )
+                  : note(decade)
+              }
+              loading={decade.isPending || decade.isPlaceholderData}
+              onRetry={retryFor(decade, retryFailed)}
+              onOpen={open}
+            >
+              <fieldset className="ab-eras">
+                <legend className="sr-only">Decade</legend>
+                {ERAS.map((e) => (
+                  <label key={e.id} className="ab-chip">
+                    <input
+                      type="radio"
+                      name="era"
+                      value={e.id}
+                      checked={eraId === e.id}
+                      onChange={() => setEraId(e.id)}
+                    />
+                    <span>{e.label}</span>
+                  </label>
+                ))}
+              </fieldset>
+            </Strip>
+          </>
+        )}
       </main>
       <footer className="ab-foot">
         <MotionSwitch id="reduce-motion" />

@@ -9,6 +9,15 @@ import { isPlainClick } from '../components/plainClick.ts'
 export const byPointer = (pointerType: string | undefined, last: 'pointer' | 'key') =>
   typeof pointerType === 'string' ? pointerType !== '' : last === 'pointer'
 
+// The last input before a click, a pointer's or a key's, as markPointerJumps follows it.
+let last: 'pointer' | 'key' = 'key'
+
+/** Marks `target`, a heading a link's click focuses, as a pointer's jump or not (see below). */
+function mark(target: HTMLElement, event: MouseEvent) {
+  if (byPointer((event as PointerEvent).pointerType, last)) target.dataset.jump = 'pointer'
+  else delete target.dataset.jump
+}
+
 /**
  * Marks a section heading that a link focuses after a tap or click (data-jump="pointer"), so the
  * focus ring it shows for the keyboard stays hidden. Safari, and every browser on an iPhone,
@@ -18,7 +27,6 @@ export const byPointer = (pointerType: string | undefined, last: 'pointer' | 'ke
  * function that stops listening.
  */
 export function markPointerJumps(): () => void {
-  let last: 'pointer' | 'key' = 'key'
   const pointed = () => (last = 'pointer')
   const keyed = () => (last = 'key')
   // In the capture phase, so no handler can stop it first; either way before the browser follows
@@ -28,8 +36,7 @@ export function markPointerJumps(): () => void {
     if (!link || !isPlainClick(event)) return
     const target = document.getElementById(decodeURIComponent(link.hash.slice(1)))
     if (target?.getAttribute('tabindex') !== '-1') return
-    if (byPointer((event as PointerEvent).pointerType, last)) target.dataset.jump = 'pointer'
-    else delete target.dataset.jump
+    mark(target, event)
   }
   const left = (event: FocusEvent) => {
     if (event.target instanceof HTMLElement) delete event.target.dataset.jump
@@ -44,4 +51,18 @@ export function markPointerJumps(): () => void {
     document.removeEventListener('click', clicked, true)
     document.removeEventListener('focusout', left, true)
   }
+}
+
+/**
+ * Jumps to the section heading with `id` as a link to it would, after `event`, the click on a link
+ * the page follows itself, with no new page, to a section drawn just now (as My List's Browse
+ * what's trending does): brings it to the screen's top, below the header (its scroll margin), and
+ * focuses it, marked as markPointerJumps marks one.
+ */
+export function jumpTo(id: string, event: MouseEvent) {
+  const target = document.getElementById(id)
+  if (!target) return
+  mark(target, event)
+  target.scrollIntoView()
+  target.focus({ preventScroll: true })
 }

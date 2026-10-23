@@ -147,11 +147,18 @@ const nameOf = ({ query, variables = {} }: Answer['request']) => {
   const lists = [...query.matchAll(/sort: (\w+)/g)].map(([, sort]) => sort).join(' + ')
   return `${lists || JSON.stringify(query.slice(0, 60))} with ${JSON.stringify(sorted(variables))}`
 }
-// The kinds of request recordings.ts asks for: searches, decades and titles on their own, the ones
-// its SEARCHES, DECADES and TITLES list, and trending and a first visit, which its requests()
-// always asks for. A request of any other kind has a recording only once requests() asks for it
-// too.
-const LISTED = [QUERIES.search, QUERIES.era, QUERIES.title, QUERIES.trending, QUERIES.firstVisit]
+// The kinds of request recordings.ts asks for: searches, decades, titles on their own and My List's
+// titles, the ones its SEARCHES, DECADES, TITLES and LISTS list, and trending and a first visit,
+// which its requests() always asks for. A request of any other kind has a recording only once
+// requests() asks for it too.
+const LISTED = [
+  QUERIES.search,
+  QUERIES.era,
+  QUERIES.title,
+  QUERIES.list,
+  QUERIES.trending,
+  QUERIES.firstVisit,
+]
 
 // What AniList sends with its answer to a CORS preflight, and with its answer to a request, as a
 // live run's network log shows them. The page may send only the headers AniList allows, and read
@@ -750,9 +757,11 @@ export class Browser {
     if (typeof search === 'string' && search !== typed && typed.startsWith(search))
       return ` It is the start of ${JSON.stringify(this.#typing)}, which the check typed with Browser.search(), so it went out mid-word, on a machine too busy to type in time, and needs no recording: run the check again.`
     if (!LISTED.includes(request.query))
-      return ' It is not a search, a decade, a title on its own, trending or a first visit: to record it, add it to requests() in web/e2e/recordings.ts unless it is there already, then run `npm run e2e:record` in web/.'
+      return ' It is not a search, a decade, a title on its own, My List’s titles, trending or a first visit: to record it, add it to requests() in web/e2e/recordings.ts unless it is there already, then run `npm run e2e:record` in web/.'
     if (request.query === QUERIES.title)
       return ' To record it, add its id to TITLES in web/e2e/recordings.ts unless it is there already, then run `npm run e2e:record` in web/.'
+    if (request.query === QUERIES.list)
+      return ' To record it, add its ids to LISTS in web/e2e/recordings.ts unless they are there already, then run `npm run e2e:record` in web/.'
     return `${this.#midWord(request)} To record it, add it to SEARCHES or DECADES in web/e2e/recordings.ts unless it is there already, then run \`npm run e2e:record\` in web/.`
   }
 

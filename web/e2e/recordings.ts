@@ -18,6 +18,7 @@ import {
   ERAS,
   eraQuery,
   FIRST_ERA,
+  listQuery,
   searchQuery,
   titleQuery,
   trendingQuery,
@@ -64,6 +65,19 @@ export const DECADES = ['1980s', '1990s']
  * Frieren. Not here: an id AniList has no anime for, which the checks answer with a rewrite.
  */
 export const TITLES = [154587]
+
+/**
+ * The lists of saved ids the checks open My List with, each by its recording's name, so the page
+ * asks AniList for their titles in one request (listQuery). Not here: a list a check answers with
+ * a built answer, with a rewrite.
+ */
+export const LISTS: Record<string, number[]> = {
+  // Twelve titles already in the recordings, as listQuery sends them, sorted: Cowboy Bebop, ONE
+  // PIECE (airing), Evangelion, AKIRA, Mononoke-hime, serial experiments lain, PERFECT BLUE,
+  // Totoro, Nausicaä, Black Clover, Frieren and Kusuriya no Hitorigoto 3rd Season (airing). A cold
+  // /list with these saved sends exactly this one request (the plan's done-when 2).
+  'list-12': [1, 21, 30, 47, 164, 339, 437, 523, 572, 97940, 154587, 195516],
+}
 
 type Request = Recording['request']
 
@@ -150,10 +164,12 @@ export async function requests(): Promise<{ name: string; request: Request }[]> 
       name: `title-${id}`,
       request: await sent((client) => client.fetchQuery(titleQuery(id))),
     })
+  for (const [name, ids] of Object.entries(LISTS))
+    wanted.push({ name, request: await sent((client) => client.fetchQuery(listQuery(ids))) })
   const names = wanted.map(({ name }) => name)
   const twice = names.filter((name, i) => names.indexOf(name) !== i)
   if (twice.length)
-    throw new Error(`SEARCHES, DECADES or TITLES asks for one request twice: ${twice}`)
+    throw new Error(`SEARCHES, DECADES, TITLES or LISTS asks for one request twice: ${twice}`)
   return wanted
 }
 
@@ -383,6 +399,15 @@ const RULES: {
         : /frieren/i.test(titleOf(titles[0]))
           ? ''
           : `it is '${titleOf(titles[0])}'`,
+  },
+  {
+    lists: [['list-12', 'Page']],
+    needs: 'a title for each of its 12 ids',
+    why: 'as list.e2e.ts saves those 12 ids and waits for a cover for each, from the one request a cold /list sends',
+    broken: (titles) => {
+      const lacking = LISTS['list-12'].filter((id) => !titles.some((media) => media.id === id))
+      return lacking.length ? `it lacks ${lacking.join(', ')}` : ''
+    },
   },
   {
     lists: [search('one piece')],

@@ -168,6 +168,20 @@ export function setStatusIn(list: List, id: number, status: Status | null, now: 
 }
 
 /**
+ * Takes each of `ids` off the list, in one edit: My List's "Remove them", for the titles AniList's
+ * answer left out (see ListPage). Each gets its delete marker (see setStatusIn), and a title not on
+ * the list is left as it is.
+ */
+export const removeAllIn = (list: List, ids: number[], now: number) =>
+  ids.reduce<Edited>(
+    (done, id) => {
+      const next = setStatusIn(done.list, id, null, now)
+      return next.change === 'none' ? done : next
+    },
+    { list, change: 'none' },
+  )
+
+/**
  * A press on the title's Saved or Want to try button (`status`): the button already pressed takes
  * the title off the list, and the other moves it there, or puts it on.
  */
@@ -189,6 +203,23 @@ export function toggleFavoriteIn(list: List, id: number, now: number): Edited {
   if (!HEART_ADDS_AS) return { list, change: 'none' }
   if (isFull(list)) return { list, change: 'full' }
   return { list: written(list, id, now, HEART_ADDS_AS, true), change: 'added' }
+}
+
+/**
+ * Puts a title taken off the list back as it was, with its status and heart (My List's Undo, the
+ * plan's D7), as a new edit: made at `now`, after its delete marker (see written), never at the
+ * time it had before, which a copy of the list holding the marker would beat in a merge (spec §6).
+ * A title on the list again, a full list, or an id that isn't an AniList id is left as it is.
+ */
+export function restoreIn(
+  list: List,
+  id: number,
+  { status, favorite }: Pick<Entry, 'status' | 'favorite'>,
+  now: number,
+): Edited {
+  if (!ID.test(String(id)) || entryIn(list, id)) return { list, change: 'none' }
+  if (isFull(list)) return { list, change: 'full' }
+  return { list: written(list, id, now, status, favorite), change: 'added' }
 }
 
 /** Where the list is saved: localStorage, under this key alone. */
@@ -374,6 +405,11 @@ export function createListStore({
       edit((list, now) => pressStatusIn(list, id, status, now)),
     /** A press on the title's heart (see toggleFavoriteIn). */
     toggleFavorite: (id: number) => edit((list, now) => toggleFavoriteIn(list, id, now)),
+    /** Takes each of `ids` off the list, in one edit (see removeAllIn). */
+    removeAll: (ids: number[]) => edit((list, now) => removeAllIn(list, ids, now)),
+    /** Puts a title taken off back as it was, as a new edit (see restoreIn). */
+    restore: (id: number, was: Pick<Entry, 'status' | 'favorite'>) =>
+      edit((list, now) => restoreIn(list, id, was, now)),
   }
 }
 
@@ -388,11 +424,19 @@ function browserStorage() {
 }
 
 /** The visitor's list, in this browser's localStorage. */
-export const { getSnapshot, subscribe, read, setStatus, pressStatus, toggleFavorite } =
-  createListStore({
-    storage: browserStorage(),
-    events: typeof window === 'undefined' ? undefined : window,
-  })
+export const {
+  getSnapshot,
+  subscribe,
+  read,
+  setStatus,
+  pressStatus,
+  toggleFavorite,
+  removeAll,
+  restore,
+} = createListStore({
+  storage: browserStorage(),
+  events: typeof window === 'undefined' ? undefined : window,
+})
 
 /** The title's entry while it is on the list (see entryIn), kept up to date as it changes. */
 export const useEntry = (id: number) =>

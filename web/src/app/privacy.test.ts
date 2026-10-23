@@ -371,18 +371,36 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // the buttons show: 89,274 B; their row, its pair and its pressed look, in a contrast theme too,
 // and the pair's hovered or focused button drawn over a pressed one, took the CSS past 11,500 B,
 // to 11,668 B (the 11,647 B first written here was 21 B short), so the CSS's budget is now
-// 12,000 B; the user agreed to the raises My List needs), so its budget is 89,500 B. The JS
-// loaded only when needed rose to 14,028 B when the samples began to carry each title's
-// synopsis, running time and the tags its card shows, as the lists' titles do, so that a sample's
-// card opens on them with no request (the user agreed to about 15 KB more, gzipped), so its
-// budget is 14,500 B.
+// 12,000 B; the user agreed to the raises My List needs), 89,500 B; then 90,000 B with My List's
+// page at /list (QUERIES.list and listQuery, its titles in one request, kept 30 days with their
+// gcTime, the address kept with Discover's requests off there, and My List under a card opened over
+// it: 89,744 B), and 91,000 B with the page itself (features/list/view.ts and ListPage: its tabs
+// and Favorites only as links that change the address, each view's titles taken as it opens, empty
+// cards holding the places of titles still to come, the copies other answers hold shown at once,
+// the empty states and notes: 90,549 B; their styles brought the CSS to 11,824 B, still within its
+// budget), and 91,500 B with its states (90,840 B with the Undo before them: the titles AniList's
+// answer leaves out, holding their places, with Remove them, a failed answer leaving out none, the
+// samples filling in while AniList is out of reach, and offline: 91,172 B; their styles brought the
+// CSS to 11,849 B); then My List's page became a file of its own (features/list/page.ts), which
+// left the JS every visit loads at 90,164 B with what loads it and the line in its place should it
+// fail, so its budget is 90,500 B. My List's page itself, ListPage and features/list/view.ts, is
+// 2,165 B, so its own budget is 2,500 B (the user agreed to about 3,000 B, the plan's D18); the
+// grid's covers kept their focus rings on a phone's screen with a wider scroll margin (11,866 B of
+// CSS). The JS loaded only when needed rose to 14,028 B when the samples began to carry each
+// title's synopsis, running time and the tags its card shows, as the lists' titles do, so that a
+// sample's card opens on them with no request (the user agreed to about 15 KB more, gzipped), so
+// its budget is 14,500 B.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 89_500,
+  'the JS every visit loads': 90_500,
   'the CSS': 12_000,
   'the JS loaded only when needed': 14_500,
+  'My List’s page': 2_500,
   'every other file': 500,
 }
+
+// My List's page, a file of its own (see features/list/page.ts), weighed apart from the samples.
+const LIST_PAGE = 'src/features/list/ListPage.tsx'
 
 const brotli = (content: string | Uint8Array) =>
   brotliCompressSync(content, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length
@@ -402,12 +420,28 @@ test('the production bundle stays within its byte budget', () => {
     'the JS every visit loads': 0,
     'the CSS': 0,
     'the JS loaded only when needed': 0,
+    'My List’s page': 0,
     'every other file': 0,
   }
+  // My List's page is loaded only when needed, or once the browser is idle after the list holds a
+  // title, never with every visit, and in a file of its own, which holds none of the samples.
+  const page = chunks.filter((chunk) => chunk.moduleIds.map(fromWeb).includes(LIST_PAGE))
+  assert.deepEqual(
+    page.map((chunk) => ({
+      everyVisit: loaded.has(chunk.fileName),
+      samples: chunk.moduleIds.map(fromWeb).includes('src/features/anime/samples.ts'),
+    })),
+    [{ everyVisit: false, samples: false }],
+    `My List's page must be one file of its own, loaded only when needed: ${LIST_PAGE}`,
+  )
   for (const file of output) {
     if (file.type === 'chunk')
       sizes[
-        loaded.has(file.fileName) ? 'the JS every visit loads' : 'the JS loaded only when needed'
+        loaded.has(file.fileName)
+          ? 'the JS every visit loads'
+          : page.includes(file)
+            ? 'My List’s page'
+            : 'the JS loaded only when needed'
       ] += brotli(file.code)
     else
       sizes[file.fileName.endsWith('.css') ? 'the CSS' : 'every other file'] += brotli(file.source)

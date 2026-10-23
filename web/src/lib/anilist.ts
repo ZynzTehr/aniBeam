@@ -3,7 +3,8 @@
 
 const ENDPOINT = 'https://graphql.anilist.co'
 
-export type Variables = Record<string, string | number>
+// A list of ids (My List's titles, the samples') goes as a list of numbers.
+export type Variables = Record<string, string | number | number[]>
 
 export class AniListError extends Error {
   status: number

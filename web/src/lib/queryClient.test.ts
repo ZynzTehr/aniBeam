@@ -1,17 +1,32 @@
-import { dehydrate, environmentManager, QueryClient, QueryObserver } from '@tanstack/react-query'
+import {
+  dehydrate,
+  environmentManager,
+  hashKey,
+  QueryClient,
+  QueryObserver,
+} from '@tanstack/react-query'
+import { persistQueryClientRestore } from '@tanstack/react-query-persist-client'
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { AniListError } from './anilist.ts'
 import {
   ERAS,
   eraQuery,
+  listQuery,
+  QUERIES,
   searchQuery,
   titleQuery,
   trendingQuery,
   type Title,
 } from '../features/anime/queries.ts'
 import { SAMPLES } from '../features/anime/samples.ts'
-import { persistOptions, queryClient, refetchFailed, shouldRetry } from './queryClient.ts'
+import {
+  cachePersister,
+  persistOptions,
+  queryClient,
+  refetchFailed,
+  shouldRetry,
+} from './queryClient.ts'
 
 const HOUR = 60 * 60 * 1000
 const DAY = 24 * HOUR
@@ -163,6 +178,114 @@ test('a finished title the visitor has left is still saved 29 days later', async
     saved(queryClient),
     [[queryKey, title]],
     'a finished title the visitor left 29 days ago was not saved: gcTime dropped it before its 30 days were up',
+  )
+})
+
+test('My List’s titles, back from a copy saved 2 days ago, are still saved after a day more', async (t) => {
+  // Spec §3H: My List stays visible offline. Its answer is kept 30 days (see keptFor), so a copy
+  // saved 2 days ago brings it back; then, with the tab left open for over a day while the
+  // visitor is elsewhere on the site, gcTime must not drop it, or the next save leaves it out of
+  // the copy and My List is empty offline. As in the tests above, query-core is told it is in a
+  // browser until the test ends.
+  const wasServer = environmentManager.isServer()
+  environmentManager.setIsServer(() => false)
+  t.after(() => environmentManager.setIsServer(() => wasServer))
+  const now = Date.UTC(2030, 0, 1)
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now })
+  t.after(() => queryClient.clear())
+  const { queryKey } = listQuery(SAMPLES.slice(0, 2).map((media) => media.id))
+  const titles = SAMPLES.slice(0, 2)
+  const answeredAt = now - 2 * DAY
+  // The copy as the page saves it under anibeam:cache (see persist.test.ts's copyOf).
+  const copy = JSON.stringify({
+    buster: persistOptions.buster,
+    timestamp: answeredAt,
+    clientState: {
+      mutations: [],
+      queries: [
+        {
+          queryKey,
+          queryHash: hashKey(queryKey),
+          state: {
+            data: titles,
+            dataUpdateCount: 1,
+            dataUpdatedAt: answeredAt,
+            error: null,
+            errorUpdateCount: 0,
+            errorUpdatedAt: 0,
+            fetchFailureCount: 0,
+            fetchFailureReason: null,
+            fetchMeta: null,
+            isInvalidated: false,
+            status: 'success',
+            fetchStatus: 'idle',
+          },
+        },
+      ],
+    },
+  })
+  const storage = {
+    getItem: () => copy,
+    setItem: () => {},
+    removeItem: () => {},
+  }
+  // The real app client, restored as the page restores it.
+  await persistQueryClientRestore({
+    ...persistOptions,
+    queryClient,
+    persister: cachePersister(storage),
+  })
+  assert.deepEqual(
+    saved(queryClient),
+    [[queryKey, titles]],
+    'My List’s titles from 2 days ago did not come back: they are kept less than 30 days',
+  )
+  t.mock.timers.tick(DAY + HOUR) // a day and an hour with My List off the page
+  assert.deepEqual(
+    saved(queryClient),
+    [[queryKey, titles]],
+    'My List’s titles left the saved copy a day after they came back: gcTime dropped them',
+  )
+})
+
+test('only the latest of My List’s answers is kept, however often the list’s titles change', async (t) => {
+  // The key holds the ids, so each change to the list makes a new key, and each answer, up to 50
+  // full titles, would stay 30 days in the saved copy (see keptFor), pushing useful answers out
+  // when storage is full. So an answer for the list takes the place of the others. The real app
+  // client; only AniList (fetch) and the clock are fake, the clock past the pause the rate-limit
+  // test above leaves in anilist().
+  t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2032, 0, 1) })
+  t.after(() => queryClient.clear())
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    const { variables } = JSON.parse(String(init.body))
+    const media = SAMPLES.filter((title) => variables.ids.includes(title.id))
+    return new Response(JSON.stringify({ data: { Page: { media } } }))
+  })
+  const [a, b, c] = SAMPLES.map((title) => title.id)
+  // Three visits to My List, with a title saved, then another, then the first removed.
+  for (const ids of [
+    [a, b],
+    [a, b, c],
+    [b, c],
+  ])
+    await queryClient.fetchQuery(listQuery(ids))
+  const lists = saved(queryClient).filter(
+    ([queryKey]) => (queryKey as unknown[])[1] === QUERIES.list,
+  )
+  assert.deepEqual(
+    lists.map(([queryKey]) => (queryKey as [string, string, { ids: number[] }])[2].ids),
+    [[b, c].toSorted((x, y) => x - y)],
+    'the saved copy keeps these answers for My List',
+  )
+  // An answer a page still shows stays, as the page would otherwise lose its titles.
+  await queryClient.fetchQuery(listQuery([a, c]))
+  const shown = new QueryObserver(queryClient, listQuery([a, c]))
+  t.after(shown.subscribe(() => {}))
+  await queryClient.fetchQuery(listQuery([a]))
+  assert.deepEqual(
+    queryClient.getQueryData(listQuery([a, c]).queryKey),
+    SAMPLES.filter((title) => [a, c].includes(title.id)),
+    'an answer for My List that a page is showing was taken away',
   )
 })
 
