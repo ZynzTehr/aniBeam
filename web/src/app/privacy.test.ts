@@ -371,14 +371,17 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // the buttons show: 89,274 B; their row, its pair and its pressed look, in a contrast theme too,
 // and the pair's hovered or focused button drawn over a pressed one, took the CSS past 11,500 B,
 // to 11,668 B (the 11,647 B first written here was 21 B short), so the CSS's budget is now
-// 12,000 B; the user agreed to the raises My List needs), so its budget is 89,500 B. The JS
-// loaded only when needed rose to 14,028 B when the samples began to carry each title's
-// synopsis, running time and the tags its card shows, as the lists' titles do, so that a sample's
-// card opens on them with no request (the user agreed to about 15 KB more, gzipped), so its
-// budget is 14,500 B.
+// 12,000 B; the user agreed to the raises My List needs), 89,500 B; then 90,000 B with My List's
+// page at /list (QUERIES.list and listQuery, its titles in one request, kept 30 days with their
+// gcTime, the address kept with Discover's requests off there, and My List under a card opened over
+// it: 89,744 B; it loads with every visit until the plan's PR 2 makes it a lazy chunk), so its
+// budget is 90,000 B. The JS loaded only when needed rose to 14,028 B when the samples began to
+// carry each title's synopsis, running time and the tags its card shows, as the lists' titles do,
+// so that a sample's card opens on them with no request (the user agreed to about 15 KB more,
+// gzipped), so its budget is 14,500 B.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 89_500,
+  'the JS every visit loads': 90_000,
   'the CSS': 12_000,
   'the JS loaded only when needed': 14_500,
   'every other file': 500,
