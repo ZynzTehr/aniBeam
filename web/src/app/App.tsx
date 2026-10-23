@@ -4,11 +4,13 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from '@tanstack/react-query'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { flushSync } from 'react-dom'
 import { coverFan, COVERS } from '../components/coverFan.ts'
 import { IntroHero } from '../components/IntroHero.tsx'
 import { MangaPage, PANELS } from '../components/MangaPage.tsx'
 import { MotionSwitch } from '../components/MotionSwitch.tsx'
+import { isPlainClick } from '../components/plainClick.ts'
 import { SiteHeader, type NavLink } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
@@ -42,19 +44,24 @@ import {
   titlePath,
   usePathname,
 } from '../lib/route.ts'
-import { startSectionNav } from '../lib/sectionNav.ts'
+import { LIST_HREF, startSectionNav } from '../lib/sectionNav.ts'
 import { useSteadyList } from '../lib/steadyList.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
 import { cardNote, noteFor, NOT_FOUND, sampleNote, searchStatus, titleNote } from './status.ts'
 
 const note = (query: UseQueryResult<Media[]>) => noteFor(query, isRateLimited())
-// The header's links: the page's three sections, and My List, to come.
+// The header's links: the page's three sections, and My List's page, marked current on it. No
+// count beside My List (the plan's D12): a number changing width would move the header, which the
+// intro's buttons fly into by its links' measured places.
 const HEADER_LINKS: NavLink[] = [
   { href: '#ab-trending', label: 'Trending' },
   { href: '#pull', label: 'Pull' },
   { href: '#decades', label: 'Decades' },
-  { href: '#my-list', label: 'My List', soon: true },
+  { href: LIST_HREF, label: 'My List' },
 ]
+const HEADER_LINKS_ON_LIST = HEADER_LINKS.map((link) =>
+  link.href === LIST_HREF ? { ...link, current: true } : link,
+)
 // A Try again button when a section's last attempt failed (see App's retryFailed).
 const retryFor = (query: UseQueryResult<Media[]>, retryFailed: () => void) =>
   query.isError && !query.isFetching ? retryFailed : undefined
@@ -338,6 +345,21 @@ export default function App() {
     sectionNav.current?.intro(searching || onList ? null : actionsRef.current)
   }, [searching, onList])
 
+  // AniBeam and My List's link go to their page with no new page, on a plain click, as a link on
+  // My List does: a new history entry, so Back returns, drawn at once and shown from its top.
+  // AniBeam empties the search too, as the app loaded again did. Any other click (a new tab, say)
+  // is the browser's.
+  const go = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isPlainClick(event)) return
+    event.preventDefault()
+    const to = event.currentTarget.getAttribute('href')!
+    flushSync(() => {
+      if (to === '/') setSearch({ shown: '', text: '' })
+      if (to !== `${location.pathname}${location.search}${location.hash}`) push(to, null)
+    })
+    scrollTo({ top: 0, behavior: 'instant' })
+  }
+
   // Search results take the intro's place at the top of the page; bring them into view.
   useEffect(() => {
     if (searching) window.scrollTo({ top: 0 })
@@ -354,10 +376,11 @@ export default function App() {
         Skip to Reduce motion
       </a>
       <SiteHeader
-        links={HEADER_LINKS}
+        links={onList ? HEADER_LINKS_ON_LIST : HEADER_LINKS}
         search={search.shown}
         onSearch={(shown, text) => setSearch({ shown, text })}
         currentHref={currentHref}
+        onGo={go}
       />
       <main id="main">
         <p role="status" className="sr-only">

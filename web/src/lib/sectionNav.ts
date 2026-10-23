@@ -328,8 +328,8 @@ export function startSectionNav({
           ? new DOMRect(start.left, headerBottomNow(), start.width, start.height)
           : start
       const box = (toHeader ? link : button).getBoundingClientRect()
-      // My List, to come, flies dashed and greyed, as it shows at both ends (see copyLook).
-      const soon = link.classList.contains('ab-soon')
+      // My List, to come at either end, flies dashed and greyed, as it shows there (see copyLook).
+      const soon = [button, link].some((el) => el.classList.contains('ab-soon'))
       const look = copyLook({ toHeader, current: link.getAttribute('href') === current, soon })
       // The link to the section the visitor is in sits raised 2px up and left, as it is about to
       // be marked: the copy lands where it will be.

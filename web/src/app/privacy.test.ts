@@ -383,16 +383,18 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // samples filling in while AniList is out of reach, and offline: 91,172 B; their styles brought the
 // CSS to 11,849 B); then My List's page became a file of its own (features/list/page.ts), which
 // left the JS every visit loads at 90,164 B with what loads it and the line in its place should it
-// fail, so its budget is 90,500 B. My List's page itself, ListPage and features/list/view.ts, is
-// 2,165 B, so its own budget is 2,500 B (the user agreed to about 3,000 B, the plan's D18); the
-// grid's covers kept their focus rings on a phone's screen with a wider scroll margin (11,866 B of
-// CSS). The JS loaded only when needed rose to 14,028 B when the samples began to carry each
-// title's synopsis, running time and the tags its card shows, as the lists' titles do, so that a
-// sample's card opens on them with no request (the user agreed to about 15 KB more, gzipped), so
-// its budget is 14,500 B.
+// fail, so its budget was 90,500 B; 91,000 B since the header's My List became a link to /list,
+// marked current there, which it and AniBeam reach with no new page on a plain click: 90,539 B (its
+// yellow, shared with the current section's link, left the CSS at 11,878 B). My List's page itself,
+// ListPage and features/list/view.ts, is 2,165 B, so its own budget is 2,500 B (the user agreed to
+// about 3,000 B, the plan's D18); the grid's covers kept their focus rings on a phone's screen with
+// a wider scroll margin (11,866 B of CSS). The JS loaded only when needed rose to 14,028 B when the
+// samples began to carry each title's synopsis, running time and the tags its card shows, as the
+// lists' titles do, so that a sample's card opens on them with no request (the user agreed to about
+// 15 KB more, gzipped), so its budget is 14,500 B.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 90_500,
+  'the JS every visit loads': 91_000,
   'the CSS': 12_000,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,

@@ -712,7 +712,7 @@ describe('desktop (1440x900)', () => {
       chips: [...document.querySelectorAll('.ab-eras input')].map((input) => input.value),
     })`)
     assert.equal(page.h1, 'What’s hot. What’s new. Talk about it.')
-    assert.deepEqual(page.links, ['Trending', 'Pull', 'Decades'])
+    assert.deepEqual(page.links, ['Trending', 'Pull', 'Decades', 'My List'])
     assert.equal(page.panels, 9)
     assert.deepEqual(page.chips, [
       'pre-1970',
@@ -740,19 +740,22 @@ describe('desktop (1440x900)', () => {
     assert.deepEqual(state.notes, ['', ''])
   })
 
-  test('later features show as coming soon and cannot be used', async () => {
+  test('later features show as coming soon and cannot be used; the header’s My List is a link to its page', async () => {
     const soon = await browser.evaluate<{
-      menu: string
+      header: string
+      soon: string
       tabIndex: number
       hint: string
       intro: string
     }>(`({
-      menu: document.querySelector('.ab-nav .ab-soon').textContent.replace(/\\s+/g, ' ').trim(),
-      tabIndex: document.querySelector('.ab-nav .ab-soon').tabIndex,
+      header: document.querySelector('.ab-nav a[href="/list"]')?.textContent.trim() ?? 'none',
+      soon: document.querySelector('.ab-intro-actions .ab-soon').textContent.replace(/\\s+/g, ' ').trim(),
+      tabIndex: document.querySelector('.ab-intro-actions .ab-soon').tabIndex,
       hint: document.querySelector('.ab-hint').textContent,
       intro: document.querySelector('.ab-intro-lede').textContent,
     })`)
-    assert.equal(soon.menu, 'My List Soon')
+    assert.equal(soon.header, 'My List')
+    assert.equal(soon.soon, 'My List Soon')
     assert.equal(soon.tabIndex, -1)
     assert.match(soon.hint, /Coming soon: mood sliders/)
     assert.match(soon.intro, /Coming soon: chat with other fans/)
@@ -1472,9 +1475,11 @@ describe('desktop (1440x900)', () => {
         problems.push(`${width}px: the header is ${Math.round(held.height)}px tall, not ${rest}px`)
       if (Math.abs(below) >= 30)
         problems.push(`${width}px: the bubble sits ${below}px below the links`)
-      if (Math.abs(held.bubble.width - held.room) > 2)
+      // Up to the bubble's widest, 566px (components.css), which the room passes at 1280px since
+      // My List became a link, narrower than its Soon tag was.
+      if (Math.abs(held.bubble.width - Math.min(held.room, 566)) > 2)
         problems.push(
-          `${width}px: the bubble is ${Math.round(held.bubble.width)}px wide, not the ${Math.round(held.room)}px the links leave`,
+          `${width}px: the bubble is ${Math.round(held.bubble.width)}px wide, not the ${Math.round(Math.min(held.room, 566))}px the links leave`,
         )
     }
     // Below 900px the header is one row of its own, the menu button, the logo and the search,
@@ -1640,11 +1645,12 @@ describe('desktop (1440x900)', () => {
     )
   })
 
-  test('the header’s links land their targets below it, even when WCAG text spacing wraps it onto two rows', async () => {
+  test('the header’s links land their targets below it, even when widened text spacing wraps it onto two rows', async () => {
     // From 900px the header stays at the top of the screen, and what its links jump to stops
-    // 18px under it: 96px from the top, below its one 78px row. With WCAG 1.4.12's test
-    // spacing, the search takes a second row from 900 to about 965px (see the check above), and
-    // the header grows to 135 to 138px. A fixed 96px then left the top 46 to 49px of the
+    // 18px under it: 96px from the top, below its one 78px row. With widened text spacing, the
+    // search takes a second row at 900 and 960px, and the header grows to 135 to 138px: letters
+    // 0.2em apart, more than WCAG 1.4.12's least (0.12em), at which the header keeps one row since
+    // My List became a link (the check above). A fixed 96px then left the top 46 to 49px of the
     // focused Trending heading, focus ring included, under the header, and 38 to 42px of the
     // Pull section. Without the spacing every target must still land at 96px, as it always
     // has, and below 900px too, where the header is one row, shown or hidden up the screen.
@@ -1753,7 +1759,7 @@ describe('desktop (1440x900)', () => {
       await browser.evaluate(`(() => {
         const style = document.head.appendChild(document.createElement('style'))
         style.id = 'text-spacing'
-        style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+        style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.2em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
         return true
       })()`)
       // With the spacing, on two rows.
@@ -1793,9 +1799,10 @@ describe('desktop (1440x900)', () => {
     )
   })
 
-  test('with WCAG text spacing, link targets keep 18px under the header at every width from 900px', async () => {
+  test('with widened text spacing, link targets keep 18px under the header at every width from 900px', async () => {
     // The check above jumps with the spacing at 900 and 960px only, but the header keeps its
-    // second row up to about 965px, and above that it is a taller single row (about 80px). A
+    // second row up to between 960 and 1000px, and above that it is a taller single row (about
+    // 80px). Letters 0.2em apart, as there, more than WCAG 1.4.12's least. A
     // margin that followed the header's height only up to 960px hid 48px of the focused Trending
     // heading at 963px. Every 5px from 900 to 1000px, and at 1100 and 1440px, each target's scroll
     // margin must be the header's measured height and 18px. No keys: the margin is what the
@@ -1816,7 +1823,7 @@ describe('desktop (1440x900)', () => {
     await browser.evaluate(`(() => {
       const style = document.head.appendChild(document.createElement('style'))
       style.id = 'text-spacing'
-      style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+      style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.2em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
       return true
     })()`)
     try {

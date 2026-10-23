@@ -39,13 +39,14 @@ const FOCUSED = `(() => {
 
 test('from 900px, focus never lands under the sticky header, going back with Shift+Tab or by the skip link', async () => {
   const seen: string[] = []
-  // At 960px with WCAG's widened text spacing (1.4.12), the header takes a second row, 135px.
+  // At 960px with widened text spacing, the header takes a second row, 135px: letters 0.2em apart,
+  // more than WCAG 1.4.12's least (0.12em), at which it keeps one row since My List became a link.
   // It waits until the header has settled and published its height (--top-h): the search bubble
   // measures its wider text a frame later, which wraps the header a frame after, and --top-h
   // follows a frame after that. So the two must agree for 5 frames running.
   const SPACING = `(async () => {
     const style = document.head.appendChild(document.createElement('style'))
-    style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+    style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.2em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
     const header = document.querySelector('.ab-top')
     for (let agreed = 0; agreed < 5; ) {
       await new Promise(requestAnimationFrame)
@@ -292,6 +293,7 @@ const STOPS = [
   'Trending',
   'Pull',
   'Decades',
+  'My List',
   'Search titles',
   'See what’s trending',
   'Pull a random title',
@@ -308,7 +310,7 @@ const STOPS = [
 // lib/sectionNav.ts), so a walk from the top meets only the buttons. On a wide screen, walking
 // back from the end, the buttons have docked in the header, so it meets the header's links
 // instead.
-const STOPS_TOP = STOPS.filter((stop) => !['Trending', 'Pull', 'Decades'].includes(stop))
+const STOPS_TOP = STOPS.filter((stop) => !['Trending', 'Pull', 'Decades', 'My List'].includes(stop))
 // On a phone neither is drawn: the menu button opens the links, and the walk goes on to the page.
 const STOPS_PHONE = [
   ...STOPS.slice(0, 2),
@@ -325,6 +327,7 @@ const BACK_WIDE = [
   'Pick a vibe: Any vibe',
   'a title in Trending now ×9',
   'Search titles',
+  'My List',
   'Decades',
   'Pull',
   'Trending',
@@ -543,7 +546,7 @@ test('on My List, Tab walks every stop in order and Shift+Tab walks them back, e
   ]
   assert.deepEqual(seen, {
     '1440px': {
-      stops: stops(['AniBeam', 'Trending', 'Pull', 'Decades']),
+      stops: stops(['AniBeam', 'Trending', 'Pull', 'Decades', 'My List']),
       back: 'the same, reversed',
       problems: [],
       undo: ['Undo', 'a title in My List', 'Undo', 'a title in My List'],

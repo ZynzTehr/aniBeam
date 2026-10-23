@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ClickEvent } from 'react'
 import { confirmsWord, searchable } from '../lib/ime.ts'
 import { keyboardAfter, keyboardAt, oneLine, oneLineCaret, rowsShown } from '../lib/searchBox.ts'
+import { LIST_HREF } from '../lib/sectionNav.ts'
 import {
   afterSwipe,
   EDGE,
@@ -16,9 +17,9 @@ import { MenuDrawer } from './MenuDrawer.tsx'
 import { openMenu } from './openMenu.ts'
 
 /**
- * A section link. `soon` marks a feature from a later phase: shown with a tag, not a link.
- * `current` marks the link to the page on screen (aria-current="page"); only the development
- * prototype (VariantD) sets it.
+ * A section link, or a link to another of the app's pages (My List's, /list). `soon` marks a
+ * feature from a later phase: shown with a tag, not a link. `current` marks the link to the page on
+ * screen (aria-current="page"): My List's on My List, and the development prototype's (VariantD).
  */
 export type NavLink = { href: string; label: string; current?: boolean; soon?: boolean }
 
@@ -37,6 +38,7 @@ export function SiteHeader({
   onSearch,
   homeHref = '/',
   currentHref,
+  onGo,
 }: {
   links: NavLink[]
   search: string
@@ -45,6 +47,11 @@ export function SiteHeader({
   homeHref?: string
   /** The address of the section the visitor is in (#pull, say): its link is marked current. */
   currentHref?: string | null
+  /**
+   * A click on AniBeam, or on a link to another of the app's pages (My List): the app goes there
+   * itself on a plain click (see App's go). Without it, the browser follows them, as any link.
+   */
+  onGo?: (event: ClickEvent<HTMLAnchorElement>) => void
 }) {
   const header = useRef<HTMLElement>(null)
   const burger = useRef<HTMLButtonElement>(null)
@@ -183,7 +190,7 @@ export function SiteHeader({
             <path d="M3 6h18M6 12h15M3 18h18" />
           </svg>
         </button>
-        <a className="ab-logo" href={homeHref}>
+        <a className="ab-logo" href={homeHref} onClick={onGo}>
           <ruby>
             AniBeam<rt>アニビーム</rt>
           </ruby>
@@ -204,6 +211,7 @@ export function SiteHeader({
                 aria-current={
                   link.current ? 'page' : link.href === currentHref ? 'location' : undefined
                 }
+                onClick={link.href.startsWith('#') ? undefined : onGo}
               >
                 {link.label}
               </a>
@@ -212,7 +220,14 @@ export function SiteHeader({
         </nav>
         <SearchBubble value={search} onChange={onSearch} />
       </header>
-      <MenuDrawer links={links} currentHref={currentHref} dialogRef={menu} onToggle={setMenuOpen} />
+      {/* The menu's My List stays to come for now, with its Soon tag, until it is a link there too,
+          with its own kana and closing the menu as it goes. */}
+      <MenuDrawer
+        links={links.map((link) => (link.href === LIST_HREF ? { ...link, soon: true } : link))}
+        currentHref={currentHref}
+        dialogRef={menu}
+        onToggle={setMenuOpen}
+      />
     </>
   )
 }

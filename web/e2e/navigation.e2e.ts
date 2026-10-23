@@ -110,20 +110,20 @@ const frames = () =>
     `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))`,
   )
 
-test('the header marks the section the visitor is in, one at a time, and none above the first; My List, to come, never', async () => {
+test('the header marks the section the visitor is in, one at a time, and none above the first; My List, a page of its own, never on Discover', async () => {
   await browser.load({ ...DESKTOP, reduceMotion: true })
   assert.ok(await browser.titlesShown())
   await browser.landAll()
   assert.equal(await browser.evaluate(CURRENT), '', 'at the top')
-  // The header's My List: still marked Soon, with no fill, wherever the visitor is.
-  const myList = `(() => { const el = document.querySelector('.ab-nav .ab-soon'); return [el.getAttribute('aria-current') ?? 'unmarked', getComputedStyle(el).backgroundColor].join(' ') })()`
+  // The header's My List: unmarked and white, wherever the visitor is on Discover.
+  const myList = `(() => { const el = document.querySelector('.ab-nav a[href="/list"]'); return [el.getAttribute('aria-current') ?? 'unmarked', getComputedStyle(el).backgroundColor].join(' ') })()`
   for (const id of ['ab-trending', 'pull', 'decades']) {
     await browser.evaluate(
       `document.getElementById('${id}').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
     )
     await frames()
     assert.equal(await browser.evaluate(CURRENT), `#${id}`, `scrolled to #${id}`)
-    assert.equal(await browser.evaluate(myList), 'unmarked rgba(0, 0, 0, 0)', `My List at #${id}`)
+    assert.equal(await browser.evaluate(myList), 'unmarked rgb(255, 255, 255)', `My List at #${id}`)
   }
   await browser.evaluate(`scrollTo(0, 0); true`)
   await frames()
@@ -155,6 +155,82 @@ test('the current section’s link is yellow and raised, turns ink when hovered,
     { fill: hovered.fill, text: hovered.text },
     { fill: 'rgb(20, 20, 20)', text: 'rgb(255, 255, 255)' },
     'hovered',
+  )
+})
+
+test('from 900px the header’s My List is a link to /list: a plain click goes there with no new page, at its top, marked as the page in yellow, the header its size; AniBeam goes back to the top of Discover the same way, emptying the search', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  // At the end of the page, where the intro's buttons have docked and the header's links show. A
+  // new page would take the window's mark with it.
+  await scrollAndSettle('document.documentElement.scrollHeight')
+  await browser.evaluate(`window.__stayed = true; true`)
+  const size = `(() => { const n = document.querySelector('.ab-nav').getBoundingClientRect(); return [document.querySelector('.ab-top').offsetHeight, n.left, n.top, n.width, n.height].map(Math.round).join(' ') })()`
+  const header = await browser.evaluate<string>(size)
+  const where = `(({ backgroundColor, boxShadow }) => ({
+    path: location.pathname,
+    stayed: window.__stayed === true,
+    page: document.getElementById('ab-list') ? 'My List' : document.querySelector('.ab-intro') ? 'Discover' : 'neither',
+    top: scrollY,
+    myList: (document.querySelector('.ab-nav a[href="/list"]').getAttribute('aria-current') ?? 'unmarked') + ' ' + backgroundColor + ' ' + boxShadow,
+    search: document.querySelector('.ab-search textarea').value,
+    header: ${size},
+  }))(getComputedStyle(document.querySelector('.ab-nav a[href="/list"]')))`
+  const plain = 'unmarked rgb(255, 255, 255) none'
+  // Each click, then the mouse moved off, so that nothing is read hovered.
+  const click = async (selector: string) => {
+    await clickAt(selector)
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 890 })
+  }
+  await click('.ab-nav a[href="/list"]')
+  assert.ok(await browser.waitFor(`document.getElementById('ab-list')`, 5000), 'no My List')
+  await frames()
+  assert.deepEqual(
+    await browser.evaluate(where),
+    {
+      path: '/list',
+      stayed: true,
+      page: 'My List',
+      top: 0,
+      myList: 'page rgb(255, 212, 0) rgb(20, 20, 20) 3px 3px 0px 0px',
+      search: '',
+      header,
+    },
+    'My List clicked',
+  )
+  await click('.ab-logo')
+  assert.ok(await browser.waitFor(`document.querySelector('.ab-intro')`, 5000), 'no Discover')
+  await frames()
+  const discover = {
+    path: '/',
+    stayed: true,
+    page: 'Discover',
+    top: 0,
+    myList: plain,
+    search: '',
+    header,
+  }
+  assert.deepEqual(await browser.evaluate(where), discover, 'AniBeam clicked on My List')
+  // Searching, partway down the results: AniBeam empties the search, and the intro comes back.
+  await browser.search('frieren')
+  assert.ok(
+    await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`, 10_000),
+  )
+  await scrollAndSettle(400)
+  await click('.ab-logo')
+  assert.ok(await browser.waitFor(`document.querySelector('.ab-intro')`, 5000), 'no intro')
+  await frames()
+  assert.deepEqual(await browser.evaluate(where), discover, 'AniBeam clicked while searching')
+  // Each click put a new history entry: Back returns to My List.
+  await browser.evaluate(`history.back(); true`)
+  assert.ok(await browser.waitFor(`document.getElementById('ab-list')`, 5000), 'Back')
+  assert.deepEqual(
+    await browser.evaluate<{ path: string; stayed: boolean }>(
+      `({ path: location.pathname, stayed: window.__stayed === true })`,
+    ),
+    { path: '/list', stayed: true },
+    'Back',
   )
 })
 
@@ -883,7 +959,7 @@ test('a change of width lands a flight under way at once, and a change of height
   )
 })
 
-test('in contrast themes the current section’s link takes the theme’s selection colors, and its focus ring the theme’s text color', async () => {
+test('in contrast themes the current section’s link, and My List’s on My List, take the theme’s selection colors, and the focus ring the theme’s text color', async () => {
   await browser.load({ ...DESKTOP, reduceMotion: true })
   assert.ok(await browser.titlesShown())
   await browser.landAll()
@@ -927,6 +1003,17 @@ test('in contrast themes the current section’s link takes the theme’s select
       `({ name: document.activeElement.textContent, outline: getComputedStyle(document.activeElement).outlineColor })`,
     )
     assert.deepEqual(ring, { name: 'Pull', outline: seen.text }, 'its focus ring')
+    // On My List, its link, marked as the page on screen.
+    await browser.evaluate(`document.querySelector('.ab-nav a[href="/list"]').click(); true`)
+    assert.ok(await browser.waitFor(`document.getElementById('ab-list')`, 5000), 'no My List')
+    await frames()
+    assert.equal(
+      await browser.evaluate(
+        `getComputedStyle(document.querySelector('.ab-nav a[aria-current="page"]')).backgroundColor`,
+      ),
+      seen.highlight,
+      'My List’s fill on My List',
+    )
   } finally {
     await browser.send('Emulation.setEmulatedMedia', {
       features: [{ name: 'forced-colors', value: 'none' }],
@@ -992,7 +1079,7 @@ test('a tap or click on a section link focuses its heading with no ring, even wh
   assert.deepEqual({ id: keyed.id, ring: keyed.ring }, { id: 'pull', ring: true }, 'Enter')
 })
 
-test('the intro’s buttons are the landmark named Sections, read only while they show, and the header’s links are Site, read only once the buttons have docked, each with My List, to come; on a phone the menu’s are Sections', async () => {
+test('the intro’s buttons are the landmark named Sections, read only while they show, and the header’s links are Site, read only once the buttons have docked, each with My List, the intro’s to come and the header’s a link to /list; on a phone the menu’s are Sections', async () => {
   const landmarks = async () => {
     const { nodes } = await browser.send('Accessibility.getFullAXTree')
     return (nodes as { ignored: boolean; role?: { value: string }; name?: { value: string } }[])
@@ -1008,9 +1095,9 @@ test('the intro’s buttons are the landmark named Sections, read only while the
   assert.deepEqual(await landmarks(), ['Site'], 'docked')
   assert.deepEqual(
     await browser.evaluate(
-      `['Sections', 'Site'].map((name) => document.querySelector('nav[aria-label="' + name + '"] > .ab-soon[aria-disabled="true"]')?.textContent.replace(/\\s+/g, ' ').trim() ?? 'none')`,
+      `['Sections', 'Site'].map((name) => (({ last }) => last ? last.textContent.replace(/\\s+/g, ' ').trim() + (last.matches('a[href="/list"]') ? ', a link to /list' : last.matches('.ab-soon[aria-disabled="true"]') ? ', to come' : '') : 'none')({ last: document.querySelector('nav[aria-label="' + name + '"] > :last-child') }))`,
     ),
-    ['My List Soon', 'My List Soon'],
+    ['My List Soon, to come', 'My List, a link to /list'],
     'My List in each',
   )
   // On a phone the links are in the menu: none is read until it opens, and then only its own,
@@ -1029,7 +1116,7 @@ test('the intro’s buttons are the landmark named Sections, read only while the
   )
 })
 
-test('mid-flight both sets hide, each copy starts where it leaves, its labels cross the right way, only a dock lands yellow, and My List’s copy keeps the Soon look, with one steady label', async () => {
+test('mid-flight both sets hide, each copy starts where it leaves, its labels cross the right way, only a dock lands yellow, and My List’s copy keeps the Soon look while the intro’s My List is to come', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())
   await browser.landAll()
@@ -1037,8 +1124,8 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
   const dockAt = await browser.evaluate<number>(DOCK_AT)
   // Each copy: its labels' opacity at start and end, in the order the copy holds them (the
   // button's, then the link's), whether it is held at its start during its stagger, and its pill:
-  // My List's dashed and see-through, its one label greyed and marked Soon, as at both ends, and
-  // steady, as it reads the same at both.
+  // My List's dashed and see-through, its labels greyed, the intro's marked Soon, as it is still to
+  // come there.
   const copies = `(() => ({
     layer: getComputedStyle(document.querySelector('.ab-flight')).position,
     hidden: [...document.querySelectorAll('.ab-top .ab-nav > *, .ab-intro-actions > *')].every((el) => getComputedStyle(el).visibility === 'hidden'),
@@ -1050,7 +1137,8 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
         [...chip.querySelectorAll('.ab-flight-label')].map((label) => label.textContent.replace(/\\s+/g, ' ').trim() + ' ' + getComputedStyle(label).color).join(' / '),
     })),
   }))()`
-  const SOON_COPY = 'dashed rgba(0, 0, 0, 0) | My List Soon rgba(20, 20, 20, 0.7)'
+  const SOON_COPY =
+    'dashed rgba(0, 0, 0, 0) | My List Soon rgba(20, 20, 20, 0.7) / My List rgba(20, 20, 20, 0.7)'
   // The first frame after the scroll, read in the page with the flight paused there, so no time
   // passes between: the third copy's 90ms stagger hasn't run out, so it must wait at its start.
   const firstFrame = (y: number) =>
@@ -1075,7 +1163,7 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
     {
       layer: 'fixed',
       hidden: true,
-      labels: ['1 to 0, 0 to 1', '1 to 0, 0 to 1', '1 to 0, 0 to 1', 'steady'],
+      labels: ['1 to 0, 0 to 1', '1 to 0, 0 to 1', '1 to 0, 0 to 1', '1 to 0, 0 to 1'],
       held: [true, true, true, true],
       yellow: [true, false, false, false],
       soon: [false, false, false, true],
@@ -1106,7 +1194,7 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
     {
       layer: 'absolute',
       hidden: true,
-      labels: ['0 to 1, 1 to 0', '0 to 1, 1 to 0', '0 to 1, 1 to 0', 'steady'],
+      labels: ['0 to 1, 1 to 0', '0 to 1, 1 to 0', '0 to 1, 1 to 0', '0 to 1, 1 to 0'],
       yellow: [false, false, false, false],
       soon: [false, false, false, true],
     },
@@ -1119,15 +1207,15 @@ test('My List flies by its address: as a link to /list at both ends, with no Soo
   assert.ok(await browser.titlesShown())
   await browser.landAll()
   await browser.animationsDone()
-  // My List as a link to its page at both ends, each in its set's look: the dock must find it by
-  // its address, not by the Soon look, or it would drop out of the flight.
+  // My List as a link to its page at both ends, each in its set's look, where it is still to come:
+  // the dock must find it by its address, not by the Soon look, or it would drop out of the flight.
   await browser.evaluate(`(() => {
     for (const [soon, look] of [['.ab-intro-actions > .ab-soon', 'ab-btn'], ['.ab-top .ab-nav > .ab-soon', '']]) {
       const link = document.createElement('a')
       link.href = '/list'
       link.className = look
       link.textContent = 'My List'
-      document.querySelector(soon).replaceWith(link)
+      document.querySelector(soon)?.replaceWith(link)
     }
     return true
   })()`)

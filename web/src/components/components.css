@@ -53,14 +53,6 @@
   text-decoration: none;
 }
 
-/* SiteHeader's `current` option (NavLink.current) marks the link to the page on screen. Only the
-   development prototype (VariantD) sets it: each link in the app goes to a section of this one
-   page. */
-.ab-nav a[aria-current='page'] {
-  background: var(--ink);
-  color: var(--paper);
-}
-
 /* One set of the page's section links shows at a time (data-links on the page's root, see
    lib/sectionNav.ts): from 900px the header's wait hidden in their place while the intro's
    buttons are on the screen, and the buttons hide in theirs once they have docked. Hidden, not
@@ -142,11 +134,12 @@
   color: rgb(20 20 20 / 0.7);
 }
 
-/* The link to the section the visitor is in (aria-current="location", see lib/sectionNav.ts) is
+/* The link to the section the visitor is in (aria-current="location", see lib/sectionNav.ts), or
+   to the page on screen (aria-current="page": My List's on My List, see NavLink.current), is
    sound-effect yellow, raised with a hard shadow, as a picked chip is; hovered or pressed, it
    turns ink, as every header link does, so the two never look alike. The raise is a transform
    and a shadow, which take no room: the header keeps its size. */
-.ab-nav a[aria-current='location'] {
+.ab-nav a[aria-current] {
   background: var(--sun);
   box-shadow: 3px 3px 0 var(--ink);
   color: var(--ink);
@@ -3739,7 +3732,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
    hot on the decades), so here it takes the theme's text color. That rule ties with the decade
    chips' brand ring, so it has to come after it. */
 @media (forced-colors: active) {
-  :is(.ab-nav, .ab-drawer nav) a[aria-current='location'],
+  :is(.ab-nav, .ab-drawer nav) a[aria-current],
   .ab-list-tabs [aria-current],
   .ab-chip input:checked + span {
     border-color: Highlight;
@@ -3749,7 +3742,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     forced-color-adjust: none;
   }
 
-  :is(.ab-nav, .ab-drawer nav) a[aria-current='location']:focus-visible,
+  :is(.ab-nav, .ab-drawer nav) a[aria-current]:focus-visible,
   .ab-list-tabs [aria-current]:focus-visible,
   .ab-chip input:checked:focus-visible + span {
     outline-color: CanvasText;

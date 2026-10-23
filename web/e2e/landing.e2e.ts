@@ -316,11 +316,13 @@ test('a part coming down from above lands as it shows below the header, on a pho
   // peeking in by less lands after a moment, but it too must show below the header. On a phone
   // the header comes back as the page scrolls up, and a part that lands with much more than 15%
   // of it showing below it landed late.
-  // And at 960px with WCAG's widened text spacing (1.4.12), put on once the page has loaded: the
-  // header takes a second row, 137px, and what lands must follow its new height.
+  // And at 960px with widened text spacing, put on once the page has loaded: the header takes a
+  // second row, 137px, and what lands must follow its new height. Letters 0.2em apart, more than
+  // WCAG 1.4.12's least (0.12em), at which the header has kept one row since My List became a
+  // link.
   const SPACING = `(async () => {
     const style = document.head.appendChild(document.createElement('style'))
-    style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+    style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.2em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
     const header = document.querySelector('.ab-top')
     for (let agreed = 0; agreed < 5; ) {
       await new Promise(requestAnimationFrame)
@@ -408,15 +410,16 @@ test('on a slow scroll a part lands at 15%, not as a sliver: slivers land only a
 })
 
 test('after the header grows, scrolling down still lands every part as it shows below it', async () => {
-  // At 960px, WCAG's widened text spacing put on after load gives the header a second row: the
-  // landing watches again from below its new height, every part still waiting included. So
+  // At 960px, widened text spacing put on after load gives the header a second row (letters 0.2em
+  // apart, more than WCAG 1.4.12's least, at which it keeps one row since My List became a link):
+  // the landing watches again from below its new height, every part still waiting included. So
   // scrolled down in 100px steps, with nothing else changing on the page, no part showing 15% or
   // more below the header may still wait 300ms later.
   await browser.load({ width: 960, height: 900 })
   assert.ok(await browser.titlesShown())
   const grew = await browser.evaluate<number>(`(async () => {
     const style = document.head.appendChild(document.createElement('style'))
-    style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+    style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.2em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
     const header = document.querySelector('.ab-top')
     for (let agreed = 0; agreed < 5; ) {
       await new Promise(requestAnimationFrame)
