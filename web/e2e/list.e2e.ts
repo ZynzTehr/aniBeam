@@ -957,6 +957,166 @@ test('offline, My List shows the answer saved 2 days before; with none saved, ea
   }
 })
 
+// What the page's first draw put in its #main: its heading, or 'nothing'. A MutationObserver, in
+// place before the page's own scripts run, hears React's first commit, which draws the whole tree
+// in one go, before the browser could paint it, so this needs no luck with frames.
+const FIRST_DRAW = `new MutationObserver((_, observer) => {
+  const main = document.querySelector('#main')
+  if (!main) return
+  window.__firstDraw = main.querySelector('h1')?.firstChild.textContent ?? 'nothing'
+  observer.disconnect()
+}).observe(document, { childList: true, subtree: true })`
+
+test('a visit that starts on My List, or at a card opened over it, draws My List in its first draw, never the header and footer alone', async () => {
+  const { identifier } = await browser.send('Page.addScriptToEvaluateOnNewDocument', {
+    source: FIRST_DRAW,
+  })
+  await noteRequests(answerList)
+  try {
+    const drawn: Record<string, unknown> = {}
+    await browser.forget()
+    await browser.load({ ...DESKTOP, reduceMotion: true, url: at('/list') })
+    drawn['an empty list'] = await browser.evaluate('window.__firstDraw')
+    await openList(SAVED)
+    drawn['3 titles'] = await browser.evaluate('window.__firstDraw')
+    await browser.evaluate(
+      `document.querySelector('#main .ab-strip-panel[href="/anime/154587"]').click(), true`,
+    )
+    assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 5000), 'no card opened')
+    await reload()
+    assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 5000), 'no card after the reload')
+    drawn['a card over it, reloaded'] = await browser.evaluate('window.__firstDraw')
+    assert.deepEqual(drawn, {
+      'an empty list': 'My List',
+      '3 titles': 'My List',
+      'a card over it, reloaded': 'My List',
+    })
+  } finally {
+    await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
+    await browser.rewriteAniList(null)
+  }
+})
+
+// Whether the page has downloaded My List's page, a file of its own (see features/list/page.ts):
+// ListPage.tsx as the development server serves it, ListPage-<hash>.js as a build names it.
+const PAGE_LOADED = `performance.getEntriesByType('resource').some((entry) => /\\/ListPage[.-]/.test(entry.name))`
+// Presses one of the open card's My List buttons by its label.
+const press = (label: string) =>
+  browser.evaluate(
+    `[...document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].find((button) => button.textContent.trim() === ${JSON.stringify(label)}).click(), true`,
+  )
+
+test('a title saved on Discover has My List’s page load in the background, so offline, My List opens with no new page, drawn from what is saved', async () => {
+  await noteRequests(answerList)
+  try {
+    await browser.forget()
+    await browser.load({ ...DESKTOP, reduceMotion: true })
+    assert.ok(await browser.titlesShown(), 'Discover showed no titles')
+    assert.ok(
+      await browser.waitFor(
+        `(localStorage.getItem('anibeam:cache') ?? '').includes('Cowboy Bebop')`,
+      ),
+      'Discover’s lists weren’t saved',
+    )
+    // Nothing on the list yet: Discover never downloads the page.
+    await sleep(1000)
+    assert.equal(await browser.evaluate(PAGE_LOADED), false, 'an empty list loaded My List’s page')
+    // Saved from a trending title's card, which closes again.
+    const id = await browser.evaluate<number>(
+      `Number(document.querySelector('.ab-grid .ab-link').getAttribute('href').slice('/anime/'.length))`,
+    )
+    await browser.evaluate(`document.querySelector('.ab-grid .ab-link').click(), true`)
+    assert.ok(await browser.waitFor(CARD, 5000), 'no card opened')
+    await press('Save')
+    await browser.press('Escape')
+    assert.ok(await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000))
+    assert.ok(
+      await browser.waitFor(PAGE_LOADED, 5000),
+      'My List’s page didn’t load once a title was saved',
+    )
+    // Long enough for what it imports to have come too.
+    await sleep(1000)
+    sent.length = 0
+    await browser.evaluate(`window.__samePage = true`)
+    await goOffline(true)
+    await goTo('/list')
+    assert.ok(
+      await browser.waitFor(`document.querySelectorAll(${COVERS}).length === 1`, 5000),
+      `offline, My List didn’t show its cover: ${JSON.stringify(await browser.evaluate(UNDER))}`,
+    )
+    assert.deepEqual(
+      await browser.evaluate(
+        `({ under: ${UNDER}, row: ${SLOTS}, note: ${NOTE}, samePage: window.__samePage === true })`,
+      ),
+      {
+        under: { heading: 'My List', trending: false },
+        row: [String(id)],
+        note: 'Offline: waiting for a connection.',
+        samePage: true,
+      },
+      'offline, My List opened from Discover',
+    )
+    assert.deepEqual(sent, [], 'offline, the page sent AniList a request')
+    // Back online, the page asks for the list, as it has no answer for it.
+    await goOffline(false)
+    assert.ok(
+      await browser.waitFor(`${SAVED_ANSWER}?.ids.length === 1`, 10_000),
+      'back online, My List’s answer wasn’t saved',
+    )
+  } finally {
+    await goOffline(false)
+    await browser.rewriteAniList(null)
+  }
+})
+
+test('offline before My List’s page ever loaded, its place says so, and the page draws as the connection comes back', async () => {
+  try {
+    // Nothing on the list, so nothing loaded the page.
+    await browser.forget()
+    await browser.load({ ...DESKTOP, reduceMotion: true })
+    assert.ok(await browser.titlesShown(), 'Discover showed no titles')
+    assert.equal(await browser.evaluate(PAGE_LOADED), false, 'an empty list loaded My List’s page')
+    await goOffline(true)
+    await goTo('/list')
+    assert.ok(
+      await browser.waitFor(`document.querySelector('#main h1')`, 5000),
+      'offline, nothing showed in My List’s place',
+    )
+    assert.deepEqual(
+      await browser.evaluate(`({
+        under: ${UNDER},
+        note: ${NOTE},
+        retry: [...document.querySelectorAll('#main button')].map((button) => button.textContent),
+      })`),
+      {
+        under: { heading: 'My List', trending: false },
+        note: 'Details unavailable offline',
+        retry: ['Try again'],
+      },
+      'offline, before the page ever loaded',
+    )
+    // Its heading stands where the page's will, so the page doesn't move it as it draws.
+    const headingTop = `Math.round(document.querySelector('#main h1').getBoundingClientRect().top + scrollY)`
+    const offlineTop = await browser.evaluate<number>(headingTop)
+    await goOffline(false)
+    assert.ok(
+      await browser.waitFor(`document.querySelector('#main .ab-list-empty')`, 10_000),
+      'back online, My List didn’t draw',
+    )
+    assert.deepEqual((await browser.evaluate<Page>(PAGE)).empty, [
+      'Nothing saved yet.',
+      'Browse what’s trending /#ab-trending',
+    ])
+    assert.equal(
+      offlineTop - (await browser.evaluate<number>(headingTop)),
+      0,
+      'px My List’s heading moved by as the page drew',
+    )
+  } finally {
+    await goOffline(false)
+  }
+})
+
 test('typing in the header search on My List goes to Discover, at /, and shows the results there, with no new page; Back returns to My List', async () => {
   await noteRequests(answerList)
   try {

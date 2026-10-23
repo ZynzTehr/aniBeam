@@ -420,38 +420,140 @@ test('Tab walks every stop of the page in order and Shift+Tab walks them back, e
     await browser.load(screen)
     assert.ok(await browser.titlesShown())
     await browser.evaluate(SETTLED)
-    const problems: string[] = []
-    const walk = async (back: boolean) => {
-      const names: string[] = []
-      for (let stop = 0; stop < 80; stop++) {
-        await browser.press('Tab', back)
-        await browser.evaluate(NEXT_FRAME)
-        const found = await browser.evaluate<{ name: string; problems: string[] } | null>(STOP)
-        if (!found) return names
-        names.push(found.name)
-        const to = `${back ? 'Shift+Tab' : 'Tab'} to stop ${back ? 'from the end ' : ''}${stop + 1}, "${found.name}"`
-        for (const problem of found.problems) problems.push(`${to}: ${problem}`)
-        if (!back) {
-          const shows = await focusShows()
-          if (shows < 1)
-            problems.push(
-              `${to}: its focus changes ${Math.round(shows * 100)}% of the area it must`,
-            )
-        }
-      }
-      return names
-    }
-    const forward = await walk(false)
-    const back = await walk(true)
-    seen[`${screen.width}px`] = {
-      stops: runs(forward),
-      back: back.join() === forward.toReversed().join() ? 'the same, reversed' : runs(back),
-      problems,
-    }
+    seen[`${screen.width}px`] = await walkStops()
   }
   assert.deepEqual(seen, {
     '1440px': { stops: STOPS_TOP, back: BACK_WIDE, problems: [] },
     '390px': { stops: STOPS_PHONE, back: 'the same, reversed', problems: [] },
+  })
+})
+
+/**
+ * Tabs from the top of the page to its end, then Shift+Tabs back to the top, and says what it met:
+ * each stop's name in order (see runs), the walk back if it differs from the walk forward reversed,
+ * and what is wrong with how a stop showed (see STOP), forward with WCAG's measure for a focus
+ * indicator too (see focusShows).
+ */
+async function walkStops() {
+  const problems: string[] = []
+  const walk = async (back: boolean) => {
+    const names: string[] = []
+    for (let stop = 0; stop < 80; stop++) {
+      await browser.press('Tab', back)
+      await browser.evaluate(NEXT_FRAME)
+      const found = await browser.evaluate<{ name: string; problems: string[] } | null>(STOP)
+      if (!found) return names
+      names.push(found.name)
+      const to = `${back ? 'Shift+Tab' : 'Tab'} to stop ${back ? 'from the end ' : ''}${stop + 1}, "${found.name}"`
+      for (const problem of found.problems) problems.push(`${to}: ${problem}`)
+      if (!back) {
+        const shows = await focusShows()
+        if (shows < 1)
+          problems.push(`${to}: its focus changes ${Math.round(shows * 100)}% of the area it must`)
+      }
+    }
+    return names
+  }
+  const forward = await walk(false)
+  const back = await walk(true)
+  return {
+    stops: runs(forward),
+    back: back.join() === forward.toReversed().join() ? 'the same, reversed' : runs(back),
+    problems,
+  }
+}
+
+test('on My List, Tab walks every stop in order and Shift+Tab walks them back, each whole on the screen with its focus showing, and the Undo in a cover’s place is a stop of its own', async () => {
+  // The 12 titles of the list-12 recording, as AniList answered them (see LISTS in recordings.ts):
+  // Saved 8, one with the heart, and Want to try 4, two with it. As the page walk, on a desktop
+  // with motion and on a phone with reduced motion. The header's section links show on My List,
+  // which has no intro to hold its buttons (see lib/sectionNav.ts).
+  const list = Object.fromEntries(
+    [154587, 21, 1, 30, 572, 195516, 47, 164, 97940, 339, 437, 523].map((id, i) => [
+      id,
+      {
+        status: [154587, 21, 572, 97940].includes(id) ? 'WANT' : 'SAVED',
+        favorite: [154587, 30, 572].includes(id),
+        updatedAt: Date.now() - i,
+      },
+    ]),
+  )
+  const seen: Record<string, unknown> = {}
+  try {
+    for (const screen of [
+      { width: 1440, height: 900, reduceMotion: false },
+      { width: 390, height: 844, phone: true, reduceMotion: true },
+    ]) {
+      // Loaded with nothing saved, which asks AniList for nothing, to write the list on the site's
+      // own page for the load after.
+      const url = new URL('/list', BASE_URL).href
+      await browser.forget()
+      await browser.load({ ...screen, url })
+      await browser.evaluate(
+        `localStorage.setItem('anibeam:list:v1', ${JSON.stringify(JSON.stringify(list))}), true`,
+      )
+      await browser.load({ ...screen, url })
+      assert.ok(
+        await browser.waitFor(
+          `document.querySelectorAll('#main .ab-strip-panel[href]').length === 8`,
+          10_000,
+        ),
+        'My List didn’t show its 8 Saved covers',
+      )
+      await browser.evaluate(SETTLED)
+      const page = await walkStops()
+      // A title taken off in its card: its Undo, in the cover's place, takes focus as the card
+      // closes, Tab goes on to the next cover, and Shift+Tab from the Undo to the one before it.
+      const cover = `document.querySelector('#main .ab-strip-panel[href="/anime/30"]')`
+      await browser.evaluate(`${cover}.focus(); ${cover}.click(); true`)
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 5000),
+        'no card opened',
+      )
+      await browser.evaluate(
+        `[...document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].find((button) => button.textContent.trim() === 'Save').click(), true`,
+      )
+      await browser.press('Escape')
+      assert.ok(await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000))
+      await browser.evaluate(SETTLED)
+      // The stop focus is on, then after Tab, Shift+Tab and Shift+Tab again.
+      const undo = []
+      for (const back of [false, true, true, null]) {
+        const found = await browser.evaluate<{ name: string; problems: string[] } | null>(STOP)
+        undo.push(found ? [found.name, ...found.problems].join(': ') : 'nothing')
+        if (back === null) break
+        await browser.press('Tab', back)
+        await browser.evaluate(NEXT_FRAME)
+      }
+      seen[`${screen.width}px`] = { ...page, undo }
+    }
+  } finally {
+    await browser.evaluate(`localStorage.removeItem('anibeam:list:v1'), true`)
+  }
+  const stops = (header: string[]) => [
+    'Skip to content',
+    'Skip to Reduce motion',
+    ...header,
+    'Search titles',
+    'Saved 8',
+    'Want to try 4',
+    'Favorites only',
+    'a title in My List ×8',
+    'Reduce motion',
+  ]
+  assert.deepEqual(seen, {
+    '1440px': {
+      stops: stops(['AniBeam', 'Trending', 'Pull', 'Decades']),
+      back: 'the same, reversed',
+      problems: [],
+      undo: ['Undo', 'a title in My List', 'Undo', 'a title in My List'],
+    },
+    '390px': {
+      stops: stops(['Menu', 'AniBeam']),
+      back: 'the same, reversed',
+      problems: [],
+      undo: ['Undo', 'a title in My List', 'Undo', 'a title in My List'],
+    },
   })
 })
 

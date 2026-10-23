@@ -3,8 +3,10 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { QUERIES } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { Browser, type Answer } from './browser.ts'
+import { listsOf, recordings } from './recordings.ts'
 
 let browser: Browser
 
@@ -4757,9 +4759,10 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     // Every part of the page that moves with motion allowed, done once each as a visitor does it:
     // the scroll slam and the intro's buttons flying into the header, the decade strip scrolled
     // sideways, a search, a title's card with its band, its banner and its details coming in, Read
-    // more and the spoiler tags, its My List buttons clicked, the trailer, a pull, and on a phone
-    // the header sliding away and back, the menu sliding in and out by its button and by a swipe,
-    // and the search bubble growing. Each may start fades and changes of color, reduced motion's
+    // more and the spoiler tags, its My List buttons clicked, the trailer, a pull, My List's page
+    // with its tabs and Favorites only, a title taken off there and its Undo, and on a phone the
+    // header sliding away and back, the menu sliding in and out by its button and by a swipe, and
+    // the search bubble growing. Each may start fades and changes of color, reduced motion's
     // own versions (the card's, the trailer's and the menu's fades must be heard, so that a
     // recorder hearing nothing can't pass), but no animation or transition that moves or resizes,
     // by CSS or the Web Animations API, heard for at least 500 ms after the step (see startedBy),
@@ -4768,11 +4771,12 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     // hear: the swipes also check that nothing in the header or the menu changes its transform
     // under the finger, as the hamburger's bars and the menu do with motion allowed. Other checks
     // hold the parts the walk doesn't take: a card opened from a trending panel and closed by its
-    // button (the fade checks above). With motion allowed, the same walk, before its My List step,
+    // button (the fade checks above). With motion allowed, the same walk, before its My List steps,
     // started 80 moving ones across its steps, in all but Read more and the trailer's closing (the
-    // My List buttons lift as they are hovered, as every .ab-btn does), and the hamburger's bars
-    // and the menu move under the finger. Set on the site, the setting is turned on by a click on
-    // the switch after the first load, and the phone's load gets it back from the saved choice.
+    // My List buttons, and My List's tabs, lift as they are hovered, as every .ab-btn does), and
+    // the hamburger's bars and the menu move under the finger. Set on the site, the setting is
+    // turned on by a click on the switch after the first load, and the phone's load gets it back
+    // from the saved choice.
     const seen: Record<string, Awaited<ReturnType<typeof startedBy>>> = {}
     let followed: string[] = []
     const step = async (name: string, act: () => Promise<unknown>) => {
@@ -4956,6 +4960,61 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
           'the pull didn’t show its title',
         )
       })
+      // My List, at the address the page's links go to, with no new page: Frieren, which the
+      // card's buttons left on it, in Want to try with the heart. AniList's answer for it is built
+      // from the recorded search's copy (the plan's D19).
+      const frieren = Object.values(listsOf(recordings().get('search-frieren')!))
+        .flat()
+        .find(({ id }) => id === 154587)
+      await browser.rewriteAniList(({ request }) =>
+        request.query === QUERIES.list
+          ? { status: 200, body: { data: { Page: { media: [frieren] } } } }
+          : null,
+      )
+      const tab = (name: string) =>
+        `[...document.querySelectorAll('nav[aria-label="My List"] a')].find((a) => a.textContent.startsWith(${JSON.stringify(name)}))`
+      const cover = `document.querySelector('#main .ab-strip-panel[href="/anime/154587"]')`
+      await browser.evaluate(`scrollTo(0, 0); true`)
+      await frames()
+      await step('My List, and its tabs and Favorites only followed', async () => {
+        await browser.evaluate(
+          `history.pushState(null, '', '/list?tab=want'); dispatchEvent(new PopStateEvent('popstate')); true`,
+        )
+        assert.ok(await browser.waitFor(cover, 5000), 'My List didn’t show Frieren')
+        await frames()
+        for (const [name, shows] of [
+          ['Saved', `document.querySelector('#main .ab-list-empty')`],
+          ['Want to try', cover],
+          ['Favorites only', `${cover} && location.search === '?tab=want&fav=1'`],
+        ]) {
+          await clickMiddle(tab(name))
+          assert.ok(await browser.waitFor(shows, 2000), `${name} didn’t show its view`)
+          await frames()
+        }
+      })
+      await step('a title taken off in its card, its Undo, and Undo pressed', async () => {
+        await clickMiddle(cover)
+        assert.ok(
+          await browser.waitFor(`document.querySelector('dialog.ab-card.is-landed')`, 5000),
+          'Frieren’s card didn’t open',
+        )
+        await press('Want to try')
+        await browser.press('Escape')
+        assert.ok(
+          await browser.waitFor(
+            `!document.querySelector('dialog.ab-card') && document.activeElement?.matches('[data-undo]')`,
+            5000,
+          ),
+          'the card didn’t close onto the Undo',
+        )
+        await frames()
+        await browser.press('Enter')
+        assert.ok(
+          await browser.waitFor(`document.activeElement === ${cover}`, 2000),
+          'Undo didn’t put Frieren back',
+        )
+      })
+      await browser.rewriteAniList(null)
 
       await browser.load({
         width: 390,
@@ -5023,6 +5082,7 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
         await frames()
       })
     } finally {
+      await browser.rewriteAniList(null)
       await browser.send('Emulation.setTouchEmulationEnabled', { enabled: false })
       // The switch's choice is saved for later visits, and so is the list the walk pressed:
       // forgotten again for the checks after this.
@@ -5030,7 +5090,7 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
         `localStorage.removeItem('anibeam:motion'); localStorage.removeItem('anibeam:list:v1'); delete document.documentElement.dataset.motion; true`,
       )
     }
-    assert.equal(Object.keys(seen).length, 18, 'steps the walk took')
+    assert.equal(Object.keys(seen).length, 20, 'steps the walk took')
     assert.deepEqual(
       Object.fromEntries(
         Object.entries(seen).flatMap(([name, { moving, left }]) =>

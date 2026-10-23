@@ -14,7 +14,7 @@ import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
 import { TitleNotice } from '../components/TitleNotice.tsx'
 import { loadSamples, samplesFor, useOutage } from '../features/anime/fallback.ts'
-import { ListPage } from '../features/list/ListPage.tsx'
+import { loaded, loadListPage } from '../features/list/page.ts'
 import {
   ERAS,
   eraQuery,
@@ -35,6 +35,7 @@ import {
   isListPath,
   isOver,
   isTrailer,
+  pageBeneath,
   push,
   replace,
   titleIdFrom,
@@ -109,12 +110,31 @@ export default function App() {
   // The page under the card: the address it was opened over, which its history entry keeps with
   // its query (see open), after a reload there too; / under a card opened at its address. With no
   // card, the page at the address.
-  const beneath =
-    addressed === null ? path : isOver(history.state) ? history.state.over.replace(/\?.*/, '') : '/'
+  const beneath = pageBeneath(path, history.state)
   // My List (/list) takes Discover's place, under a card opened over it too: Discover's lists are
   // left off, as they are asked for here in App, not where they are drawn, so not drawing them
   // would still send their requests.
   const onList = isListPath(beneath)
+  // My List's page is a file of its own (see features/list/page.ts), loaded by now on a visit that
+  // starts on it, and most often before it is opened. Else it loads as it is opened, with nothing
+  // in its place meanwhile. Should that fail, as offline before it ever loaded, a line says so, in
+  // the approved words, with Try again, and it tries again as the connection comes back. It stands
+  // in the page's own frame (ab-list), so the page draws with its heading where that one was.
+  const [, setListLoaded] = useState(false)
+  const [listFailed, setListFailed] = useState(false)
+  useEffect(() => {
+    if (!onList || loaded.ListPage || listFailed) return
+    void loadListPage().then(
+      () => setListLoaded(true),
+      () => setListFailed(true),
+    )
+  }, [onList, listFailed])
+  useEffect(() => {
+    if (!listFailed) return
+    const retry = () => setListFailed(false)
+    addEventListener('online', retry)
+    return () => removeEventListener('online', retry)
+  }, [listFailed])
   const [opened, setOpened] = useState<{ media: Media; element: HTMLElement } | null>(null)
   const open: OpenTitle = (media, from) => {
     setOpened({ media, element: from })
@@ -351,7 +371,24 @@ export default function App() {
             onStatus={setAnnouncement}
           />
         ) : onList ? (
-          <ListPage onOpen={open} covered={card !== null} />
+          loaded.ListPage ? (
+            <loaded.ListPage onOpen={open} covered={card !== null} />
+          ) : (
+            listFailed && (
+              <div className="ab-list">
+                <Strip
+                  id="ab-list"
+                  level="h1"
+                  heading="My List"
+                  sfx="マイリスト"
+                  titles={EMPTY}
+                  note={navigator.onLine ? 'Details unavailable' : 'Details unavailable offline'}
+                  onRetry={() => setListFailed(false)}
+                  grid
+                />
+              </div>
+            )
+          )
         ) : (
           <IntroHero
             titles={trending.data ? introCovers : trendingSamples}

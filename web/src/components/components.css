@@ -3449,6 +3449,13 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   filter: none;
 }
 
+/* Tab to a cover partly below the screen, and Chrome scrolls it up to 3.6px short of the 10px
+   scroll margin of what the keyboard focuses in the page: on a phone, a cover in My List's last row
+   kept its ring 0.6px off the screen. 14px leaves its 7px ring clear. */
+.ab-strip-grid .ab-strip-panel {
+  scroll-margin-bottom: 14px;
+}
+
 .ab-eras {
   display: flex;
   flex-wrap: wrap;

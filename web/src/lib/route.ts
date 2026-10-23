@@ -60,6 +60,15 @@ export const isOver = (state: unknown): state is { over: string } =>
   typeof (state as { over?: unknown } | null)?.over === 'string'
 
 /**
+ * The path of the page an address shows: with a title's card open at `pathname`, the page under
+ * it, the address the card was opened over, which its history entry's `state` keeps with its query
+ * (see isOver), after a reload there too, or / under a card opened at its address; with no card,
+ * `pathname`.
+ */
+export const pageBeneath = (pathname: string, state: unknown) =>
+  titleIdFrom(pathname) === null ? pathname : isOver(state) ? state.over.replace(/\?.*/, '') : '/'
+
+/**
  * Puts `path` in the address bar as a new history entry, with `state` (history.state), so Back
  * goes to the address there now; and tells those watching, as pushState fires no popstate.
  */
