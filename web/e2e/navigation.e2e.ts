@@ -1114,6 +1114,48 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
   )
 })
 
+test('My List flies by its address: as a link to /list at both ends, with no Soon look, it docks and undocks last, its one label steady', async () => {
+  await browser.load(DESKTOP)
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.animationsDone()
+  // My List as a link to its page at both ends, each in its set's look: the dock must find it by
+  // its address, not by the Soon look, or it would drop out of the flight.
+  await browser.evaluate(`(() => {
+    for (const [soon, look] of [['.ab-intro-actions > .ab-soon', 'ab-btn'], ['.ab-top .ab-nav > .ab-soon', '']]) {
+      const link = document.createElement('a')
+      link.href = '/list'
+      link.className = look
+      link.textContent = 'My List'
+      document.querySelector(soon).replaceWith(link)
+    }
+    return true
+  })()`)
+  // The copies, by their labels, each marked if it has the Soon look.
+  const copies = `[...document.querySelectorAll('.ab-flight-chip')].map((chip) => [...chip.querySelectorAll('.ab-flight-label')].map((label) => label.textContent).join(' / ') + (chip.querySelector('.is-soon') ? ' (Soon)' : ''))`
+  const firstFrame = (y: number) =>
+    browser.evaluate(
+      `new Promise((resolve) => { scrollTo(0, ${y}); requestAnimationFrame(() => requestAnimationFrame(() => { ${PAUSE_FLIGHT}; resolve(true) })) })`,
+    )
+  // Each holds the button's label, then the link's, both ways; My List's reads the same at both.
+  const expected = [
+    'See what’s trending / Trending',
+    'Pull a random title / Pull',
+    'Browse by decade / Decades',
+    'My List',
+  ]
+  await firstFrame(await browser.evaluate<number>(DOCK_AT))
+  assert.deepEqual(await browser.evaluate<string[]>(copies), expected, 'docking')
+  await browser.evaluate(
+    `document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight')).forEach((a) => a.play()); true`,
+  )
+  await browser.animationsDone()
+  await frames()
+  const { top, bottom } = await browser.evaluate<{ top: number; bottom: number }>(GEOMETRY)
+  await firstFrame(top - Math.ceil(bottom + Math.min(200, top - bottom)))
+  assert.deepEqual(await browser.evaluate<string[]>(copies), expected, 'undocking')
+})
+
 test('throughout a flight of the four copies each one’s label sits on its middle, shows only inside its pill, crosses with the other without a pile-up, or, reading the same at both ends as My List’s does, stays at full strength; and one landed early holds its look', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())

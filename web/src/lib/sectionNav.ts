@@ -13,6 +13,24 @@ import { reducedMotion, watchDeviceMotion } from './motion.ts'
 /** The page's sections, in reading order, by the id of the heading each link leads to. */
 export const SECTIONS = ['ab-trending', 'pull', 'decades'] as const
 
+/** My List's address: its page, which its link in each set of links leads to. */
+export const LIST_HREF = '/list'
+
+/**
+ * The intro's buttons and the header's links that fly between the two sets, paired by their
+ * address, in the order they fly: each section's, then My List's, last. `button` and `link` find
+ * the one with an address in each set, if any; one with no partner in the other set stays put.
+ */
+export function flightPairs<T>(
+  button: (href: string) => T | null | undefined,
+  link: (href: string) => T | null | undefined,
+) {
+  return [...SECTIONS.map((id) => `#${id}`), LIST_HREF].flatMap((href) => {
+    const [from, to] = [button(href), link(href)]
+    return from && to ? [{ button: from, link: to }] : []
+  })
+}
+
 /**
  * Where a section counts as reached: two thirds of the way down the screen below the header, so a
  * section is the visitor's once it is well in view (Trending as soon as the intro has gone). A
@@ -475,16 +493,15 @@ export function startSectionNav({
       })
       // The buttons fly between the intro and the header only as the visitor scrolls them past
       // it, with both ends on the screen, the intro's entrance over and nothing in the way: else
-      // the sets swap at once (a jump, Tab, a reload, a resize, reduced motion). Each section's
-      // button flies to its link, and My List to My List, last.
-      const pairs = SECTIONS.flatMap((id) => {
-        const button = actions?.querySelector<HTMLElement>(`a[href="#${id}"]`)
-        const link = header.querySelector<HTMLElement>(`.ab-nav a[href="#${id}"]`)
-        return button && link ? [{ button, link }] : []
-      })
-      const soonButton = actions?.querySelector<HTMLElement>(':scope > .ab-soon')
-      const soonLink = header.querySelector<HTMLElement>('.ab-nav > .ab-soon')
-      if (soonButton && soonLink) pairs.push({ button: soonButton, link: soonLink })
+      // the sets swap at once (a jump, Tab, a reload, a resize, reduced motion). Each button flies
+      // to the header's link with its address (see flightPairs). My List, while still to come at
+      // an end, shows there with its Soon tag, not a link to its address: there it goes by that.
+      const toCome = (href: string, set: string) => (href === LIST_HREF ? `, ${set}.ab-soon` : '')
+      const pairs = flightPairs(
+        (href) => actions?.querySelector<HTMLElement>(`a[href="${href}"]${toCome(href, '')}`),
+        (href) =>
+          header.querySelector<HTMLElement>(`.ab-nav a[href="${href}"]${toCome(href, '.ab-nav ')}`),
+      )
       const onScreen = pairs.every(({ button, link }) =>
         [button, link].every((el) => {
           const box = el.getBoundingClientRect()
