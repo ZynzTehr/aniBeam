@@ -708,7 +708,10 @@ const press = (label: string) =>
     `[...document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].find((button) => button.textContent.trim() === ${JSON.stringify(label)}).click(), true`,
   )
 
-/** Opens the card of the title on My List with `id`, and takes it off there, with its pressed status. */
+/**
+ * Opens the card of the title on My List with `id`, and takes it off there, with its pressed
+ * status.
+ */
 async function removeInCard(id: number, title: RegExp) {
   await browser.evaluate(
     `document.querySelector('#main .ab-strip-panel[href="/anime/${id}"]').focus(); document.querySelector('#main .ab-strip-panel[href="/anime/${id}"]').click(); true`,
@@ -883,12 +886,13 @@ const failList = (status: number) => (request: Answer['request']) =>
     : null
 
 test('a title AniList’s answer leaves out keeps its place with no details, the page says how many, and Remove them takes them off in one edit, asking for nothing', async () => {
-  // Neon Genesis Evangelion left out, as AniList leaves out a title it no longer has.
+  // Neon Genesis Evangelion left out, as AniList leaves out a title it no longer has, and ONE
+  // PIECE, in Want to try, which the Saved tab doesn't show.
   const asked = await noteRequests((request) =>
     request.query === QUERIES.list ? listAnswer([154587, 1]) : null,
   )
   try {
-    await saveList(SAVED.map((id) => ({ id })))
+    await saveList([...SAVED.map((id) => ({ id })), { id: 21, status: 'WANT' }])
     assert.ok(
       await browser.waitFor(`document.querySelectorAll(${COVERS}).length === 2`, 10_000),
       'My List didn’t show the 2 titles AniList gave',
@@ -920,6 +924,14 @@ test('a title AniList’s answer leaves out keeps its place with no details, the
     )
     assert.equal((await entryOf(30)).deleted, true, 'Neon Genesis Evangelion has no delete marker')
     assert.equal((await entryOf(1)).deleted, undefined, 'a title AniList gave was taken off')
+    // Only the view's: ONE PIECE, never shown in Saved, stays, and Want to try offers it.
+    assert.equal((await entryOf(21)).deleted, undefined, 'a title in Want to try was taken off')
+    await follow('Want to try', '/list?tab=want')
+    assert.deepEqual(
+      await browser.evaluate(`({ row: ${SLOTS}, lost: ${LOST} })`),
+      { row: ['Details unavailable'], lost: '1 title couldn’t be shown. Remove them' },
+      'in Want to try',
+    )
     await sleep(1500)
     assert.deepEqual(asked, [], 'Remove them asked AniList')
 
