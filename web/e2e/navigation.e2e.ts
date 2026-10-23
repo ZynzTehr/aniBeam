@@ -1079,7 +1079,7 @@ test('a tap or click on a section link focuses its heading with no ring, even wh
   assert.deepEqual({ id: keyed.id, ring: keyed.ring }, { id: 'pull', ring: true }, 'Enter')
 })
 
-test('the intro’s buttons are the landmark named Sections, read only while they show, and the header’s links are Site, read only once the buttons have docked, each with My List, the intro’s to come and the header’s a link to /list; on a phone the menu’s are Sections', async () => {
+test('the intro’s buttons are the landmark named Sections, read only while they show, and the header’s links are Site, read only once the buttons have docked, each with My List, the intro’s to come and the header’s a link to /list; on a phone the menu’s are Sections, My List a link there too', async () => {
   const landmarks = async () => {
     const { nodes } = await browser.send('Accessibility.getFullAXTree')
     return (nodes as { ignored: boolean; role?: { value: string }; name?: { value: string } }[])
@@ -1093,11 +1093,12 @@ test('the intro’s buttons are the landmark named Sections, read only while the
   assert.deepEqual(await landmarks(), ['Sections'], 'at the top')
   await scrollAndSettle(await browser.evaluate<number>(DOCK_AT))
   assert.deepEqual(await landmarks(), ['Site'], 'docked')
+  // The last of each set: the intro's, the header's and the menu's, its kana left out.
   assert.deepEqual(
     await browser.evaluate(
-      `['Sections', 'Site'].map((name) => (({ last }) => last ? last.textContent.replace(/\\s+/g, ' ').trim() + (last.matches('a[href="/list"]') ? ', a link to /list' : last.matches('.ab-soon[aria-disabled="true"]') ? ', to come' : '') : 'none')({ last: document.querySelector('nav[aria-label="' + name + '"] > :last-child') }))`,
+      `(() => { ${TEXT}; return ['.ab-intro nav[aria-label="Sections"]', '.ab-top nav[aria-label="Site"]', '.ab-drawer nav[aria-label="Sections"]'].map((nav) => (({ last }) => last ? text(last) + (last.matches('a[href="/list"]') ? ', a link to /list' : last.matches('.ab-soon[aria-disabled="true"]') ? ', to come' : '') : 'none')({ last: document.querySelector(nav + ' > :last-child') })) })()`,
     ),
-    ['My List Soon, to come', 'My List, a link to /list'],
+    ['My List Soon, to come', 'My List, a link to /list', 'My List, a link to /list'],
     'My List in each',
   )
   // On a phone the links are in the menu: none is read until it opens, and then only its own,
@@ -1648,7 +1649,7 @@ test('below 320px, as on a phone zoomed to 125% or more, the search takes a row 
   assert.deepEqual(problems, [], 'the narrowest header')
 })
 
-test('on a phone the menu button opens the menu, a modal panel from the left with the three section links and My List, Soon, last, focus on the first link and the page held still', async () => {
+test('on a phone the menu button opens the menu, a modal panel from the left with the three section links and My List last, each with its kana, focus on the first link and the page held still', async () => {
   await browser.watchLayoutShifts()
   await browser.load({ ...PHONE, reduceMotion: true })
   assert.ok(await browser.titlesShown())
@@ -1680,8 +1681,9 @@ test('on a phone the menu button opens the menu, a modal panel from the left wit
       right: Math.round(panel.right),
       top: Math.round(panel.top),
       height: Math.round(panel.height),
-      items: [...dialog.querySelectorAll('nav > *')].map((el) => text(el) + (el.matches('a[href]') ? ' (a link)' : el.getAttribute('aria-disabled') === 'true' ? ' (disabled)' : '')),
-      soon: getComputedStyle(dialog.querySelector('.ab-soon')).borderTopStyle,
+      items: [...dialog.querySelectorAll('nav > *')].map((el) => text(el) + (el.matches('a[href]') ? ' to ' + el.getAttribute('href') : el.getAttribute('aria-disabled') === 'true' ? ' (disabled)' : '')),
+      kana: [...dialog.querySelectorAll('nav > *')].map((el) => el.querySelector('[aria-hidden="true"]')?.textContent ?? 'none'),
+      edges: [...dialog.querySelectorAll('nav > *')].map((el) => getComputedStyle(el).borderTopStyle),
       focus: text(document.activeElement),
       ring: document.activeElement.matches(':focus-visible'),
       locked: getComputedStyle(document.body).overflow,
@@ -1694,8 +1696,9 @@ test('on a phone the menu button opens the menu, a modal panel from the left wit
     right: 320,
     top: 0,
     height: 844,
-    items: ['Trending (a link)', 'Pull (a link)', 'Decades (a link)', 'My List Soon (disabled)'],
-    soon: 'dashed',
+    items: ['Trending to #ab-trending', 'Pull to #pull', 'Decades to #decades', 'My List to /list'],
+    kana: ['トレンド', 'ガチャ', 'ネンダイ', 'マイリスト'],
+    edges: ['solid', 'solid', 'solid', 'solid'],
     focus: 'Trending',
     ring: false,
     locked: 'hidden',
@@ -1868,6 +1871,64 @@ test('a tap on a menu link, made as Safari makes it, shuts the menu and lands it
   )
 })
 
+test('a tap on the menu’s My List shuts the menu and lands on /list with no new page, at its top, the page free; there the menu marks My List as the page, in yellow with its thick edge, and opens on it', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  // Partway down Discover, its header back on a scroll up. A new page would take the window's mark
+  // with it.
+  await headerBackAt(1200)
+  await browser.evaluate(`window.__stayed = true; true`)
+  await browser.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
+  try {
+    await tapOn('.ab-burger')
+    assert.ok(await browser.waitFor(MENU_OPEN, 2000), 'the menu didn’t open')
+    await tapOn('.ab-drawer a[href="/list"]')
+    assert.ok(
+      await browser.waitFor(`document.getElementById('ab-list')`, 5000),
+      'the tap didn’t land on My List',
+    )
+    await frames()
+    assert.deepEqual(
+      await browser.evaluate(`({
+        path: location.pathname,
+        stayed: window.__stayed === true,
+        open: document.querySelector('.ab-drawer').open,
+        expanded: document.querySelector('.ab-burger').getAttribute('aria-expanded'),
+        locked: getComputedStyle(document.body).overflow === 'hidden',
+        top: scrollY,
+      })`),
+      { path: '/list', stayed: true, open: false, expanded: 'false', locked: false, top: 0 },
+      'the tap on My List',
+    )
+  } finally {
+    await browser.send('Emulation.setTouchEmulationEnabled', { enabled: false })
+  }
+  await openMenuByKey()
+  assert.deepEqual(
+    await browser.evaluate(`(() => {
+      const current = [...document.querySelectorAll('.ab-drawer a[aria-current]')]
+      return {
+        current: current.map((a) => a.getAttribute('href') + ' ' + a.getAttribute('aria-current')),
+        fill: current[0] && getComputedStyle(current[0]).backgroundColor,
+        edge: current[0] && getComputedStyle(current[0]).borderLeftWidth,
+        others: [...document.querySelectorAll('.ab-drawer nav a:not([aria-current])')].map((a) => getComputedStyle(a).backgroundColor),
+        focus: document.activeElement.getAttribute('href'),
+      }
+    })()`),
+    {
+      current: ['/list page'],
+      fill: 'rgb(255, 212, 0)',
+      edge: '12px',
+      others: ['rgb(255, 255, 255)', 'rgb(255, 255, 255)', 'rgb(255, 255, 255)'],
+      focus: '/list',
+    },
+    'the menu on My List',
+  )
+  await browser.press('Escape')
+  assert.ok(await browser.waitFor(MENU_SHUT, 2000), 'Esc left the menu open')
+})
+
 test('the menu marks the section the visitor is in, in yellow, and opens on its link', async () => {
   await browser.load({ ...PHONE, reduceMotion: true })
   assert.ok(await browser.titlesShown())
@@ -1890,7 +1951,7 @@ test('the menu marks the section the visitor is in, in yellow, and opens on its 
     {
       current: ['#pull'],
       fill: 'rgb(255, 212, 0)',
-      others: ['rgb(255, 255, 255)', 'rgb(255, 255, 255)'],
+      others: ['rgb(255, 255, 255)', 'rgb(255, 255, 255)', 'rgb(255, 255, 255)'],
       focus: '#pull',
     },
   )
@@ -1964,7 +2025,7 @@ test('in contrast themes the menu button and the menu keep their edges, and the 
         edge: 'solid',
         current: true,
         other: false,
-        links: ['solid', 'solid', 'solid', 'dashed'],
+        links: ['solid', 'solid', 'solid', 'solid'],
         burst: 'none',
       },
     )

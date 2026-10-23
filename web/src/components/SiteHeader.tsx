@@ -1,7 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ClickEvent } from 'react'
 import { confirmsWord, searchable } from '../lib/ime.ts'
 import { keyboardAfter, keyboardAt, oneLine, oneLineCaret, rowsShown } from '../lib/searchBox.ts'
-import { LIST_HREF } from '../lib/sectionNav.ts'
 import {
   afterSwipe,
   EDGE,
@@ -220,11 +219,10 @@ export function SiteHeader({
         </nav>
         <SearchBubble value={search} onChange={onSearch} />
       </header>
-      {/* The menu's My List stays to come for now, with its Soon tag, until it is a link there too,
-          with its own kana and closing the menu as it goes. */}
       <MenuDrawer
-        links={links.map((link) => (link.href === LIST_HREF ? { ...link, soon: true } : link))}
+        links={links}
         currentHref={currentHref}
+        onGo={onGo}
         dialogRef={menu}
         onToggle={setMenuOpen}
       />

@@ -1280,7 +1280,7 @@ img[data-broken] {
   gap: 14px;
 }
 
-/* Each link a panel pasted on the page, a little askew; My List, to come, dashed. */
+/* Each link a panel pasted on the page, a little askew; a feature still to come, dashed. */
 .ab-drawer nav a,
 .ab-drawer .ab-soon {
   display: flex;
@@ -1313,9 +1313,9 @@ img[data-broken] {
   opacity: 0.7;
 }
 
-/* The section the visitor is in, as the header marks it: yellow, raised, and a thick ink edge,
-   a cue that isn't color. */
-.ab-drawer a[aria-current='location'] {
+/* The section the visitor is in, or the page on screen (My List's), as the header marks it:
+   yellow, raised, and a thick ink edge, a cue that isn't color. */
+.ab-drawer a[aria-current] {
   border-left-width: 12px;
   background: var(--sun);
   box-shadow: 6px 6px 0 var(--ink);
