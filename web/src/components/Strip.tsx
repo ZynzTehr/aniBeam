@@ -28,7 +28,11 @@ export function Strip({
   id: string
   heading: string
   sfx: string
-  titles: Media[]
+  /**
+   * The titles, in order. Null holds a title's place with an empty card while it loads, as on My
+   * List, where titles another answer brought already show in theirs.
+   */
+  titles: readonly (Media | null)[]
   /**
    * Which list the titles are, such as a decade. A different list opens at Ch.1, so change it as
    * the new list's titles arrive, not while the last list's stand in for them. The same list is
@@ -40,7 +44,10 @@ export function Strip({
   level?: 'h1' | 'h2'
   /** A status line (loading, error, rate limit), or null when there's nothing to say. */
   note?: string | null
-  /** Show empty cards while the first load runs. */
+  /**
+   * Show empty cards while the first load runs: one for each place in `titles` when it holds only
+   * nulls, else 8.
+   */
   loading?: boolean
   /** Shown as a Try again button after a failed load. */
   onRetry?: () => void
@@ -53,8 +60,11 @@ export function Strip({
 }) {
   const row = grid ? 'ab-strip-row ab-strip-grid' : 'ab-strip-row'
   // Waiting for its first titles, the strip shows empty cards, and its status line shows as a tag
-  // over them instead of in a line of its own, so nothing moves as it clears (see .is-tagged).
-  const waiting = !titles.length && loading
+  // over them instead of in a line of its own, so nothing moves as it clears (see .is-tagged). With
+  // some titles already in their places, the empty cards among them say it, and the line takes no
+  // room either.
+  const waiting = loading && !titles.some(Boolean)
+  const tagged = waiting || (loading && titles.includes(null))
   // A different list opens at Ch.1: React keeps this row for the next list, which would otherwise
   // open wherever the last one was scrolled. Keyed on which list it is, not on its titles, so a
   // refresh that reorders the list on screen doesn't send the visitor back to Ch.1, taking a
@@ -70,7 +80,7 @@ export function Strip({
         {heading}
       </SfxHeading>
       {children}
-      <p role={live ? 'status' : undefined} className={waiting ? 'ab-note is-tagged' : 'ab-note'}>
+      <p role={live ? 'status' : undefined} className={tagged ? 'ab-note is-tagged' : 'ab-note'}>
         {note}
       </p>
       {onRetry && <RetryButton headingId={id} onRetry={onRetry} />}
@@ -79,7 +89,7 @@ export function Strip({
         // clips what it holds, a long note was cut off, as a phone's card is 150px wide.
         <div className="ab-strip-wait">
           <ol className={row} aria-hidden="true">
-            {Array.from({ length: 8 }, (_, i) => (
+            {Array.from({ length: titles.length || 8 }, (_, i) => (
               <li key={i} className="ab-strip-item">
                 <span className="ab-strip-panel ab-skeleton-fill" />
               </li>
@@ -91,33 +101,40 @@ export function Strip({
         </div>
       )}
       <ol ref={titlesRow} className={row} onFocus={grid ? undefined : revealFocused}>
-        {titles.map((media, i) => (
-          <li key={media.id} className="ab-strip-item" style={cssVars({ '--i': i })}>
-            <a
-              className="ab-strip-panel"
-              href={titlePath(media.id)}
-              onClick={opener(media, onOpen)}
-            >
-              <img
-                src={media.coverImage.large}
-                srcSet={coverSrcSet(media)}
-                alt=""
-                loading="lazy"
-                onLoad={markLoaded}
-                onError={markBroken}
-              />
-              {!grid && (
-                <span className="ab-chapter" aria-hidden="true">
-                  Ch.{i + 1}
+        {(waiting ? [] : titles).map((media, i) =>
+          media === null ? (
+            // Not a part that lands (see lib/landing.ts): the title that takes its place does.
+            <li key={`wait-${i}`} aria-hidden="true">
+              <span className="ab-strip-panel ab-skeleton-fill" />
+            </li>
+          ) : (
+            <li key={media.id} className="ab-strip-item" style={cssVars({ '--i': i })}>
+              <a
+                className="ab-strip-panel"
+                href={titlePath(media.id)}
+                onClick={opener(media, onOpen)}
+              >
+                <img
+                  src={media.coverImage.large}
+                  srcSet={coverSrcSet(media)}
+                  alt=""
+                  loading="lazy"
+                  onLoad={markLoaded}
+                  onError={markBroken}
+                />
+                {!grid && (
+                  <span className="ab-chapter" aria-hidden="true">
+                    Ch.{i + 1}
+                  </span>
+                )}
+                <span className="ab-strip-title">
+                  <span>{titleOf(media)}</span>
                 </span>
-              )}
-              <span className="ab-strip-title">
-                <span>{titleOf(media)}</span>
-              </span>
-              <span className="sr-only">, {seasonOf(media)}</span>
-            </a>
-          </li>
-        ))}
+                <span className="sr-only">, {seasonOf(media)}</span>
+              </a>
+            </li>
+          ),
+        )}
       </ol>
     </section>
   )

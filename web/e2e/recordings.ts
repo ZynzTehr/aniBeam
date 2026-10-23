@@ -71,7 +71,13 @@ export const TITLES = [154587]
  * asks AniList for their titles in one request (listQuery). Not here: a list a check answers with
  * a built answer, with a rewrite.
  */
-export const LISTS: Record<string, number[]> = {}
+export const LISTS: Record<string, number[]> = {
+  // Twelve titles already in the recordings, as listQuery sends them, sorted: Cowboy Bebop, ONE
+  // PIECE (airing), Evangelion, AKIRA, Mononoke-hime, serial experiments lain, PERFECT BLUE,
+  // Totoro, Nausicaä, Black Clover, Frieren and Kusuriya no Hitorigoto 3rd Season (airing). A cold
+  // /list with these saved sends exactly this one request (the plan's done-when 2).
+  'list-12': [1, 21, 30, 47, 164, 339, 437, 523, 572, 97940, 154587, 195516],
+}
 
 type Request = Recording['request']
 
@@ -393,6 +399,15 @@ const RULES: {
         : /frieren/i.test(titleOf(titles[0]))
           ? ''
           : `it is '${titleOf(titles[0])}'`,
+  },
+  {
+    lists: [['list-12', 'Page']],
+    needs: 'a title for each of its 12 ids',
+    why: 'as list.e2e.ts saves those 12 ids and waits for a cover for each, from the one request a cold /list sends',
+    broken: (titles) => {
+      const lacking = LISTS['list-12'].filter((id) => !titles.some((media) => media.id === id))
+      return lacking.length ? `it lacks ${lacking.join(', ')}` : ''
+    },
   },
   {
     lists: [search('one piece')],

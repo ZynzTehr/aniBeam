@@ -123,10 +123,11 @@ export default function App() {
   // its list had it, and what opened it, for focus to return to (see below).
   const path = usePathname()
   const addressed = titleIdFrom(path)
-  // The page under the card: the address it was opened over, which its history entry keeps (see
-  // open), after a reload there too; / under a card opened at its address. With no card, the page
-  // at the address.
-  const beneath = addressed === null ? path : isOver(history.state) ? history.state.over : '/'
+  // The page under the card: the address it was opened over, which its history entry keeps with
+  // its query (see open), after a reload there too; / under a card opened at its address. With no
+  // card, the page at the address.
+  const beneath =
+    addressed === null ? path : isOver(history.state) ? history.state.over.replace(/\?.*/, '') : '/'
   // My List (/list) takes Discover's place, under a card opened over it too: Discover's lists are
   // left off, as they are asked for here in App, not where they are drawn, so not drawing them
   // would still send their requests.
@@ -136,12 +137,18 @@ export default function App() {
     setOpened({ media, element: from })
     // Back from the title returns to this address without its #fragment, as a link to a section
     // leaves one: returning to a fragment, the browser jumps to it again, scrolling to it and
-    // focusing it, so closing the card would lose the visitor's place and focus. Opened while a
-    // shared title still loads at its address, before its card shows, the new title takes that
-    // address's place, so closing it returns to the page under it (beneath), not to the shared
-    // title's card.
-    const over = beneath
-    if (addressed !== null || location.hash) replace(`${over}${location.search}`)
+    // focusing it, so closing the card would lose the visitor's place and focus. The entry keeps
+    // the address with its query, as My List's holds its view (?tab=want), which the page under
+    // the card shows. Opened while a shared title still loads at its address, before its card
+    // shows, the new title takes that address's place, so closing it returns to the page under it,
+    // not to the shared title's card.
+    const over =
+      addressed === null
+        ? `${path}${location.search}`
+        : isOver(history.state)
+          ? history.state.over
+          : `/${location.search}`
+    if (addressed !== null || location.hash) replace(over)
     push(titlePath(media.id), { over })
   }
 
