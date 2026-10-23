@@ -141,14 +141,17 @@ export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: bool
       })
   }
   // The card hands focus back to the cover that opened it as it closes (see App), but the cover
-  // has gone: its Undo takes it, before App looks. Once for each removal.
+  // has gone: its Undo takes it, before App looks, or, with the title put back on the list in the
+  // card, the new cover in its place, as after Undo. Once for each removal.
   const focused = useRef<Taken['focus']>(null)
   useLayoutEffect(() => {
     if (covered || !taken.focus || focused.current === taken.focus) return
     focused.current = taken.focus
-    document
-      .querySelector<HTMLElement>(`#main [data-undo="${taken.focus.id}"]`)
-      ?.focus({ preventScroll: true })
+    const { id } = taken.focus
+    const target =
+      document.querySelector<HTMLElement>(`#main [data-undo="${id}"]`) ??
+      document.querySelector<HTMLElement>(`#main .ab-strip-panel[href="${titlePath(id)}"]`)
+    target?.focus({ preventScroll: true })
   }, [covered, taken.focus])
   // What a screen reader hears after Undo: a full list, or an edit storage refused (see said.ts).
   // The cover back in its place, which takes focus, says the rest.
@@ -228,6 +231,14 @@ export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: bool
     const to = event.currentTarget.getAttribute('href')!
     if (to !== `${location.pathname}${location.search}`) push(to, null)
   }
+  // Show all takes the empty state it stands in off the page, so focus, on it, moves to the page's
+  // heading, as Remove them's does, not to the page's start.
+  const showAll = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isPlainClick(event)) return
+    const ringShown = event.currentTarget.matches(':focus-visible')
+    follow(event)
+    document.getElementById('ab-list')?.focus({ preventScroll: !ringShown })
+  }
   return (
     <div className="ab-list">
       <title>My List · AniBeam</title>
@@ -278,7 +289,7 @@ export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: bool
         <p className="ab-list-order">
           Order: <b>Recently changed</b>
         </p>
-        {empty && <Empty view={view} older={older} onFollow={follow} />}
+        {empty && <Empty view={view} older={older} onShowAll={showAll} />}
       </Strip>
       <p role="status" className="sr-only">
         {said}
@@ -330,11 +341,11 @@ function UndoSlot({ id, was, onUndo }: { id: number; was: Entry; onUndo: () => v
 function Empty({
   view,
   older,
-  onFollow,
+  onShowAll,
 }: {
   view: View
   older: number
-  onFollow: (event: MouseEvent<HTMLAnchorElement>) => void
+  onShowAll: (event: MouseEvent<HTMLAnchorElement>) => void
 }) {
   const tab = TABS.find(({ status }) => status === view.status)!.name
   const recent = `older than your ${PAGE} most recent.`
@@ -352,7 +363,7 @@ function Empty({
           <a
             className="ab-btn ab-btn-ink"
             href={viewPath({ ...view, favorites: false })}
-            onClick={onFollow}
+            onClick={onShowAll}
           >
             Show all
           </a>

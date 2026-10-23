@@ -556,13 +556,25 @@ test('an empty tab or filter says so, with a way on, and the note about this bro
       'Show all /list?tab=want',
     ])
     await follow('Saved', '/list?fav=1')
-    await browser.evaluate(`document.querySelector('#main .ab-list-empty a').click(); true`)
+    // Show all takes its empty state off the page, link and all: focus goes to My List's heading,
+    // not to the page's start.
+    const showAll = `document.querySelector('#main .ab-list-empty a')`
+    await browser.evaluate(`${showAll}.focus(); ${showAll}.click(); true`)
     assert.ok(await browser.waitFor(`location.search === ''`), 'Show all went elsewhere')
     assert.ok(
       await browser.waitFor(`document.querySelectorAll(${COVERS}).length === 1`, 10_000),
       'Show all didn’t show the 1 Saved title',
     )
-    assert.deepEqual((await browser.evaluate<Page>(PAGE)).empty, [])
+    assert.deepEqual(
+      {
+        empty: (await browser.evaluate<Page>(PAGE)).empty,
+        focused: await browser.evaluate(
+          `document.activeElement.id || document.activeElement.tagName`,
+        ),
+      },
+      { empty: [], focused: 'ab-list' },
+      'after Show all',
+    )
   } finally {
     await browser.rewriteAniList(null)
   }
@@ -656,6 +668,11 @@ const SAVED_ANSWER = `(() => {
   return list && { at: list.state.dataUpdatedAt, ids: list.state.data.map(({ id }) => id) }
 })()`
 const UNDO = `document.querySelector('#main [data-undo]')`
+// Presses one of the open card's My List buttons by its label.
+const press = (label: string) =>
+  browser.evaluate(
+    `[...document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].find((button) => button.textContent.trim() === ${JSON.stringify(label)}).click(), true`,
+  )
 
 /** Opens the card of the title on My List with `id`, and takes it off there, with its pressed status. */
 async function removeInCard(id: number, title: RegExp) {
@@ -735,6 +752,35 @@ test('a title taken off in its card leaves an Undo in its place, with focus on U
   await sleep(1500)
   assert.deepEqual(sent, [], 'taking titles off and putting them back asked AniList')
   assert.deepEqual(await browser.evaluate(SAVED_ANSWER), answer, 'My List’s saved answer changed')
+})
+
+test('a title taken off in its card and put back there before it closes keeps its cover, which takes focus as the card closes, by Close or Esc', async () => {
+  await saveList(TWELVE, '/list?tab=want')
+  assert.ok(
+    await browser.waitFor(`document.querySelectorAll(${COVERS}).length === 4`, 10_000),
+    'My List didn’t show its 4 covers in Want to try',
+  )
+  const cover = `document.querySelector('#main .ab-strip-panel[href="/anime/572"]')`
+  for (const how of ['Close', 'Esc']) {
+    await removeInCard(572, /Nausica/)
+    await press('Want to try')
+    assert.ok(
+      await browser.waitFor(`!${UNDO}`, 2000),
+      `${how}: the Undo stayed once the title was back`,
+    )
+    if (how === 'Close')
+      await browser.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
+    else await browser.press('Escape')
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog[open]')`, 5000),
+      `${how}: the card stayed open`,
+    )
+    assert.deepEqual(await browser.evaluate(SLOTS), ['154587', '21', '572', '97940'], how)
+    assert.ok(
+      await browser.waitFor(`document.activeElement === ${cover}`, 2000),
+      `${how}: focus went to ${await browser.evaluate(`document.activeElement.tagName`)}, not the cover`,
+    )
+  }
 })
 
 test('the Undo has no timer, and a change of tab or filter clears it', async () => {
@@ -1044,11 +1090,6 @@ test('a visit that starts on My List, or at a card opened over it, draws My List
 // Whether the page has downloaded My List's page, a file of its own (see features/list/page.ts):
 // ListPage.tsx as the development server serves it, ListPage-<hash>.js as a build names it.
 const PAGE_LOADED = `performance.getEntriesByType('resource').some((entry) => /\\/ListPage[.-]/.test(entry.name))`
-// Presses one of the open card's My List buttons by its label.
-const press = (label: string) =>
-  browser.evaluate(
-    `[...document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].find((button) => button.textContent.trim() === ${JSON.stringify(label)}).click(), true`,
-  )
 
 test('a title saved on Discover has My List’s page load in the background, so offline, My List opens with no new page, drawn from what is saved', async () => {
   await noteRequests(answerList)
