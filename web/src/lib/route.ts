@@ -1,9 +1,9 @@
 import { useSyncExternalStore } from 'react'
 
-// The page's address (spec §3.0): / is Discover, and /anime/:id opens that title's card over it.
-// Later addresses (/list, /mood) and chat's episode rooms (/anime/:id?ep=N, the query) fit beside
-// these: this file reads only the path, and leaves the query and the hash to their owners (sync's
-// #r= fragment, in Phase 8, is never read here).
+// The page's address (spec §3.0): / is Discover, /list is My List, and /anime/:id opens that
+// title's card over the page. Later addresses (/mood) and chat's episode rooms (/anime/:id?ep=N,
+// the query) fit beside these: this file reads only the path, and leaves the query and the hash to
+// their owners (sync's #r= fragment, in Phase 8, is never read here).
 
 // An AniList id: a whole number from 1, with no leading zero, of at most 9 digits (AniList's ids
 // are 6 digits today), so a typed address can't ask for a number past what an Int holds.
@@ -17,6 +17,9 @@ export function titleIdFrom(pathname: string): number | null {
 
 /** A title's address, which titleIdFrom reads back: /anime/154587 for 154587. */
 export const titlePath = (id: number) => `/anime/${id}`
+
+/** Whether an address's path is My List's: /list, or /list/. */
+export const isListPath = (pathname: string) => /^\/list\/?$/.test(pathname)
 
 // Back and Forward announce themselves (popstate), but the page's own changes to the address
 // don't, so those tell the listeners here.

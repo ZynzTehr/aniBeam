@@ -14,6 +14,7 @@ import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
 import { TitleNotice } from '../components/TitleNotice.tsx'
 import { loadSamples, outOfReach, samplesFor } from '../features/anime/fallback.ts'
+import { ListPage } from '../features/list/ListPage.tsx'
 import {
   ERAS,
   eraQuery,
@@ -31,6 +32,7 @@ import { markPointerJumps } from '../lib/jumps.ts'
 import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
 import {
+  isListPath,
   isOver,
   isTrailer,
   push,
@@ -121,6 +123,9 @@ export default function App() {
   // its list had it, and what opened it, for focus to return to (see below).
   const path = usePathname()
   const addressed = titleIdFrom(path)
+  // My List (/list) takes Discover's place: Discover's lists are left off, as they are asked for
+  // here in App, not where they are drawn, so not drawing them would still send their requests.
+  const onList = isListPath(path)
   const [opened, setOpened] = useState<{ media: Media; element: HTMLElement } | null>(null)
   const open: OpenTitle = (media, from) => {
     setOpened({ media, element: from })
@@ -139,8 +144,9 @@ export default function App() {
   // Back to the address it was opened over, or, opened at its address, puts / in its place. An
   // address the app doesn't know becomes /, before the browser draws the page.
   useLayoutEffect(() => {
-    if (path !== '/' && addressed === null) replace(`/${location.search}${location.hash}`)
-  }, [path, addressed])
+    if (path !== '/' && addressed === null && !onList)
+      replace(`/${location.search}${location.hash}`)
+  }, [path, addressed, onList])
   // A title opened on the page shows its list's copy, at once and again on Forward, with no
   // request. That copy is never saved as AniList's answer for the title: it may be a sample, shown
   // while AniList can't be reached, or older than an answer saved for it.
@@ -240,13 +246,13 @@ export default function App() {
   // as in useOutage.
   const [listsWait, setListsWait] = useState(addressed !== null)
   if (listsWait && addressed === null) setListsWait(false)
-  const trending = useQuery({ ...trendingQuery(), enabled: !listsWait })
+  const trending = useQuery({ ...trendingQuery(), enabled: !listsWait && !onList })
   // While a new decade loads, the previous decade's titles stay on screen instead of
   // flashing to empty cards.
   const decade = useQuery({
     ...eraQuery(era),
     placeholderData: keepPreviousData,
-    enabled: !listsWait,
+    enabled: !listsWait && !onList,
   })
 
   // A section that can't reach AniList shows sample titles instead, labelled (see useOutage):
@@ -299,10 +305,11 @@ export default function App() {
     return all.filter((media, i) => all.findIndex((other) => other.id === media.id) === i)
   }, [trendingShown, decadeShown])
 
-  // The intro's buttons, for the section links: none while searching, as results take its place.
+  // The intro's buttons, for the section links: none while searching, as results take its place,
+  // nor on My List, which has no intro.
   useLayoutEffect(() => {
-    sectionNav.current?.intro(searching ? null : actionsRef.current)
-  }, [searching])
+    sectionNav.current?.intro(searching || onList ? null : actionsRef.current)
+  }, [searching, onList])
 
   // Search results take the intro's place at the top of the page; bring them into view.
   useEffect(() => {
@@ -336,6 +343,8 @@ export default function App() {
             retryFailed={retryFailed}
             onStatus={setAnnouncement}
           />
+        ) : onList ? (
+          <ListPage />
         ) : (
           <IntroHero
             titles={trending.data ? introCovers : trendingSamples}
@@ -364,63 +373,68 @@ export default function App() {
             ]}
           />
         )}
-        <MangaPage
-          id="ab-trending"
-          heading={trendingSamples.length ? 'Fan favorites' : 'Trending now'}
-          sfx="ドン!"
-          titles={trendingShown}
-          titlesRef={trendingRef}
-          // The samples have no rank: they are well-loved titles, not this week's trending.
-          ranked={!trendingSamples.length}
-          note={
-            trendingSamples.length
-              ? sampleNote(
-                  'These are fan favorites, not this week’s trending.',
-                  trending,
-                  isRateLimited(),
-                )
-              : note(trending)
-          }
-          loading={trending.isPending}
-          onRetry={retryFor(trending, retryFailed)}
-          onOpen={open}
-        />
-        <PullMachine pool={pool} onOpen={open} />
-        <Strip
-          id="decades"
-          heading="Browse by decade"
-          sfx="バーン"
-          titles={decadeShown}
-          list={decadeList}
-          note={
-            decadeSamples.length
-              ? sampleNote(
-                  `A few fan favorites from ${eraName(era)}, not the full list.`,
-                  decade,
-                  isRateLimited(),
-                )
-              : note(decade)
-          }
-          loading={decade.isPending || decade.isPlaceholderData}
-          onRetry={retryFor(decade, retryFailed)}
-          onOpen={open}
-        >
-          <fieldset className="ab-eras">
-            <legend className="sr-only">Decade</legend>
-            {ERAS.map((e) => (
-              <label key={e.id} className="ab-chip">
-                <input
-                  type="radio"
-                  name="era"
-                  value={e.id}
-                  checked={eraId === e.id}
-                  onChange={() => setEraId(e.id)}
-                />
-                <span>{e.label}</span>
-              </label>
-            ))}
-          </fieldset>
-        </Strip>
+        {/* Discover's sections, not on My List. */}
+        {!onList && (
+          <>
+            <MangaPage
+              id="ab-trending"
+              heading={trendingSamples.length ? 'Fan favorites' : 'Trending now'}
+              sfx="ドン!"
+              titles={trendingShown}
+              titlesRef={trendingRef}
+              // The samples have no rank: they are well-loved titles, not this week's trending.
+              ranked={!trendingSamples.length}
+              note={
+                trendingSamples.length
+                  ? sampleNote(
+                      'These are fan favorites, not this week’s trending.',
+                      trending,
+                      isRateLimited(),
+                    )
+                  : note(trending)
+              }
+              loading={trending.isPending}
+              onRetry={retryFor(trending, retryFailed)}
+              onOpen={open}
+            />
+            <PullMachine pool={pool} onOpen={open} />
+            <Strip
+              id="decades"
+              heading="Browse by decade"
+              sfx="バーン"
+              titles={decadeShown}
+              list={decadeList}
+              note={
+                decadeSamples.length
+                  ? sampleNote(
+                      `A few fan favorites from ${eraName(era)}, not the full list.`,
+                      decade,
+                      isRateLimited(),
+                    )
+                  : note(decade)
+              }
+              loading={decade.isPending || decade.isPlaceholderData}
+              onRetry={retryFor(decade, retryFailed)}
+              onOpen={open}
+            >
+              <fieldset className="ab-eras">
+                <legend className="sr-only">Decade</legend>
+                {ERAS.map((e) => (
+                  <label key={e.id} className="ab-chip">
+                    <input
+                      type="radio"
+                      name="era"
+                      value={e.id}
+                      checked={eraId === e.id}
+                      onChange={() => setEraId(e.id)}
+                    />
+                    <span>{e.label}</span>
+                  </label>
+                ))}
+              </fieldset>
+            </Strip>
+          </>
+        )}
       </main>
       <footer className="ab-foot">
         <MotionSwitch id="reduce-motion" />

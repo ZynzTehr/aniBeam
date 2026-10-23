@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import {
   dropTrailer,
+  isListPath,
   isOver,
   isTrailer,
   push,
@@ -36,6 +37,13 @@ test('an address opens a title only at /anime/ and its AniList id, with or witho
     '/x/anime/154587',
   ])
     assert.equal(titleIdFrom(path), null, path)
+})
+
+test('My List’s address is /list, with or without a last slash, and nothing else', () => {
+  assert.equal(isListPath('/list'), true)
+  assert.equal(isListPath('/list/'), true)
+  for (const path of ['/', '/list//', '/lists', '/list/1', '/List', '/x/list', '/anime/154587', ''])
+    assert.equal(isListPath(path), false, path)
 })
 
 test('a title’s address reads back as its id', () => {
