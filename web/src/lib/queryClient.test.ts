@@ -13,6 +13,7 @@ import {
   ERAS,
   eraQuery,
   listQuery,
+  QUERIES,
   searchQuery,
   titleQuery,
   trendingQuery,
@@ -244,6 +245,47 @@ test('My List’s titles, back from a copy saved 2 days ago, are still saved aft
     saved(queryClient),
     [[queryKey, titles]],
     'My List’s titles left the saved copy a day after they came back: gcTime dropped them',
+  )
+})
+
+test('only the latest of My List’s answers is kept, however often the list’s titles change', async (t) => {
+  // The key holds the ids, so each change to the list makes a new key, and each answer, up to 50
+  // full titles, would stay 30 days in the saved copy (see keptFor), pushing useful answers out
+  // when storage is full. So an answer for the list takes the place of the others. The real app
+  // client; only AniList (fetch) and the clock are fake, the clock past the pause the rate-limit
+  // test above leaves in anilist().
+  t.mock.timers.enable({ apis: ['Date'], now: Date.UTC(2032, 0, 1) })
+  t.after(() => queryClient.clear())
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    const { variables } = JSON.parse(String(init.body))
+    const media = SAMPLES.filter((title) => variables.ids.includes(title.id))
+    return new Response(JSON.stringify({ data: { Page: { media } } }))
+  })
+  const [a, b, c] = SAMPLES.map((title) => title.id)
+  // Three visits to My List, with a title saved, then another, then the first removed.
+  for (const ids of [
+    [a, b],
+    [a, b, c],
+    [b, c],
+  ])
+    await queryClient.fetchQuery(listQuery(ids))
+  const lists = saved(queryClient).filter(
+    ([queryKey]) => (queryKey as unknown[])[1] === QUERIES.list,
+  )
+  assert.deepEqual(
+    lists.map(([queryKey]) => (queryKey as [string, string, { ids: number[] }])[2].ids),
+    [[b, c].toSorted((x, y) => x - y)],
+    'the saved copy keeps these answers for My List',
+  )
+  // An answer a page still shows stays, as the page would otherwise lose its titles.
+  await queryClient.fetchQuery(listQuery([a, c]))
+  const shown = new QueryObserver(queryClient, listQuery([a, c]))
+  t.after(shown.subscribe(() => {}))
+  await queryClient.fetchQuery(listQuery([a]))
+  assert.deepEqual(
+    queryClient.getQueryData(listQuery([a, c]).queryKey),
+    SAMPLES.filter((title) => [a, c].includes(title.id)),
+    'an answer for My List that a page is showing was taken away',
   )
 })
 
