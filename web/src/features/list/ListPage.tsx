@@ -213,7 +213,13 @@ export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: bool
     setSaid((before) => nextLine(before, saidAfter(outcome, null)))
   }
   const counts = countsIn(list)
-  const empty = !shown.length && !inView(list, listedIn(list), view).length
+  // More titles on the list than the page asked for: the note under them says so.
+  const over = listedIn(list).length > PAGE
+  // A view with nothing to show says why, in place of its titles: it has none, or with more than
+  // 50 on the list, all of its own are older than those the page took (Favorites only, with every
+  // heart on an older title). Else its count would say 3, over no titles and no words.
+  const empty = !shown.length
+  const older = empty && over ? inView(list, listedIn(list), view).length : 0
 
   // A plain click on a view's link changes the address, as a new history entry, with no new page.
   const follow = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -272,13 +278,13 @@ export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: bool
         <p className="ab-list-order">
           Order: <b>Recently changed</b>
         </p>
-        {empty && <Empty view={view} onFollow={follow} />}
+        {empty && <Empty view={view} older={older} onFollow={follow} />}
       </Strip>
       <p role="status" className="sr-only">
         {said}
       </p>
       <div className="ab-list-foot">
-        {listedIn(list).length > PAGE && <p>Showing your {PAGE} most recent.</p>}
+        {over && <p>Showing your {PAGE} most recent.</p>}
         <p>Saved in this browser only.</p>
         {/* Last, under the rest, so nothing moves as it comes with AniList's answer. */}
         {lost.length > 0 && (
@@ -317,20 +323,32 @@ function UndoSlot({ id, was, onUndo }: { id: number; was: Entry; onUndo: () => v
   )
 }
 
-/** A view with nothing in it: what to say, and where to go next. */
+/**
+ * A view with nothing in it: what to say, and where to go next. `older` is how many titles of its
+ * own it has, all older than the 50 the page shows (see ListPage), or 0.
+ */
 function Empty({
   view,
+  older,
   onFollow,
 }: {
   view: View
+  older: number
   onFollow: (event: MouseEvent<HTMLAnchorElement>) => void
 }) {
   const tab = TABS.find(({ status }) => status === view.status)!.name
+  const recent = `older than your ${PAGE} most recent.`
   return (
     <div className="ab-list-empty">
       {view.favorites ? (
         <>
-          <p>No favorites in {tab} yet.</p>
+          <p>
+            {older === 1
+              ? `Your 1 favorite in ${tab} is ${recent}`
+              : older
+                ? `Your ${older} favorites in ${tab} are ${recent}`
+                : `No favorites in ${tab} yet.`}
+          </p>
           <a
             className="ab-btn ab-btn-ink"
             href={viewPath({ ...view, favorites: false })}
@@ -339,6 +357,8 @@ function Empty({
             Show all
           </a>
         </>
+      ) : older ? (
+        <p>{`Your ${older} ${tab} ${older === 1 ? 'title is' : 'titles are'} ${recent}`}</p>
       ) : (
         <>
           <p>{view.status === 'SAVED' ? 'Nothing saved yet.' : 'Nothing to try yet.'}</p>

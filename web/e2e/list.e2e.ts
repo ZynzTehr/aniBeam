@@ -568,31 +568,75 @@ test('an empty tab or filter says so, with a way on, and the note about this bro
   }
 })
 
-test('with more than 50 titles, My List asks for the 50 most lately changed, and says so', async () => {
+test('with more than 50 titles, My List asks for the 50 most lately changed, and says so; a view whose titles are all older says that, and 50 titles need no note', async () => {
+  // 52 Saved, the 2 oldest of them with the heart, then 3 Want to try, older still: the 50 most
+  // lately changed are all Saved, with no heart.
   const fiftyFive = [...RECORDED.keys()].slice(0, 55)
+  const entries: Saved[] = fiftyFive.map((id, i) => ({
+    id,
+    status: i < 52 ? 'SAVED' : 'WANT',
+    favorite: i === 50 || i === 51,
+  }))
   const asked: Answer['request'][] = []
   await browser.rewriteAniList(({ request }) => {
     asked.push(request)
     return answerList(request)
   })
   try {
-    await saveList(fiftyFive.map((id) => ({ id })))
+    await saveList(entries)
     assert.ok(
       await browser.waitFor(`document.querySelectorAll(${COVERS}).length === 50`, 10_000),
       'My List didn’t show 50 covers',
     )
+    const notes = ['Order: Recently changed', 'Showing your 50 most recent.', NOTES[1]]
     const page = await browser.evaluate<Page>(PAGE)
     assert.deepEqual(
-      { covers: page.covers, notes: page.notes, saved: page.links[0][0] },
       {
-        covers: fiftyFive.slice(0, 50),
-        notes: ['Order: Recently changed', 'Showing your 50 most recent.', NOTES[1]],
-        saved: 'Saved 55',
+        covers: page.covers,
+        notes: page.notes,
+        tabs: page.links.slice(0, 2).map(([name]) => name),
       },
+      { covers: fiftyFive.slice(0, 50), notes, tabs: ['Saved 52', 'Want to try 3'] },
     )
+    // Each view whose titles are all older than the 50 says so in place of its titles, in the
+    // empty state's own place; one with no titles at all says that.
+    const views: [string, string, string[]][] = [
+      [
+        'Want to try',
+        '/list?tab=want',
+        ['Your 3 Want to try titles are older than your 50 most recent.'],
+      ],
+      [
+        'Favorites only',
+        '/list?tab=want&fav=1',
+        ['No favorites in Want to try yet.', 'Show all /list?tab=want'],
+      ],
+      [
+        'Saved',
+        '/list?fav=1',
+        ['Your 2 favorites in Saved are older than your 50 most recent.', 'Show all /list'],
+      ],
+    ]
+    for (const [name, address, empty] of views) {
+      await follow(name, address)
+      const shown = await browser.evaluate<Page>(PAGE)
+      assert.deepEqual(
+        { covers: shown.covers, empty: shown.empty, notes: shown.notes },
+        { covers: [], empty, notes },
+        address,
+      )
+    }
     assert.deepEqual(asked, [
       { query: QUERIES.list, variables: { ids: fiftyFive.slice(0, 50).toSorted((a, b) => a - b) } },
     ])
+
+    // 50 titles, all shown: no note says some aren't.
+    await saveList(fiftyFive.slice(0, 50).map((id) => ({ id })))
+    assert.ok(
+      await browser.waitFor(`document.querySelectorAll(${COVERS}).length === 50`, 10_000),
+      'My List didn’t show its 50 covers',
+    )
+    assert.deepEqual((await browser.evaluate<Page>(PAGE)).notes, NOTES, '50 titles')
   } finally {
     await browser.rewriteAniList(null)
   }
