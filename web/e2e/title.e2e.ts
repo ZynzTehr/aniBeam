@@ -95,12 +95,12 @@ test('the banner band crowns the card in an ink frame, the same size with a bann
   // looks the same either way and nothing moves as a banner loads or fails; a failed one hides,
   // rather than show Chrome's broken-image icon.
   // A phone zoomed past 125% is under 320px wide: there the strip keeps the height the close
-  // button needs to stand clear of the ink line, 64px. At 280px the copy's Soon buttons (213px)
-  // already push the card's column 2.5px past the sheet's padding, and the band follows the
-  // column: that is the buttons' to settle, so there the band's place inside the border is not
-  // held to. On a screen under 500px tall, as a phone held sideways, stacked (667x375) or not
-  // (844x390), the band, its ink line in, is a third of the screen's height at most (32svh), and
-  // never under 64px.
+  // button needs to stand clear of the ink line, 64px, and the band keeps its place inside the
+  // border there too: no button in the copy is wider than its column, as "Save to My List Soon"
+  // (213px) was, pushing the column, and the band with it, 2.5px past the sheet's padding. On a
+  // screen under 500px tall, as a phone held sideways, stacked (667x375) or not (844x390), the
+  // band, its ink line in, is a third of the screen's height at most (32svh), and never under
+  // 64px.
   const seen: string[] = []
   try {
     for (const banner of Object.keys(BANNERS) as Banner[]) {
@@ -148,8 +148,6 @@ test('the banner band crowns the card in an ink frame, the same size with a bann
           'the cover': 'below it',
           'the close button': 'clear of the ink line',
         }
-        if (band && screen.width < 320)
-          band['inside the sheet border'] = expected['inside the sheet border']
         if (JSON.stringify(band) !== JSON.stringify(expected))
           seen.push(`${screen.width}px, ${banner}: ${JSON.stringify(band)}`)
       }
@@ -901,11 +899,15 @@ test('the clamp is as tall in a fallback font as in the page’s own, and Read m
 
 test('Tab reaches the details’ buttons after the card’s own, each showing its focus, and Shift+Tab goes back', async () => {
   // Every interactive part is reachable by Tab, with visible focus (the acceptance checks). The
-  // card's stops, from its close button: Open on AniList (the Soon buttons are disabled), Watch
-  // trailer (Frieren has one), then the details' buttons in reading order, Read more and Show
-  // spoiler tags, each with the card's focus ring, 4px in brand hot.
+  // card's stops, from its close button: the My List row's Save, Want to try and Favorite, Open on
+  // AniList (the Soon button is disabled), Watch trailer (Frieren has one), then the details'
+  // buttons in reading order, Read more and Show spoiler tags, each with the card's focus ring,
+  // 4px in brand hot.
   const STOPS = [
     'Close title card',
+    'Save',
+    'Want to try',
+    'Favorite',
     'Open on AniList',
     'Watch trailer',
     'Read more',
@@ -938,6 +940,628 @@ test('Tab reaches the details’ buttons after the card’s own, each showing it
       seen.push(`${screen.width}px, Shift+Tab: ${backward.join(' → ')}`)
   }
   assert.deepEqual(seen, [], 'the card’s Tab stops, each with its ring')
+})
+
+// The open card's My List group as words: its role and name, and each button's name, its
+// aria-pressed as written (none if missing) and " hot" where it is filled in brand hot
+// (--hot-deep); and the group's own line, its role, whether it sits inside the card's dialog, and
+// what it says.
+const MY_LIST = `(() => {
+  const card = document.querySelector('dialog.ab-card[open]')
+  const group = card?.querySelector('.ab-sheet [role="group"]')
+  const line = document.getElementById('ab-list-status')
+  return {
+    group: group ? (group.getAttribute('aria-labelledby') ?? '').split(' ').map((id) => document.getElementById(id)?.textContent.trim()).join(' ') : 'none',
+    buttons: group ? [...group.querySelectorAll('button')].map((button) => button.textContent.trim() + ' ' + (button.getAttribute('aria-pressed') ?? 'none') + (getComputedStyle(button).backgroundColor === 'rgb(214, 0, 42)' ? ' hot' : '')) : [],
+    line: line ? { role: line.getAttribute('role'), 'in the card': card.contains(line), says: line.textContent.trim() } : 'none',
+  }
+})()`
+
+// The list as this browser saved it, read back.
+const SAVED_LIST = `JSON.parse(localStorage.getItem('anibeam:list:v1') ?? 'null')`
+
+test('the card’s My List group offers Save, Want to try and Favorite, none pressed for a title not listed, and Save stays pressed after a reload', async () => {
+  // The plan's PR 1, commit 6, as the visitor chose in the mockup (D3, T2): a group of its own
+  // named "My List", each button with an explicit aria-pressed and a label that never changes,
+  // filled in brand hot while pressed. Saving survives a reload (Phase 4's first done-when), and
+  // the saved list holds the title's id, its status, its heart and the time, nothing of the title
+  // itself (spec §5). The group's line, which a screen reader hears, sits inside the dialog, where
+  // the page behind is inert, and is there before anything is pressed.
+  await openFrieren(SCREENS[2])
+  const fresh = await browser.evaluate(MY_LIST)
+  await browser.evaluate(
+    `[...document.querySelectorAll('dialog.ab-card[open] button')].find((button) => button.textContent.trim() === 'Save').click(); true`,
+  )
+  const pressed = await browser.evaluate(MY_LIST)
+  await browser.load({ ...SCREENS[2], reduceMotion: true, url: at('/anime/154587') })
+  assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000), 'no card after the reload')
+  const reloaded = await browser.evaluate(MY_LIST)
+  const saved = await browser.evaluate<Record<string, Record<string, unknown>> | null>(SAVED_LIST)
+  const entry = saved?.['154587']
+  assert.deepEqual(
+    {
+      fresh,
+      pressed,
+      reloaded,
+      saved: saved && Object.keys(saved),
+      entry: entry && {
+        fields: Object.keys(entry).sort(),
+        status: entry.status,
+        favorite: entry.favorite,
+        time: Math.abs(Date.now() - Number(entry.updatedAt)) < 60_000 ? 'now' : entry.updatedAt,
+      },
+    },
+    {
+      fresh: {
+        group: 'My List',
+        buttons: ['Save false', 'Want to try false', 'Favorite false'],
+        line: { role: 'status', 'in the card': true, says: '' },
+      },
+      pressed: {
+        group: 'My List',
+        buttons: ['Save true hot', 'Want to try false', 'Favorite false'],
+        line: { role: 'status', 'in the card': true, says: '' },
+      },
+      reloaded: {
+        group: 'My List',
+        buttons: ['Save true hot', 'Want to try false', 'Favorite false'],
+        line: { role: 'status', 'in the card': true, says: '' },
+      },
+      saved: ['154587'],
+      entry: {
+        fields: ['favorite', 'status', 'updatedAt'],
+        status: 'SAVED',
+        favorite: false,
+        time: 'now',
+      },
+    },
+  )
+})
+
+test('Space and Enter press each My List button, Want to try moves a saved title and the line says so, and the heart saves a title not listed', async () => {
+  // D1: one status per title, Save and Want to try as a pair: the other one moves the title, the
+  // pressed one removes it. D2 (a): the heart on a title not listed puts it on as Saved, with the
+  // heart, and removing the title takes the heart too. The line speaks for a move and a removal
+  // only, never for a plain press, which the button's own state says.
+  await openFrieren(SCREENS[0])
+  const steps: string[] = []
+  const note = async (did: string) => {
+    const { buttons, line } = await browser.evaluate<{
+      buttons: string[]
+      line: { says: string }
+    }>(MY_LIST)
+    steps.push(`${did}: ${buttons.join(', ')}${line.says ? ` | ${line.says}` : ''}`)
+  }
+  const focus = (label: string) =>
+    browser.evaluate(
+      `[...document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].find((button) => button.textContent.trim() === ${JSON.stringify(label)}).focus(); true`,
+    )
+  for (const label of ['Save', 'Want to try', 'Favorite']) {
+    await focus(label)
+    await browser.press('Space')
+    await note(`Space on ${label}`)
+    await browser.press('Enter')
+    await note(`Enter on ${label}`)
+  }
+  for (const label of ['Want to try', 'Save', 'Favorite', 'Save']) {
+    await focus(label)
+    await browser.press('Enter')
+    await note(`Enter on ${label}`)
+  }
+  assert.deepEqual(steps, [
+    'Space on Save: Save true hot, Want to try false, Favorite false',
+    'Enter on Save: Save false, Want to try false, Favorite false | Removed from My List',
+    'Space on Want to try: Save false, Want to try true hot, Favorite false',
+    'Enter on Want to try: Save false, Want to try false, Favorite false | Removed from My List',
+    'Space on Favorite: Save true hot, Want to try false, Favorite true hot',
+    'Enter on Favorite: Save true hot, Want to try false, Favorite false',
+    'Enter on Want to try: Save false, Want to try true hot, Favorite false | Moved to Want to try',
+    'Enter on Save: Save true hot, Want to try false, Favorite false | Moved to Saved',
+    'Enter on Favorite: Save true hot, Want to try false, Favorite true hot',
+    'Enter on Save: Save false, Want to try false, Favorite false | Removed from My List',
+  ])
+})
+
+test('the My List line and the card’s status line, with Try again, are there at once, each saying its own', async () => {
+  // The card's own status line (#ab-card-status) says why AniList holds up a newer answer, with
+  // Try again; the My List line is a second one, so a press says its piece while the first keeps
+  // saying its own. Frieren's answer is saved as an airing title's, aged past its 6 hours, and
+  // AniList then answers 400, which the app doesn't try again, so Try again shows at once.
+  await browser.forget()
+  await browser.rewriteAniList(({ request, status, body }) => {
+    if (request.variables.id !== 154587) return null
+    body.data.Media.status = 'RELEASING'
+    return { status, body }
+  })
+  try {
+    await browser.load({ ...SCREENS[2], reduceMotion: true, url: at('/anime/154587') })
+    assert.ok(await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000), 'no card')
+    // The cache is saved at most once a second.
+    await sleep(1500)
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+  assert.ok(
+    await browser.evaluate<boolean>(`(() => {
+      const copy = JSON.parse(localStorage.getItem('anibeam:cache') ?? 'null')
+      const title = copy?.clientState.queries.find((query) => query.queryKey[2]?.id === 154587)
+      if (!title) return false
+      title.state.dataUpdatedAt -= 7 * 60 * 60_000
+      localStorage.setItem('anibeam:cache', JSON.stringify(copy))
+      return true
+    })()`),
+    "Frieren's answer was never saved",
+  )
+  await browser.rewriteAniList(({ request }) =>
+    request.variables.id === 154587
+      ? { status: 400, body: { data: null, errors: [{ message: 'Bad Request.', status: 400 }] } }
+      : null,
+  )
+  try {
+    await browser.load({ ...SCREENS[2], reduceMotion: true, url: at('/anime/154587') })
+    assert.ok(
+      await browser.waitFor(`${STATUS}?.buttons.includes('Try again')`, 10_000),
+      'no Try again in the card’s status line',
+    )
+    for (const label of ['Save', 'Want to try'])
+      await browser.evaluate(
+        `[...document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].find((button) => button.textContent.trim() === ${JSON.stringify(label)}).click(); true`,
+      )
+    const lines = await browser.evaluate(`(() => {
+      const card = document.querySelector('dialog.ab-card[open]')
+      return [...card.querySelectorAll('[role="status"]')].map((line) => (line.id || 'unnamed') + ': ' + (line.textContent.trim() ? 'says something' : 'empty'))
+    })()`)
+    const list = await browser.evaluate<{ line: { says: string } }>(MY_LIST)
+    assert.deepEqual(
+      { lines, list: list.line.says, status: (await browser.evaluate(STATUS)) !== null },
+      {
+        lines: ['ab-list-status: says something', 'ab-card-status: says something'],
+        list: 'Moved to Want to try',
+        status: true,
+      },
+    )
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+})
+
+// How the open card's My List row and actions sit in its copy's column: how many buttons the row
+// has, so a card with no row can't pass; each button or link that reaches past the column, and by
+// how much, or whose label wraps onto a second line, taller than the 48px of one; and whether the
+// card scrolls sideways.
+const FITS = `(() => {
+  const card = document.querySelector('dialog.ab-card[open]')
+  const copy = card.querySelector('.ab-sheet-copy'), style = getComputedStyle(copy), box = copy.getBoundingClientRect()
+  const left = box.left + parseFloat(style.paddingLeft), right = box.right - parseFloat(style.paddingRight)
+  const past = [], wrapped = []
+  for (const part of card.querySelectorAll('.ab-mylist button, .ab-row-actions > *')) {
+    const r = part.getBoundingClientRect(), over = Math.max(left - r.left, r.right - right)
+    if (over > 0.5) past.push(part.textContent.trim() + ' by ' + Math.round(over * 10) / 10 + 'px')
+    if (r.height > 50) wrapped.push(part.textContent.trim() + ', ' + Math.round(r.height) + 'px tall')
+  }
+  const row = card.querySelectorAll('.ab-mylist button').length
+  return { row, past, wrapped, sideways: card.scrollWidth > card.clientWidth }
+})()`
+
+// What hides any of the focused part (or `part`) or its focus ring: its ring (4px, 3px out) past
+// the screen's edge, or, 2px in from each of its edges at the edge's middle, something else that a
+// click there would reach, as a neighbour drawn over it would be, its ring hidden under it too.
+const DRAWN_WHOLE = (part = 'document.activeElement') => `(() => {
+  const part = ${part}, r = part.getBoundingClientRect(), ring = 7
+  const x = (r.left + r.right) / 2, y = (r.top + r.bottom) / 2
+  const hid = []
+  if (r.left - ring < 0 || r.top - ring < 0 || r.right + ring > innerWidth || r.bottom + ring > innerHeight)
+    hid.push('its ring off the screen')
+  const edges = { left: [r.left + 2, y], right: [r.right - 2, y], top: [x, r.top + 2], bottom: [x, r.bottom - 2] }
+  for (const [edge, [px, py]] of Object.entries(edges)) {
+    const hit = document.elementFromPoint(px, py)
+    if (!part.contains(hit)) hid.push('its ' + edge + ' edge under ' + (hit?.textContent.trim() || hit?.className || hit?.tagName))
+  }
+  return hid
+})()`
+
+// Every part of the open card's sheet by its box on the screen, to tell whether a press moved one.
+const PLACES = `[...document.querySelectorAll('dialog.ab-card[open] .ab-sheet *')].map((part) => { const r = part.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map((n) => Math.round(n * 10) / 10).join(' ') })`
+
+test('from 280 to 1440px the My List row and the actions stay in the card’s column, each My List button shows whole with its ring, and a press moves nothing', async () => {
+  // The plan's PR 1, commit 7. At 280px, a phone zoomed to 125% or more, the pair, Favorite and
+  // the actions each fit the copy's column, each label on one line, and the card scrolls nowhere
+  // sideways; so at 390px, 834px and 1440px. Save and Want to try share one border, so whichever
+  // is focused, or pressed, is drawn over the other, and a focused one over a pressed one: its
+  // edges are its own, and so is its focus ring beyond them, which stays on the screen. A press
+  // changes a button's fill and nothing else, its label never changing, so no part of the card
+  // moves. The row has its three buttons,
+  // and Tab from the close button reaches Save, Want to try and Favorite in turn.
+  const seen: Record<string, unknown> = {}
+  const frames = `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))`
+  for (const screen of [{ width: 280, height: 653, phone: true }, ...SCREENS]) {
+    await openFrieren(screen)
+    const fits = await browser.evaluate(FITS)
+    const hidden: string[] = []
+    const moved: string[] = []
+    const reached: string[] = []
+    await browser.evaluate(`document.querySelector('dialog.ab-card[open] .ab-close').focus(); true`)
+    for (const [n, label] of ['Save', 'Want to try', 'Favorite'].entries()) {
+      await browser.press('Tab')
+      await browser.evaluate(frames)
+      // Tab lands on the button it names, or nothing here is pressed: the next stop could be a
+      // link out of the site, and what it showed would be reported under a My List label.
+      const stop = await browser.evaluate<string>(`document.activeElement.textContent.trim()`)
+      if (stop !== label) {
+        reached.push(`Tab ${n + 1} reached ${stop || 'nothing named'}, not ${label}`)
+        continue
+      }
+      for (const hid of await browser.evaluate<string[]>(DRAWN_WHOLE()))
+        hidden.push(`${label}, focused: ${hid}`)
+      const before = await browser.evaluate<string[]>(PLACES)
+      await browser.press('Enter')
+      await browser.evaluate(frames)
+      for (const hid of await browser.evaluate<string[]>(DRAWN_WHOLE()))
+        hidden.push(`${label}, pressed: ${hid}`)
+      if ((await browser.evaluate<string[]>(PLACES)).join() !== before.join()) moved.push(label)
+    }
+    // Want to try is pressed now. Shift+Tab back to Save: focused, it is drawn over the pressed
+    // one. Pressed in turn, then left with neither focus nor a pointer on it, it is still drawn
+    // over Want to try, which comes after it.
+    await browser.press('Tab', true)
+    await browser.press('Tab', true)
+    await browser.evaluate(frames)
+    const stop = await browser.evaluate<string>(`document.activeElement.textContent.trim()`)
+    if (stop === 'Save') {
+      for (const hid of await browser.evaluate<string[]>(DRAWN_WHOLE()))
+        hidden.push(`Save, focused, Want to try pressed: ${hid}`)
+      await browser.press('Enter')
+      await browser.evaluate(`document.activeElement.blur(); true`)
+      await browser.evaluate(frames)
+      const save = `[...document.querySelectorAll('dialog.ab-card[open] .ab-mylist button')].find((button) => button.textContent.trim() === 'Save')`
+      for (const hid of await browser.evaluate<string[]>(DRAWN_WHOLE(save)))
+        hidden.push(`Save, pressed, not focused: ${hid}`)
+    } else reached.push(`Shift+Tab twice reached ${stop || 'nothing named'}, not Save`)
+    seen[`${screen.width}px`] = { fits, reached, hidden, moved }
+  }
+  const whole = {
+    fits: { row: 3, past: [], wrapped: [], sideways: false },
+    reached: [],
+    hidden: [],
+    moved: [],
+  }
+  assert.deepEqual(seen, { '280px': whole, '390px': whole, '834px': whole, '1440px': whole })
+})
+
+// The My List buttons in the open card of the tab `tab` (window, or another tab's window this one
+// opened), each with its aria-pressed, or 'no card' while it has none open.
+const PRESSED_IN = (tab: string) => `(() => {
+  const group = ${tab}?.document.querySelector('dialog.ab-card[open] [role="group"]')
+  return group ? [...group.querySelectorAll('button')].map((button) => button.textContent.trim() + ' ' + button.getAttribute('aria-pressed')).join(', ') : 'no card'
+})()`
+// Clicks the My List button labelled `label` in the open card of the tab `tab`.
+const PRESS_IN = (tab: string, label: string) =>
+  `[...${tab}.document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].find((button) => button.textContent.trim() === ${JSON.stringify(label)}).click(), true`
+
+test('hovered, Save is drawn over Want to try, pressed or not, its deeper shadow whole, with motion allowed or not', async () => {
+  // Save and Want to try share one border (see the check above), and Want to try, after Save, is
+  // drawn over it. Hovered, Save takes a deeper shadow, 6px right and down, as every button does.
+  // With motion allowed it also lifts 3px, and a moved part is drawn over its neighbours; with
+  // reduced motion it doesn't, and the shadow's right strip went under Want to try, unseen. So
+  // hovered it is drawn over, as it is focused or pressed, either way, and over Want to try
+  // pressed too: 4px right of its edge, in its shadow, the screen shows ink, not Want to try's
+  // white or red. Read from a screenshot of that one pixel, at 1440px, where a pointer hovers.
+  const seen: Record<string, string> = {}
+  const SAVE = `[...document.querySelectorAll('dialog.ab-card[open] .ab-mylist button')].find((button) => button.textContent.trim() === 'Save').getBoundingClientRect()`
+  for (const reduceMotion of [false, true]) {
+    await browser.forget()
+    await browser.load({ ...SCREENS[2], reduceMotion, url: at('/anime/154587') })
+    assert.ok(
+      await browser.waitFor(`/Frieren/.test(${CARD})`, 10_000),
+      'no card opened for Frieren',
+    )
+    await browser.animationsDone()
+    const middle = await browser.evaluate<{ x: number; y: number }>(
+      `(() => { const r = ${SAVE}; return { x: (r.left + r.right) / 2, y: (r.top + r.bottom) / 2 } })()`,
+    )
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...middle })
+    await browser.animationsDone()
+    for (const wantPressed of [false, true]) {
+      if (wantPressed) {
+        await browser.evaluate(PRESS_IN('window', 'Want to try'))
+        await browser.animationsDone()
+      }
+      const clip = await browser.evaluate<{ x: number; y: number; width: number; height: number }>(
+        `(() => { const r = ${SAVE}; return { x: Math.round(r.right + 4 + scrollX), y: Math.round((r.top + r.bottom) / 2 + scrollY), width: 1, height: 1 } })()`,
+      )
+      const png = await browser.screenshot(clip)
+      seen[
+        `${reduceMotion ? 'reduced motion' : 'motion'}${wantPressed ? ', Want to try pressed' : ''}`
+      ] = await browser.evaluate<string>(`(async () => {
+        const bytes = Uint8Array.from(atob(${JSON.stringify(png)}), (c) => c.charCodeAt(0))
+        const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+        const context = new OffscreenCanvas(1, 1).getContext('2d')
+        context.drawImage(image, 0, 0)
+        const [r, g, b] = context.getImageData(0, 0, 1, 1).data
+        return r + g + b < 120 ? 'ink' : 'rgb(' + [r, g, b].join(', ') + ')'
+      })()`)
+    }
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
+  }
+  assert.deepEqual(seen, {
+    motion: 'ink',
+    'motion, Want to try pressed': 'ink',
+    'reduced motion': 'ink',
+    'reduced motion, Want to try pressed': 'ink',
+  })
+})
+
+test('a press in one tab shows in another tab’s card for the same title, with no reload, and says nothing there', async () => {
+  // The plan's PR 1, commit 8: two tabs of one browser, both on Frieren's address. The list store
+  // hears the other tab's write (a storage event) and the open card's buttons follow it at once,
+  // either way. The tab that didn't press says nothing of it: its line speaks for its own presses
+  // only, and one that spoke of an earlier press (the second tab's "Moved to Want to try") empties,
+  // so it never sits beside buttons that now show something else. The second tab is opened from
+  // the first once Frieren's answer is saved, so it opens from the saved copy and asks AniList for
+  // nothing (this browser answers only the first tab's requests).
+  await openFrieren(SCREENS[2])
+  assert.ok(
+    await browser.waitFor(
+      `localStorage.getItem('anibeam:cache')?.includes('"id":154587') ?? false`,
+      5000,
+    ),
+    "Frieren's answer was never saved",
+  )
+  const other = 'window.__other'
+  try {
+    assert.ok(
+      await browser.evaluate(`Boolean(${other} = window.open(location.href, '_blank'))`),
+      'no second tab opened',
+    )
+    assert.ok(
+      await browser.waitFor(`${PRESSED_IN(other)} !== 'no card'`, 10_000),
+      'the second tab opened no card for Frieren',
+    )
+    const steps: string[] = []
+    for (const [tab, label, watched] of [
+      ['window', 'Save', other],
+      [other, 'Favorite', 'window'],
+      [other, 'Want to try', 'window'],
+      ['window', 'Want to try', other],
+    ]) {
+      const line = `${watched}.document.getElementById('ab-list-status').textContent`
+      const before = await browser.evaluate<string>(PRESSED_IN(watched))
+      const said = await browser.evaluate<string>(line)
+      await browser.evaluate(PRESS_IN(tab, label))
+      const expected = await browser.evaluate<string>(PRESSED_IN(tab))
+      const followed = await browser.waitFor(
+        `${PRESSED_IN(watched)} === ${JSON.stringify(expected)}`,
+        3000,
+      )
+      const now = await browser.evaluate<string>(line)
+      steps.push(
+        `${label} in ${tab === 'window' ? 'the first' : 'the second'} tab: ${
+          followed
+            ? 'followed'
+            : `not followed (was ${before}, is ${await browser.evaluate(PRESSED_IN(watched))}, not ${expected})`
+        }${now !== said ? `, the other tab's line now saying ${JSON.stringify(now)}` : ''}`,
+      )
+    }
+    assert.deepEqual(steps, [
+      'Save in the first tab: followed',
+      'Favorite in the second tab: followed',
+      'Want to try in the second tab: followed',
+      `Want to try in the first tab: followed, the other tab's line now saying ""`,
+    ])
+    assert.equal(
+      await browser.evaluate(PRESSED_IN('window')),
+      'Save false, Want to try false, Favorite false',
+      'the title, taken off in the last step, with its heart',
+    )
+  } finally {
+    await browser.evaluate(`${other}?.close(), true`)
+  }
+})
+
+// The two things a press can say that the buttons can't show, in the words of the plan's D14.
+const FULL = 'My List is full (2,000)'
+const KEPT = 'Couldn’t save on this device. Kept for this visit.'
+
+// What the open card shows and says of the two notes: the parts that show one on the screen, as
+// a sighted visitor reads them, and for the one shown, what's wrong with where it is (over the
+// row's buttons or their shadow, over the actions, past the copy's column, its words cut off, its
+// text under 4.5:1 on what it stands on, moving, or in a contrast theme not in its text color);
+// the parts a screen reader reads that say one, by id or class (aria-hidden or not drawn, a part
+// is never read); and the My List line.
+const LIST_NOTE = `(() => {
+  const card = document.querySelector('dialog.ab-card[open]')
+  const words = ${JSON.stringify([FULL, KEPT])}
+  const copy = card.querySelector('.ab-sheet-copy'), style = getComputedStyle(copy), box = copy.getBoundingClientRect()
+  const left = box.left + parseFloat(style.paddingLeft), right = box.right - parseFloat(style.paddingRight)
+  const rowFoot = Math.max(...[...card.querySelectorAll('.ab-mylist button')].map((button) => button.getBoundingClientRect().bottom)) + 3
+  const actionsTop = card.querySelector('.ab-row-actions').getBoundingClientRect().top
+  const text = (part) => part.textContent.trim()
+  const saying = [...card.querySelectorAll('*')].filter((part) => words.includes(text(part)) && ![...part.children].some((child) => text(child) === text(part)))
+  const shown = saying.filter((part) => { const r = part.getBoundingClientRect(); return r.width > 2 && r.height > 2 && part.checkVisibility({ opacityProperty: true, visibilityProperty: true }) })
+  const heard = saying.filter((part) => !part.closest('[aria-hidden="true"]') && part.checkVisibility({ visibilityProperty: true }))
+  const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+  const lum = (color) => { const [r, g, b] = color.match(/[\\d.]+/g).map(Number); return 0.2126 * channel(r) + 0.7152 * channel(g) + 0.0722 * channel(b) }
+  const ratio = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05) }
+  const under = (part) => { for (let at = part; at; at = at.parentElement) { const bg = getComputedStyle(at).backgroundColor; if (!/rgba\\(.*, 0\\)$/.test(bg) && bg !== 'transparent') return bg } return 'rgb(255, 255, 255)' }
+  const probe = document.body.appendChild(document.createElement('i'))
+  probe.style.color = 'CanvasText'
+  const canvasText = getComputedStyle(probe).color
+  probe.remove()
+  const placed = shown.flatMap((part) => {
+    const r = part.getBoundingClientRect(), wrong = []
+    if (r.top < rowFoot - 0.5) wrong.push('over the row by ' + Math.round(rowFoot - r.top) + 'px')
+    if (r.bottom > actionsTop + 0.5) wrong.push('over the actions by ' + Math.round(r.bottom - actionsTop) + 'px')
+    if (r.left < left - 0.5 || r.right > right + 0.5) wrong.push('past the column')
+    if (part.scrollWidth > part.clientWidth + 1 || part.scrollHeight > part.clientHeight + 1) wrong.push('cut off')
+    const contrast = ratio(getComputedStyle(part).color, under(part))
+    if (contrast < 4.5) wrong.push('text at ' + Math.round(contrast * 10) / 10 + ':1')
+    if (part.getAnimations({ subtree: true }).length > 0) wrong.push('moving')
+    if (matchMedia('(forced-colors: active)').matches && getComputedStyle(part).color !== canvasText) wrong.push('not in the theme’s text color')
+    return wrong
+  })
+  return {
+    shown: shown.map(text),
+    placed,
+    heard: heard.map((part) => part.id || String(part.className)),
+    says: text(document.getElementById('ab-list-status')),
+  }
+})()`
+
+// Notes each part of the open card's sheet by its box, for MOVED.
+const BOXES = `(() => {
+  window.__boxes = new Map([...document.querySelectorAll('dialog.ab-card[open] .ab-sheet *')].map((part) => [part, JSON.stringify(part.getBoundingClientRect())]))
+  return true
+})()`
+// The parts BOXES noted that have moved or changed size since, but for a note's own (see
+// LIST_NOTE): a note that pushed another part would move that part.
+const MOVED = `(() => {
+  const words = ${JSON.stringify([FULL, KEPT])}
+  const notes = [...document.querySelectorAll('dialog.ab-card[open] *')].filter((part) => words.includes(part.textContent.trim()))
+  return [...window.__boxes].filter(([part, box]) => !notes.some((note) => note.contains(part)) && (!part.isConnected || JSON.stringify(part.getBoundingClientRect()) !== box)).map(([part]) => part.localName + '.' + String(part.className).split(' ')[0])
+})()`
+
+test('a full list and a refused save show their note under the My List row until the next press, moving nothing, and a screen reader hears each once', async () => {
+  // The review found that "My List is full" and "Couldn't save on this device" were heard by a
+  // screen reader only: nothing changes on the screen for the first, and the second looks saved.
+  // The user chose a short line under the row in those two cases only, as a sighted visitor's
+  // note of them. It sits under the row's buttons and their shadow, above the card's actions,
+  // inside the copy's column, its words whole and in ink on the paper, from 280 to 1440px; it
+  // moves nothing as it comes or goes (the room is kept for it), and nothing in it moves, under
+  // reduced motion as here. A screen reader hears it from the My List line alone. The next
+  // press in the row takes it away, as a move here does. The list is staged full with 2,000
+  // other titles, saved as another tab would; then those are taken off and the list's key
+  // refused by storage, as a browser that can't save would.
+  const seen: Record<string, unknown> = {}
+  const frames = `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))`
+  const listOf = (entry: string) =>
+    `(() => { const list = {}; for (let id = 1; id <= 2000; id++) list[id] = ${entry}; localStorage.setItem('anibeam:list:v1', JSON.stringify(list)); return true })()`
+  const refuse = `(() => { const set = Storage.prototype.setItem; window.__set = set; Storage.prototype.setItem = function (key, value) { if (key === 'anibeam:list:v1') throw new Error('refused'); return set.call(this, key, value) }; return true })()`
+  const press = async (label: string) => {
+    await browser.evaluate(BOXES)
+    await browser.evaluate(PRESS_IN('window', label))
+    await browser.evaluate(frames)
+    return {
+      buttons: await browser.evaluate<string>(PRESSED_IN('window')),
+      ...(await browser.evaluate<object>(LIST_NOTE)),
+      moved: await browser.evaluate<string[]>(MOVED),
+    }
+  }
+  for (const screen of [{ width: 280, height: 653, phone: true }, ...SCREENS]) {
+    await openFrieren(screen)
+    const fresh = await browser.evaluate(LIST_NOTE)
+    await browser.evaluate(listOf(`{ status: 'SAVED', favorite: false, updatedAt: 1 }`))
+    const full = await press('Save')
+    await browser.evaluate(
+      listOf(`{ status: 'SAVED', favorite: false, updatedAt: 2, deleted: true }`),
+    )
+    await browser.evaluate(refuse)
+    let kept = {}
+    const contrast: string[] = []
+    try {
+      kept = await press('Save')
+      // In a contrast theme, light or dark, the note takes the theme's text color.
+      if (!screen.phone)
+        for (const scheme of ['light', 'dark']) {
+          await browser.send('Emulation.setEmulatedMedia', {
+            features: [
+              { name: 'prefers-reduced-motion', value: 'reduce' },
+              { name: 'forced-colors', value: 'active' },
+              { name: 'prefers-color-scheme', value: scheme },
+            ],
+          })
+          const { shown, placed } = await browser.evaluate<{ shown: string[]; placed: string[] }>(
+            LIST_NOTE,
+          )
+          if (shown.join() !== KEPT || placed.length > 0)
+            contrast.push(`${scheme}: ${shown.join() || 'no note'} ${placed.join(', ')}`)
+        }
+    } finally {
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+      })
+      await browser.evaluate(`window.__set && (Storage.prototype.setItem = window.__set), true`)
+    }
+    await browser.evaluate(frames)
+    const after = await press('Want to try')
+    seen[`${screen.width}px`] = { fresh, full, kept, contrast, after }
+  }
+  const nothing = { shown: [], placed: [], heard: [], says: '' }
+  const expected = {
+    fresh: nothing,
+    full: {
+      buttons: 'Save false, Want to try false, Favorite false',
+      shown: [FULL],
+      placed: [],
+      heard: ['ab-list-status'],
+      says: FULL,
+      moved: [],
+    },
+    kept: {
+      buttons: 'Save true, Want to try false, Favorite false',
+      shown: [KEPT],
+      placed: [],
+      heard: ['ab-list-status'],
+      says: KEPT,
+      moved: [],
+    },
+    contrast: [],
+    after: {
+      buttons: 'Save false, Want to try true, Favorite false',
+      ...nothing,
+      says: 'Moved to Want to try',
+      moved: [],
+    },
+  }
+  assert.deepEqual(seen, {
+    '280px': expected,
+    '390px': expected,
+    '834px': expected,
+    '1440px': expected,
+  })
+})
+
+test('in a contrast theme, a pressed My List button takes the theme’s colors for a selected thing and a ring inside, and one not pressed doesn’t', async () => {
+  // A contrast theme paints every button alike, so the brand hot fill of a pressed one would go:
+  // a pressed one takes the theme's colors for something selected, as an open Read more does, in
+  // a light palette and a dark one, with a ring inside its border in the theme's text color (a
+  // theme drops every shadow it paints itself, so a pressed one keeps its own). Saved with the
+  // heart, Save and Favorite are pressed, Want to try isn't.
+  const seen: string[] = []
+  await openFrieren(SCREENS[2])
+  for (const label of ['Save', 'Favorite']) await browser.evaluate(PRESS_IN('window', label))
+  try {
+    for (const scheme of ['light', 'dark']) {
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [
+          { name: 'prefers-reduced-motion', value: 'reduce' },
+          { name: 'forced-colors', value: 'active' },
+          { name: 'prefers-color-scheme', value: scheme },
+        ],
+      })
+      const buttons = await browser.evaluate<string[]>(`(() => {
+        const probe = document.body.appendChild(document.createElement('i'))
+        probe.style.backgroundColor = 'SelectedItem'
+        const selected = getComputedStyle(probe).backgroundColor
+        probe.remove()
+        return [...document.querySelectorAll('dialog.ab-card[open] [role="group"] button')].map((button) =>
+          button.textContent.trim() + ' ' + button.getAttribute('aria-pressed') + ': ' + (getComputedStyle(button).backgroundColor === selected ? 'selected' : 'not selected') + (getComputedStyle(button).boxShadow !== 'none' ? ', ringed' : ''))
+      })()`)
+      const expected = [
+        'Save true: selected, ringed',
+        'Want to try false: not selected',
+        'Favorite true: selected, ringed',
+      ]
+      if (JSON.stringify(buttons) !== JSON.stringify(expected))
+        seen.push(`${scheme}: ${buttons.join(', ')}`)
+    }
+  } finally {
+    await browser.send('Emulation.setEmulatedMedia', { features: [] })
+  }
+  assert.deepEqual(
+    seen,
+    [],
+    'My List buttons whose look, in a contrast theme, says the wrong thing',
+  )
 })
 
 /**
@@ -1475,7 +2099,15 @@ test('a card opened at its address keeps its title while AniList answers 429, sa
       // Each of the card's Tab stops scrolls clear of the line, whole and in reach of a click.
       assert.deepEqual(
         await tabStops(),
-        ['Open on AniList', 'Watch trailer', 'Read more', 'Show spoiler tags'],
+        [
+          'Save',
+          'Want to try',
+          'Favorite',
+          'Open on AniList',
+          'Watch trailer',
+          'Read more',
+          'Show spoiler tags',
+        ],
         `${where}: Tab through the card while the app tries again`,
       )
       assert.ok(
@@ -1490,7 +2122,16 @@ test('a card opened at its address keeps its title while AniList answers 429, sa
       assert.equal(asked.length, 4, `${where}: Frieren asked for, then tried 3 times more`)
       assert.deepEqual(
         await tabStops(),
-        ['Open on AniList', 'Watch trailer', 'Read more', 'Show spoiler tags', 'Try again'],
+        [
+          'Save',
+          'Want to try',
+          'Favorite',
+          'Open on AniList',
+          'Watch trailer',
+          'Read more',
+          'Show spoiler tags',
+          'Try again',
+        ],
         `${where}: Tab through the card once the tries ended`,
       )
       assert.match(

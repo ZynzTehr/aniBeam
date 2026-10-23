@@ -132,7 +132,6 @@ test('a card offers “Watch trailer” last of its actions only when its title 
   const expected = (trailer: boolean) => ({
     actions: [
       'Open on AniList',
-      'Save to My List Soon (disabled)',
       'Chat about it Soon (disabled)',
       ...(trailer ? ['Watch trailer'] : []),
     ],
@@ -177,11 +176,7 @@ test('a title whose trailer AniBeam can’t play, on another site or with an id 
     await browser.rewriteAniList(null)
   }
   const none = {
-    actions: [
-      'Open on AniList',
-      'Save to My List Soon (disabled)',
-      'Chat about it Soon (disabled)',
-    ],
+    actions: ['Open on AniList', 'Chat about it Soon (disabled)'],
     'from YouTube or Google': [],
     frames: 0,
   }

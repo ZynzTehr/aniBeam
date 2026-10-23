@@ -14,6 +14,7 @@ import { reducedMotion, watchDeviceMotion } from '../lib/motion.ts'
 import { dropTrailer, isTrailer, pushedTrailer, pushTrailer } from '../lib/route.ts'
 import { markBroken, markLoaded } from './cover.ts'
 import { cssVars } from './cssVars.ts'
+import { ListControls } from './ListControls.tsx'
 import { RetryButton } from './RetryButton.tsx'
 import { TitleDetails } from './TitleDetails.tsx'
 import { TrailerDialog } from './TrailerDialog.tsx'
@@ -29,6 +30,7 @@ export type OpenTitle = (media: Media, from: HTMLElement) => void
  * `from` is that element's position, where the wipe starts, and where it shrinks back to.
  * `status` says why AniList holds up a newer answer for the title, and `onRetry` is Try again.
  * Where the title has a trailer it can play, Watch trailer plays it over the card (TrailerDialog).
+ * Above its actions, the title's My List row: Save, Want to try and Favorite (ListControls).
  */
 export function TitleCard({
   media,
@@ -327,6 +329,7 @@ export function TitleCard({
               </div>
             )}
           </dl>
+          <ListControls id={media.id} />
           <div className="ab-row-actions">
             <a
               className="ab-btn ab-btn-ink"
@@ -336,9 +339,6 @@ export function TitleCard({
             >
               Open on AniList
             </a>
-            <button type="button" className="ab-soon" disabled>
-              Save to My List <small>Soon</small>
-            </button>
             <button type="button" className="ab-soon" disabled>
               Chat about it <small>Soon</small>
             </button>

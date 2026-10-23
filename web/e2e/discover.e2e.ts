@@ -849,10 +849,7 @@ describe('desktop (1440x900)', () => {
       soon: [...document.querySelectorAll('.ab-card button.ab-soon')].map((b) => b.textContent.replace(/\\s+/g, ' ').trim() + (b.disabled ? ' (disabled)' : '')),
     })`)
     assert.match(card.title, /Frieren/i)
-    assert.deepEqual(card.soon, [
-      'Save to My List Soon (disabled)',
-      'Chat about it Soon (disabled)',
-    ])
+    assert.deepEqual(card.soon, ['Chat about it Soon (disabled)'])
     await browser.press('Escape')
     // With motion allowed, the card plays its opening backwards before it closes.
     await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000)
@@ -4759,22 +4756,23 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
   test('a walk through every part that moves, on a desktop and a phone, starts nothing that moves, and leaves no animation or transition running', async () => {
     // Every part of the page that moves with motion allowed, done once each as a visitor does it:
     // the scroll slam and the intro's buttons flying into the header, the decade strip scrolled
-    // sideways, a search, a title's card with its band, its banner and its details coming in,
-    // Read more and the spoiler tags, the trailer, a pull, and on a phone the header sliding away
-    // and back, the menu sliding in and out by its button and by a swipe, and the search bubble
-    // growing. Each may start fades and changes of color, reduced motion's own versions (the
-    // card's, the trailer's and the menu's fades must be heard, so that a recorder hearing nothing
-    // can't pass), but no animation or transition that moves or resizes, by CSS or the Web
-    // Animations API, heard for at least 500 ms after the step (see startedBy), and nothing may be
-    // left on the page 1 s on, playing, paused or holding its last frame. A script that moves
-    // something by setting its style, with no animation at all, makes nothing to hear: the swipes
-    // also check that nothing in the header or the menu changes its transform under the finger,
-    // as the hamburger's bars and the menu do with motion allowed. Other checks hold the parts
-    // the walk doesn't take: a card opened from a trending panel and closed by its button (the
-    // fade checks above). With motion allowed, the same walk starts 80 moving ones across its
-    // steps, in all but Read more and the trailer's closing, and the hamburger's bars and the menu
-    // move under the finger. Set on the site, the setting is turned on by a click on the switch
-    // after the first load, and the phone's load gets it back from the saved choice.
+    // sideways, a search, a title's card with its band, its banner and its details coming in, Read
+    // more and the spoiler tags, its My List buttons clicked, the trailer, a pull, and on a phone
+    // the header sliding away and back, the menu sliding in and out by its button and by a swipe,
+    // and the search bubble growing. Each may start fades and changes of color, reduced motion's
+    // own versions (the card's, the trailer's and the menu's fades must be heard, so that a
+    // recorder hearing nothing can't pass), but no animation or transition that moves or resizes,
+    // by CSS or the Web Animations API, heard for at least 500 ms after the step (see startedBy),
+    // and nothing may be left on the page 1 s on, playing, paused or holding its last frame. A
+    // script that moves something by setting its style, with no animation at all, makes nothing to
+    // hear: the swipes also check that nothing in the header or the menu changes its transform
+    // under the finger, as the hamburger's bars and the menu do with motion allowed. Other checks
+    // hold the parts the walk doesn't take: a card opened from a trending panel and closed by its
+    // button (the fade checks above). With motion allowed, the same walk, before its My List step,
+    // started 80 moving ones across its steps, in all but Read more and the trailer's closing (the
+    // My List buttons lift as they are hovered, as every .ab-btn does), and the hamburger's bars
+    // and the menu move under the finger. Set on the site, the setting is turned on by a click on
+    // the switch after the first load, and the phone's load gets it back from the saved choice.
     const seen: Record<string, Awaited<ReturnType<typeof startedBy>>> = {}
     let followed: string[] = []
     const step = async (name: string, act: () => Promise<unknown>) => {
@@ -4915,6 +4913,20 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
           'Read more and Show spoiler tags didn’t open',
         )
       })
+      await step('Save, Want to try and Favorite, each clicked', async () => {
+        for (const label of ['Save', 'Want to try', 'Favorite']) {
+          await browser.evaluate(`${button(label)}.scrollIntoView({ block: 'nearest' }); true`)
+          await frames()
+          await clickMiddle(button(label))
+          await frames()
+        }
+        assert.ok(
+          await browser.evaluate(
+            `${button('Want to try')}.ariaPressed === 'true' && ${button('Favorite')}.ariaPressed === 'true'`,
+          ),
+          'Want to try and Favorite weren’t pressed',
+        )
+      })
       await step('Watch trailer', async () => {
         await press('Watch trailer')
         assert.ok(
@@ -5012,12 +5024,13 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
       })
     } finally {
       await browser.send('Emulation.setTouchEmulationEnabled', { enabled: false })
-      // The switch's choice is saved for later visits: forgotten again for the checks after this.
+      // The switch's choice is saved for later visits, and so is the list the walk pressed:
+      // forgotten again for the checks after this.
       await browser.evaluate(
-        `localStorage.removeItem('anibeam:motion'); delete document.documentElement.dataset.motion; true`,
+        `localStorage.removeItem('anibeam:motion'); localStorage.removeItem('anibeam:list:v1'); delete document.documentElement.dataset.motion; true`,
       )
     }
-    assert.equal(Object.keys(seen).length, 17, 'steps the walk took')
+    assert.equal(Object.keys(seen).length, 18, 'steps the walk took')
     assert.deepEqual(
       Object.fromEntries(
         Object.entries(seen).flatMap(([name, { moving, left }]) =>

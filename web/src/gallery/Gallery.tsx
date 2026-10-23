@@ -434,10 +434,30 @@ function Controls() {
             <a className="ab-btn" href="#gal-controls">
               Secondary
             </a>
-            <button type="button" className="ab-btn ab-btn-hot">
-              Save to My List
-            </button>
             <RetryButton headingId="gal-controls" onRetry={noop} />
+          </div>
+        </Case>
+        {/* The title card's My List row (see ListControls), drawn here without the list: Save and
+            Favorite pressed, in brand hot, Want to try not. */}
+        <Case label="My List row">
+          <div role="group" aria-labelledby="gal-mylist" className="ab-mylist">
+            <span id="gal-mylist" className="ab-mylist-name">
+              My List
+            </span>
+            <span className="ab-pair">
+              <button type="button" className="ab-btn ab-btn-hot" aria-pressed="true">
+                Save
+              </button>
+              <button type="button" className="ab-btn" aria-pressed="false">
+                Want to try
+              </button>
+            </span>
+            <button type="button" className="ab-btn ab-btn-hot ab-heart" aria-pressed="true">
+              <svg viewBox="0 0 24 22" aria-hidden="true">
+                <path d="M12 20.5 3.1 11.8a5.3 5.3 0 0 1 0-7.5 5.3 5.3 0 0 1 7.5 0L12 5.7l1.4-1.4a5.3 5.3 0 0 1 7.5 7.5Z" />
+              </svg>
+              Favorite
+            </button>
           </div>
         </Case>
         <Case label="Chips">
@@ -458,9 +478,6 @@ function Controls() {
         </Case>
         <Case label="Soon tags">
           <div className="gal-row">
-            <button type="button" className="ab-soon" disabled>
-              Save to My List <small>Soon</small>
-            </button>
             <span className="ab-soon" aria-disabled="true">
               My List <small>Soon</small>
             </span>

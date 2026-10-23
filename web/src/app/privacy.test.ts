@@ -364,15 +364,22 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // saved copy bringing back each answer only while it is kept, and each save waiting for the page
 // to draw what just arrived: 87,087 B), and 87,500 B with the trailer (trailerOf and embedOf,
 // Watch trailer and its dialog, and the history entry that lets Back close it: 87,645 B; its
-// styles brought the CSS to 11,466 B, still within its budget), so its budget is 88,000 B. The JS
-// loaded only when needed rose to 14,028 B when the samples began to carry each title's synopsis,
-// running time and the tags its card shows, as the lists' titles do, so that a sample's card opens
-// on them with no request (the user agreed to about 15 KB more, gzipped), so its budget is
-// 14,500 B.
+// styles brought the CSS to 11,466 B, still within its budget), 88,000 B with My List in the
+// title card (features/list/store.ts, the list kept in localStorage, merged title by title with
+// another tab's copy and saved again after a storage event, and ListControls, Save, Want to try
+// and Favorite with their line for a screen reader, which empties once another tab changes what
+// the buttons show: 89,274 B; their row, its pair and its pressed look, in a contrast theme too,
+// and the pair's hovered or focused button drawn over a pressed one, took the CSS past 11,500 B,
+// to 11,668 B (the 11,647 B first written here was 21 B short), so the CSS's budget is now
+// 12,000 B; the user agreed to the raises My List needs), so its budget is 89,500 B. The JS
+// loaded only when needed rose to 14,028 B when the samples began to carry each title's
+// synopsis, running time and the tags its card shows, as the lists' titles do, so that a sample's
+// card opens on them with no request (the user agreed to about 15 KB more, gzipped), so its
+// budget is 14,500 B.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 88_000,
-  'the CSS': 11_500,
+  'the JS every visit loads': 89_500,
+  'the CSS': 12_000,
   'the JS loaded only when needed': 14_500,
   'every other file': 500,
 }
