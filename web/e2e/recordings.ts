@@ -18,6 +18,7 @@ import {
   ERAS,
   eraQuery,
   FIRST_ERA,
+  listQuery,
   searchQuery,
   titleQuery,
   trendingQuery,
@@ -64,6 +65,13 @@ export const DECADES = ['1980s', '1990s']
  * Frieren. Not here: an id AniList has no anime for, which the checks answer with a rewrite.
  */
 export const TITLES = [154587]
+
+/**
+ * The lists of saved ids the checks open My List with, each by its recording's name, so the page
+ * asks AniList for their titles in one request (listQuery). Not here: a list a check answers with
+ * a built answer, with a rewrite.
+ */
+export const LISTS: Record<string, number[]> = {}
 
 type Request = Recording['request']
 
@@ -150,10 +158,12 @@ export async function requests(): Promise<{ name: string; request: Request }[]> 
       name: `title-${id}`,
       request: await sent((client) => client.fetchQuery(titleQuery(id))),
     })
+  for (const [name, ids] of Object.entries(LISTS))
+    wanted.push({ name, request: await sent((client) => client.fetchQuery(listQuery(ids))) })
   const names = wanted.map(({ name }) => name)
   const twice = names.filter((name, i) => names.indexOf(name) !== i)
   if (twice.length)
-    throw new Error(`SEARCHES, DECADES or TITLES asks for one request twice: ${twice}`)
+    throw new Error(`SEARCHES, DECADES, TITLES or LISTS asks for one request twice: ${twice}`)
   return wanted
 }
 

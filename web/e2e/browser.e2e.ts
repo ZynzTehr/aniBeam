@@ -326,9 +326,10 @@ test('in a recorded browser, a request with no recording fails the check waiting
     // As if the page had searched before the last letters went in.
     await paste(browser, 'Zzqq Ty')
     const cutShort = await failure(browser.waitFor(retryFor('Zzqq Ty'), 10_000))
-    // recordings.ts lists the searches, decades and titles the checks send, and always asks for
-    // trending and a first visit. A request of any other kind, such as another query for a title,
-    // or for another list sorted as the decades are, has to be added to its requests() instead.
+    // recordings.ts lists the searches, decades, titles and My List's titles the checks send, and
+    // always asks for trending and a first visit. A request of any other kind, such as another
+    // query for a title, or for another list sorted as the decades are, has to be added to its
+    // requests() instead.
     const decade = await asked({ query: QUERIES.era, variables: era('2000s') })
     const trendingAlone = await asked({ query: QUERIES.trending, variables: {} })
     const anotherFirstVisit = await asked({ query: QUERIES.firstVisit, variables: era('1980s') })
@@ -337,13 +338,14 @@ test('in a recorded browser, a request with no recording fails the check waiting
       variables: { id: 1 },
     })
     const titleAlone = await asked({ query: QUERIES.title, variables: { id: 1 } })
+    const myList = await asked({ query: QUERIES.list, variables: { ids: [1, 2] } })
     const anotherList = await asked({
       query:
         'query ($genre: String) { Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, genre: $genre) { id } } }',
       variables: { genre: 'Drama' },
     })
     const newKind =
-      'It is not a search, a decade, a title on its own, trending or a first visit: to record it, add it to requests() in web/e2e/recordings.ts unless it is there already, then run `npm run e2e:record` in web/.'
+      'It is not a search, a decade, a title on its own, My List’s titles, trending or a first visit: to record it, add it to requests() in web/e2e/recordings.ts unless it is there already, then run `npm run e2e:record` in web/.'
     const record =
       'To record it, add it to SEARCHES or DECADES in web/e2e/recordings.ts unless it is there already, then run `npm run e2e:record` in web/.'
     assert.deepEqual(
@@ -355,6 +357,7 @@ test('in a recorded browser, a request with no recording fails the check waiting
         'a first visit with another decade': advice(anotherFirstVisit),
         'another query for a title': advice(title),
         'a title on its own': advice(titleAlone),
+        'My List’s titles': advice(myList),
         'another list, sorted as the decades are': advice(anotherList),
       },
       {
@@ -367,6 +370,8 @@ test('in a recorded browser, a request with no recording fails the check waiting
         'another query for a title': newKind,
         'a title on its own':
           'To record it, add its id to TITLES in web/e2e/recordings.ts unless it is there already, then run `npm run e2e:record` in web/.',
+        'My List’s titles':
+          'To record it, add its ids to LISTS in web/e2e/recordings.ts unless they are there already, then run `npm run e2e:record` in web/.',
         'another list, sorted as the decades are': newKind,
       },
       'what each failure said to do about a request with no recording',

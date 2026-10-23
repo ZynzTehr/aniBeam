@@ -7,7 +7,10 @@ import {
   ERAS,
   eraQuery,
   isRefinement,
+  keptFor,
+  listQuery,
   QUERIES,
+  SAFE,
   searchQuery,
   titleQuery,
   trendingQuery,
@@ -174,6 +177,36 @@ test('a finished title stays fresh for 30 days, an airing one for 6 hours', () =
   for (const status of ['RELEASING', 'NOT_YET_RELEASED', 'HIATUS', null])
     assert.equal(after(status), 6 * 60 * 60_000, String(status))
   assert.equal(staleTime({ state: { data: undefined } }), 6 * 60 * 60_000)
+})
+
+// My List (spec §3F) holds ids alone, and loads its titles in one request, by id, at most 50.
+test('My List asks for its titles by id in one request of up to 50, with adult titles kept out', () => {
+  const { queryKey } = listQuery([154587, 1])
+  assert.deepEqual(queryKey, ['anilist', QUERIES.list, { ids: [1, 154587] }])
+  assert.match(QUERIES.list, /\bPage\(perPage: 50\) \{ media\(id_in: \$ids, type: ANIME, /)
+  assert.ok(QUERIES.list.includes(SAFE), 'the list query drops SAFE')
+  // Not the samples' FINISHED filter: an airing title on the list must come too.
+  assert.doesNotMatch(QUERIES.list, /status/)
+})
+
+// The same titles saved in another order are the same request, and the same saved answer.
+test('the same ids in any order share one cache entry, and other ids get their own', () => {
+  assert.deepEqual(listQuery([3, 1, 2]).queryKey, listQuery([1, 2, 3]).queryKey)
+  assert.deepEqual(listQuery([10, 9]).queryKey[2], { ids: [9, 10] }, 'sorted as numbers')
+  assert.notDeepEqual(listQuery([1, 2]).queryKey, listQuery([1, 2, 3]).queryKey)
+  const ids = [3, 1, 2]
+  listQuery(ids)
+  assert.deepEqual(ids, [3, 1, 2], 'the ids handed in were sorted where they are')
+})
+
+test('My List’s titles stay fresh for 6 hours and are kept 30 days, so they show offline', () => {
+  const HOUR = 60 * 60_000
+  const { queryKey, staleTime } = listQuery([1, 2])
+  assert.equal(staleTime, 6 * HOUR)
+  assert.equal(keptFor(queryKey, []), 30 * 24 * HOUR)
+  // The other lists are still kept a day.
+  assert.equal(keptFor(trendingQuery().queryKey, []), 24 * HOUR)
+  assert.equal(keptFor(searchQuery('frieren').queryKey, []), 24 * HOUR)
 })
 
 test('an answer with no title and no error reads as AniList’s 404 too', async (t) => {
@@ -583,11 +616,12 @@ test('every variable a query sends is declared by that query', async (t) => {
     ...ERAS.map((era) => eraQuery(era)),
     searchQuery('frieren'),
     titleQuery(154587),
+    listQuery([154587, 1]),
   ]) {
     // The cast stands in for the context TanStack Query passes; only the signal is used.
     await options.queryFn!({ signal: new AbortController().signal } as never)
   }
-  assert.equal(sent.length, ERAS.length + 3)
+  assert.equal(sent.length, ERAS.length + 4)
   for (const { query, variables } of sent) {
     for (const name of Object.keys(variables)) {
       assert.ok(query.includes(`$${name}:`), `sends $${name}, which its query doesn't declare`)
