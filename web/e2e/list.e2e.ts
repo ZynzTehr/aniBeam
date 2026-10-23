@@ -580,6 +580,40 @@ test('an empty tab or filter says so, with a way on, and the note about this bro
   }
 })
 
+test('Browse what’s trending goes to Discover with no new page and jumps to its Trending heading, focused, where the header’s Trending link lands it; Back returns to My List', async () => {
+  await saveList([])
+  const heading = `document.getElementById('ab-trending')`
+  const browse = `document.querySelector('#main .ab-list-empty a')`
+  // By the keyboard, so the window's mark would go with a new page.
+  await browser.evaluate(`window.__stayed = true; ${browse}.focus(); true`)
+  await browser.press('Enter')
+  assert.ok(
+    await browser.waitFor(
+      `location.pathname + location.hash === '/#ab-trending' && document.activeElement === ${heading}`,
+      5000,
+    ),
+    `Browse what’s trending: ${await where()}, focus on ${await browser.evaluate(`document.activeElement.id || document.activeElement.tagName`)}`,
+  )
+  assert.ok(await browser.titlesShown(), 'Discover showed no titles')
+  const landed = `({ stayed: window.__stayed === true, focused: document.activeElement.id, top: Math.round(${heading}.getBoundingClientRect().top) })`
+  const browsed = await browser.evaluate<{ top: number }>(landed)
+  await browser.evaluate(`history.back(); true`)
+  assert.ok(
+    await browser.waitFor(`location.pathname === '/list' && ${browse}`, 5000),
+    `Back went to ${await where()}`,
+  )
+  // The header's own Trending link, on Discover, from its top.
+  await browser.evaluate(`history.forward(); true`)
+  assert.ok(await browser.waitFor(heading, 5000), 'Forward didn’t return to Discover')
+  await browser.evaluate(
+    `scrollTo(0, 0); document.querySelector('.ab-nav a[href="#ab-trending"]').click(); true`,
+  )
+  assert.ok(await browser.waitFor(`document.activeElement === ${heading}`, 5000))
+  const linked = await browser.evaluate<{ top: number }>(landed)
+  assert.deepEqual(browsed, { stayed: true, focused: 'ab-trending', top: linked.top })
+  assert.ok(browsed.top > 0 && browsed.top < 200, `the heading's top: ${browsed.top}px`)
+})
+
 test('with more than 50 titles, My List asks for the 50 most lately changed, and says so; a view whose titles are all older says that, and 50 titles need no note', async () => {
   // 52 Saved, the 2 oldest of them with the heart, then 3 Want to try, older still: the 50 most
   // lately changed are all Saved, with no heart.

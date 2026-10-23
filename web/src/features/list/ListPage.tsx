@@ -15,6 +15,7 @@ import { isPlainClick } from '../../components/plainClick.ts'
 import { Strip } from '../../components/Strip.tsx'
 import type { OpenTitle } from '../../components/TitleCard.tsx'
 import { isRateLimited } from '../../lib/anilist.ts'
+import { jumpTo } from '../../lib/jumps.ts'
 import { isListPath, isOver, push, titlePath, watchPath } from '../../lib/route.ts'
 import { loadSamples, useOutage } from '../anime/fallback.ts'
 import { listQuery, type Media } from '../anime/queries.ts'
@@ -239,6 +240,16 @@ export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: bool
     follow(event)
     document.getElementById('ab-list')?.focus({ preventScroll: !ringShown })
   }
+  // Browse what's trending goes to Discover with no new page, so offline too, from what is saved,
+  // and jumps to its Trending heading once Discover has drawn, as the header's link does there:
+  // followed by the browser, a new page would draw Trending only after the browser's own jump.
+  const toTrending = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isPlainClick(event)) return
+    event.preventDefault()
+    const to = event.currentTarget.getAttribute('href')!
+    flushSync(() => push(to, null))
+    jumpTo('ab-trending', event.nativeEvent)
+  }
   return (
     <div className="ab-list">
       <title>My List · AniBeam</title>
@@ -289,7 +300,7 @@ export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: bool
         <p className="ab-list-order">
           Order: <b>Recently changed</b>
         </p>
-        {empty && <Empty view={view} older={older} onShowAll={showAll} />}
+        {empty && <Empty view={view} older={older} onShowAll={showAll} onTrending={toTrending} />}
       </Strip>
       <p role="status" className="sr-only">
         {said}
@@ -342,10 +353,12 @@ function Empty({
   view,
   older,
   onShowAll,
+  onTrending,
 }: {
   view: View
   older: number
   onShowAll: (event: MouseEvent<HTMLAnchorElement>) => void
+  onTrending: (event: MouseEvent<HTMLAnchorElement>) => void
 }) {
   const tab = TABS.find(({ status }) => status === view.status)!.name
   const recent = `older than your ${PAGE} most recent.`
@@ -373,7 +386,7 @@ function Empty({
       ) : (
         <>
           <p>{view.status === 'SAVED' ? 'Nothing saved yet.' : 'Nothing to try yet.'}</p>
-          <a className="ab-btn ab-btn-ink" href="/#ab-trending">
+          <a className="ab-btn ab-btn-ink" href="/#ab-trending" onClick={onTrending}>
             Browse what’s trending
           </a>
         </>
