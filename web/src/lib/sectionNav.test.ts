@@ -200,32 +200,23 @@ test('a copy’s shadow fades from the look of the end it leaves to the end it l
   ])
 })
 
-test('a copy has its shadow as an intro button and as the current section’s link, lands yellow only on that link, and My List’s has neither, current or not', () => {
-  assert.deepEqual(copyLook({ toHeader: true, current: false, soon: false }), {
+test('a copy has its shadow as an intro button and as the current section’s link, and lands yellow only on that link', () => {
+  assert.deepEqual(copyLook({ toHeader: true, current: false }), {
     shadows: { from: true, to: false },
     yellow: false,
   })
-  assert.deepEqual(copyLook({ toHeader: true, current: true, soon: false }), {
+  assert.deepEqual(copyLook({ toHeader: true, current: true }), {
     shadows: { from: true, to: true },
     yellow: true,
   })
-  assert.deepEqual(copyLook({ toHeader: false, current: false, soon: false }), {
+  assert.deepEqual(copyLook({ toHeader: false, current: false }), {
     shadows: { from: false, to: true },
     yellow: false,
   })
-  assert.deepEqual(copyLook({ toHeader: false, current: true, soon: false }), {
+  assert.deepEqual(copyLook({ toHeader: false, current: true }), {
     shadows: { from: true, to: true },
     yellow: false,
   })
-  // My List has no address, so above the first section, where none is current, it matches "no
-  // section" as `current`: it still lands plain.
-  for (const toHeader of [true, false])
-    for (const current of [true, false])
-      assert.deepEqual(
-        copyLook({ toHeader, current, soon: true }),
-        { shadows: { from: false, to: false }, yellow: false },
-        `My List ${toHeader ? 'docking' : 'undocking'}${current ? ', taken for current' : ''}`,
-      )
 })
 
 test('each intro button flies to the header’s link with its address, in order, My List last by its page’s, /list; one with no partner stays put', () => {

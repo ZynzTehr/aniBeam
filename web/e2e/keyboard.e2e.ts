@@ -298,6 +298,7 @@ const STOPS = [
   'See what’s trending',
   'Pull a random title',
   'Browse by decade',
+  'My List',
   'a title in Trending now ×9',
   'Pick a vibe: Any vibe',
   'Pull!',
@@ -309,14 +310,16 @@ const STOPS = [
 // The header's section links wait hidden while the intro's buttons are on the page (see
 // lib/sectionNav.ts), so a walk from the top meets only the buttons. On a wide screen, walking
 // back from the end, the buttons have docked in the header, so it meets the header's links
-// instead.
-const STOPS_TOP = STOPS.filter((stop) => !['Trending', 'Pull', 'Decades', 'My List'].includes(stop))
+// instead. Both sets end in My List, so the header's are taken out by their place, after AniBeam.
+const HEADER_STOPS = STOPS.indexOf('AniBeam') + 1
+const STOPS_TOP = STOPS.toSpliced(HEADER_STOPS, 4)
 // On a phone neither is drawn: the menu button opens the links, and the walk goes on to the page.
 const STOPS_PHONE = [
   ...STOPS.slice(0, 2),
   'Menu',
   ...STOPS_TOP.filter(
-    (stop) => !['See what’s trending', 'Pull a random title', 'Browse by decade'].includes(stop),
+    (stop) =>
+      !['See what’s trending', 'Pull a random title', 'Browse by decade', 'My List'].includes(stop),
   ).slice(2),
 ]
 const BACK_WIDE = [

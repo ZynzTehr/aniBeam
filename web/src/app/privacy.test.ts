@@ -385,7 +385,9 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // left the JS every visit loads at 90,164 B with what loads it and the line in its place should it
 // fail, so its budget was 90,500 B; 91,000 B since the header's My List became a link to /list,
 // marked current there, which it and AniBeam reach with no new page on a plain click: 90,539 B (its
-// yellow, shared with the current section's link, left the CSS at 11,878 B). My List's page itself,
+// yellow, shared with the current section's link, left the CSS at 11,878 B). With the phone menu's
+// My List a link too, and the intro's, the Soon look My List's flying copy had went from the CSS,
+// which came down to 11,830 B (the JS every visit loads to 90,286 B). My List's page itself,
 // ListPage and features/list/view.ts, is 2,165 B, so its own budget is 2,500 B (the user agreed to
 // about 3,000 B, the plan's D18); the grid's covers kept their focus rings on a phone's screen with
 // a wider scroll margin (11,866 B of CSS). The JS loaded only when needed rose to 14,028 B when the

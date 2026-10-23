@@ -345,7 +345,7 @@ export default function App() {
     sectionNav.current?.intro(searching || onList ? null : actionsRef.current)
   }, [searching, onList])
 
-  // AniBeam and My List's link go to their page with no new page, on a plain click, as a link on
+  // AniBeam and My List's links go to their page with no new page, on a plain click, as a link on
   // My List does: a new history entry, so Back returns, drawn at once and shown from its top.
   // AniBeam empties the search too, as the app loaded again did. Any other click (a new tab, say)
   // is the browser's.
@@ -435,9 +435,10 @@ export default function App() {
               },
               { href: '#pull', label: 'Pull a random title' },
               { href: '#decades', label: 'Browse by decade' },
-              // To come, as in the header: it docks there with the section links.
-              { href: '#my-list', label: 'My List', soon: true },
+              // My List's page, as in the header: it docks there with the section links.
+              { href: LIST_HREF, label: 'My List' },
             ]}
+            onGo={go}
           />
         )}
         {/* Discover's sections, not on My List. */}

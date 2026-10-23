@@ -1,12 +1,12 @@
-import type { Ref } from 'react'
+import type { MouseEvent as ClickEvent, Ref } from 'react'
 import type { Media } from '../features/anime/queries.ts'
 import { accentVars } from '../features/theming/deriveAccent.ts'
 import { markBroken, markLoaded } from './cover.ts'
 import { coverFan } from './coverFan.ts'
 import { cssVars } from './cssVars.ts'
 
-/** An intro button: a section link, or with `soon` a feature from a later phase (My List). */
-export type IntroAction = { href: string; label: string; soon?: boolean }
+/** An intro button: a section link, or a link to another of the app's pages (My List's, /list). */
+export type IntroAction = { href: string; label: string }
 
 /**
  * The first screen says what AniBeam is before anything else: a place for anime fans to keep
@@ -19,6 +19,7 @@ export function IntroHero({
   loading = false,
   actions,
   actionsRef,
+  onGo,
 }: {
   titles: Media[]
   /** Gets the cover fan, so App can tell when it is on screen (see useSteadyList). */
@@ -28,6 +29,11 @@ export function IntroHero({
   actions: IntroAction[]
   /** The intro's buttons, the page's section links while they are on the screen (sectionNav). */
   actionsRef?: Ref<HTMLElement>
+  /**
+   * A click on a link to another of the app's pages (My List): the app goes there itself on a
+   * plain click (see App's go). Without it, the browser follows it, as any link.
+   */
+  onGo?: (event: ClickEvent<HTMLAnchorElement>) => void
 }) {
   // The same pick App's hold uses (see coverFan).
   const covers = coverFan(titles)
@@ -68,20 +74,18 @@ export function IntroHero({
         See what&rsquo;s trending this week, pull a random pick for your mood, or dig through past
         decades. Coming soon: chat with other fans about the shows, movies and OVAs you love.
       </p>
-      {/* "Sections": the page's section links, and My List, to come, as the header's "Site" has
-          them. My List is shown as the header shows it, with a tag, not a link. */}
+      {/* "Sections": the page's section links, and My List's, as the header's "Site" has them. */}
       <nav ref={actionsRef} className="ab-intro-actions" aria-label="Sections">
-        {actions.map((action) =>
-          action.soon ? (
-            <span key={action.href} className="ab-soon" aria-disabled="true">
-              {action.label} <small>Soon</small>
-            </span>
-          ) : (
-            <a key={action.href} className="ab-btn" href={action.href}>
-              {action.label}
-            </a>
-          ),
-        )}
+        {actions.map((action) => (
+          <a
+            key={action.href}
+            className="ab-btn"
+            href={action.href}
+            onClick={action.href.startsWith('#') ? undefined : onGo}
+          >
+            {action.label}
+          </a>
+        ))}
       </nav>
     </section>
   )

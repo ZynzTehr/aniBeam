@@ -740,25 +740,25 @@ describe('desktop (1440x900)', () => {
     assert.deepEqual(state.notes, ['', ''])
   })
 
-  test('later features show as coming soon and cannot be used; the header’s My List is a link to its page', async () => {
+  test('later features show as coming soon and cannot be used; My List, in the header and the intro, is a link to its page', async () => {
     const soon = await browser.evaluate<{
       header: string
-      soon: string
-      tabIndex: number
-      hint: string
       intro: string
+      tags: number
+      hint: string
+      lede: string
     }>(`({
       header: document.querySelector('.ab-nav a[href="/list"]')?.textContent.trim() ?? 'none',
-      soon: document.querySelector('.ab-intro-actions .ab-soon').textContent.replace(/\\s+/g, ' ').trim(),
-      tabIndex: document.querySelector('.ab-intro-actions .ab-soon').tabIndex,
+      intro: document.querySelector('.ab-intro-actions a[href="/list"]')?.textContent.trim() ?? 'none',
+      tags: document.querySelectorAll('.ab-top .ab-soon, .ab-intro .ab-soon').length,
       hint: document.querySelector('.ab-hint').textContent,
-      intro: document.querySelector('.ab-intro-lede').textContent,
+      lede: document.querySelector('.ab-intro-lede').textContent,
     })`)
     assert.equal(soon.header, 'My List')
-    assert.equal(soon.soon, 'My List Soon')
-    assert.equal(soon.tabIndex, -1)
+    assert.equal(soon.intro, 'My List')
+    assert.equal(soon.tags, 0, 'a Soon tag left in the header or the intro')
     assert.match(soon.hint, /Coming soon: mood sliders/)
-    assert.match(soon.intro, /Coming soon: chat with other fans/)
+    assert.match(soon.lede, /Coming soon: chat with other fans/)
   })
 
   test('the first Tab reaches a visible skip link that jumps to the page', async () => {
