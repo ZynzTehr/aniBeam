@@ -956,3 +956,40 @@ test('offline, My List shows the answer saved 2 days before; with none saved, ea
     await goOffline(false)
   }
 })
+
+test('typing in the header search on My List goes to Discover, at /, and shows the results there, with no new page; Back returns to My List', async () => {
+  await noteRequests(answerList)
+  try {
+    await openList(SAVED)
+    await browser.evaluate(`window.__samePage = true`)
+    await browser.search('frieren')
+    assert.ok(
+      await browser.waitFor(
+        `location.pathname === '/' && document.querySelectorAll('#main .ab-results .ab-strip-panel[href]').length > 0`,
+        10_000,
+      ),
+      `typing on My List: ${await where()}`,
+    )
+    assert.deepEqual(
+      await browser.evaluate(`({
+        address: location.pathname + location.search,
+        heading: document.querySelector('#main h1')?.firstChild.textContent,
+        samePage: window.__samePage === true,
+      })`),
+      { address: '/', heading: 'Results for “frieren”', samePage: true },
+      'after typing on My List',
+    )
+    // Back on My List, with the search still in the box, it stays there until the box changes.
+    await browser.evaluate(`history.back(); true`)
+    assert.ok(await browser.waitFor(`location.pathname === '/list'`, 5000), 'Back went elsewhere')
+    assert.ok(
+      await browser.waitFor(`document.querySelectorAll(${COVERS}).length === ${SAVED.length}`),
+      'Back didn’t show My List',
+    )
+    await sleep(1000)
+    assert.deepEqual(await browser.evaluate(UNDER), { heading: 'My List', trending: false })
+    assert.equal(await where(), '/list', 'My List sent the visitor away again')
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+})

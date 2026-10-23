@@ -225,7 +225,18 @@ export default function App() {
   // Debounce every change to the box, then trim what is searched: a typed space, or a letter an
   // input method is still converting, is typing too, so it restarts the pause.
   const term = useDebounced(search, 300).text.trim()
-  const searching = term.length >= 2
+  // Results show on Discover, not on My List: a search typed there goes to /, as a new history
+  // entry, so Back returns to My List, and shows its results there (the plan's D11). Only as the
+  // search starts or changes: back on My List with a search still in the box, the page stays My
+  // List until the box changes again. Before the browser draws the page, so My List never shows
+  // the results.
+  const searching = term.length >= 2 && !onList
+  const searched = useRef(term)
+  useLayoutEffect(() => {
+    const changed = searched.current !== term
+    searched.current = term
+    if (changed && term.length >= 2 && onList && addressed === null) push('/', null)
+  }, [term, onList, addressed])
 
   // The page opens on FIRST_ERA, which a first visit asks AniList for in one request with
   // trending. Arrowing through the decade chips changes the choice once per chip; wait like
