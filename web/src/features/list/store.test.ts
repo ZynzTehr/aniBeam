@@ -11,6 +11,7 @@ import {
   merge,
   parse,
   pressStatusIn,
+  restoreIn,
   setStatusIn,
   toggleFavoriteIn,
   type Entry,
@@ -630,4 +631,35 @@ test('the ids on the list come most lately changed first, delete markers left ou
   }
   assert.deepEqual(listedIn(list), [5, 2, 4, 1])
   assert.equal(listedIn(list), listedIn(list), 'the very same array')
+})
+
+test('Undo puts a title taken off back as it was, heart and all, as a new edit after its marker', () => {
+  // Saved with the heart at T, taken off at T + 5: the marker drops the heart.
+  let { list } = setStatusIn({ '1': saved(T, true) }, 1, null, T + 5)
+  assert.deepEqual(list, { '1': removed(T + 5) })
+  const back = restoreIn(list, 1, { status: 'SAVED', favorite: true }, T + 9)
+  assert.deepEqual(back, { list: { '1': saved(T + 9, true) }, change: 'added' })
+  // Its time is never the one it had before: a copy holding the marker would win over that.
+  assert.deepEqual(merge(back.list, list), back.list, 'merged with the copy holding the marker')
+  // With the clock set back, 1 ms after the marker.
+  ;({ list } = restoreIn(list, 1, { status: 'WANT', favorite: false }, T - HOUR))
+  assert.deepEqual(list, { '1': want(T + 6) }, 'after the clock went back')
+})
+
+test('Undo leaves a title back on the list already, a full list, and an id that isn’t one, as they are', () => {
+  const listed = { '1': want(T) }
+  assert.deepEqual(restoreIn(listed, 1, { status: 'SAVED', favorite: true }, T + 1), {
+    list: listed,
+    change: 'none',
+  })
+  const full: List = { '9000': removed(T) }
+  for (let id = 1; id <= CAP; id++) full[id] = saved(T)
+  assert.deepEqual(restoreIn(full, 9000, { status: 'SAVED', favorite: false }, T + 1), {
+    list: full,
+    change: 'full',
+  })
+  assert.deepEqual(restoreIn({}, 0, { status: 'SAVED', favorite: false }, T), {
+    list: {},
+    change: 'none',
+  })
 })

@@ -357,7 +357,7 @@ export default function App() {
             onStatus={setAnnouncement}
           />
         ) : onList ? (
-          <ListPage onOpen={open} />
+          <ListPage onOpen={open} covered={card !== null} />
         ) : (
           <IntroHero
             titles={trending.data ? introCovers : trendingSamples}

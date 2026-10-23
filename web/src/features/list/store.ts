@@ -191,6 +191,23 @@ export function toggleFavoriteIn(list: List, id: number, now: number): Edited {
   return { list: written(list, id, now, HEART_ADDS_AS, true), change: 'added' }
 }
 
+/**
+ * Puts a title taken off the list back as it was, with its status and heart (My List's Undo, the
+ * plan's D7), as a new edit: made at `now`, after its delete marker (see written), never at the
+ * time it had before, which a copy of the list holding the marker would beat in a merge (spec §6).
+ * A title on the list again, a full list, or an id that isn't an AniList id is left as it is.
+ */
+export function restoreIn(
+  list: List,
+  id: number,
+  { status, favorite }: Pick<Entry, 'status' | 'favorite'>,
+  now: number,
+): Edited {
+  if (!ID.test(String(id)) || entryIn(list, id)) return { list, change: 'none' }
+  if (isFull(list)) return { list, change: 'full' }
+  return { list: written(list, id, now, status, favorite), change: 'added' }
+}
+
 /** Where the list is saved: localStorage, under this key alone. */
 export const KEY = 'anibeam:list:v1'
 
@@ -374,6 +391,9 @@ export function createListStore({
       edit((list, now) => pressStatusIn(list, id, status, now)),
     /** A press on the title's heart (see toggleFavoriteIn). */
     toggleFavorite: (id: number) => edit((list, now) => toggleFavoriteIn(list, id, now)),
+    /** Puts a title taken off back as it was, as a new edit (see restoreIn). */
+    restore: (id: number, was: Pick<Entry, 'status' | 'favorite'>) =>
+      edit((list, now) => restoreIn(list, id, was, now)),
   }
 }
 
@@ -388,7 +408,7 @@ function browserStorage() {
 }
 
 /** The visitor's list, in this browser's localStorage. */
-export const { getSnapshot, subscribe, read, setStatus, pressStatus, toggleFavorite } =
+export const { getSnapshot, subscribe, read, setStatus, pressStatus, toggleFavorite, restore } =
   createListStore({
     storage: browserStorage(),
     events: typeof window === 'undefined' ? undefined : window,

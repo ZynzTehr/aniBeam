@@ -23,6 +23,7 @@ export function Strip({
   onRetry,
   live = true,
   grid = false,
+  inPlaceOf,
   children,
 }: {
   id: string
@@ -55,6 +56,8 @@ export function Strip({
   live?: boolean
   /** Wrap into rows instead of scrolling sideways (search results). */
   grid?: boolean
+  /** What shows in a title's place instead of its cover, if anything: My List's Undo. */
+  inPlaceOf?: (media: Media) => ReactNode
   /** Controls shown between the heading and the row, such as the decade chips. */
   children?: ReactNode
 }) {
@@ -109,29 +112,31 @@ export function Strip({
             </li>
           ) : (
             <li key={media.id} className="ab-strip-item" style={cssVars({ '--i': i })}>
-              <a
-                className="ab-strip-panel"
-                href={titlePath(media.id)}
-                onClick={opener(media, onOpen)}
-              >
-                <img
-                  src={media.coverImage.large}
-                  srcSet={coverSrcSet(media)}
-                  alt=""
-                  loading="lazy"
-                  onLoad={markLoaded}
-                  onError={markBroken}
-                />
-                {!grid && (
-                  <span className="ab-chapter" aria-hidden="true">
-                    Ch.{i + 1}
+              {inPlaceOf?.(media) ?? (
+                <a
+                  className="ab-strip-panel"
+                  href={titlePath(media.id)}
+                  onClick={opener(media, onOpen)}
+                >
+                  <img
+                    src={media.coverImage.large}
+                    srcSet={coverSrcSet(media)}
+                    alt=""
+                    loading="lazy"
+                    onLoad={markLoaded}
+                    onError={markBroken}
+                  />
+                  {!grid && (
+                    <span className="ab-chapter" aria-hidden="true">
+                      Ch.{i + 1}
+                    </span>
+                  )}
+                  <span className="ab-strip-title">
+                    <span>{titleOf(media)}</span>
                   </span>
-                )}
-                <span className="ab-strip-title">
-                  <span>{titleOf(media)}</span>
-                </span>
-                <span className="sr-only">, {seasonOf(media)}</span>
-              </a>
+                  <span className="sr-only">, {seasonOf(media)}</span>
+                </a>
+              )}
             </li>
           ),
         )}

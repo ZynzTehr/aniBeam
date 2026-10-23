@@ -1,13 +1,32 @@
 import { useIsRestoring, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { useMemo, useState, useSyncExternalStore, type MouseEvent } from 'react'
+import {
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type MouseEvent,
+} from 'react'
+import { flushSync } from 'react-dom'
 import { noteFor } from '../../app/status.ts'
 import { isPlainClick } from '../../components/plainClick.ts'
 import { Strip } from '../../components/Strip.tsx'
 import type { OpenTitle } from '../../components/TitleCard.tsx'
 import { isRateLimited } from '../../lib/anilist.ts'
-import { isListPath, isOver, push, watchPath } from '../../lib/route.ts'
+import { isListPath, isOver, push, titlePath, watchPath } from '../../lib/route.ts'
 import { listQuery, type Media } from '../anime/queries.ts'
-import { entryIn, getSnapshot, listedIds, listedIn, subscribe } from './store.ts'
+import { nextLine, noted } from './said.ts'
+import {
+  entryIn,
+  getSnapshot,
+  listedIds,
+  listedIn,
+  restore,
+  subscribe,
+  type Entry,
+  type List,
+} from './store.ts'
 import { countsIn, inView, viewOf, viewPath, type View } from './view.ts'
 
 // The most titles one request gives: AniList's page (spec §3F). With more on the list, the page
@@ -28,6 +47,25 @@ const listSearch = () =>
     : isOver(history.state)
       ? history.state.over.replace(/^[^?]*/, '')
       : ''
+
+/** What a view shows, as it took it when it opened (see ListPage). */
+type Taken = {
+  /** The view's address. */
+  path: string
+  /** Its titles, in the list's order. */
+  ids: number[]
+  /** Those taken off the list since, each with the entry it had, for its Undo (the plan's D7). */
+  removed: Record<number, Entry>
+  /** The Undo that takes focus once no card is over the page: a new object for each removal. */
+  focus: { id: number } | null
+}
+
+const take = (list: List, ids: number[], view: View, path: string): Taken => ({
+  path,
+  ids: inView(list, ids, view),
+  removed: {},
+  focus: null,
+})
 
 /**
  * Copies of `ids`' titles that AniList's other answers in the cache hold, by id: Discover's lists,
@@ -50,11 +88,11 @@ function copiesIn(client: QueryClient, ids: number[]) {
  * (the plan's D9), show theirs from that one answer. Each view takes its titles as it opens, in
  * the list's order, the most lately changed first ("Recently changed", the plan's D8): an edit
  * from a card opened over the page, a heart or a move, changes neither which titles show nor their
- * order, and asks for nothing (spec §3H); a title taken off the list leaves at once. Titles are
- * edited in their card (the plan's D5, L2), whose "Open on AniList" is the spec's "Track on
- * AniList" link (D6).
+ * order, and asks for nothing (spec §3H); a title taken off the list leaves an Undo in its place
+ * (D7). Titles are edited in their card (the plan's D5, L2), whose "Open on AniList" is the spec's
+ * "Track on AniList" link (D6). `covered` says a title's card is open over the page.
  */
-export function ListPage({ onOpen }: { onOpen: OpenTitle }) {
+export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: boolean }) {
   // Read first: listedIds reads the saved list again while nothing listens to it, so the snapshot
   // below is the list as saved now.
   const [ids] = useState(() => listedIds().slice(0, PAGE))
@@ -64,8 +102,47 @@ export function ListPage({ onOpen }: { onOpen: OpenTitle }) {
   const path = viewPath(view)
   // The view's titles as it opened, set as the page renders, as App's useOutage does, so a new
   // view's titles come with its address.
-  const [taken, setTaken] = useState(() => ({ path, ids: inView(list, ids, view) }))
-  if (taken.path !== path) setTaken({ path, ids: inView(list, ids, view) })
+  const [taken, setTaken] = useState(() => take(list, ids, view, path))
+  if (taken.path !== path) setTaken(take(list, ids, view, path))
+  // A title on screen taken off the list keeps its place, with an Undo in it, until the view
+  // changes or the page is left, with no timer, as WCAG's rule on time limits asks (the plan's
+  // D7). Taken off in the card over the page, its Undo takes focus as the card closes (see below).
+  // Noted as the page renders, as for the view, so the Undo comes in the frame the cover goes.
+  const [seen, setSeen] = useState(list)
+  if (seen !== list) {
+    setSeen(list)
+    const gone = taken.ids.filter((id) => entryIn(seen, id) && !entryIn(list, id))
+    if (gone.length)
+      setTaken({
+        ...taken,
+        removed: {
+          ...taken.removed,
+          ...Object.fromEntries(gone.map((id) => [id, entryIn(seen, id)!])),
+        },
+        focus: covered ? { id: gone[0] } : taken.focus,
+      })
+  }
+  // The card hands focus back to the cover that opened it as it closes (see App), but the cover
+  // has gone: its Undo takes it, before App looks. Once for each removal.
+  const focused = useRef<Taken['focus']>(null)
+  useLayoutEffect(() => {
+    if (covered || !taken.focus || focused.current === taken.focus) return
+    focused.current = taken.focus
+    document
+      .querySelector<HTMLElement>(`#main [data-undo="${taken.focus.id}"]`)
+      ?.focus({ preventScroll: true })
+  }, [covered, taken.focus])
+  // What a screen reader hears after Undo: a full list, or an edit storage refused (see said.ts).
+  // The cover back in its place, which takes focus, says the rest.
+  const [said, setSaid] = useState('')
+  const undo = (id: number) => {
+    // Drawn at once, so that the cover that takes the Undo's place can take its focus too.
+    const outcome = flushSync(() => restore(id, taken.removed[id]))
+    document
+      .querySelector<HTMLElement>(`#main .ab-strip-panel[href="${titlePath(id)}"]`)
+      ?.focus({ preventScroll: true })
+    setSaid((before) => nextLine(before, noted(outcome)))
+  }
 
   // While My List's answer comes, the titles other answers brought show in their places at once,
   // and an empty card holds each other one's (see Strip). The cache is read once restored.
@@ -79,7 +156,7 @@ export function ListPage({ onOpen }: { onOpen: OpenTitle }) {
     () => new Map(query.data?.map((media) => [media.id, media])),
     [query.data],
   )
-  const shown = taken.ids.filter((id) => entryIn(list, id))
+  const shown = taken.ids.filter((id) => entryIn(list, id) || Object.hasOwn(taken.removed, id))
   const titles = shown.flatMap((id) =>
     query.data ? (answered.get(id) ?? []) : [copies.get(id) ?? null],
   )
@@ -107,6 +184,11 @@ export function ListPage({ onOpen }: { onOpen: OpenTitle }) {
         onRetry={query.isError && !query.isFetching ? () => void query.refetch() : undefined}
         onOpen={onOpen}
         grid
+        inPlaceOf={({ id }) =>
+          entryIn(list, id) ? undefined : (
+            <UndoSlot id={id} was={taken.removed[id]} onUndo={() => undo(id)} />
+          )
+        }
       >
         <nav className="ab-list-tabs" aria-label="My List">
           {TABS.map(({ status, name }) => (
@@ -134,10 +216,36 @@ export function ListPage({ onOpen }: { onOpen: OpenTitle }) {
         </p>
         {empty && <Empty view={view} onFollow={follow} />}
       </Strip>
+      <p role="status" className="sr-only">
+        {said}
+      </p>
       <div className="ab-list-foot">
         {listedIn(list).length > PAGE && <p>Showing your {PAGE} most recent.</p>}
         <p>Saved in this browser only.</p>
       </div>
+    </div>
+  )
+}
+
+/**
+ * The Undo in the place of a title taken off the list (the plan's D7): which tab it left, and Undo,
+ * which puts it back as it was (see restore).
+ */
+function UndoSlot({ id, was, onUndo }: { id: number; was: Entry; onUndo: () => void }) {
+  const words = useId()
+  const tab = TABS.find(({ status }) => status === was.status)!.name
+  return (
+    <div className="ab-list-undo">
+      <span id={words}>Removed from {tab}.</span>{' '}
+      <button
+        type="button"
+        className="ab-btn"
+        data-undo={id}
+        aria-describedby={words}
+        onClick={onUndo}
+      >
+        Undo
+      </button>
     </div>
   )
 }

@@ -3,7 +3,8 @@
 // its tabs and Favorites only, links that change the address (?tab=want, &fav=1); and its titles,
 // asked for in one request. The 12 titles of the list-12 recording (see LISTS in recordings.ts) are
 // answered as AniList answered them; any other list's answer is built here from titles already
-// recorded, with a rewrite, as the plan's D19 allows: a 200 needs no recording.
+// recorded, with a rewrite, as the plan's D19 allows: a 200 needs no recording. A title taken off
+// the list on the page leaves an Undo in its place.
 import assert from 'node:assert/strict'
 import { after, afterEach, before, beforeEach, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -128,10 +129,10 @@ type Saved = { id: number; status?: 'SAVED' | 'WANT'; favorite?: boolean }
 
 /**
  * Writes `entries` as the visitor's list, in place of any saved, the first the most lately changed,
- * on the site's page open now: the next load reads it.
+ * on the site's page open now in `on`: the next load reads it.
  */
-async function writeList(entries: Saved[]) {
-  await browser.evaluate(`(() => {
+async function writeList(entries: Saved[], on = browser) {
+  await on.evaluate(`(() => {
     const now = Date.now()
     const list = Object.fromEntries(${JSON.stringify(entries)}.map(({ id, status = 'SAVED', favorite = false }, i) => [id, { status, favorite, updatedAt: now - i }]))
     localStorage.setItem('anibeam:list:v1', JSON.stringify(list))
@@ -594,5 +595,151 @@ test('with more than 50 titles, My List asks for the 50 most lately changed, and
     ])
   } finally {
     await browser.rewriteAniList(null)
+  }
+})
+
+// Each place in My List's row: a cover's title, or the words in its place (the Undo slot's).
+const SLOTS = `[...document.querySelectorAll('#main .ab-strip-row > li')].map((li) => li.querySelector('a.ab-strip-panel')?.getAttribute('href').slice('/anime/'.length) ?? li.textContent)`
+// The entry the saved list holds for a title.
+const entryOf = (id: number) =>
+  browser.evaluate<{ status: string; favorite: boolean; updatedAt: number; deleted?: true }>(
+    `JSON.parse(localStorage.getItem('anibeam:list:v1'))[${id}]`,
+  )
+// My List's answer as the saved copy of AniList's answers holds it: when it came, and its titles.
+const SAVED_ANSWER = `(() => {
+  const queries = JSON.parse(localStorage.getItem('anibeam:cache') ?? '{}').clientState?.queries ?? []
+  const list = queries.find(({ queryKey }) => queryKey[1] === ${JSON.stringify(QUERIES.list)})
+  return list && { at: list.state.dataUpdatedAt, ids: list.state.data.map(({ id }) => id) }
+})()`
+const UNDO = `document.querySelector('#main [data-undo]')`
+
+/** Opens the card of the title on My List with `id`, and takes it off there, with its pressed status. */
+async function removeInCard(id: number, title: RegExp) {
+  await browser.evaluate(
+    `document.querySelector('#main .ab-strip-panel[href="/anime/${id}"]').focus(); document.querySelector('#main .ab-strip-panel[href="/anime/${id}"]').click(); true`,
+  )
+  assert.ok(await browser.waitFor(`${title}.test(${CARD})`, 5000), 'no card opened')
+  await browser.evaluate(
+    `document.querySelector('dialog[open] .ab-mylist [aria-pressed="true"]:not(.ab-heart)').click(); true`,
+  )
+  assert.ok(
+    await browser.waitFor(
+      `!document.querySelector('dialog[open] .ab-mylist [aria-pressed="true"]')`,
+    ),
+    'the title stayed on the list',
+  )
+}
+
+test('a title taken off in its card leaves an Undo in its place, with focus on Undo once the card closes; Undo puts it back as a new edit, heart and all, and asks for nothing', async () => {
+  await saveList(TWELVE, '/list?tab=want')
+  assert.ok(
+    await browser.waitFor(`document.querySelectorAll(${COVERS}).length === 4`, 10_000),
+    'My List didn’t show its 4 covers in Want to try',
+  )
+  await browser.waitFor(`${SAVED_ANSWER}?.ids.length === 12`)
+  const answer = await browser.evaluate(SAVED_ANSWER)
+  sent.length = 0
+  for (const how of ['Close', 'Back']) {
+    const before = await entryOf(572)
+    await removeInCard(572, /Nausica/)
+    if (how === 'Close')
+      await browser.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
+    else await browser.evaluate(`history.back(); true`)
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog[open]') && ${UNDO}`, 5000),
+      `${how}: no Undo once the card closed`,
+    )
+    assert.deepEqual(
+      await browser.evaluate(SLOTS),
+      ['154587', '21', 'Removed from Want to try. Undo', '97940'],
+      `${how}: the row`,
+    )
+    assert.ok(
+      await browser.waitFor(`document.activeElement === ${UNDO}`, 2000),
+      `${how}: focus went elsewhere than Undo`,
+    )
+    // In the cover's own place, the size of a cover, so nothing moves.
+    const size = (element: string) =>
+      browser.evaluate(
+        `(({ width, height }) => [Math.round(width), Math.round(height)])(${element}.getBoundingClientRect())`,
+      )
+    assert.deepEqual(
+      await size(`${UNDO}.closest('li').firstElementChild`),
+      await size(`document.querySelector('#main .ab-strip-panel[href]')`),
+      `${how}: the Undo's size`,
+    )
+    const marker = await entryOf(572)
+    assert.equal(marker.deleted, true, `${how}: no delete marker`)
+    await browser.evaluate(`${UNDO}.click(); true`)
+    const cover = `document.querySelector('#main .ab-strip-panel[href="/anime/572"]')`
+    assert.ok(
+      await browser.waitFor(`document.activeElement === ${cover}`, 2000),
+      `${how}: after Undo, focus went elsewhere than its cover`,
+    )
+    assert.deepEqual(await browser.evaluate(SLOTS), ['154587', '21', '572', '97940'])
+    const back = await entryOf(572)
+    assert.deepEqual(
+      { status: back.status, favorite: back.favorite, deleted: back.deleted },
+      { status: before.status, favorite: before.favorite, deleted: undefined },
+      `${how}: Undo put back another entry`,
+    )
+    assert.ok(
+      back.updatedAt > marker.updatedAt,
+      `${how}: Undo's time, ${back.updatedAt}, isn't after the marker's, ${marker.updatedAt}`,
+    )
+  }
+  await sleep(1500)
+  assert.deepEqual(sent, [], 'taking titles off and putting them back asked AniList')
+  assert.deepEqual(await browser.evaluate(SAVED_ANSWER), answer, 'My List’s saved answer changed')
+})
+
+test('the Undo has no timer, and a change of tab or filter clears it', async () => {
+  await saveList(TWELVE, '/list?tab=want')
+  assert.ok(
+    await browser.waitFor(`document.querySelectorAll(${COVERS}).length === 4`, 10_000),
+    'My List didn’t show its 4 covers in Want to try',
+  )
+  await removeInCard(21, /ONE PIECE/i)
+  await browser.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
+  assert.ok(
+    await browser.waitFor(`!document.querySelector('dialog[open]') && ${UNDO}`, 5000),
+    'no Undo once the card closed',
+  )
+  await follow('Favorites only', '/list?tab=want&fav=1')
+  await follow('Favorites only', '/list?tab=want')
+  assert.deepEqual(await browser.evaluate(SLOTS), ['154587', '572', '97940'], 'after the filter')
+
+  // A minute on, on a clock the check moves itself (see Browser.stopClock), the Undo is still
+  // there, with focus on it. Chrome can't start the clock again, so in a browser of its own.
+  const still = await Browser.open()
+  try {
+    await still.load({ ...DESKTOP, reduceMotion: true, url: at('/list') })
+    await writeList(TWELVE, still)
+    await still.load({ ...DESKTOP, reduceMotion: true, url: at('/list?tab=want') })
+    assert.ok(
+      await still.waitFor(`document.querySelectorAll(${COVERS}).length === 4`, 10_000),
+      'the second browser didn’t show the 4 covers',
+    )
+    await still.evaluate(
+      `document.querySelector('#main .ab-strip-panel[href="/anime/97940"]').click(); true`,
+    )
+    assert.ok(await still.waitFor(`/Black Clover/i.test(${CARD})`, 5000), 'no card opened')
+    await still.evaluate(
+      `document.querySelector('dialog[open] .ab-mylist [aria-pressed="true"]:not(.ab-heart)').click(); true`,
+    )
+    await still.evaluate(`document.querySelector('dialog[open] .ab-close').click(); true`)
+    assert.ok(
+      await still.waitFor(`!document.querySelector('dialog[open]') && ${UNDO}`, 5000),
+      'no Undo once the card closed',
+    )
+    await still.stopClock()
+    await still.tick(61_000)
+    assert.deepEqual(
+      await still.evaluate(`({ row: ${SLOTS}, focused: document.activeElement === ${UNDO} })`),
+      { row: ['154587', '21', '572', 'Removed from Want to try. Undo'], focused: true },
+      'a minute on',
+    )
+  } finally {
+    await still.close()
   }
 })

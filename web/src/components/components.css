@@ -3574,6 +3574,22 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   margin: 0 0 4px;
 }
 
+/* The Undo in the place of a title taken off My List: a card the size of its cover, so nothing
+   moves as it comes and goes. */
+.ab-list-undo {
+  display: grid;
+  aspect-ratio: 2 / 3;
+  align-content: center;
+  justify-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: var(--border) dashed var(--ink);
+  background: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+}
+
 /* A view with nothing in it: what to say, and a way on. */
 .ab-list-empty {
   display: grid;
