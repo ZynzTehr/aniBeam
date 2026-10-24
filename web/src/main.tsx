@@ -20,7 +20,15 @@ const Gallery =
   import.meta.env.DEV && new URLSearchParams(location.search).has('gallery')
     ? lazy(() => import('./gallery/Gallery.tsx'))
     : null
-const Page = Prototype ?? Gallery
+// Draft PR 0 only, never merged: the Mood lab at ?proto=mood, where Phase 5's open choices can be
+// tried on the draft's Vercel preview, so it ships in the production build too. It is its own
+// chunk, fetched only at that address, and asks AniList's API for nothing (see
+// lab/mood/MoodLab.tsx). It keeps its own list, so the list's preload stays off there.
+const MoodLab =
+  new URLSearchParams(location.search).get('proto') === 'mood'
+    ? lazy(() => import('./lab/mood/MoodLab.tsx'))
+    : null
+const Page = MoodLab ?? Prototype ?? Gallery
 
 // A visitor who turned motion off on the site keeps it off on later visits: the saved choice (see
 // lib/motion.ts) puts data-motion="reduce" back on <html> before React draws anything. The page's
@@ -41,7 +49,7 @@ const render = () => {
       </PersistQueryClientProvider>
     </StrictMode>,
   )
-  preloadListPage()
+  if (!MoodLab) preloadListPage()
 }
 
 // My List's page is a file of its own (see features/list/page.ts). A visit that starts on it, or
