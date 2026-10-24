@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useState } from 'react'
 import type { Command, Report } from './MoodLab.tsx'
+import { MoodStage } from './MoodStage.tsx'
 import { useRequests } from './sandbox.ts'
 import { read, SECTIONS, type Lab, type Options } from './switches.ts'
 
@@ -51,9 +52,13 @@ export function Stage() {
   return (
     <div className="ab-lab-page">
       <title>{`${name} · Mood lab`}</title>
-      <main id="main">
-        <p className="ab-lab-why">{name}: built in a later commit.</p>
-      </main>
+      {lab.section === 'mood' ? (
+        <MoodStage shown={shown} />
+      ) : (
+        <main id="main">
+          <p className="ab-lab-why">{name}: built in a later commit.</p>
+        </main>
+      )}
     </div>
   )
 }
