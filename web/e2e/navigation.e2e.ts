@@ -247,6 +247,37 @@ test('from 900px the header’s My List is a link to /list: a plain click goes t
   )
 })
 
+test('a click on My List or AniBeam with Ctrl, Cmd, Shift or Alt held is left to the browser, in the header, the intro and the phone menu, and a plain one the page takes', async () => {
+  // Clicks `link` with `keys` held, and says whether the page took the click for itself (cancelled
+  // what the browser would do) and where it is after. Heard last, on the window, which then
+  // cancels the click itself, so the browser opens no tab and leaves no page.
+  const clicked = (link: string, keys: object) =>
+    browser.evaluate<{ taken: boolean; path: string }>(`(() => {
+      let taken
+      const hear = (event) => { taken = event.defaultPrevented; event.preventDefault() }
+      addEventListener('click', hear, { once: true })
+      document.querySelector(${JSON.stringify(link)}).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0, ...${JSON.stringify(keys)} }))
+      return { taken, path: location.pathname }
+    })()`)
+  const held = [{ ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { altKey: true }]
+  for (const [screen, links] of [
+    [DESKTOP, ['.ab-nav a[href="/list"]', '.ab-intro-actions a[href="/list"]', '.ab-logo']],
+    [{ width: 390, height: 844, phone: true }, ['.ab-drawer a[href="/list"]', '.ab-logo']],
+  ] as const) {
+    await browser.load({ ...screen, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    for (const link of links)
+      for (const keys of held)
+        assert.deepEqual(
+          await clicked(link, keys),
+          { taken: false, path: '/' },
+          `${link} at ${screen.width}px, ${JSON.stringify(keys)}`,
+        )
+    assert.deepEqual(await clicked(links[0], {}), { taken: true, path: '/list' }, 'a plain click')
+    assert.deepEqual(await clicked('.ab-logo', {}), { taken: true, path: '/' }, 'AniBeam, plain')
+  }
+})
+
 // Where a section link followed from My List landed, read once its heading has focus: the address,
 // whether the window's mark stayed (a new page takes it), whether the jump was marked as a
 // pointer's (lib/jumps.ts), the heading's top against the header's bottom, the set of links shown,
