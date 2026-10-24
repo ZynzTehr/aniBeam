@@ -131,14 +131,21 @@ function Shell() {
       <title>Mood lab · AniBeam</title>
       <header className="ab-lab-bar">
         <h1 className="ab-lab-name">
-          AniBeam <b>Mood lab</b> <small>Draft, never merged</small>
+          <span className="ab-lab-wide">AniBeam </span>
+          <b>Mood lab</b> <small className="ab-lab-wide">Draft, never merged</small>
         </h1>
-        <p className="ab-lab-counters" aria-live="polite">
+        {/* Not a live region: a roll is read once, from the stage's status line, and these change
+            with every roll. On a phone they take their short words, to keep the bar to two rows. */}
+        <p className="ab-lab-counters">
           <span className={requests ? 'ab-lab-counter is-bad' : 'ab-lab-counter'}>
-            AniList requests: <b data-lab="requests">{requests}</b>
+            <span className="ab-lab-wide">AniList requests: </span>
+            <span className="ab-lab-narrow">Requests: </span>
+            <b data-lab="requests">{requests}</b>
           </span>
           <span className="ab-lab-counter">
-            Different in the last 30 rolls: <b data-lab="distinct">{report.distinct}</b>
+            <span className="ab-lab-wide">Different in the last 30 rolls: </span>
+            <span className="ab-lab-narrow">Last 30 rolls, different: </span>
+            <b data-lab="distinct">{report.distinct}</b>
           </span>
         </p>
         <nav className="ab-lab-sections" aria-label="Lab sections">

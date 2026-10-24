@@ -103,7 +103,7 @@ export function Panel({
           </div>
         </Group>
         <Group title="The lab’s list">
-          <p className="ab-lab-why" aria-live="polite">
+          <p className="ab-lab-why">
             On the lab’s list: <b data-lab="listed">{listed}</b>. Kept in this browser under
             anibeam:lab-list; the site’s own list is never read or touched.
           </p>

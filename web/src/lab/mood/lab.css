@@ -664,13 +664,6 @@
   line-height: 18px;
 }
 
-/* On a phone, a smaller dome brings the sliders up the screen. */
-@media (max-width: 820px) {
-  .ab-lab-moodpage .ab-dome {
-    width: min(100%, 210px);
-  }
-}
-
 /* The stage's site and its page: plain boxes, named for the lab's own checks. */
 .ab-lab-site,
 .ab-lab-mood {
@@ -697,6 +690,28 @@
   font-size: 15px;
   font-weight: 800;
   line-height: 1.4;
+}
+
+/* Stacked on a phone, the card sits close under the machine, so a roll's flip shows with the lever
+   on the screen: the line keeps room for two lines (three under 340px, where the busy line takes
+   three), and the row's gap is smaller (the machine's shadow hangs 8px into it). The line's margin
+   stays 30px, as the rarity sticker stands up to 29px above the poster and, as wide as SSR!!,
+   reaches back over the line's right end. */
+@media (max-width: 820px) {
+  .ab-lab-moodpage .ab-pull-row {
+    row-gap: 18px;
+  }
+
+  .ab-lab-line {
+    min-height: calc(2 * 1.4em);
+    margin-bottom: 30px;
+  }
+}
+
+@media (max-width: 340px) {
+  .ab-lab-line {
+    min-height: calc(3 * 1.4em);
+  }
 }
 
 /* The poster: a box the size the pull's poster takes, its two faces turning in it. */
@@ -1062,14 +1077,30 @@
   font-size: 26px;
 }
 
-/* A phone: the lab's bar in fewer rows. */
+/* The counters' long and short words, one set at a time. */
+.ab-lab-narrow {
+  display: none;
+}
+
+/* A phone: the lab's bar in two rows (the name and counters, then the sections), and the caption
+   in one, so the stage keeps most of the screen. The caption's note on the lab's data moves under
+   the page (see LabBoxes). */
 @media (max-width: 600px) {
-  .ab-lab-name {
-    font-size: 16px;
+  .ab-lab-bar {
+    padding: 6px 12px;
   }
 
-  .ab-lab-counters {
-    margin-left: 0;
+  .ab-lab-wide,
+  .ab-lab-data {
+    display: none;
+  }
+
+  .ab-lab-narrow {
+    display: inline;
+  }
+
+  .ab-lab-name {
+    font-size: 16px;
   }
 
   .ab-lab-counter {
@@ -1078,6 +1109,7 @@
   }
 
   .ab-lab-caption {
+    padding: 4px 12px;
     font-size: 11.5px;
   }
 }
