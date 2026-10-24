@@ -5,7 +5,10 @@ import { dragOffset, shuts, swipeMoved, swipeStart, zoomed, type Swipe } from '.
 import { isPlainClick } from './plainClick.ts'
 import type { NavLink } from './SiteHeader.tsx'
 
-/** Katakana beside each link, as a sound effect would sit: decoration, never read. */
+/**
+ * Katakana beside each link, as a sound effect would sit: decoration, never read. By the link's
+ * address on Discover: on My List a section's link leads to it at / (/#pull).
+ */
 const KANA: Record<string, string> = {
   '#ab-trending': 'トレンド',
   '#pull': 'ガチャ',
@@ -20,7 +23,8 @@ const KANA: Record<string, string> = {
  * the page widening to 900px. A modal dialog, so the page behind it can't be reached or
  * read while it is open, and a sibling of the header, never inside it: Safari drops a closing
  * dialog from the top layer when something it sits in moves. Its links are the header's: My
- * List's, marked current on My List, goes there as the header's does (`onGo`), shutting the menu.
+ * List's, marked current on My List, goes there as the header's does (`onGo`), shutting the menu,
+ * as do the sections' on My List, which lead to Discover's.
  */
 export function MenuDrawer({
   links,
@@ -171,14 +175,15 @@ export function MenuDrawer({
                 // Shut first, inside the click: an open menu keeps the page inert, and the jump
                 // couldn't focus the heading. The browser jumps once this returns, as for any
                 // link, and lib/jumps.ts keeps a tap's jump from showing the heading's ring. A link
-                // to another page (My List's) the app follows itself, with no new page.
+                // to another page (My List's, or Discover's sections from My List) the app follows
+                // itself, with no new page.
                 onClick={(e) => {
                   if (isPlainClick(e)) dialogRef.current?.close()
                   if (!link.href.startsWith('#')) onGo?.(e)
                 }}
               >
                 {link.label}
-                <span aria-hidden="true">{KANA[link.href]}</span>
+                <span aria-hidden="true">{KANA[link.href.replace(/^\/#/, '#')]}</span>
               </a>
             ),
           )}

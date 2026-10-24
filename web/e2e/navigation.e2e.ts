@@ -247,6 +247,111 @@ test('from 900px the header’s My List is a link to /list: a plain click goes t
   )
 })
 
+// Where a section link followed from My List landed, read once its heading has focus: the address,
+// whether the window's mark stayed (a new page takes it), whether the jump was marked as a
+// pointer's (lib/jumps.ts), the heading's top against the header's bottom, the set of links shown,
+// and the menu, open or shut.
+const FROM_LIST = `(() => {
+  const focused = document.activeElement
+  const top = focused.getBoundingClientRect().top - document.querySelector('.ab-top').getBoundingClientRect().bottom
+  const atEnd = scrollY + innerHeight >= document.documentElement.scrollHeight - 1
+  return {
+    address: location.pathname + location.hash,
+    stayed: window.__stayed === true,
+    focus: focused.id,
+    jump: focused.dataset.jump ?? 'unmarked',
+    at: top >= 0 && top < 40 ? 'just below the header' : atEnd && top >= 40 ? 'below the header, at the end of the page' : Math.round(top) + 'px below the header',
+    links: document.querySelector('.ab-app').dataset.links ?? 'none',
+    menu: document.querySelector('.ab-drawer').open ? 'open' : 'shut',
+  }
+})()`
+
+test('on My List the section links lead to Discover’s sections: a click on one goes there with no new page and jumps to its heading, focused, below the header; on a phone the menu’s do the same, keeping their kana; Back returns to My List', async () => {
+  const list = new URL('/list', BASE_URL).href
+  const seen: Record<string, unknown> = {}
+  for (const id of ['ab-trending', 'pull', 'decades']) {
+    await browser.load({ ...DESKTOP, reduceMotion: true, url: list })
+    assert.ok(await browser.waitFor(`document.getElementById('ab-list')`, 5000), 'no My List')
+    if (id === 'ab-trending')
+      assert.deepEqual(
+        await browser.evaluate(
+          `[...document.querySelectorAll('.ab-nav a')].map((a) => a.getAttribute('href'))`,
+        ),
+        ['/#ab-trending', '/#pull', '/#decades', '/list'],
+        'the header’s links on My List',
+      )
+    await browser.evaluate(`window.__stayed = true; true`)
+    await clickAt(`.ab-nav a[href="/#${id}"]`)
+    assert.ok(
+      await browser.waitFor(`document.activeElement.id === '${id}'`, 5000),
+      `#${id}: the click landed at ${await browser.evaluate(`location.pathname + location.hash`)}`,
+    )
+    await frames()
+    seen[id] = await browser.evaluate(FROM_LIST)
+  }
+  const landed = (id: string, at = 'just below the header') => ({
+    address: `/#${id}`,
+    stayed: true,
+    focus: id,
+    jump: 'pointer',
+    at,
+    links: 'header',
+    menu: 'shut',
+  })
+  const decades = (seen.decades as { at?: string } | undefined)?.at
+  assert.deepEqual(
+    seen,
+    {
+      'ab-trending': landed('ab-trending'),
+      pull: landed('pull'),
+      // Decades, the last section, may be too near the page's end to come up that far.
+      decades: landed('decades', decades?.endsWith('end of the page') ? decades : undefined),
+    },
+    'a header link clicked on My List',
+  )
+  // A new history entry: Back returns to My List.
+  await browser.evaluate(`history.back(); true`)
+  assert.ok(
+    await browser.waitFor(`location.pathname === '/list' && document.getElementById('ab-list')`),
+    'Back didn’t return to My List',
+  )
+  // The phone's menu: each link with its kana, and a tap on Pull shuts the menu and lands there.
+  await browser.load({ ...PHONE, reduceMotion: true, url: list })
+  assert.ok(await browser.waitFor(`document.getElementById('ab-list')`, 5000), 'no My List')
+  await browser.evaluate(`window.__stayed = true; true`)
+  await browser.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
+  try {
+    await tapOn('.ab-burger')
+    assert.ok(await browser.waitFor(MENU_OPEN, 2000), 'the menu didn’t open')
+    assert.deepEqual(
+      await browser.evaluate(
+        `[...document.querySelectorAll('.ab-drawer nav a')].map((a) => a.getAttribute('href') + ' ' + a.textContent)`,
+      ),
+      [
+        '/#ab-trending Trendingトレンド',
+        '/#pull Pullガチャ',
+        '/#decades Decadesネンダイ',
+        '/list My Listマイリスト',
+      ],
+      'the menu’s links on My List',
+    )
+    await tapOn('.ab-drawer a[href="/#pull"]')
+    assert.ok(
+      await browser.waitFor(`!(${MENU_OPEN}) && document.activeElement.id === 'pull'`, 5000),
+      `the tap on Pull landed at ${await browser.evaluate(`location.pathname + location.hash`)}`,
+    )
+    await frames()
+    // Under 900px neither set of links is drawn, whichever data-links names.
+    const tapped = await browser.evaluate<Record<string, unknown>>(FROM_LIST)
+    const expected: Record<string, unknown> = landed('pull')
+    delete tapped.links
+    delete expected.links
+    assert.deepEqual(tapped, expected, 'the menu’s Pull tapped on My List')
+  } finally {
+    await browser.send('Emulation.setTouchEmulationEnabled', { enabled: false })
+  }
+})
+
 test('at the end of the page the last section is current, and while searching, a section once it is well in view', async () => {
   await browser.load({ width: 1440, height: 2560, reduceMotion: true })
   assert.ok(await browser.titlesShown())

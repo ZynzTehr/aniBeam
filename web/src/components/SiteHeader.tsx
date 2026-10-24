@@ -16,9 +16,10 @@ import { MenuDrawer } from './MenuDrawer.tsx'
 import { openMenu } from './openMenu.ts'
 
 /**
- * A section link, or a link to another of the app's pages (My List's, /list). `soon` marks a
- * feature from a later phase: shown with a tag, not a link. `current` marks the link to the page on
- * screen (aria-current="page"): My List's on My List, and the development prototype's (VariantD).
+ * A section link, or a link to another of the app's pages (My List's, /list, or on My List a
+ * section's on Discover, /#pull). `soon` marks a feature from a later phase: shown with a tag, not
+ * a link. `current` marks the link to the page on screen (aria-current="page"): My List's on My
+ * List, and the development prototype's (VariantD).
  */
 export type NavLink = { href: string; label: string; current?: boolean; soon?: boolean }
 
@@ -47,8 +48,9 @@ export function SiteHeader({
   /** The address of the section the visitor is in (#pull, say): its link is marked current. */
   currentHref?: string | null
   /**
-   * A click on AniBeam, or on a link to another of the app's pages (My List): the app goes there
-   * itself on a plain click (see App's go). Without it, the browser follows them, as any link.
+   * A click on AniBeam, or on a link to another of the app's pages (My List, or Discover's
+   * sections from My List): the app goes there itself on a plain click (see App's go). Without
+   * it, the browser follows them, as any link.
    */
   onGo?: (event: ClickEvent<HTMLAnchorElement>) => void
 }) {

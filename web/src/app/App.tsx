@@ -30,7 +30,7 @@ import {
 } from '../features/anime/queries.ts'
 import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { isRateLimited } from '../lib/anilist.ts'
-import { markPointerJumps } from '../lib/jumps.ts'
+import { jumpTo, markPointerJumps } from '../lib/jumps.ts'
 import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
 import {
@@ -52,7 +52,8 @@ import { cardNote, noteFor, NOT_FOUND, sampleNote, searchStatus, titleNote } fro
 const note = (query: UseQueryResult<Media[]>) => noteFor(query, isRateLimited())
 // The header's links: the page's three sections, and My List's page, marked current on it. No
 // count beside My List (the plan's D12): a number changing width would move the header, which the
-// intro's buttons fly into by its links' measured places.
+// intro's buttons fly into by its links' measured places. On My List the sections' links lead to
+// Discover's, at / (/#pull, say), which App goes to itself (see go).
 const HEADER_LINKS: NavLink[] = [
   { href: '#ab-trending', label: 'Trending' },
   { href: '#pull', label: 'Pull' },
@@ -60,7 +61,7 @@ const HEADER_LINKS: NavLink[] = [
   { href: LIST_HREF, label: 'My List' },
 ]
 const HEADER_LINKS_ON_LIST = HEADER_LINKS.map((link) =>
-  link.href === LIST_HREF ? { ...link, current: true } : link,
+  link.href === LIST_HREF ? { ...link, current: true } : { ...link, href: `/${link.href}` },
 )
 // A Try again button when a section's last attempt failed (see App's retryFailed).
 const retryFor = (query: UseQueryResult<Media[]>, retryFailed: () => void) =>
@@ -347,8 +348,10 @@ export default function App() {
 
   // AniBeam and My List's links go to their page with no new page, on a plain click, as a link on
   // My List does: a new history entry, so Back returns, drawn at once and shown from its top.
-  // AniBeam empties the search too, as the app loaded again did. Any other click (a new tab, say)
-  // is the browser's.
+  // AniBeam empties the search too, as the app loaded again did. On My List, a section's link
+  // (/#pull) goes to Discover the same way, and jumps to its heading once Discover has drawn, as
+  // the link does there: followed by the browser, a new page would draw the section only after
+  // the browser's own jump. Any other click (a new tab, say) is the browser's.
   const go = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!isPlainClick(event)) return
     event.preventDefault()
@@ -357,7 +360,9 @@ export default function App() {
       if (to === '/') setSearch({ shown: '', text: '' })
       if (to !== `${location.pathname}${location.search}${location.hash}`) push(to, null)
     })
-    scrollTo({ top: 0, behavior: 'instant' })
+    const [, section] = to.split('#')
+    if (section) jumpTo(section, event.nativeEvent)
+    else scrollTo({ top: 0, behavior: 'instant' })
   }
 
   // Search results take the intro's place at the top of the page; bring them into view.
