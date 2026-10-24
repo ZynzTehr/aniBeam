@@ -66,48 +66,100 @@ function Synopsis({ description }: { description: string | null }) {
    */
   const toggle = (button: HTMLButtonElement) => {
     const element = text.current!
+    const card = element.closest('dialog') ?? document.documentElement
     const style = getComputedStyle(element)
-    const from = parseFloat(style.height)
+    const height = () => parseFloat(style.height)
+    const from = height()
     const turning = element.getAnimations().length > 0
     element.getAnimations().forEach((animation) => animation.cancel())
     element.removeAttribute('data-moving')
     flushSync(() => setOpen(!open))
-    // The button moves with the text's foot, maybe off the screen: down below it as the text opens
-    // above it (on a phone, a long synopsis pushes it past the screen's foot), and up as it closes
-    // from under it. Either way it is kept in view, its ring too (see .ab-more's scroll-margin), in
-    // each frame as the browser is about to draw it.
-    const keep = () => button.scrollIntoView({ block: 'nearest' })
-    const to = parseFloat(style.height)
-    const clamp = 5 * parseFloat(style.lineHeight)
+    const to = height()
+    const line = parseFloat(style.lineHeight)
+    const clamp = 5 * line
     const travel = Math.max(element.scrollHeight - clamp, Math.abs(to - from), 1)
-    if (reducedMotion() || Math.abs(to - from) < 1) return void requestAnimationFrame(keep)
+    // Closing, the button moves up with the text's foot, maybe off the screen, from under it: it is
+    // kept in view, its ring too (see .ab-more's scroll-margin), in each frame as the browser is
+    // about to draw it. Opening, the reader keeps their place: the button goes down below the text,
+    // and the card scrolls after it, as the text grows, only as far as keeps the clamp's last line
+    // on the screen. On a phone a long synopsis pushes the button far down, and following it all
+    // the way whipped the lines being read up off the screen's top.
+    const keep = () => button.scrollIntoView({ block: 'nearest' })
+    const top = card.scrollTop
+    const scroll = open
+      ? 0
+      : Math.max(
+          0,
+          Math.min(
+            button.getBoundingClientRect().bottom +
+              parseFloat(getComputedStyle(button).scrollMarginBottom) -
+              innerHeight,
+            element.getBoundingClientRect().top + clamp - line,
+          ),
+        )
+    if (reducedMotion() || Math.abs(to - from) < 1)
+      return void (open ? requestAnimationFrame(keep) : (card.scrollTop = top + scroll))
     // How far the fade lies below the clamp's foot, at a height: all the way down, out of sight,
-    // once the text is open.
+    // once the text is open. Its position goes by its prefixed name too, which Chrome 111 to 119
+    // know it by: they drop a name they don't know, and the fade would stay put as the text moved.
     const fade = (height: number) =>
       `0 ${100 - Math.min(Math.max((height - clamp) / travel, 0), 1) * 100}%`
+    let target = to
+    const run = (from: number, duration: number, easing: string) => {
+      const position = [fade(from), open ? '0 100%' : '0 0%']
+      const moving = element.animate(
+        {
+          height: [`${from}px`, `${target}px`],
+          maskPosition: position,
+          webkitMaskPosition: position,
+        },
+        { duration, easing },
+      )
+      // Once the text has closed, whether the clamp hides anything is measured again, as the text
+      // may have changed size as it moved. A second press cancels this, and its own animation does
+      // it.
+      moving.finished.then(
+        () => {
+          element.removeAttribute('data-moving')
+          if (open) setCut(element.scrollHeight > element.clientHeight + 1)
+        },
+        () => {},
+      )
+      return moving
+    }
     element.setAttribute('data-moving', '')
-    const moving = element.animate(
-      { height: [`${from}px`, `${to}px`], maskPosition: [fade(from), fade(to)] },
-      {
-        duration: Math.max(120, (Math.abs(to - from) / travel) * Math.min(350, 280 + travel / 20)),
-        // A soft ease out, a third of the way in its first 40 ms, where a steeper one leapt half
-        // way. Turning back, it sets off slowly, as from a stop, not at an ease out's first speed.
-        easing: turning ? 'cubic-bezier(0.4, 0, 0.2, 1)' : 'cubic-bezier(0.3, 0.6, 0.3, 1)',
-      },
+    // A soft ease out, a third of the way in its first 40 ms, where a steeper one leapt half way.
+    // Turning back, or going on to a new height, it sets off slowly, as from a stop, not at an ease
+    // out's first speed.
+    const soft = 'cubic-bezier(0.4, 0, 0.2, 1)'
+    let moving = run(
+      from,
+      Math.max(120, (Math.abs(to - from) / travel) * Math.min(350, 280 + travel / 20)),
+      turning ? soft : 'cubic-bezier(0.3, 0.6, 0.3, 1)',
     )
+    // Following the button stops once the visitor scrolls, with a wheel, a finger or a key, so the
+    // card is left where they take it.
+    const quit = new AbortController()
+    for (const type of ['wheel', 'touchstart', 'keydown'])
+      addEventListener(type, () => quit.abort(), { passive: true, signal: quit.signal })
     requestAnimationFrame(function follow() {
-      keep()
-      if (moving.playState === 'running') requestAnimationFrame(follow)
+      if (moving.playState !== 'running') return quit.abort()
+      // A text that reflows as it opens, as when the screen turns, grows on from where it is to its
+      // new height, in the time left or 280 ms if that is longer, as its new way may be the longer:
+      // it grew to the old height and then snapped to the new one in a frame.
+      const full = whole.current!.getBoundingClientRect().height
+      if (!open && Math.abs(full - target) > 1) {
+        const now = height()
+        const left = Number(moving.effect!.getComputedTiming().endTime) - Number(moving.currentTime)
+        moving.cancel()
+        target = full
+        moving = run(now, Math.max(left, 280), soft)
+      }
+      if (!quit.signal.aborted)
+        if (open) keep()
+        else card.scrollTop = top + scroll * Math.min((height() - from) / (to - from), 1)
+      requestAnimationFrame(follow)
     })
-    // Once the text has closed, whether the clamp hides anything is measured again, as the text may
-    // have changed size as it moved. A second press cancels this, and its own animation does it.
-    moving.finished.then(
-      () => {
-        element.removeAttribute('data-moving')
-        if (open) setCut(element.scrollHeight > element.clientHeight + 1)
-      },
-      () => {},
-    )
   }
   const { paragraphs, source } = parseSynopsis(description)
   if (paragraphs.length === 0) return <p className="ab-synopsis-none">Description unavailable.</p>

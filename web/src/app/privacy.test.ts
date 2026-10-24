@@ -393,8 +393,11 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // bubble measured before its first frame, so its budget stayed 90,500 B; then 91,000 B with Read
 // more and Show less moving the synopsis's height smoothly, its fade sliding with it, a second
 // press turning it back from where it is, the button kept in view as it moves (the user asked for
-// it not to jolt open: 90,661 B; the fade's taller mask left the CSS at 11,856 B). My List's page
-// itself, ListPage and features/list/view.ts, is 2,322 B, so its own budget is 2,500 B (the user
+// it not to jolt open: 90,661 B; the fade's taller mask left the CSS at 11,856 B), and 90,873 B
+// with the reader's place kept as it opens, a text that reflows as it opens growing on to its new
+// height, and the fade moved by its prefixed name too. My List's page itself, ListPage and
+// features/list/view.ts, is 2,322 B (2,324 B as the main file it imports takes a new name with
+// each change to it), so its own budget is 2,500 B (the user
 // agreed to about 3,000 B, the plan's D18); the grid's covers kept their focus rings on a phone's
 // screen with a wider scroll margin (11,866 B of CSS, before the Soon look went). The JS loaded
 // only when needed rose to 14,028 B when the samples began to carry each title's synopsis, running

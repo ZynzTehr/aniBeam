@@ -783,13 +783,19 @@ test('the synopsis shows five lines, and where they hide some of it, Read more o
 
 // The open card's synopsis as it lies, frame by frame, from a click on its button on, brought
 // `into` view first as scrollIntoView puts it, for 900 ms. Each frame is read in its turn, after
-// the page's own work for the frame, as it will be drawn: the text's height and full height,
+// the page's own work for the frame, as it will be drawn: the text's height, full height and top,
 // whether text spills out of its box (taller than it, and not clipped), how far the button and the
 // tags lie below the text's foot, where its fade lies (its mask's position, or null with none), the
-// button's words and whether it is whole on the screen, and the text's animations. With
-// `reverseAt`, the button is clicked again in the first frame that many milliseconds on. `before`
-// is the synopsis just before the first click, and `reversed` the frame the second came in.
-const FRAMES = (into: 'start' | 'center', reverseAt: number | null = null) => `(async () => {
+// button's words, aria-expanded and whether it is whole on the screen, the card's scroll and the
+// text's animations. In the first frame `at` milliseconds on or later: `reverse` clicks the button
+// again, `squeeze` narrows the text to 30ch, as a phone turning or a window narrowing reflows it,
+// and `wheel` scrolls the card 400px up as a mouse wheel does. `before` is the synopsis just before
+// the first click, `acted` the frame the second act came in, and `keys` the properties the text's
+// animations were given, by name.
+const FRAMES = (
+  into: 'start' | 'center',
+  then: { at: number; act: 'reverse' | 'squeeze' | 'wheel' } | null = null,
+) => `(async () => {
   const card = document.querySelector('dialog.ab-card[open]')
   const text = card.querySelector('.ab-synopsis-text'), button = card.querySelector('.ab-synopsis .ab-more')
   const read = (at) => {
@@ -799,46 +805,63 @@ const FRAMES = (into: 'start' | 'center', reverseAt: number | null = null) => `(
       at: Math.round(at),
       height: box.height,
       full: text.scrollHeight,
+      top: box.top,
       spills: text.scrollHeight > text.clientHeight + 1 && style.overflowY === 'visible',
       below: [own.top - box.bottom, tags.top - box.bottom],
       fade: style.maskImage === 'none' ? null : style.maskPosition,
       says: button.textContent,
+      expanded: button.getAttribute('aria-expanded'),
       whole: own.top >= 0 && own.bottom <= innerHeight,
+      scroll: card.scrollTop,
       moving: text.getAnimations().length,
     }
   }
   const frame = () => new Promise((resolve) => requestAnimationFrame(resolve))
+  const keys = new Set(), animate = text.animate
+  text.animate = function (frames, options) {
+    Object.keys(frames).forEach((key) => keys.add(key))
+    return animate.call(this, frames, options)
+  }
   button.scrollIntoView({ block: '${into}' })
   await frame()
   await frame()
-  const before = read(0), frames = []
-  let reversed = null
+  const before = read(0), frames = [], then = ${JSON.stringify(then)}
+  let acted = null
   const start = performance.now()
   button.click()
   while (performance.now() - start < 900) {
     await frame()
     const at = performance.now() - start
     frames.push(read(at))
-    if (${reverseAt} !== null && reversed === null && at >= ${reverseAt}) {
-      reversed = frames.length
-      button.click()
+    if (then && acted === null && at >= then.at) {
+      acted = frames.length
+      if (then.act === 'reverse') button.click()
+      if (then.act === 'squeeze') text.style.maxWidth = '30ch'
+      if (then.act === 'wheel') {
+        card.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: -400 }))
+        card.scrollTop -= 400
+      }
     }
   }
-  return { before, frames, reversed }
+  delete text.animate
+  return { before, frames, acted, keys: [...keys] }
 })()`
 
 type Frame = {
   at: number
   height: number
   full: number
+  top: number
   spills: boolean
   below: number[]
   fade: string | null
   says: string
+  expanded: string | null
   whole: boolean
+  scroll: number
   moving: number
 }
-type Frames = { before: Frame; frames: Frame[]; reversed: number | null }
+type Frames = { before: Frame; frames: Frame[]; acted: number | null; keys: string[] }
 
 // How far down the fade lies, in percent of the room it has, from a mask's position: 100 at the
 // clamp's foot, 0 once it is out of sight below the text.
@@ -850,8 +873,14 @@ const fadeAt = (fade: string | null) =>
  * press `pressedAt` ms on: it must go one way only, through at least five heights in between, and
  * reach its new height, the whole text's opening or the `clamp`'s closing, within 450 ms, no frame
  * showing it at once, with no text spilling from its box, the button and the tags keeping their
- * places below its foot, the button whole on the screen if it was, and the fade moving part way in
- * three frames or more, out of sight below the text as it opens, back at the clamp's foot closed.
+ * places below its foot, aria-expanded saying the new state from the first frame, and the fade
+ * moving part way in three frames or more, out of sight below the text as it opens, back at the
+ * clamp's foot closed. In every frame the fade lies where the height puts it, at the clamp's foot
+ * at the clamp's height and out of sight at the full height, in proportion between, so it neither
+ * leaps at the start nor snaps back at the end. As the text opens, the reader keeps their place:
+ * the first new line, the clamp's foot, stays on the screen in every frame. The button stays whole
+ * on the screen if it was, except where `keepsButton` is false: a long text opening on a phone,
+ * where keeping it would scroll the lines being read off the screen's top.
  */
 function judgeSmooth(
   where: string,
@@ -860,6 +889,7 @@ function judgeSmooth(
   pressedAt: number,
   opening: boolean,
   clamp: number,
+  keepsButton = true,
 ): string[] {
   const problems: string[] = []
   const end = frames.at(-1)!
@@ -896,17 +926,42 @@ function judgeSmooth(
     problems.push(
       `${where}: the button and tags lay ${moved[0].below.map(Math.round)}px below the text's foot at ${moved[0].at} ms, not ${start.below.map(Math.round)}px`,
     )
+  const said = frames.filter((frame) => frame.expanded !== String(opening))
+  if (said.length)
+    problems.push(`${where}: aria-expanded said ${said[0].expanded} at ${said[0].at} ms`)
   const hidden = frames.filter((frame) => !frame.whole)
-  if (start.whole && hidden.length)
+  if (keepsButton && start.whole && hidden.length)
     problems.push(`${where}: the button left the screen at ${hidden[0].at} ms`)
+  const lost = frames.filter((frame) => frame.top + clamp < 0)
+  if (opening && lost.length)
+    problems.push(
+      `${where}: the first new line went off the screen's top, to ${Math.round(lost[0].top + clamp)}px, at ${lost[0].at} ms`,
+    )
   const fades = frames.map((frame) => fadeAt(frame.fade))
   const fading = fades.filter((at) => at !== null && at > 1 && at < 99).length
   if (fading < 3) problems.push(`${where}: the fade was part way in ${fading} frames`)
   if (fades.at(-1) !== (opening ? null : 100))
     problems.push(`${where}: the fade ended at ${fades.at(-1)}, not ${opening ? 'gone' : 100}`)
+  const astray = frames.find((frame, i) => {
+    const room = Math.min(Math.max((frame.height - clamp) / (frame.full - clamp), 0), 1)
+    return fades[i] !== null && Math.abs(fades[i]! - (100 - room * 100)) > 3
+  })
+  if (astray)
+    problems.push(
+      `${where}: the fade lay at ${fadeAt(astray.fade)}% at ${astray.height}px, ${astray.at} ms`,
+    )
   if (end.moving) problems.push(`${where}: ${end.moving} animations still on the text 900 ms on`)
   return problems
 }
+
+// The fade's position is animated by its prefixed name as well as its own: Chrome 111 to 119, in
+// the browser floor (spec §4), know only -webkit-mask-position, and drop a name they don't know,
+// so the fade would stay put as the text moved. No browser here is that old, so this reads the
+// names the animation was given.
+const prefixed = (where: string, { keys }: Frames) =>
+  keys.includes('maskPosition') && !keys.includes('webkitMaskPosition')
+    ? [`${where}: the fade was animated as ${keys}, with no webkitMaskPosition`]
+    : []
 
 /** What went wrong in an instant change, as under reduced motion: nothing in between, no motion. */
 function judgeInstant(where: string, { before, frames }: Frames): string[] {
@@ -925,11 +980,16 @@ test('with motion allowed, Read more grows the synopsis to its full height and S
   // moves from the clamp's five lines to the whole text, and back for Show less, in about 300 ms
   // with an ease out, the content below moving with its foot, never a frame showing the whole text
   // first, the fade at its foot sliding out of sight below it as it opens and back as it closes,
-  // and the button kept on the screen. A second press part way turns it back from where it is.
+  // and the button kept on the screen. Opening, the reader keeps their place: on a phone a long
+  // text would push the button far down, and following it would whip the lines being read up off
+  // the screen, so the card scrolls only as far as keeps the clamp's last line on it, and stops
+  // following as soon as the visitor scrolls. A second press part way turns it back from where it
+  // is, and a text that reflows as it opens grows on to its new height, with no snap at the end.
   // In the card at Frieren's address and in one opened over Discover from a search, from 280 to
   // 1440 px, in a fallback font, and with a long synopsis, closed far down it in a card without
   // scroll anchoring, as in Safari. Reduced motion, on the device or set on the site, keeps the
-  // change instant, with no animation (the walk in discover.e2e.ts holds the rest of the card).
+  // change instant, with no animation (the walk in discover.e2e.ts holds the rest of the card),
+  // and a long text opened on a phone keeps the reader's place there too.
   const seen: string[] = []
   const motion = async (screen: { width: number; height: number; phone?: boolean }) => {
     await browser.forget()
@@ -941,8 +1001,9 @@ test('with motion allowed, Read more grows the synopsis to its full height and S
     await browser.animationsDone()
   }
   // Read more, then Show less, each from rest, with the button `into` view first.
-  const both = async (where: string, into: 'start' | 'center' = 'center') => {
+  const both = async (where: string, into: 'start' | 'center' = 'center', keepsButton = true) => {
     const opened = await browser.evaluate<Frames>(FRAMES('center'))
+    const clamp = opened.before.height
     seen.push(
       ...judgeSmooth(
         `${where}, Read more`,
@@ -950,43 +1011,55 @@ test('with motion allowed, Read more grows the synopsis to its full height and S
         opened.frames,
         0,
         true,
-        opened.before.height,
+        clamp,
+        keepsButton,
       ),
+      ...prefixed(`${where}, Read more`, opened),
     )
     const closed = await browser.evaluate<Frames>(FRAMES(into))
     seen.push(
-      ...judgeSmooth(
-        `${where}, Show less`,
-        closed.before,
-        closed.frames,
-        0,
-        false,
-        opened.before.height,
-      ),
+      ...judgeSmooth(`${where}, Show less`, closed.before, closed.frames, 0, false, clamp),
+      ...prefixed(`${where}, Show less`, closed),
     )
     if (closed.frames.at(-1)?.says !== 'Read more') seen.push(`${where}: Show less didn't close`)
   }
+  // The steps from one frame to the next, in height, of `frames`.
+  const steps = (frames: Frame[]) =>
+    frames.slice(1).map((frame, i) => Math.abs(frame.height - frames[i].height))
   const PHONE = { width: 280, height: 653, phone: true }
   try {
     for (const screen of [PHONE, SCREENS[0], SCREENS[2]]) {
       await motion(screen)
       await both(`${screen.width}px at its address`)
       // Read more, then Show less 120 ms on, part way.
-      const turned = await browser.evaluate<Frames>(FRAMES('center', 120))
+      const turned = await browser.evaluate<Frames>(FRAMES('center', { at: 120, act: 'reverse' }))
       const where = `${screen.width}px, Show less part way`
-      const back = turned.reversed!
-      const steps = turned.frames
-        .slice(1, back)
-        .map((frame, i) => Math.abs(frame.height - turned.frames[i].height))
+      const back = turned.acted!
       const from = turned.frames[back - 1]
       const jump = Math.abs(turned.frames[back].height - from.height)
-      if (jump > Math.max(...steps, 0) + 2)
+      if (jump > Math.max(...steps(turned.frames.slice(0, back)), 0) + 2)
         seen.push(`${where}: jumped ${Math.round(jump)}px from ${from.height}px as it turned back`)
       const ahead = turned.frames.slice(back)
       seen.push(...judgeSmooth(where, from, ahead, from.at, false, turned.before.height))
       if (from.height <= turned.before.height + 1 || from.height >= from.full - 1)
         seen.push(`${where}: ${from.height}px at 120 ms, not part way`)
     }
+    // Read more, the text narrowed 100 ms on, near doubling its full height: it grows on to its new
+    // full height, with no step from one frame to the next bigger than a fifth of the way it still
+    // had to go, where it grew to the old height and then snapped to the new one in a frame.
+    await motion(SCREENS[2])
+    const squeezed = await browser.evaluate<Frames>(FRAMES('center', { at: 100, act: 'squeeze' }))
+    const narrowed = squeezed.acted!
+    const way = squeezed.frames.at(-1)!.full - squeezed.frames[narrowed - 1].height
+    const leaps = steps(squeezed.frames.slice(narrowed - 1))
+    const leap = leaps.findIndex((step) => step > way / 5)
+    if (leap >= 0)
+      seen.push(
+        `1440px, narrowed as it opened: leapt ${Math.round(leaps[leap])}px at ${squeezed.frames[narrowed + leap].at} ms, of the ${Math.round(way)}px it had still to go`,
+      )
+    const last = squeezed.frames.at(-1)!
+    if (Math.abs(last.height - last.full) > 1)
+      seen.push(`1440px, narrowed as it opened: ended ${last.height}px tall, not ${last.full}px`)
     for (const screen of [SCREENS[0], SCREENS[2]]) {
       await browser.forget()
       await browser.load(screen)
@@ -1017,18 +1090,44 @@ test('with motion allowed, Read more grows the synopsis to its full height and S
     const paragraph =
       'Frieren walks on, year after year, through towns and seasons, remembering the friends she outlived and learning, too late and just in time, what their years together meant.'
     await stageDescription(Array(12).fill(paragraph).join('<br><br>'))
+    const room = `(() => {
+      const card = document.querySelector('dialog.ab-card[open]')
+      card.style.overflowAnchor = 'none'
+      const room = document.createElement('div')
+      room.style.height = 2 * innerHeight + 'px'
+      card.querySelector('.ab-details').after(room)
+      return true
+    })()`
     for (const screen of [PHONE, SCREENS[2]]) {
       await motion(screen)
-      await browser.evaluate(`(() => {
-        const card = document.querySelector('dialog.ab-card[open]')
-        card.style.overflowAnchor = 'none'
-        const room = document.createElement('div')
-        room.style.height = 2 * innerHeight + 'px'
-        card.querySelector('.ab-details').after(room)
-        return true
-      })()`)
-      await both(`${screen.width}px, a long synopsis`, 'start')
+      await browser.evaluate(room)
+      await both(`${screen.width}px, a long synopsis`, 'start', false)
     }
+    // On a phone, a long synopsis opening, the visitor scrolling up 400px 60 ms on: the card is
+    // left where they scrolled it, not pulled back.
+    await motion(PHONE)
+    await browser.evaluate(room)
+    const wheeled = await browser.evaluate<Frames>(FRAMES('center', { at: 60, act: 'wheel' }))
+    const left = wheeled.frames[wheeled.acted!].scroll
+    const pulled = wheeled.frames.slice(wheeled.acted!).find((frame) => frame.scroll > left + 1)
+    if (pulled)
+      seen.push(
+        `280px, scrolled up as a long synopsis opened: pulled back from ${left}px to ${pulled.scroll}px at ${pulled.at} ms`,
+      )
+    // Under reduced motion, a long synopsis opening on a phone keeps its first new line on the
+    // screen too.
+    await browser.forget()
+    await browser.load({ ...PHONE, reduceMotion: true, url: at('/anime/154587') })
+    assert.ok(
+      await browser.waitFor(`document.querySelector('dialog.ab-card.is-landed')`, 10_000),
+      'no card landed for Frieren',
+    )
+    await browser.animationsDone()
+    await browser.evaluate(room)
+    const still = await browser.evaluate<Frames>(FRAMES('center'))
+    const line = still.frames.at(-1)!.top + still.before.height
+    if (line < 0)
+      seen.push(`280px, reduced motion, a long synopsis: the first new line went to ${line}px`)
     await browser.rewriteAniList(null)
     for (const site of [false, true]) {
       await browser.forget()
