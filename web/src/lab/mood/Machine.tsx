@@ -6,6 +6,7 @@ import type { Stop } from '../../features/mood/moods.ts'
 import { accentVars } from '../../features/theming/deriveAccent.ts'
 import { anySet, type Sliders } from './score.ts'
 import type { Options } from './switches.ts'
+import { PAGE } from './wording.ts'
 import { axesFor } from './words.ts'
 
 // A tap that moved less than this, in CSS pixels, over less than this long, is a tap, not a drag.
@@ -77,7 +78,7 @@ export function Machine({
       </div>
       <div className="ab-body">
         <fieldset className="ab-lab-sliders" disabled={off}>
-          <legend className="sr-only">Moods</legend>
+          <legend className="sr-only">{PAGE.group}</legend>
           <div className="ab-lab-slider-box" onPointerDown={down} onPointerUp={up}>
             {axes.map((axis) => (
               <MoodSlider
@@ -96,7 +97,7 @@ export function Machine({
           onClick={() => onSliders({ energy: 0, tone: 0, complexity: 0 })}
           disabled={off}
         >
-          Reset moods
+          {PAGE.reset}
         </button>
         {children}
       </div>

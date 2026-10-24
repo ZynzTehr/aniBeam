@@ -38,6 +38,8 @@ export const LINES = {
 export const DOORS = {
   hint: 'Fine-tune it with mood sliders',
   search: (term: string) => `No results for “${term}”. Try the Mood Matcher.`,
+  /** The part of the search's line that links to /mood. */
+  searchLink: 'Try the Mood Matcher.',
   allListed: 'Everything in the machine is on your list. Try another decade below.',
   teaser: 'Open the Mood Matcher',
   menu: 'ムード',

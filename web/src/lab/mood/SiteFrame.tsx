@@ -1,5 +1,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { SiteHeader, type NavLink } from '../../components/SiteHeader.tsx'
+import { AfterHost } from './after.ts'
+import { menuKana } from './doors.ts'
+import { DOORS } from './wording.ts'
 
 /**
  * The site's own header and footer around a section of the lab. A link that would leave the lab (a
@@ -19,7 +22,12 @@ export function SiteFrame({
   children: ReactNode
 }) {
   const [search, setSearch] = useState('')
+  const [after, setAfter] = useState<HTMLDivElement | null>(null)
   const [notice, setNotice] = useState('')
+  // The menu has katakana for the site's links; A3's Mood link needs its own (ムード).
+  useEffect(() => {
+    if (links.some(({ href }) => href === '/mood')) menuKana('/mood', DOORS.menu)
+  })
   useEffect(() => {
     const leave = (event: MouseEvent) => {
       const link = (event.target as Element).closest?.('a[href]')
@@ -53,10 +61,11 @@ export function SiteFrame({
           </button>
         </p>
       )}
-      {children}
+      <AfterHost.Provider value={after}>{children}</AfterHost.Provider>
       <footer className="ab-foot">
         <p>Data from AniList. AniBeam is not affiliated with AniList.</p>
       </footer>
+      <div ref={setAfter} className="ab-lab-after" />
     </div>
   )
 }

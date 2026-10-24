@@ -54,3 +54,16 @@ export function eraWords(era: EraId) {
   if (era === 'any') return 'any era'
   return `the ${era}`
 }
+
+/**
+ * Discover's machine on a first visit: the 1990s page and trending, 37 titles once a title on both
+ * is counted once (pool.ts lists the 1980s page's 19, then these, in this order).
+ */
+export const DISCOVER: LabTitle[] = TITLES.slice(19, 56)
+
+/** The matches' heading while no slider is set. */
+export function popularHeading(era: EraId) {
+  if (era === 'upcoming') return 'Most popular upcoming titles'
+  if (era === 'any') return 'Most popular of any era'
+  return `Most popular in ${eraWords(era)}`
+}

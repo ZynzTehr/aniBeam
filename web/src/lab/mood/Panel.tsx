@@ -37,6 +37,7 @@ export function Panel({
   const listed = useListIds().length
   const changed = SWITCHES.filter(({ key }) => options[key] !== DEFAULTS[key]).length
   const onMood = lab.section === 'mood'
+  const onList = lab.section !== 'wording'
   return (
     <aside className={open ? 'ab-lab-panel is-open' : 'ab-lab-panel'} aria-label="Switches">
       <button
@@ -110,7 +111,7 @@ export function Panel({
             <button
               type="button"
               className="ab-lab-button"
-              disabled={!onMood}
+              disabled={!onList}
               onClick={() => onCommand('twenty')}
             >
               Put 20 matches on My List
@@ -118,7 +119,7 @@ export function Panel({
             <button
               type="button"
               className="ab-lab-button"
-              disabled={!onMood}
+              disabled={!onList}
               onClick={() => onCommand('leave3')}
             >
               Leave 3
@@ -126,7 +127,7 @@ export function Panel({
             <button
               type="button"
               className="ab-lab-button"
-              disabled={!onMood}
+              disabled={!onList}
               onClick={() => onCommand('drain')}
             >
               Empty the pool
@@ -136,8 +137,9 @@ export function Panel({
             </button>
           </div>
           <p className="ab-lab-why">
-            “Leave 3” lists all but 3 of the era, so the next roll shows page 3 being fetched (a
-            simulated request). “Empty the pool” lists them all.
+            On the Mood page, “Leave 3” lists all but 3 of the era, so the next roll shows page 3
+            being fetched (a simulated request), and “Empty the pool” lists them all; on section 2,
+            they act on Discover’s machine.
           </p>
         </Group>
         <Group title="What the stage shows">

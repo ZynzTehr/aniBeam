@@ -20,12 +20,15 @@ export function Matches({
   options,
   sliders,
   titles,
+  slots = titles.length,
   heading,
   onOpen,
 }: {
   options: Options
   sliders: Sliders
   titles: LabTitle[]
+  /** How many slots to draw: those without a title hold their place, empty. */
+  slots?: number
   /** What the heading says when no slider is set, such as "Most popular in the 1990s". */
   heading: string
   onOpen: OpenTitle
@@ -36,12 +39,12 @@ export function Matches({
   const before = useRef(new Map<string, DOMRect>())
   const order = titles.map(({ id }) => id).join(' ')
   useLayoutEffect(() => {
-    const slots = [...(list.current?.children ?? [])] as HTMLElement[]
+    const drawn = [...(list.current?.querySelectorAll<HTMLElement>('[data-id]') ?? [])]
     const was = before.current
     const slide = options.a7move === 'slide' && !reducedMotion()
-    before.current = new Map(slots.map((slot) => [slot.dataset.id!, slot.getBoundingClientRect()]))
+    before.current = new Map(drawn.map((slot) => [slot.dataset.id!, slot.getBoundingClientRect()]))
     if (!slide) return
-    for (const slot of slots) {
+    for (const slot of drawn) {
       const from = was.get(slot.dataset.id!)
       const to = before.current.get(slot.dataset.id!)
       if (!from || !to || (from.left === to.left && from.top === to.top)) continue
@@ -103,6 +106,15 @@ export function Matches({
             </li>
           )
         })}
+        {Array.from({ length: Math.max(0, slots - titles.length) }, (_, i) => (
+          <li key={`empty-${i}`} className="ab-lab-slot is-empty" aria-hidden="true">
+            <span className="ab-lab-match">
+              <span className="ab-lab-cover" />
+              <span className="ab-lab-match-title" />
+              <span className="ab-lab-match-why" />
+            </span>
+          </li>
+        ))}
       </ol>
     </section>
   )

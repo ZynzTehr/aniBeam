@@ -972,3 +972,112 @@
   background: var(--ink);
   color: #fff;
 }
+
+/* ---------- Eras, placements, doors ---------- */
+.ab-lab-eras {
+  margin-bottom: 18px;
+}
+
+/* An empty slot: the place of a match there is none for. */
+.ab-lab-slot.is-empty .ab-lab-cover {
+  border-style: dashed;
+  background: rgb(20 20 20 / 0.06);
+  box-shadow: none;
+}
+
+/* After the site's footer, the lab's boxes. */
+.ab-lab-after {
+  display: grid;
+  padding-bottom: 80px;
+}
+
+.ab-lab-doors {
+  display: grid;
+}
+
+.ab-lab-door {
+  color: var(--ink);
+  font-weight: 800;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+
+.ab-lab-door:focus-visible,
+.ab-lab-stamp:focus-visible {
+  outline: 4px solid var(--hot);
+  outline-offset: 3px;
+}
+
+/* A2 (b): Discover's machine as a teaser, one button in its place. */
+.ab-lab-teaser {
+  display: grid;
+  justify-items: center;
+  gap: 18px;
+  padding-bottom: 24px;
+}
+
+.ab-lab-stamp {
+  padding: 0 24px;
+  box-shadow: 5px 5px 0 var(--hot);
+  font: 400 20px var(--display);
+  text-decoration: none;
+  transform: rotate(-2deg);
+}
+
+/* The wording. */
+.ab-lab-words {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ab-lab-words li {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgb(20 20 20 / 0.15);
+}
+
+.ab-lab-string {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+/* Offline with nothing saved, the sliders are off, and look it. */
+.ab-lab-sliders:disabled {
+  opacity: 0.55;
+}
+
+/* A1 (b)'s top 3, under the result in its narrow column. */
+.ab-reveal .ab-lab-matches {
+  width: 100%;
+  margin-top: 24px;
+}
+
+.ab-reveal .ab-lab-matches-head {
+  font-size: 26px;
+}
+
+/* A phone: the lab's bar in fewer rows. */
+@media (max-width: 600px) {
+  .ab-lab-name {
+    font-size: 16px;
+  }
+
+  .ab-lab-counters {
+    margin-left: 0;
+  }
+
+  .ab-lab-counter {
+    padding: 1px 7px;
+    font-size: 11px;
+  }
+
+  .ab-lab-caption {
+    font-size: 11.5px;
+  }
+}

@@ -11,7 +11,7 @@ import { rarityOf } from './words.ts'
 /** A roll in the lab's log: new or a repeat, and whether the lab takes it for a sequel. */
 export type LogRow = { roll: number; id: number; title: string; repeat: boolean; sequel: boolean }
 
-/** A line the page shows after a roll. */
+/** What the page's line says of the next roll: nothing left, only repeats, or few left. */
 export type RollLine = 'few' | 'repeat' | 'empty' | null
 
 /** What the page draws of the gacha. */
@@ -22,8 +22,6 @@ type View = {
   phase: Phase
   veiled: boolean
   status: string
-  line: RollLine
-  left: number
   log: LogRow[]
 }
 
@@ -34,10 +32,10 @@ const START: View = {
   phase: 'idle',
   veiled: false,
   status: '',
-  line: null,
-  left: 0,
   log: [],
 }
+
+const NONE: number[] = []
 
 /**
  * The gacha's state for the visit (B3 a: in memory, cleared on reload): the ring of the last 30
@@ -53,6 +51,7 @@ export function useGacha({
   listed,
   sliderSet,
   era,
+  seed = NONE,
   onPage3,
 }: {
   options: Options
@@ -61,6 +60,8 @@ export function useGacha({
   listed: Set<number>
   sliderSet: boolean
   era: string
+  /** Titles counted as rolled before the visit's first roll (the lab's Repeat state). */
+  seed?: number[]
   onPage3: () => void
 }) {
   // What the page draws, and the same kept for the handlers between draws, with what only they
@@ -78,7 +79,7 @@ export function useGacha({
       ranked,
       distances,
       listed,
-      ring,
+      ring: [...seed.filter((id) => !ring.includes(id)), ...ring],
       sliderSet,
       random,
       shown,
@@ -106,10 +107,7 @@ export function useGacha({
   function roll() {
     const now = state.current
     const next = ask(Math.random, now.ring, now.media?.id)
-    if (!next.media) {
-      now.line = 'empty'
-      return publish()
-    }
+    if (!next.media) return
     const { media } = next
     const repeat = now.seen.has(media.id)
     now.seen.add(media.id)
@@ -118,8 +116,6 @@ export function useGacha({
     now.media = media
     now.phase = 'turning'
     now.veiled = !reducedMotion()
-    now.line = next.reason === 'repeat' ? 'repeat' : next.reason === 'few' ? 'few' : null
-    now.left = Math.max(0, next.left - 1)
     now.log = [
       ...now.log,
       { roll: now.roll, id: media.id, title: titleOf(media), repeat, sequel: media.sequel },
@@ -138,15 +134,24 @@ export function useGacha({
     for (let i = 0; i < times; i++) {
       finish()
       roll()
-      if (state.current.line === 'empty' && state.current.phase !== 'turning') break
     }
   }
 
-  // Whether a roll could find anything: the lever is off, and the empty line shows, when not.
-  const empty = ask(() => 0, view.ring, view.media?.id).media === null
+  // What the next roll would find: nothing (the lever is off, and the empty line shows), only
+  // recent rolls (the repeat line), or few titles (the few line, with how many).
+  const next = ask(() => 0, view.ring, view.media?.id)
+  const empty = next.media === null
+  const line: RollLine = empty
+    ? 'empty'
+    : next.reason === 'repeat'
+      ? 'repeat'
+      : next.reason === 'few'
+        ? 'few'
+        : null
   return {
     ...view,
-    line: empty ? ('empty' as const) : view.line,
+    line,
+    left: next.left,
     empty,
     distinct: new Set(view.log.slice(-30).map(({ id }) => id)).size,
     press,
