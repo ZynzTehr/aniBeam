@@ -975,6 +975,82 @@ test('a jump by an intro button swaps the sets at once, with no flight', async (
   assert.equal(await browser.evaluate(CURRENT), '#pull')
 })
 
+// From now on, each set of links the page shows (data-links, or none) as it changes, and whether a
+// flight starts (see lib/sectionNav.ts), read by SEEN, with the scroll.
+const WATCH_SETS = `(() => {
+  window.__seen = { sets: [], flew: false }
+  window.__watch?.disconnect()
+  window.__watch = new MutationObserver(() => {
+    const set = document.querySelector('.ab-app').dataset.links ?? 'none'
+    if (window.__seen.sets.at(-1) !== set) window.__seen.sets.push(set)
+    if (document.querySelector('.ab-flight')?.hasAttribute('data-flying')) window.__seen.flew = true
+  })
+  window.__watch.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['data-links', 'data-flying'] })
+  return true
+})()`
+const SEEN = `({ top: scrollY, ...window.__seen })`
+
+test('AniBeam, clicked or pressed with Enter while the intro’s buttons are docked, goes to the top with the sets swapped at once, with no flight, as a jump does', async () => {
+  await browser.load(DESKTOP)
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.animationsDone()
+  for (const how of ['a click', 'Enter'] as const) {
+    await browser.evaluate(
+      `document.getElementById('decades').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
+    )
+    await frames()
+    assert.equal((await browser.evaluate<{ links: string }>(SHOWN)).links, 'header', how)
+    await browser.evaluate(WATCH_SETS)
+    if (how === 'a click') {
+      // Pressed and let go a few frames apart, as a hand does: the focus the press gives AniBeam
+      // is no longer new as the page scrolls, so the page can't take its scroll for focus's.
+      const { x, y } = await middleOf('.ab-logo')
+      await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y })
+      const press = { x, y, button: 'left', clickCount: 1 }
+      await browser.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...press })
+      await frames()
+      await frames()
+      await browser.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...press })
+      await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 890 })
+    } else {
+      // Enter on AniBeam, focused a moment before: no focus moves as the page goes to its top.
+      await browser.evaluate(`document.querySelector('.ab-logo').focus(); true`)
+      await frames()
+      await browser.press('Enter')
+    }
+    // Longer than a flight lasts.
+    await sleep(700)
+    assert.deepEqual(
+      await browser.evaluate(SEEN),
+      { top: 0, sets: ['intro'], flew: false },
+      `AniBeam by ${how}`,
+    )
+  }
+})
+
+test('AniBeam clicked while searching brings the intro back in the next frame, the results gone with the search', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.search('frieren')
+  assert.ok(
+    await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`, 10_000),
+  )
+  assert.deepEqual(
+    await browser.evaluate(`(async () => {
+      document.querySelector('.ab-logo').click()
+      await new Promise(requestAnimationFrame)
+      return {
+        search: document.querySelector('.ab-search textarea').value,
+        intro: Boolean(document.querySelector('.ab-intro-actions')),
+        results: Boolean(document.querySelector('.ab-results')),
+      }
+    })()`),
+    { search: '', intro: true, results: false },
+    'a frame after AniBeam was clicked',
+  )
+})
+
 test('each flying copy’s shadow fades to the look it lands on, My List’s as a plain link’s does, no copy of it lands yellow, and a dock starts below the header, not over it', async () => {
   // Twice: as the page is, where Trending is the section the visitor is in by the time the
   // buttons dock, and with the sections pushed far down, so that none is yet.

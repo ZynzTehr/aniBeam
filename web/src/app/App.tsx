@@ -251,8 +251,9 @@ export default function App() {
   // Screen readers hear search outcomes from one line that is always on the page.
   const [announcement, setAnnouncement] = useState('')
   // Debounce every change to the box, then trim what is searched: a typed space, or a letter an
-  // input method is still converting, is typing too, so it restarts the pause.
-  const term = useDebounced(search, 300).text.trim()
+  // input method is still converting, is typing too, so it restarts the pause. An emptied box (its
+  // X, Esc, AniBeam) has nothing to wait for: the results go at once, not 300 ms after the text.
+  const term = useDebounced(search, 300, (box) => !box.text).text.trim()
   // Results show on Discover, not on My List: a search typed there goes to /, as a new history
   // entry, so Back returns to My List, and shows its results there (the plan's D11). Only as the
   // search starts or changes: back on My List with a search still in the box, the page stays My
@@ -351,7 +352,9 @@ export default function App() {
   // AniBeam empties the search too, as the app loaded again did. On My List, a section's link
   // (/#pull) goes to Discover the same way, and jumps to its heading once Discover has drawn, as
   // the link does there: followed by the browser, a new page would draw the section only after
-  // the browser's own jump. Any other click (a new tab, say) is the browser's.
+  // the browser's own jump. Any other click (a new tab, say) is the browser's. Going to the top is
+  // a jump too, which the section links tell apart from a visitor's scroll: the intro's buttons
+  // swap in at once, with no flight down from the header.
   const go = (event: MouseEvent<HTMLAnchorElement>) => {
     if (!isPlainClick(event)) return
     event.preventDefault()
@@ -362,7 +365,10 @@ export default function App() {
     })
     const [, section] = to.split('#')
     if (section) jumpTo(section, event.nativeEvent)
-    else scrollTo({ top: 0, behavior: 'instant' })
+    else {
+      scrollTo({ top: 0, behavior: 'instant' })
+      sectionNav.current?.jumped()
+    }
   }
 
   // Search results take the intro's place at the top of the page; bring them into view.

@@ -586,6 +586,16 @@ export function startSectionNav({
       docked = false
       evaluate()
     },
+    /**
+     * The page has just scrolled itself (AniBeam going to the top, say), moving no focus: the sets
+     * swap at once, as for any jump, and the scroll's event, still to come, finds them swapped.
+     */
+    jumped() {
+      finishFlight()
+      cancelAnimationFrame(frame)
+      scrolledByVisitor = false
+      evaluate()
+    },
     stop() {
       finishFlight()
       layer.remove()
