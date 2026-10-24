@@ -9,6 +9,8 @@ const WIDTHS: [Lab['width'], string][] = [
   ['280', '280'],
   ['390', '390'],
   ['768', '768'],
+  ['900', '900'],
+  ['1100', '1100'],
   ['1440', '1440'],
 ]
 
@@ -57,9 +59,10 @@ export function Panel({
       <div id="ab-lab-switches" className="ab-lab-switches">
         <p className="ab-lab-intro">
           Each switch is numbered by its decision in the Phase 5 plan, and starts on the option
-          marked <span className="ab-lab-rec">Recommended</span>. Pick one on every switch; the lab
-          keeps your picks in the address, so a link shows the same view. The lab scores with every
-          recorded tag; the site keeps every tag the mood map uses.
+          marked <span className="ab-lab-rec">Recommended</span> (B2 waits for the sequel probe).
+          Pick one on every switch; the lab keeps your picks in the address, so a link shows the
+          same view. The lab scores with every recorded tag; the site keeps every tag the mood map
+          uses.
         </p>
         <Group title="Try it">
           <div className="ab-lab-row">
@@ -100,7 +103,22 @@ export function Panel({
               />
               <span>Spoiler check</span>
             </label>
+            <label className="ab-lab-check">
+              <input
+                type="checkbox"
+                checked={lab.franchise === 'one'}
+                onChange={(event) => onLab({ franchise: event.target.checked ? 'one' : 'all' })}
+              />
+              <span>One per franchise</span>
+            </label>
           </div>
+          <p className="ab-lab-why">
+            The lab’s 2000s, 2010s and 2020s are mostly franchise searches recorded for the browser
+            checks (13 Attack on Titan entries in the 2010s’ 51 titles), so their matches repeat a
+            few shows. Judge the scoring on the 1980s, the 1990s or Any era, or tick “One per
+            franchise” to keep each franchise’s best match in Top matches. The real pool is about
+            100 popular titles per era.
+          </p>
         </Group>
         <Group title="The lab’s list">
           <p className="ab-lab-why">
@@ -177,7 +195,7 @@ export function Panel({
               <b className="ab-lab-num">{choice.decision}</b> {choice.legend}
             </legend>
             <div className="ab-lab-options">
-              {choice.options.map(({ value, label, recommended }) => (
+              {choice.options.map(({ value, label, recommended }, i) => (
                 <label key={value} className="ab-chip">
                   <input
                     type="radio"
@@ -185,11 +203,15 @@ export function Panel({
                     value={value}
                     checked={options[choice.key] === value}
                     data-recommended={recommended ? '' : undefined}
+                    data-working={choice.undecided && i === 0 ? '' : undefined}
                     onChange={() => onChoose(choice.key, value)}
                   />
                   <span>
                     {label}
                     {recommended && <small className="ab-lab-rec">Recommended</small>}
+                    {choice.undecided && i === 0 && (
+                      <small className="ab-lab-rec ab-lab-undecided">{choice.undecided}</small>
+                    )}
                   </span>
                 </label>
               ))}

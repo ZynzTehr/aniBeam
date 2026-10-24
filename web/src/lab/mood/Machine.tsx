@@ -93,7 +93,7 @@ export function Machine({
         {/* Its room is kept while it is hidden, so nothing moves as it comes and goes. */}
         <button
           type="button"
-          className={showReset ? 'ab-lab-reset' : 'ab-lab-reset is-hidden'}
+          className={showReset ? 'ab-lab-reset' : 'ab-lab-reset ab-lab-hidden'}
           onClick={() => onSliders({ energy: 0, tone: 0, complexity: 0 })}
           disabled={off}
         >

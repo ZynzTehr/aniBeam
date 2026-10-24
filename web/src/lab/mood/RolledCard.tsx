@@ -112,10 +112,10 @@ export function RolledCard({
       <div className="ab-result-copy">
         <div
           key={`copy-${roll}`}
-          className={hidden ? 'ab-lab-copy is-hidden' : 'ab-lab-copy'}
+          className={hidden ? 'ab-lab-copy ab-lab-hidden' : 'ab-lab-copy'}
           inert={hidden}
         >
-          <p className={showRarity ? 'ab-tier' : 'ab-tier is-hidden'}>
+          <p className={showRarity ? 'ab-tier' : 'ab-tier ab-lab-hidden'}>
             {rarity.label} <span aria-hidden="true">{rarity.stars}</span>
           </p>
           <h3 className="ab-lab-card-title">{titleOf(shown)}</h3>
@@ -132,7 +132,7 @@ export function RolledCard({
           {showRarity && <p className="ab-lab-rule">{RULES[options.a11rule]}</p>}
         </div>
         {/* Before the first roll the actions keep their room, unseen and out of reach. */}
-        <div className={idle ? 'ab-lab-actions is-hidden' : 'ab-lab-actions'} inert={idle}>
+        <div className={idle ? 'ab-lab-actions ab-lab-hidden' : 'ab-lab-actions'} inert={idle}>
           {options.a10card === 'full' ? (
             <ListControls id={shown.id} />
           ) : (

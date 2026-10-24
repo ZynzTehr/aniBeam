@@ -5,7 +5,15 @@ import { LabBoxes } from './LabBoxes.tsx'
 import { MachineRow } from './MachineRow.tsx'
 import { Matches } from './Matches.tsx'
 import type { Heard, Shown } from './Stage.tsx'
-import { eraWords, LAB_ERAS, popularHeading, titlesIn, type EraId } from './titles.ts'
+import {
+  eraWords,
+  FRANCHISE_ERAS,
+  LAB_ERAS,
+  onePerFranchise,
+  popularHeading,
+  titlesIn,
+  type EraId,
+} from './titles.ts'
 import { useCommands, useMood } from './useMood.ts'
 import { PAGE } from './wording.ts'
 
@@ -57,9 +65,10 @@ export function MoodPage({
 
   const section = useRef<HTMLElement>(null)
   const count = options.a7count === 'none' ? 0 : Number(options.a7count)
-  const matches = mood.rankedTitles
-    .filter((media) => options.a7listed === 'stay' || !mood.listed.has(media.id))
-    .slice(0, count)
+  const listedOk = mood.rankedTitles.filter(
+    (media) => options.a7listed === 'stay' || !mood.listed.has(media.id),
+  )
+  const matches = (lab.franchise === 'one' ? onePerFranchise(listedOk) : listedOk).slice(0, count)
   const chips = LAB_ERAS.filter(({ id }) => id !== 'any' || options.a13 === 'any')
   return (
     <>
@@ -108,7 +117,10 @@ export function MoodPage({
         mood={mood}
         extra={
           <p className="ab-lab-why">
-            Recorded titles in {eraWords(era)}: {base.titles.length}. The real pool is about 100.
+            Lab data: 177 recorded titles. Recorded titles in {eraWords(era)}: {base.titles.length}.
+            The real pool is about 100 popular titles per era.
+            {FRANCHISE_ERAS.includes(era) &&
+              ' These are mostly franchise searches recorded for the browser checks, so the matches repeat a few shows: judge the scoring on the 1980s, the 1990s or Any era, or tick “One per franchise”.'}
           </p>
         }
       />

@@ -20,7 +20,8 @@ export type Options = {
   a9style: 'f1' | 'f2' | 'f3'
   a9time: '700' | '450' | '900'
   a9edge: 'off' | 'on'
-  a10lever: 'roll' | 'pull'
+  a9press: 'finish' | 'roll'
+  a10lever: 'roll' | 'again' | 'pull'
   a10card: 'full' | 'compact'
   a11: 'show' | 'hide'
   a11rule: 'never' | 'luck'
@@ -46,6 +47,11 @@ export type Switch = {
   options: { value: string; label: string; recommended?: boolean }[]
   /** What the choice weighs, in a sentence or two. */
   note: string
+  /**
+   * Set where the plan leaves the choice open until a later finding (B2, until the sequel probe):
+   * no option is marked recommended, and the first, the working default, carries this badge.
+   */
+  undecided?: string
   /** Where it shows. */
   section: Section
 }
@@ -88,7 +94,7 @@ export const SWITCHES: Switch[] = [
       { value: 'header', label: 'The header’s Pull becomes Mood (ムード)' },
       { value: 'fifth', label: 'A fifth header link' },
     ],
-    note: 'The doors leave the dock’s flight and the Tab walks as you signed them off. The header options rework the dock at 900 and 1100 px: try the 768 and 1440 widths.',
+    note: 'The doors leave the dock’s flight and the Tab walks as you signed them off. The header options rework the dock at 900 and 1100 px. The lab shows the header as it is once docked, and does not run the intro’s dock or its flight, so judge the header alone: try the 900 and 1100 widths.',
     section: 'doors',
   },
   {
@@ -194,7 +200,7 @@ export const SWITCHES: Switch[] = [
       { value: 'matched', label: '“Matched on Iyashikei and Episodic.”' },
       { value: 'stickers', label: 'Two tag stickers in the title’s color' },
     ],
-    note: 'Two non-spoiler tags that push hardest toward your sliders, falling back to a genre; hidden when every slider is at No preference. Spoiler tags count but are never named: turn on “Spoiler check”.',
+    note: 'Two non-spoiler tags that push hardest toward your sliders, falling back to a genre; hidden when every slider is at No preference. Spoiler tags count but are never named: turn on “Spoiler check”. A title with nothing at a slider’s end can still rank (Hunter x Hunter in the 1990s at Complexity “Pure popcorn”): its Why is then empty. Say whether an empty line is fine.',
     section: 'mood',
   },
   {
@@ -206,7 +212,7 @@ export const SWITCHES: Switch[] = [
       { value: 'f2', label: 'F2: the card flip alone' },
       { value: 'f3', label: 'F3: today’s capsule, no flip' },
     ],
-    note: 'A second press during the flip finishes it at once and never queues another roll. Under Reduce motion every option is a 150 ms crossfade, and the lever stays still.',
+    note: 'Under Reduce motion every option is a 150 ms crossfade, and the lever stays still.',
     section: 'mood',
   },
   {
@@ -233,6 +239,21 @@ export const SWITCHES: Switch[] = [
     section: 'mood',
   },
   {
+    key: 'a9press',
+    decision: 'A9',
+    legend: 'A second press while the card flips',
+    options: [
+      {
+        value: 'finish',
+        label: 'Finishes the flip at once and rolls nothing',
+        recommended: true,
+      },
+      { value: 'roll', label: 'Finishes the flip and starts the next roll at once' },
+    ],
+    note: 'Neither ever queues a roll. The plan’s A9 says the first; its PR 4 says the second. Press the lever twice quickly to feel each.',
+    section: 'mood',
+  },
+  {
     key: 'a10lever',
     decision: 'A10',
     legend: 'The lever',
@@ -242,9 +263,10 @@ export const SWITCHES: Switch[] = [
         label: '“Roll!” then “Again!”, named “Roll a random anime”',
         recommended: true,
       },
+      { value: 'again', label: '“Roll!” then “Roll again!”, the same name' },
       { value: 'pull', label: '“Pull!” wording, as on Discover' },
     ],
-    note: 'The spec names the button “Roll a random anime”. Discover’s quick pull keeps “Pull!”.',
+    note: 'The spec names the button “Roll a random anime”. Discover’s quick pull keeps “Pull!”. After the first roll, “Again!” is not in that name, which WCAG 2.5.3 (Label in Name) asks for, so voice control’s “Click Again” finds nothing; “Roll again!” starts with the name’s first word.',
     section: 'mood',
   },
   {
@@ -332,16 +354,17 @@ export const SWITCHES: Switch[] = [
     decision: 'B2',
     legend: 'Sequels',
     options: [
-      { value: 'allowed', label: 'Allowed', recommended: true },
+      { value: 'allowed', label: 'Allowed' },
       { value: 'skip', label: 'Skipped while another season came up in your last 30' },
       { value: 'first', label: 'First seasons only' },
     ],
-    note: 'Decided after the main session’s sequel probe (REC-5). “Roll 20” marks sequels, guessed here from the titles. In the recordings: 3 of 19 on the 1980s page, 2 of 19 on the 1990s page, 8 of 19 trending.',
+    note: 'Not recommended yet: the plan picks (a) only if under about 15% of a real pool are sequels, else (b), and the main session’s probe (REC-5) counts that. “Allowed” is only the working default. The lab’s guess from the titles is near the line on older decades and well over it on trending: 3 of 19 on the 1980s page, 2 of 19 on the 1990s page, 8 of 19 trending. “Roll 20” marks sequels.',
     section: 'mood',
+    undecided: 'Decided after the probe',
   },
 ]
 
-/** Each switch's first option: the recommended one. */
+/** Each switch's first option: the recommended one, or the working default while undecided. */
 export const DEFAULTS = Object.fromEntries(
   SWITCHES.map(({ key, options }) => [key, options[0].value]),
 ) as Options
@@ -363,7 +386,7 @@ export type State = (typeof STATES)[number][0]
 export type Lab = {
   section: Section
   /** The stage's width: the room there is, or a fixed width. */
-  width: 'fit' | '280' | '390' | '768' | '1440'
+  width: 'fit' | '280' | '390' | '768' | '900' | '1100' | '1440'
   state: State
   motion: 'full' | 'reduce'
   /** The decade last picked on Discover, for A13 (a). */
@@ -371,6 +394,8 @@ export type Lab = {
   /** The debug view of each title's scores, and the spoiler check. */
   scores: 'off' | 'on'
   spoilers: 'off' | 'on'
+  /** Top matches with one title per franchise (the recordings repeat a few franchises). */
+  franchise: 'all' | 'one'
 }
 
 export const LAB_DEFAULTS: Lab = {
@@ -381,16 +406,18 @@ export const LAB_DEFAULTS: Lab = {
   last: '1990s',
   scores: 'off',
   spoilers: 'off',
+  franchise: 'all',
 }
 
 const LAB_VALUES: { [K in keyof Lab]: readonly string[] } = {
   section: SECTIONS.map(({ key }) => key),
-  width: ['fit', '280', '390', '768', '1440'],
+  width: ['fit', '280', '390', '768', '900', '1100', '1440'],
   state: STATES.map(([key]) => key),
   motion: ['full', 'reduce'],
   last: LAB_ERAS.filter(({ id }) => id !== 'any').map(({ id }) => id),
   scores: ['off', 'on'],
   spoilers: ['off', 'on'],
+  franchise: ['all', 'one'],
 }
 
 /** The choices and the lab's state in the address, where they name a known value. */

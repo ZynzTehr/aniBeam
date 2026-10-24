@@ -62,7 +62,7 @@ export function Matches({
         {set ? 'Top matches' : heading}
       </h2>
       {/* The set words' room is kept while none is set, so the slots stay where they are. */}
-      <p className={set ? 'ab-lab-set' : 'ab-lab-set is-hidden'}>{setWords(sliders) || '·'}</p>
+      <p className={set ? 'ab-lab-set' : 'ab-lab-set ab-lab-hidden'}>{setWords(sliders) || '·'}</p>
       <ol ref={list} className="ab-lab-grid">
         {titles.map((media) => {
           const rarity = rarityOf(media.averageScore)

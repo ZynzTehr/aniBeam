@@ -6,7 +6,7 @@ import { MachineRow } from './MachineRow.tsx'
 import { Matches } from './Matches.tsx'
 import type { OnRolls } from './MoodPage.tsx'
 import type { Heard, Shown } from './Stage.tsx'
-import { DISCOVER, popularHeading } from './titles.ts'
+import { DISCOVER, onePerFranchise, popularHeading } from './titles.ts'
 import { useCommands, useMood } from './useMood.ts'
 
 /**
@@ -52,7 +52,10 @@ export function DiscoverSliders({
             <Matches
               options={options}
               sliders={mood.moods}
-              titles={mood.rankedTitles.slice(0, 3)}
+              titles={(shown.lab.franchise === 'one'
+                ? onePerFranchise(mood.rankedTitles)
+                : mood.rankedTitles
+              ).slice(0, 3)}
               slots={3}
               heading={popularHeading('1990s')}
               onOpen={onOpen}

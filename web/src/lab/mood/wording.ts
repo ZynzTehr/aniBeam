@@ -10,6 +10,7 @@ export const RULES = {
 /** The lever's visible words and its name (A10). */
 export const LEVER = {
   roll: { first: 'Roll!', again: 'Again!', name: 'Roll a random anime' },
+  again: { first: 'Roll!', again: 'Roll again!', name: 'Roll a random anime' },
   pull: { first: 'Pull!', again: 'Again!', name: undefined },
 }
 

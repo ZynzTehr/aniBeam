@@ -67,3 +67,17 @@ export function popularHeading(era: EraId) {
   if (era === 'any') return 'Most popular of any era'
   return `Most popular in ${eraWords(era)}`
 }
+
+/** The eras whose recorded titles are mostly the browser checks' franchise searches. */
+export const FRANCHISE_ERAS: readonly EraId[] = ['2000s', '2010s', '2020s']
+
+/** Each franchise's first title, in order (the lab's "One per franchise", for Top matches). */
+export function onePerFranchise(titles: LabTitle[]): LabTitle[] {
+  const seen = new Set<string>()
+  return titles.filter(({ id, franchise }) => {
+    const key = franchise || `#${id}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+}

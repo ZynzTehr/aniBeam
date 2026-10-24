@@ -135,7 +135,7 @@ function Shell() {
           <b>Mood lab</b> <small className="ab-lab-wide">Draft, never merged</small>
         </h1>
         {/* Not a live region: a roll is read once, from the stage's status line, and these change
-            with every roll. On a phone they take their short words, to keep the bar to two rows. */}
+            with every roll. On a phone they take their short words, so the bar keeps two rows. */}
         <p className="ab-lab-counters">
           <span className={requests ? 'ab-lab-counter is-bad' : 'ab-lab-counter'}>
             <span className="ab-lab-wide">AniList requests: </span>

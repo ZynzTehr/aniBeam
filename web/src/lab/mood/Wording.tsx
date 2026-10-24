@@ -37,6 +37,12 @@ const GROUPS: { title: string; rows: Row[] }[] = [
         where: 'The lever, before and after the first roll (A10)',
         lab: MOOD,
       },
+      {
+        text: `${LEVER.again.first} / ${LEVER.again.again}`,
+        where: 'Or, A10’s other wording, which keeps the name’s first word in view (WCAG 2.5.3)',
+        lab: MOOD,
+        picks: { a10lever: 'again' },
+      },
       { text: LEVER.roll.name ?? '', where: 'The lever’s name for screen readers', lab: MOOD },
       {
         text: `${countLine(0, false)} / ${countLine(7, false)}`,

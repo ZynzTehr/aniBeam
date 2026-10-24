@@ -40,9 +40,9 @@ const NONE: number[] = []
 /**
  * The gacha's state for the visit (B3 a: in memory, cleared on reload): the ring of the last 30
  * rolls, the title rolled and where its flip is, the status line, and the lab's log. A press while
- * the flip plays finishes it at once and rolls nothing (A9); nothing is ever queued. Page 3 of an
- * era would be fetched once, when fewer than 10 titles can still come up, counted before the
- * slider window (A12): the lab shows it as a simulated request, `onPage3`.
+ * the flip plays finishes it at once, then rolls nothing or the next (A9); nothing is ever queued.
+ * Page 3 of an era would be fetched once, when fewer than 10 titles can still come up, counted
+ * before the slider window (A12): the lab shows it as a simulated request, `onPage3`.
  */
 export function useGacha({
   options,
@@ -98,9 +98,12 @@ export function useGacha({
     publish()
   }
 
-  /** The lever: a roll, or, while a flip plays, the end of it. */
+  /** The lever: a roll, or while a flip plays its end (and with A9's second option, the next). */
   function press() {
-    if (state.current.phase === 'turning') return finish()
+    if (state.current.phase === 'turning') {
+      finish()
+      if (options.a9press === 'finish') return
+    }
     roll()
   }
 

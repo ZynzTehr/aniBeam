@@ -59,6 +59,11 @@
   margin-left: 6px;
 }
 
+/* B2's badge, while the plan waits for the sequel probe: white, not the recommendation's yellow. */
+.ab-lab-undecided {
+  background: #fff;
+}
+
 /* The two counters, in the bar's corner. */
 .ab-lab-counters {
   display: flex;
@@ -537,7 +542,7 @@
 }
 
 /* Hidden, a part keeps its room, so nothing moves as it comes and goes. */
-.is-hidden {
+.ab-lab-hidden {
   visibility: hidden;
 }
 
