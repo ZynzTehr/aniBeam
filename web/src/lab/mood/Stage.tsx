@@ -46,14 +46,12 @@ export function Stage() {
     const report: Report = { type: 'ab-lab-up', requests, ...rolls }
     parent.postMessage(report, location.origin)
   }, [requests, rolls])
-  void setRolls
-  void heard
   const name = SECTIONS.find(({ key }) => key === lab.section)?.name
   return (
     <div className="ab-lab-page">
       <title>{`${name} · Mood lab`}</title>
       {lab.section === 'mood' ? (
-        <MoodStage shown={shown} />
+        <MoodStage shown={shown} heard={heard} onRolls={setRolls} />
       ) : (
         <main id="main">
           <p className="ab-lab-why">{name}: built in a later commit.</p>
