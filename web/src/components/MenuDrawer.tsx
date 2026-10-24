@@ -1,14 +1,19 @@
-import { useEffect, useRef, type RefObject } from 'react'
+import { useEffect, useRef, type MouseEvent as ClickEvent, type RefObject } from 'react'
 import { reducedMotion } from '../lib/motion.ts'
+import { LIST_HREF } from '../lib/sectionNav.ts'
 import { dragOffset, shuts, swipeMoved, swipeStart, zoomed, type Swipe } from '../lib/swipe.ts'
 import { isPlainClick } from './plainClick.ts'
 import type { NavLink } from './SiteHeader.tsx'
 
-/** Katakana beside each link, as a sound effect would sit: decoration, never read. */
+/**
+ * Katakana beside each link, as a sound effect would sit: decoration, never read. By the link's
+ * address on Discover: on My List a section's link leads to it at / (/#pull).
+ */
 const KANA: Record<string, string> = {
   '#ab-trending': 'トレンド',
   '#pull': 'ガチャ',
   '#decades': 'ネンダイ',
+  [LIST_HREF]: 'マイリスト',
 }
 
 /**
@@ -17,16 +22,21 @@ const KANA: Record<string, string> = {
  * Escape, Back, a tap on the dimmed page, a link, a leftward drag or flick, which it follows, or
  * the page widening to 900px. A modal dialog, so the page behind it can't be reached or
  * read while it is open, and a sibling of the header, never inside it: Safari drops a closing
- * dialog from the top layer when something it sits in moves.
+ * dialog from the top layer when something it sits in moves. Its links are the header's: My
+ * List's, marked current on My List, goes there as the header's does (`onGo`), shutting the menu,
+ * as do the sections' on My List, which lead to Discover's.
  */
 export function MenuDrawer({
   links,
   currentHref,
+  onGo,
   dialogRef,
   onToggle,
 }: {
   links: NavLink[]
   currentHref?: string | null
+  /** A click on a link to another of the app's pages (see SiteHeader's onGo). */
+  onGo?: (event: ClickEvent<HTMLAnchorElement>) => void
   dialogRef: RefObject<HTMLDialogElement | null>
   onToggle: (open: boolean) => void
 }) {
@@ -159,14 +169,21 @@ export function MenuDrawer({
               <a
                 key={link.href}
                 href={link.href}
-                aria-current={link.href === currentHref ? 'location' : undefined}
+                aria-current={
+                  link.current ? 'page' : link.href === currentHref ? 'location' : undefined
+                }
                 // Shut first, inside the click: an open menu keeps the page inert, and the jump
                 // couldn't focus the heading. The browser jumps once this returns, as for any
-                // link, and lib/jumps.ts keeps a tap's jump from showing the heading's ring.
-                onClick={(e) => isPlainClick(e) && dialogRef.current?.close()}
+                // link, and lib/jumps.ts keeps a tap's jump from showing the heading's ring. A link
+                // to another page (My List's, or Discover's sections from My List) the app follows
+                // itself, with no new page.
+                onClick={(e) => {
+                  if (isPlainClick(e)) dialogRef.current?.close()
+                  if (!link.href.startsWith('#')) onGo?.(e)
+                }}
               >
                 {link.label}
-                <span aria-hidden="true">{KANA[link.href]}</span>
+                <span aria-hidden="true">{KANA[link.href.replace(/^\/#/, '#')]}</span>
               </a>
             ),
           )}

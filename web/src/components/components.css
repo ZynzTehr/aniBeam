@@ -53,19 +53,11 @@
   text-decoration: none;
 }
 
-/* SiteHeader's `current` option (NavLink.current) marks the link to the page on screen. Only the
-   development prototype (VariantD) sets it: each link in the app goes to a section of this one
-   page. */
-.ab-nav a[aria-current='page'] {
-  background: var(--ink);
-  color: var(--paper);
-}
-
 /* One set of the page's section links shows at a time (data-links on the page's root, see
    lib/sectionNav.ts): from 900px the header's wait hidden in their place while the intro's
    buttons are on the screen, and the buttons hide in theirs once they have docked. Hidden, not
    taken out: both keep their room, so nothing moves, and neither can be reached or read. Each set
-   has My List, to come, which goes with it, so the header's whole nav hides, and isn't read as an
+   has My List's link, which goes with it, so the header's whole nav hides, and isn't read as an
    empty landmark. Under 900px neither is drawn (the menu holds the links, see MenuDrawer). With
    no data-links (the gallery), both show. */
 .ab-app:is([data-links='intro'], [data-links='none']) .ab-top .ab-nav,
@@ -115,13 +107,6 @@
   background: var(--sun);
 }
 
-/* My List's copy, to come, dashed and see-through as it shows at both ends (see .ab-soon), its
-   label greyed beside its Soon tag. */
-.ab-flight-pill.is-soon {
-  border-style: dashed;
-  background: transparent;
-}
-
 /* Each label sits on the copy's middle, however much wider than the copy it is (a long intro label
    on a copy the size of a header link): drawn from the middle out, so it overflows both sides
    evenly and lines up with the real link's text at both ends. */
@@ -135,18 +120,12 @@
   white-space: nowrap;
 }
 
-.ab-flight-label.is-soon {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: rgb(20 20 20 / 0.7);
-}
-
-/* The link to the section the visitor is in (aria-current="location", see lib/sectionNav.ts) is
+/* The link to the section the visitor is in (aria-current="location", see lib/sectionNav.ts), or
+   to the page on screen (aria-current="page": My List's on My List, see NavLink.current), is
    sound-effect yellow, raised with a hard shadow, as a picked chip is; hovered or pressed, it
    turns ink, as every header link does, so the two never look alike. The raise is a transform
    and a shadow, which take no room: the header keeps its size. */
-.ab-nav a[aria-current='location'] {
+.ab-nav a[aria-current] {
   background: var(--sun);
   box-shadow: 3px 3px 0 var(--ink);
   color: var(--ink);
@@ -1287,7 +1266,7 @@ img[data-broken] {
   gap: 14px;
 }
 
-/* Each link a panel pasted on the page, a little askew; My List, to come, dashed. */
+/* Each link a panel pasted on the page, a little askew; a feature still to come, dashed. */
 .ab-drawer nav a,
 .ab-drawer .ab-soon {
   display: flex;
@@ -1320,9 +1299,9 @@ img[data-broken] {
   opacity: 0.7;
 }
 
-/* The section the visitor is in, as the header marks it: yellow, raised, and a thick ink edge,
-   a cue that isn't color. */
-.ab-drawer a[aria-current='location'] {
+/* The section the visitor is in, or the page on screen (My List's), as the header marks it:
+   yellow, raised, and a thick ink edge, a cue that isn't color. */
+.ab-drawer a[aria-current] {
   border-left-width: 12px;
   background: var(--sun);
   box-shadow: 6px 6px 0 var(--ink);
@@ -3205,12 +3184,6 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   color: #fff;
 }
 
-/* My List, to come, after them: a Soon item, the size of the buttons, as it docks with them. */
-.ab-intro-actions .ab-soon {
-  min-height: 48px;
-  padding: 0 18px;
-}
-
 .ab-intro-art {
   position: relative;
   display: flex;
@@ -3673,8 +3646,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   cursor: not-allowed;
 }
 
-.ab-soon small,
-.ab-flight-label small {
+.ab-soon small {
   padding: 2px 7px;
   border: 2px solid var(--ink);
   border-radius: 999px;
@@ -3739,7 +3711,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
    hot on the decades), so here it takes the theme's text color. That rule ties with the decade
    chips' brand ring, so it has to come after it. */
 @media (forced-colors: active) {
-  :is(.ab-nav, .ab-drawer nav) a[aria-current='location'],
+  :is(.ab-nav, .ab-drawer nav) a[aria-current],
   .ab-list-tabs [aria-current],
   .ab-chip input:checked + span {
     border-color: Highlight;
@@ -3749,7 +3721,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     forced-color-adjust: none;
   }
 
-  :is(.ab-nav, .ab-drawer nav) a[aria-current='location']:focus-visible,
+  :is(.ab-nav, .ab-drawer nav) a[aria-current]:focus-visible,
   .ab-list-tabs [aria-current]:focus-visible,
   .ab-chip input:checked:focus-visible + span {
     outline-color: CanvasText;

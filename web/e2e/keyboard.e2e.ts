@@ -39,13 +39,14 @@ const FOCUSED = `(() => {
 
 test('from 900px, focus never lands under the sticky header, going back with Shift+Tab or by the skip link', async () => {
   const seen: string[] = []
-  // At 960px with WCAG's widened text spacing (1.4.12), the header takes a second row, 135px.
+  // At 960px with widened text spacing, the header takes a second row, 135px: letters 0.2em apart,
+  // more than WCAG 1.4.12's least (0.12em), at which it keeps one row since My List became a link.
   // It waits until the header has settled and published its height (--top-h): the search bubble
   // measures its wider text a frame later, which wraps the header a frame after, and --top-h
   // follows a frame after that. So the two must agree for 5 frames running.
   const SPACING = `(async () => {
     const style = document.head.appendChild(document.createElement('style'))
-    style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.12em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
+    style.textContent = '* { line-height: 1.5 !important; letter-spacing: 0.2em !important; word-spacing: 0.16em !important } p { margin-bottom: 2em !important }'
     const header = document.querySelector('.ab-top')
     for (let agreed = 0; agreed < 5; ) {
       await new Promise(requestAnimationFrame)
@@ -292,10 +293,12 @@ const STOPS = [
   'Trending',
   'Pull',
   'Decades',
+  'My List',
   'Search titles',
   'See what’s trending',
   'Pull a random title',
   'Browse by decade',
+  'My List',
   'a title in Trending now ×9',
   'Pick a vibe: Any vibe',
   'Pull!',
@@ -307,14 +310,16 @@ const STOPS = [
 // The header's section links wait hidden while the intro's buttons are on the page (see
 // lib/sectionNav.ts), so a walk from the top meets only the buttons. On a wide screen, walking
 // back from the end, the buttons have docked in the header, so it meets the header's links
-// instead.
-const STOPS_TOP = STOPS.filter((stop) => !['Trending', 'Pull', 'Decades'].includes(stop))
+// instead. Both sets end in My List, so the header's are taken out by their place, after AniBeam.
+const HEADER_STOPS = STOPS.indexOf('AniBeam') + 1
+const STOPS_TOP = STOPS.toSpliced(HEADER_STOPS, 4)
 // On a phone neither is drawn: the menu button opens the links, and the walk goes on to the page.
 const STOPS_PHONE = [
   ...STOPS.slice(0, 2),
   'Menu',
   ...STOPS_TOP.filter(
-    (stop) => !['See what’s trending', 'Pull a random title', 'Browse by decade'].includes(stop),
+    (stop) =>
+      !['See what’s trending', 'Pull a random title', 'Browse by decade', 'My List'].includes(stop),
   ).slice(2),
 ]
 const BACK_WIDE = [
@@ -325,6 +330,7 @@ const BACK_WIDE = [
   'Pick a vibe: Any vibe',
   'a title in Trending now ×9',
   'Search titles',
+  'My List',
   'Decades',
   'Pull',
   'Trending',
@@ -393,6 +399,72 @@ const STOP = `(() => {
   }
   return { name, problems }
 })()`
+
+test('Enter on My List’s link, the intro’s, the header’s or the phone menu’s, hands focus to My List’s heading, with its ring, before its file has loaded and after', async () => {
+  // The intro's goes with the intro as it is followed, so focus would fall to the page's start,
+  // with nothing said: My List's heading takes it, as a section's does after its link.
+  const where = `(() => {
+    const focused = document.activeElement
+    return {
+      path: location.pathname,
+      focus: focused.id || focused.tagName,
+      ring: focused.matches(':focus-visible'),
+      jump: focused.dataset.jump ?? 'unmarked',
+      top: scrollY,
+    }
+  })()`
+  const arrived = { path: '/list', focus: 'ab-list', ring: true, jump: 'unmarked', top: 0 }
+  await browser.forget()
+  await browser.load({ width: 1440, height: 900, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  // With nothing saved, My List's page loads only as it is opened (see features/list/page.ts).
+  const pageLoaded = `performance.getEntriesByType('resource').some((entry) => entry.name.includes('ListPage'))`
+  assert.equal(await browser.evaluate(pageLoaded), false, 'My List’s file loaded before it opened')
+  for (const [i, [link, label]] of [
+    ['.ab-intro-actions a[href="/list"]', 'the intro’s, before My List’s file has loaded'],
+    ['.ab-intro-actions a[href="/list"]', 'the intro’s, once it has'],
+    ['.ab-nav a[href="/list"]', 'the header’s'],
+  ].entries()) {
+    // Back to Discover from My List, after the first.
+    if (i > 0) {
+      await browser.evaluate(`history.back(); true`)
+      assert.ok(await browser.waitFor(`document.querySelector('.ab-intro-actions')`, 5000), label)
+    }
+    // The header's shows once the intro's buttons have docked, at the page's end, a frame or so
+    // after the scroll there: hidden, it can't take focus.
+    await browser.evaluate(
+      `scrollTo({ top: ${link.startsWith('.ab-nav') ? 'document.documentElement.scrollHeight' : 0}, behavior: 'instant' }); true`,
+    )
+    assert.ok(
+      await browser.waitFor(
+        `getComputedStyle(document.querySelector('${link}')).visibility === 'visible'`,
+        5000,
+      ),
+      `${label}: not shown`,
+    )
+    await browser.evaluate(`document.querySelector('${link}').focus(); true`)
+    await browser.evaluate(NEXT_FRAME)
+    assert.ok(
+      await browser.evaluate(`document.activeElement === document.querySelector('${link}')`),
+      `${label}: took no focus`,
+    )
+    await browser.press('Enter')
+    await browser.waitFor(`document.activeElement.id === 'ab-list'`, 5000)
+    assert.deepEqual(await browser.evaluate(where), arrived, label)
+  }
+  // On a phone, the menu's, which shuts the menu as it goes.
+  await browser.load({ width: 390, height: 844, phone: true, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.evaluate(`document.querySelector('.ab-burger').focus(); true`)
+  await browser.press('Enter')
+  assert.ok(await browser.waitFor(`document.querySelector('.ab-drawer').open`, 5000), 'no menu')
+  await browser.evaluate(`document.querySelector('.ab-drawer a[href="/list"]').focus(); true`)
+  await browser.press('Enter')
+  await browser.waitFor(`document.activeElement.id === 'ab-list'`, 5000)
+  await browser.evaluate(SETTLED)
+  assert.deepEqual(await browser.evaluate(where), arrived, 'the menu’s')
+  assert.equal(await browser.evaluate(`document.querySelector('.ab-drawer').open`), false)
+})
 
 // Waits for the page's time-based animations and transitions running now to finish, then two
 // frames more: those due to end within 3 s, so that one stuck or far behind shows as a problem
@@ -543,7 +615,7 @@ test('on My List, Tab walks every stop in order and Shift+Tab walks them back, e
   ]
   assert.deepEqual(seen, {
     '1440px': {
-      stops: stops(['AniBeam', 'Trending', 'Pull', 'Decades']),
+      stops: stops(['AniBeam', 'Trending', 'Pull', 'Decades', 'My List']),
       back: 'the same, reversed',
       problems: [],
       undo: ['Undo', 'a title in My List', 'Undo', 'a title in My List'],

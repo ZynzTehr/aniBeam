@@ -60,9 +60,18 @@ export function markPointerJumps(): () => void {
  * focuses it, marked as markPointerJumps marks one.
  */
 export function jumpTo(id: string, event: MouseEvent) {
+  document.getElementById(id)?.scrollIntoView()
+  focusOn(id, event)
+}
+
+/**
+ * Focuses the heading with `id` where it is, after `event`, the click on a link to its page, as
+ * jumpTo does but with no scroll, marked as markPointerJumps marks one. Says whether it was there.
+ */
+export function focusOn(id: string, event: MouseEvent) {
   const target = document.getElementById(id)
-  if (!target) return
+  if (!target) return false
   mark(target, event)
-  target.scrollIntoView()
   target.focus({ preventScroll: true })
+  return true
 }

@@ -38,7 +38,7 @@ async function pointAt(selector: string) {
   return { x, y }
 }
 
-test('from 900px the intro has four buttons: the three section links share one look, white, each turning ink as it is hovered or pressed; My List, last, is greyed, dashed and marked Soon, the size of the others, no link and no Tab stop', async () => {
+test('from 900px the intro has four buttons, the three section links and My List’s, sharing one look, white, each turning ink as it is hovered or pressed; My List’s, last, is a link to /list and a Tab stop, with no Soon tag, that goes there with no new page', async () => {
   await browser.load({ ...DESKTOP, reduceMotion: true })
   assert.ok(await browser.titlesShown())
   const white = 'rgb(255, 255, 255)'
@@ -46,15 +46,15 @@ test('from 900px the intro has four buttons: the three section links share one l
   const buttons = await browser.evaluate<{ label: string; fill: string; text: string }[]>(BUTTONS)
   assert.deepEqual(
     buttons.map(({ label }) => label),
-    ['See what’s trending', 'Pull a random title', 'Browse by decade', 'My List Soon'],
+    ['See what’s trending', 'Pull a random title', 'Browse by decade', 'My List'],
     'the intro’s buttons, in order',
   )
   assert.deepEqual(
-    buttons.slice(0, 3).map(({ fill, text }) => ({ fill, text })),
-    [1, 2, 3].map(() => ({ fill: white, text: ink })),
-    'the section links at rest',
+    buttons.map(({ fill, text }) => ({ fill, text })),
+    [1, 2, 3, 4].map(() => ({ fill: white, text: ink })),
+    'the buttons at rest',
   )
-  for (const n of [1, 2, 3]) {
+  for (const n of [1, 2, 3, 4]) {
     const button = `.ab-intro-actions .ab-btn:nth-child(${n})`
     await pointAt(button)
     const hovered = await browser.evaluate<{ fill: string; text: string }>(
@@ -71,36 +71,49 @@ test('from 900px the intro has four buttons: the three section links share one l
     .filter((rule) => rule.selectorText?.split(',').some((s) => s.trim() === '.ab-intro-actions .ab-btn:active'))
     .map((rule) => rule.style.getPropertyValue('background') + ' / ' + rule.style.color)`)
   assert.deepEqual(pressed, ['var(--ink) / rgb(255, 255, 255)'], 'the rule for a pressed button')
-  // My List, to come: the look of the header's Soon item, at the intro buttons' size, at rest and
-  // hovered alike, and nothing to press or reach.
-  const soon = `(() => {
-    const el = document.querySelector('.ab-intro-actions > :last-child'), style = getComputedStyle(el)
-    const other = document.querySelector('.ab-intro-actions a').getBoundingClientRect()
-    return {
-      link: el.matches('a, [href]'), disabled: el.getAttribute('aria-disabled'), tabIndex: el.tabIndex,
-      tag: el.querySelector('small')?.textContent ?? 'no tag',
-      border: style.borderTopStyle, fill: style.backgroundColor, text: style.color, shadow: style.boxShadow,
-      height: Math.round(el.getBoundingClientRect().height) + ' of ' + Math.round(other.height),
-      padding: style.paddingLeft + ' ' + style.paddingRight,
-    }
-  })()`
-  const atRest = {
-    link: false,
-    disabled: 'true',
-    tabIndex: -1,
-    tag: 'Soon',
-    border: 'dashed',
-    fill: 'rgba(0, 0, 0, 0)',
-    text: 'rgba(20, 20, 20, 0.7)',
-    shadow: 'none',
-    height: '48 of 48',
-    padding: '18px 18px',
-  }
-  assert.deepEqual(await browser.evaluate(soon), atRest, 'My List, at rest')
-  await pointAt('.ab-intro-actions > :last-child')
-  const hoveredSoon = await browser.evaluate(soon)
-  await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 890 })
-  assert.deepEqual(hoveredSoon, atRest, 'My List, hovered')
+  // My List's: a link to its page, the look of the section links beside it, its edge solid and its
+  // shadow hard, at their size, reached by Tab, with nothing left of the Soon item it was. Read
+  // once its shadow has come back from the hover above.
+  await browser.animationsDone()
+  assert.deepEqual(
+    await browser.evaluate(`(() => {
+      const el = document.querySelector('.ab-intro-actions > :last-child'), style = getComputedStyle(el)
+      const other = document.querySelector('.ab-intro-actions a').getBoundingClientRect()
+      return {
+        link: el.matches('a.ab-btn') ? el.getAttribute('href') : 'no link',
+        disabled: el.getAttribute('aria-disabled') ?? 'none',
+        tabIndex: el.tabIndex,
+        tag: el.querySelector('small')?.textContent ?? 'no tag',
+        border: style.borderTopStyle,
+        shadow: style.boxShadow,
+        height: Math.round(el.getBoundingClientRect().height) + ' of ' + Math.round(other.height),
+        soon: document.querySelectorAll('.ab-intro .ab-soon').length,
+      }
+    })()`),
+    {
+      link: '/list',
+      disabled: 'none',
+      tabIndex: 0,
+      tag: 'no tag',
+      border: 'solid',
+      shadow: 'rgb(20, 20, 20) 3px 3px 0px 0px',
+      height: '48 of 48',
+      soon: 0,
+    },
+    'My List',
+  )
+  // A plain click on it goes to My List as the header's does, with no new page, which would take
+  // the window's mark with it.
+  await browser.evaluate(`window.__stayed = true; true`)
+  await clickAt('.ab-intro-actions a[href="/list"]')
+  assert.ok(await browser.waitFor(`document.getElementById('ab-list')`, 5000), 'no My List')
+  assert.deepEqual(
+    await browser.evaluate(
+      `({ path: location.pathname, stayed: window.__stayed === true, top: scrollY })`,
+    ),
+    { path: '/list', stayed: true, top: 0 },
+    'the intro’s My List clicked',
+  )
 })
 
 // The header's link marked as the section the visitor is in, by its address, or '' with none.
@@ -110,20 +123,20 @@ const frames = () =>
     `new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))`,
   )
 
-test('the header marks the section the visitor is in, one at a time, and none above the first; My List, to come, never', async () => {
+test('the header marks the section the visitor is in, one at a time, and none above the first; My List, a page of its own, never on Discover', async () => {
   await browser.load({ ...DESKTOP, reduceMotion: true })
   assert.ok(await browser.titlesShown())
   await browser.landAll()
   assert.equal(await browser.evaluate(CURRENT), '', 'at the top')
-  // The header's My List: still marked Soon, with no fill, wherever the visitor is.
-  const myList = `(() => { const el = document.querySelector('.ab-nav .ab-soon'); return [el.getAttribute('aria-current') ?? 'unmarked', getComputedStyle(el).backgroundColor].join(' ') })()`
+  // The header's My List: unmarked and white, wherever the visitor is on Discover.
+  const myList = `(() => { const el = document.querySelector('.ab-nav a[href="/list"]'); return [el.getAttribute('aria-current') ?? 'unmarked', getComputedStyle(el).backgroundColor].join(' ') })()`
   for (const id of ['ab-trending', 'pull', 'decades']) {
     await browser.evaluate(
       `document.getElementById('${id}').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
     )
     await frames()
     assert.equal(await browser.evaluate(CURRENT), `#${id}`, `scrolled to #${id}`)
-    assert.equal(await browser.evaluate(myList), 'unmarked rgba(0, 0, 0, 0)', `My List at #${id}`)
+    assert.equal(await browser.evaluate(myList), 'unmarked rgb(255, 255, 255)', `My List at #${id}`)
   }
   await browser.evaluate(`scrollTo(0, 0); true`)
   await frames()
@@ -156,6 +169,218 @@ test('the current section’s link is yellow and raised, turns ink when hovered,
     { fill: 'rgb(20, 20, 20)', text: 'rgb(255, 255, 255)' },
     'hovered',
   )
+})
+
+test('from 900px the header’s My List is a link to /list: a plain click goes there with no new page, at its top, marked as the page in yellow, the header its size; AniBeam goes back to the top of Discover the same way, emptying the search', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  // At the end of the page, where the intro's buttons have docked and the header's links show. A
+  // new page would take the window's mark with it.
+  await scrollAndSettle('document.documentElement.scrollHeight')
+  await browser.evaluate(`window.__stayed = true; true`)
+  const size = `(() => { const n = document.querySelector('.ab-nav').getBoundingClientRect(); return [document.querySelector('.ab-top').offsetHeight, n.left, n.top, n.width, n.height].map(Math.round).join(' ') })()`
+  const header = await browser.evaluate<string>(size)
+  const where = `(({ backgroundColor, boxShadow }) => ({
+    path: location.pathname,
+    stayed: window.__stayed === true,
+    page: document.getElementById('ab-list') ? 'My List' : document.querySelector('.ab-intro') ? 'Discover' : 'neither',
+    top: scrollY,
+    myList: (document.querySelector('.ab-nav a[href="/list"]').getAttribute('aria-current') ?? 'unmarked') + ' ' + backgroundColor + ' ' + boxShadow,
+    search: document.querySelector('.ab-search textarea').value,
+    header: ${size},
+  }))(getComputedStyle(document.querySelector('.ab-nav a[href="/list"]')))`
+  const plain = 'unmarked rgb(255, 255, 255) none'
+  // Each click, then the mouse moved off, so that nothing is read hovered.
+  const click = async (selector: string) => {
+    await clickAt(selector)
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 890 })
+  }
+  await click('.ab-nav a[href="/list"]')
+  assert.ok(await browser.waitFor(`document.getElementById('ab-list')`, 5000), 'no My List')
+  await frames()
+  assert.deepEqual(
+    await browser.evaluate(where),
+    {
+      path: '/list',
+      stayed: true,
+      page: 'My List',
+      top: 0,
+      myList: 'page rgb(255, 212, 0) rgb(20, 20, 20) 3px 3px 0px 0px',
+      search: '',
+      header,
+    },
+    'My List clicked',
+  )
+  await click('.ab-logo')
+  assert.ok(await browser.waitFor(`document.querySelector('.ab-intro')`, 5000), 'no Discover')
+  await frames()
+  const discover = {
+    path: '/',
+    stayed: true,
+    page: 'Discover',
+    top: 0,
+    myList: plain,
+    search: '',
+    header,
+  }
+  assert.deepEqual(await browser.evaluate(where), discover, 'AniBeam clicked on My List')
+  // Searching, partway down the results: AniBeam empties the search, and the intro comes back.
+  await browser.search('frieren')
+  assert.ok(
+    await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`, 10_000),
+  )
+  await scrollAndSettle(400)
+  await click('.ab-logo')
+  assert.ok(await browser.waitFor(`document.querySelector('.ab-intro')`, 5000), 'no intro')
+  await frames()
+  assert.deepEqual(await browser.evaluate(where), discover, 'AniBeam clicked while searching')
+  // Each click put a new history entry: Back returns to My List.
+  await browser.evaluate(`history.back(); true`)
+  assert.ok(await browser.waitFor(`document.getElementById('ab-list')`, 5000), 'Back')
+  assert.deepEqual(
+    await browser.evaluate<{ path: string; stayed: boolean }>(
+      `({ path: location.pathname, stayed: window.__stayed === true })`,
+    ),
+    { path: '/list', stayed: true },
+    'Back',
+  )
+})
+
+test('a click on My List or AniBeam with Ctrl, Cmd, Shift or Alt held is left to the browser, in the header, the intro and the phone menu, and a plain one the page takes', async () => {
+  // Clicks `link` with `keys` held, and says whether the page took the click for itself (cancelled
+  // what the browser would do) and where it is after. Heard last, on the window, which then
+  // cancels the click itself, so the browser opens no tab and leaves no page.
+  const clicked = (link: string, keys: object) =>
+    browser.evaluate<{ taken: boolean; path: string }>(`(() => {
+      let taken
+      const hear = (event) => { taken = event.defaultPrevented; event.preventDefault() }
+      addEventListener('click', hear, { once: true })
+      document.querySelector(${JSON.stringify(link)}).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, button: 0, ...${JSON.stringify(keys)} }))
+      return { taken, path: location.pathname }
+    })()`)
+  const held = [{ ctrlKey: true }, { metaKey: true }, { shiftKey: true }, { altKey: true }]
+  for (const [screen, links] of [
+    [DESKTOP, ['.ab-nav a[href="/list"]', '.ab-intro-actions a[href="/list"]', '.ab-logo']],
+    [{ width: 390, height: 844, phone: true }, ['.ab-drawer a[href="/list"]', '.ab-logo']],
+  ] as const) {
+    await browser.load({ ...screen, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    for (const link of links)
+      for (const keys of held)
+        assert.deepEqual(
+          await clicked(link, keys),
+          { taken: false, path: '/' },
+          `${link} at ${screen.width}px, ${JSON.stringify(keys)}`,
+        )
+    assert.deepEqual(await clicked(links[0], {}), { taken: true, path: '/list' }, 'a plain click')
+    assert.deepEqual(await clicked('.ab-logo', {}), { taken: true, path: '/' }, 'AniBeam, plain')
+  }
+})
+
+// Where a section link followed from My List landed, read once its heading has focus: the address,
+// whether the window's mark stayed (a new page takes it), whether the jump was marked as a
+// pointer's (lib/jumps.ts), the heading's top against the header's bottom, the set of links shown,
+// and the menu, open or shut.
+const FROM_LIST = `(() => {
+  const focused = document.activeElement
+  const top = focused.getBoundingClientRect().top - document.querySelector('.ab-top').getBoundingClientRect().bottom
+  const atEnd = scrollY + innerHeight >= document.documentElement.scrollHeight - 1
+  return {
+    address: location.pathname + location.hash,
+    stayed: window.__stayed === true,
+    focus: focused.id,
+    jump: focused.dataset.jump ?? 'unmarked',
+    at: top >= 0 && top < 40 ? 'just below the header' : atEnd && top >= 40 ? 'below the header, at the end of the page' : Math.round(top) + 'px below the header',
+    links: document.querySelector('.ab-app').dataset.links ?? 'none',
+    menu: document.querySelector('.ab-drawer').open ? 'open' : 'shut',
+  }
+})()`
+
+test('on My List the section links lead to Discover’s sections: a click on one goes there with no new page and jumps to its heading, focused, below the header; on a phone the menu’s do the same, keeping their kana; Back returns to My List', async () => {
+  const list = new URL('/list', BASE_URL).href
+  const seen: Record<string, unknown> = {}
+  for (const id of ['ab-trending', 'pull', 'decades']) {
+    await browser.load({ ...DESKTOP, reduceMotion: true, url: list })
+    assert.ok(await browser.waitFor(`document.getElementById('ab-list')`, 5000), 'no My List')
+    if (id === 'ab-trending')
+      assert.deepEqual(
+        await browser.evaluate(
+          `[...document.querySelectorAll('.ab-nav a')].map((a) => a.getAttribute('href'))`,
+        ),
+        ['/#ab-trending', '/#pull', '/#decades', '/list'],
+        'the header’s links on My List',
+      )
+    await browser.evaluate(`window.__stayed = true; true`)
+    await clickAt(`.ab-nav a[href="/#${id}"]`)
+    assert.ok(
+      await browser.waitFor(`document.activeElement.id === '${id}'`, 5000),
+      `#${id}: the click landed at ${await browser.evaluate(`location.pathname + location.hash`)}`,
+    )
+    await frames()
+    seen[id] = await browser.evaluate(FROM_LIST)
+  }
+  const landed = (id: string, at = 'just below the header') => ({
+    address: `/#${id}`,
+    stayed: true,
+    focus: id,
+    jump: 'pointer',
+    at,
+    links: 'header',
+    menu: 'shut',
+  })
+  const decades = (seen.decades as { at?: string } | undefined)?.at
+  assert.deepEqual(
+    seen,
+    {
+      'ab-trending': landed('ab-trending'),
+      pull: landed('pull'),
+      // Decades, the last section, may be too near the page's end to come up that far.
+      decades: landed('decades', decades?.endsWith('end of the page') ? decades : undefined),
+    },
+    'a header link clicked on My List',
+  )
+  // A new history entry: Back returns to My List.
+  await browser.evaluate(`history.back(); true`)
+  assert.ok(
+    await browser.waitFor(`location.pathname === '/list' && document.getElementById('ab-list')`),
+    'Back didn’t return to My List',
+  )
+  // The phone's menu: each link with its kana, and a tap on Pull shuts the menu and lands there.
+  await browser.load({ ...PHONE, reduceMotion: true, url: list })
+  assert.ok(await browser.waitFor(`document.getElementById('ab-list')`, 5000), 'no My List')
+  await browser.evaluate(`window.__stayed = true; true`)
+  await browser.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
+  try {
+    await tapOn('.ab-burger')
+    assert.ok(await browser.waitFor(MENU_OPEN, 2000), 'the menu didn’t open')
+    assert.deepEqual(
+      await browser.evaluate(
+        `[...document.querySelectorAll('.ab-drawer nav a')].map((a) => a.getAttribute('href') + ' ' + a.textContent)`,
+      ),
+      [
+        '/#ab-trending Trendingトレンド',
+        '/#pull Pullガチャ',
+        '/#decades Decadesネンダイ',
+        '/list My Listマイリスト',
+      ],
+      'the menu’s links on My List',
+    )
+    await tapOn('.ab-drawer a[href="/#pull"]')
+    assert.ok(
+      await browser.waitFor(`!(${MENU_OPEN}) && document.activeElement.id === 'pull'`, 5000),
+      `the tap on Pull landed at ${await browser.evaluate(`location.pathname + location.hash`)}`,
+    )
+    await frames()
+    // Under 900px neither set of links is drawn, whichever data-links names.
+    const tapped = await browser.evaluate<Record<string, unknown>>(FROM_LIST)
+    const expected: Record<string, unknown> = landed('pull')
+    delete tapped.links
+    delete expected.links
+    assert.deepEqual(tapped, expected, 'the menu’s Pull tapped on My List')
+  } finally {
+    await browser.send('Emulation.setTouchEmulationEnabled', { enabled: false })
+  }
 })
 
 test('at the end of the page the last section is current, and while searching, a section once it is well in view', async () => {
@@ -781,7 +1006,83 @@ test('a jump by an intro button swaps the sets at once, with no flight', async (
   assert.equal(await browser.evaluate(CURRENT), '#pull')
 })
 
-test('each flying copy’s shadow fades to the look it lands on, My List’s never shows, no copy of it lands yellow, and a dock starts below the header, not over it', async () => {
+// From now on, each set of links the page shows (data-links, or none) as it changes, and whether a
+// flight starts (see lib/sectionNav.ts), read by SEEN, with the scroll.
+const WATCH_SETS = `(() => {
+  window.__seen = { sets: [], flew: false }
+  window.__watch?.disconnect()
+  window.__watch = new MutationObserver(() => {
+    const set = document.querySelector('.ab-app').dataset.links ?? 'none'
+    if (window.__seen.sets.at(-1) !== set) window.__seen.sets.push(set)
+    if (document.querySelector('.ab-flight')?.hasAttribute('data-flying')) window.__seen.flew = true
+  })
+  window.__watch.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['data-links', 'data-flying'] })
+  return true
+})()`
+const SEEN = `({ top: scrollY, ...window.__seen })`
+
+test('AniBeam, clicked or pressed with Enter while the intro’s buttons are docked, goes to the top with the sets swapped at once, with no flight, as a jump does', async () => {
+  await browser.load(DESKTOP)
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.animationsDone()
+  for (const how of ['a click', 'Enter'] as const) {
+    await browser.evaluate(
+      `document.getElementById('decades').scrollIntoView({ block: 'start', behavior: 'instant' }); true`,
+    )
+    await frames()
+    assert.equal((await browser.evaluate<{ links: string }>(SHOWN)).links, 'header', how)
+    await browser.evaluate(WATCH_SETS)
+    if (how === 'a click') {
+      // Pressed and let go a few frames apart, as a hand does: the focus the press gives AniBeam
+      // is no longer new as the page scrolls, so the page can't take its scroll for focus's.
+      const { x, y } = await middleOf('.ab-logo')
+      await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y })
+      const press = { x, y, button: 'left', clickCount: 1 }
+      await browser.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...press })
+      await frames()
+      await frames()
+      await browser.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...press })
+      await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 890 })
+    } else {
+      // Enter on AniBeam, focused a moment before: no focus moves as the page goes to its top.
+      await browser.evaluate(`document.querySelector('.ab-logo').focus(); true`)
+      await frames()
+      await browser.press('Enter')
+    }
+    // Longer than a flight lasts.
+    await sleep(700)
+    assert.deepEqual(
+      await browser.evaluate(SEEN),
+      { top: 0, sets: ['intro'], flew: false },
+      `AniBeam by ${how}`,
+    )
+  }
+})
+
+test('AniBeam clicked while searching brings the intro back in the next frame, the results gone with the search', async () => {
+  await browser.load({ ...DESKTOP, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.search('frieren')
+  assert.ok(
+    await browser.waitFor(`document.querySelector('.ab-results .ab-strip-panel[href]')`, 10_000),
+  )
+  assert.deepEqual(
+    await browser.evaluate(`(async () => {
+      document.querySelector('.ab-logo').click()
+      await new Promise(requestAnimationFrame)
+      return {
+        search: document.querySelector('.ab-search textarea').value,
+        intro: Boolean(document.querySelector('.ab-intro-actions')),
+        results: Boolean(document.querySelector('.ab-results')),
+      }
+    })()`),
+    { search: '', intro: true, results: false },
+    'a frame after AniBeam was clicked',
+  )
+})
+
+test('each flying copy’s shadow fades to the look it lands on, My List’s as a plain link’s does, no copy of it lands yellow, and a dock starts below the header, not over it', async () => {
   // Twice: as the page is, where Trending is the section the visitor is in by the time the
   // buttons dock, and with the sections pushed far down, so that none is yet.
   for (const pushed of [false, true]) {
@@ -825,7 +1126,7 @@ test('each flying copy’s shadow fades to the look it lands on, My List’s nev
         pushed ? 'plain: 1 to 0' : 'current: 1 to 1',
         'plain: 1 to 0',
         'plain: 1 to 0',
-        'plain: 0 to 0',
+        'plain: 1 to 0',
       ],
       `${at}, docking`,
     )
@@ -843,7 +1144,7 @@ test('each flying copy’s shadow fades to the look it lands on, My List’s nev
     const undocking = await browser.evaluate<{ shadow: string }[]>(flight)
     assert.deepEqual(
       undocking.map(({ shadow }) => shadow),
-      [pushed ? '0 to 1' : '1 to 1', '0 to 1', '0 to 1', '0 to 0'],
+      [pushed ? '0 to 1' : '1 to 1', '0 to 1', '0 to 1', '0 to 1'],
       `${at}, undocking`,
     )
   }
@@ -883,7 +1184,7 @@ test('a change of width lands a flight under way at once, and a change of height
   )
 })
 
-test('in contrast themes the current section’s link takes the theme’s selection colors, and its focus ring the theme’s text color', async () => {
+test('in contrast themes the current section’s link, and My List’s on My List, take the theme’s selection colors, and the focus ring the theme’s text color', async () => {
   await browser.load({ ...DESKTOP, reduceMotion: true })
   assert.ok(await browser.titlesShown())
   await browser.landAll()
@@ -927,6 +1228,17 @@ test('in contrast themes the current section’s link takes the theme’s select
       `({ name: document.activeElement.textContent, outline: getComputedStyle(document.activeElement).outlineColor })`,
     )
     assert.deepEqual(ring, { name: 'Pull', outline: seen.text }, 'its focus ring')
+    // On My List, its link, marked as the page on screen.
+    await browser.evaluate(`document.querySelector('.ab-nav a[href="/list"]').click(); true`)
+    assert.ok(await browser.waitFor(`document.getElementById('ab-list')`, 5000), 'no My List')
+    await frames()
+    assert.equal(
+      await browser.evaluate(
+        `getComputedStyle(document.querySelector('.ab-nav a[aria-current="page"]')).backgroundColor`,
+      ),
+      seen.highlight,
+      'My List’s fill on My List',
+    )
   } finally {
     await browser.send('Emulation.setEmulatedMedia', {
       features: [{ name: 'forced-colors', value: 'none' }],
@@ -992,7 +1304,7 @@ test('a tap or click on a section link focuses its heading with no ring, even wh
   assert.deepEqual({ id: keyed.id, ring: keyed.ring }, { id: 'pull', ring: true }, 'Enter')
 })
 
-test('the intro’s buttons are the landmark named Sections, read only while they show, and the header’s links are Site, read only once the buttons have docked, each with My List, to come; on a phone the menu’s are Sections', async () => {
+test('the intro’s buttons are the landmark named Sections, read only while they show, and the header’s links are Site, read only once the buttons have docked, each with My List’s link to /list last; on a phone the menu’s are Sections, My List’s link there too', async () => {
   const landmarks = async () => {
     const { nodes } = await browser.send('Accessibility.getFullAXTree')
     return (nodes as { ignored: boolean; role?: { value: string }; name?: { value: string } }[])
@@ -1006,11 +1318,12 @@ test('the intro’s buttons are the landmark named Sections, read only while the
   assert.deepEqual(await landmarks(), ['Sections'], 'at the top')
   await scrollAndSettle(await browser.evaluate<number>(DOCK_AT))
   assert.deepEqual(await landmarks(), ['Site'], 'docked')
+  // The last of each set: the intro's, the header's and the menu's, its kana left out.
   assert.deepEqual(
     await browser.evaluate(
-      `['Sections', 'Site'].map((name) => document.querySelector('nav[aria-label="' + name + '"] > .ab-soon[aria-disabled="true"]')?.textContent.replace(/\\s+/g, ' ').trim() ?? 'none')`,
+      `(() => { ${TEXT}; return ['.ab-intro nav[aria-label="Sections"]', '.ab-top nav[aria-label="Site"]', '.ab-drawer nav[aria-label="Sections"]'].map((nav) => (({ last }) => last ? text(last) + (last.matches('a[href="/list"]') ? ', a link to /list' : last.matches('.ab-soon[aria-disabled="true"]') ? ', to come' : '') : 'none')({ last: document.querySelector(nav + ' > :last-child') })) })()`,
     ),
-    ['My List Soon', 'My List Soon'],
+    ['My List, a link to /list', 'My List, a link to /list', 'My List, a link to /list'],
     'My List in each',
   )
   // On a phone the links are in the menu: none is read until it opens, and then only its own,
@@ -1029,16 +1342,16 @@ test('the intro’s buttons are the landmark named Sections, read only while the
   )
 })
 
-test('mid-flight both sets hide, each copy starts where it leaves, its labels cross the right way, only a dock lands yellow, and My List’s copy keeps the Soon look, with one steady label', async () => {
+test('mid-flight both sets hide, each copy starts where it leaves, its labels cross the right way, only a dock lands yellow, and My List’s copy, in the others’ look, keeps its one label steady', async () => {
   await browser.load(DESKTOP)
   assert.ok(await browser.titlesShown())
   await browser.landAll()
   await browser.animationsDone()
   const dockAt = await browser.evaluate<number>(DOCK_AT)
   // Each copy: its labels' opacity at start and end, in the order the copy holds them (the
-  // button's, then the link's), whether it is held at its start during its stagger, and its pill:
-  // My List's dashed and see-through, its one label greyed and marked Soon, as at both ends, and
-  // steady, as it reads the same at both.
+  // button's, then the link's, or 'steady' for a label that stays), whether it is held at its start
+  // during its stagger, and its pill's edge and fill, and its labels' text and color: My List's
+  // alike at both ends, so one label.
   const copies = `(() => ({
     layer: getComputedStyle(document.querySelector('.ab-flight')).position,
     hidden: [...document.querySelectorAll('.ab-top .ab-nav > *, .ab-intro-actions > *')].every((el) => getComputedStyle(el).visibility === 'hidden'),
@@ -1050,7 +1363,8 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
         [...chip.querySelectorAll('.ab-flight-label')].map((label) => label.textContent.replace(/\\s+/g, ' ').trim() + ' ' + getComputedStyle(label).color).join(' / '),
     })),
   }))()`
-  const SOON_COPY = 'dashed rgba(0, 0, 0, 0) | My List Soon rgba(20, 20, 20, 0.7)'
+  // My List's copy, as the others are: a solid white pill, its one label in ink.
+  const LIST_COPY = 'solid rgb(255, 255, 255) | My List rgb(20, 20, 20)'
   // The first frame after the scroll, read in the page with the flight paused there, so no time
   // passes between: the third copy's 90ms stagger hasn't run out, so it must wait at its start.
   const firstFrame = (y: number) =>
@@ -1070,7 +1384,7 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
       labels: dock.copies.map((c) => c.labels.join(', ')),
       held: dock.copies.map((c) => c.held),
       yellow: dock.copies.map((c) => c.yellow),
-      soon: dock.copies.map((c) => c.look === SOON_COPY),
+      myList: dock.copies[3]?.look,
     },
     {
       layer: 'fixed',
@@ -1078,7 +1392,7 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
       labels: ['1 to 0, 0 to 1', '1 to 0, 0 to 1', '1 to 0, 0 to 1', 'steady'],
       held: [true, true, true, true],
       yellow: [true, false, false, false],
-      soon: [false, false, false, true],
+      myList: LIST_COPY,
     },
     'docking',
   )
@@ -1101,17 +1415,47 @@ test('mid-flight both sets hide, each copy starts where it leaves, its labels cr
       hidden: undock.hidden,
       labels: undock.copies.map((c) => c.labels.join(', ')),
       yellow: undock.copies.map((c) => c.yellow),
-      soon: undock.copies.map((c) => c.look === SOON_COPY),
+      myList: undock.copies[3]?.look,
     },
     {
       layer: 'absolute',
       hidden: true,
       labels: ['0 to 1, 1 to 0', '0 to 1, 1 to 0', '0 to 1, 1 to 0', 'steady'],
       yellow: [false, false, false, false],
-      soon: [false, false, false, true],
+      myList: LIST_COPY,
     },
     'undocking',
   )
+})
+
+test('My List flies by its address: the intro’s link to /list docks into the header’s and back, last, its one label steady, and no copy has the Soon look', async () => {
+  await browser.load(DESKTOP)
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  await browser.animationsDone()
+  // The copies, by their labels, each marked if it has the Soon look.
+  const copies = `[...document.querySelectorAll('.ab-flight-chip')].map((chip) => [...chip.querySelectorAll('.ab-flight-label')].map((label) => label.textContent).join(' / ') + (chip.querySelector('.is-soon') ? ' (Soon)' : ''))`
+  const firstFrame = (y: number) =>
+    browser.evaluate(
+      `new Promise((resolve) => { scrollTo(0, ${y}); requestAnimationFrame(() => requestAnimationFrame(() => { ${PAUSE_FLIGHT}; resolve(true) })) })`,
+    )
+  // Each holds the button's label, then the link's, both ways; My List's reads the same at both.
+  const expected = [
+    'See what’s trending / Trending',
+    'Pull a random title / Pull',
+    'Browse by decade / Decades',
+    'My List',
+  ]
+  await firstFrame(await browser.evaluate<number>(DOCK_AT))
+  assert.deepEqual(await browser.evaluate<string[]>(copies), expected, 'docking')
+  await browser.evaluate(
+    `document.getAnimations().filter((a) => a.effect?.target?.closest?.('.ab-flight')).forEach((a) => a.play()); true`,
+  )
+  await browser.animationsDone()
+  await frames()
+  const { top, bottom } = await browser.evaluate<{ top: number; bottom: number }>(GEOMETRY)
+  await firstFrame(top - Math.ceil(bottom + Math.min(200, top - bottom)))
+  assert.deepEqual(await browser.evaluate<string[]>(copies), expected, 'undocking')
 })
 
 test('throughout a flight of the four copies each one’s label sits on its middle, shows only inside its pill, crosses with the other without a pile-up, or, reading the same at both ends as My List’s does, stays at full strength; and one landed early holds its look', async () => {
@@ -1518,7 +1862,7 @@ test('below 320px, as on a phone zoomed to 125% or more, the search takes a row 
   assert.deepEqual(problems, [], 'the narrowest header')
 })
 
-test('on a phone the menu button opens the menu, a modal panel from the left with the three section links and My List, Soon, last, focus on the first link and the page held still', async () => {
+test('on a phone the menu button opens the menu, a modal panel from the left with the three section links and My List last, each with its kana, focus on the first link and the page held still', async () => {
   await browser.watchLayoutShifts()
   await browser.load({ ...PHONE, reduceMotion: true })
   assert.ok(await browser.titlesShown())
@@ -1550,8 +1894,9 @@ test('on a phone the menu button opens the menu, a modal panel from the left wit
       right: Math.round(panel.right),
       top: Math.round(panel.top),
       height: Math.round(panel.height),
-      items: [...dialog.querySelectorAll('nav > *')].map((el) => text(el) + (el.matches('a[href]') ? ' (a link)' : el.getAttribute('aria-disabled') === 'true' ? ' (disabled)' : '')),
-      soon: getComputedStyle(dialog.querySelector('.ab-soon')).borderTopStyle,
+      items: [...dialog.querySelectorAll('nav > *')].map((el) => text(el) + (el.matches('a[href]') ? ' to ' + el.getAttribute('href') : el.getAttribute('aria-disabled') === 'true' ? ' (disabled)' : '')),
+      kana: [...dialog.querySelectorAll('nav > *')].map((el) => el.querySelector('[aria-hidden="true"]')?.textContent ?? 'none'),
+      edges: [...dialog.querySelectorAll('nav > *')].map((el) => getComputedStyle(el).borderTopStyle),
       focus: text(document.activeElement),
       ring: document.activeElement.matches(':focus-visible'),
       locked: getComputedStyle(document.body).overflow,
@@ -1564,8 +1909,9 @@ test('on a phone the menu button opens the menu, a modal panel from the left wit
     right: 320,
     top: 0,
     height: 844,
-    items: ['Trending (a link)', 'Pull (a link)', 'Decades (a link)', 'My List Soon (disabled)'],
-    soon: 'dashed',
+    items: ['Trending to #ab-trending', 'Pull to #pull', 'Decades to #decades', 'My List to /list'],
+    kana: ['トレンド', 'ガチャ', 'ネンダイ', 'マイリスト'],
+    edges: ['solid', 'solid', 'solid', 'solid'],
     focus: 'Trending',
     ring: false,
     locked: 'hidden',
@@ -1738,6 +2084,64 @@ test('a tap on a menu link, made as Safari makes it, shuts the menu and lands it
   )
 })
 
+test('a tap on the menu’s My List shuts the menu and lands on /list with no new page, at its top, the page free; there the menu marks My List as the page, in yellow with its thick edge, and opens on it', async () => {
+  await browser.load({ ...PHONE, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  // Partway down Discover, its header back on a scroll up. A new page would take the window's mark
+  // with it.
+  await headerBackAt(1200)
+  await browser.evaluate(`window.__stayed = true; true`)
+  await browser.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
+  try {
+    await tapOn('.ab-burger')
+    assert.ok(await browser.waitFor(MENU_OPEN, 2000), 'the menu didn’t open')
+    await tapOn('.ab-drawer a[href="/list"]')
+    assert.ok(
+      await browser.waitFor(`document.getElementById('ab-list')`, 5000),
+      'the tap didn’t land on My List',
+    )
+    await frames()
+    assert.deepEqual(
+      await browser.evaluate(`({
+        path: location.pathname,
+        stayed: window.__stayed === true,
+        open: document.querySelector('.ab-drawer').open,
+        expanded: document.querySelector('.ab-burger').getAttribute('aria-expanded'),
+        locked: getComputedStyle(document.body).overflow === 'hidden',
+        top: scrollY,
+      })`),
+      { path: '/list', stayed: true, open: false, expanded: 'false', locked: false, top: 0 },
+      'the tap on My List',
+    )
+  } finally {
+    await browser.send('Emulation.setTouchEmulationEnabled', { enabled: false })
+  }
+  await openMenuByKey()
+  assert.deepEqual(
+    await browser.evaluate(`(() => {
+      const current = [...document.querySelectorAll('.ab-drawer a[aria-current]')]
+      return {
+        current: current.map((a) => a.getAttribute('href') + ' ' + a.getAttribute('aria-current')),
+        fill: current[0] && getComputedStyle(current[0]).backgroundColor,
+        edge: current[0] && getComputedStyle(current[0]).borderLeftWidth,
+        others: [...document.querySelectorAll('.ab-drawer nav a:not([aria-current])')].map((a) => getComputedStyle(a).backgroundColor),
+        focus: document.activeElement.getAttribute('href'),
+      }
+    })()`),
+    {
+      current: ['/list page'],
+      fill: 'rgb(255, 212, 0)',
+      edge: '12px',
+      others: ['rgb(255, 255, 255)', 'rgb(255, 255, 255)', 'rgb(255, 255, 255)'],
+      focus: '/list',
+    },
+    'the menu on My List',
+  )
+  await browser.press('Escape')
+  assert.ok(await browser.waitFor(MENU_SHUT, 2000), 'Esc left the menu open')
+})
+
 test('the menu marks the section the visitor is in, in yellow, and opens on its link', async () => {
   await browser.load({ ...PHONE, reduceMotion: true })
   assert.ok(await browser.titlesShown())
@@ -1760,7 +2164,7 @@ test('the menu marks the section the visitor is in, in yellow, and opens on its 
     {
       current: ['#pull'],
       fill: 'rgb(255, 212, 0)',
-      others: ['rgb(255, 255, 255)', 'rgb(255, 255, 255)'],
+      others: ['rgb(255, 255, 255)', 'rgb(255, 255, 255)', 'rgb(255, 255, 255)'],
       focus: '#pull',
     },
   )
@@ -1834,7 +2238,7 @@ test('in contrast themes the menu button and the menu keep their edges, and the 
         edge: 'solid',
         current: true,
         other: false,
-        links: ['solid', 'solid', 'solid', 'dashed'],
+        links: ['solid', 'solid', 'solid', 'solid'],
         burst: 'none',
       },
     )

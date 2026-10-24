@@ -2,16 +2,35 @@ import { reducedMotion, watchDeviceMotion } from './motion.ts'
 
 /**
  * The page's section links (spec §5, the design signed off from draft #22). The intro's buttons
- * are the section links while they are on the page, with My List, to come, after them; the
- * header's Trending, Pull, Decades and My List wait hidden in their place, and from 900px, where
- * the header stays on screen, take over once it reaches the buttons (the buttons dock). The header marks the section the visitor
- * is in. One set of links is shown, reachable and read at a time. Its rules are pure functions, so
- * unit tests hold them without a browser; startSectionNav applies them to the page, writing which
- * set shows as data-links on the page's root (.ab-app), which components.css reads.
+ * are the section links while they are on the page, with My List's after them; the header's
+ * Trending, Pull, Decades and My List wait hidden in their place, and from 900px, where the header
+ * stays on screen, take over once it reaches the buttons (the buttons dock). The header marks the
+ * section the visitor is in. One set of links is shown, reachable and read at a time. Its rules
+ * are pure functions, so unit tests hold them without a browser; startSectionNav applies them to
+ * the page, writing which set shows as data-links on the page's root (.ab-app), which
+ * components.css reads.
  */
 
 /** The page's sections, in reading order, by the id of the heading each link leads to. */
 export const SECTIONS = ['ab-trending', 'pull', 'decades'] as const
+
+/** My List's address: its page, which its link in each set of links leads to. */
+export const LIST_HREF = '/list'
+
+/**
+ * The intro's buttons and the header's links that fly between the two sets, paired by their
+ * address, in the order they fly: each section's, then My List's, last. `button` and `link` find
+ * the one with an address in each set, if any; one with no partner in the other set stays put.
+ */
+export function flightPairs<T>(
+  button: (href: string) => T | null | undefined,
+  link: (href: string) => T | null | undefined,
+) {
+  return [...SECTIONS.map((id) => `#${id}`), LIST_HREF].flatMap((href) => {
+    const [from, to] = [button(href), link(href)]
+    return from && to ? [{ button: from, link: to }] : []
+  })
+}
 
 /**
  * Where a section counts as reached: two thirds of the way down the screen below the header, so a
@@ -163,7 +182,7 @@ export type Box = { left: number; top: number; width: number; height: number }
  * of `from` to that of `to`, its pill grows or shrinks from the size of one to the other, its label
  * crosses from the one it leaves to the one it arrives as, halfway, and its hard shadow fades from
  * the look of one end to the other's (`shadows`: whether each has one; an intro button does, a
- * header link only as the current section's, and My List, to come, at neither). The labels show only inside the pill (`text`, its
+ * header link only as the current section's). The labels show only inside the pill (`text`, its
  * clip, which follows the pill's size), so a long one never spills out of a shrinking pill. Only
  * transforms, opacity and a clip change, so nothing is laid out again, and the label is never
  * stretched.
@@ -194,22 +213,12 @@ export function flightFrames(from: Box, to: Box, shadows = { from: true, to: tru
  * How one flying copy looks at each end: whether it has its hard shadow where it leaves and where
  * it lands (for flightFrames), and whether it lands in yellow. An intro button has the shadow, and
  * a header link only as the section the visitor is in (`current`), which a dock lands on in
- * yellow. My List, to come (`soon`), has neither at either end: it has no address, so where no
- * section is current yet it would match "none" as `current`, and it is never the visitor's.
+ * yellow. My List's is never current: no section has its address, and it has no intro on its page.
  */
-export function copyLook({
-  toHeader,
-  current,
-  soon,
-}: {
-  toHeader: boolean
-  current: boolean
-  soon: boolean
-}) {
-  const marked = current && !soon
+export function copyLook({ toHeader, current }: { toHeader: boolean; current: boolean }) {
   return {
-    shadows: { from: !soon && (toHeader || marked), to: !soon && (!toHeader || marked) },
-    yellow: toHeader && marked,
+    shadows: { from: toHeader || current, to: !toHeader || current },
+    yellow: toHeader && current,
   }
 }
 
@@ -310,9 +319,7 @@ export function startSectionNav({
           ? new DOMRect(start.left, headerBottomNow(), start.width, start.height)
           : start
       const box = (toHeader ? link : button).getBoundingClientRect()
-      // My List, to come, flies dashed and greyed, as it shows at both ends (see copyLook).
-      const soon = link.classList.contains('ab-soon')
-      const look = copyLook({ toHeader, current: link.getAttribute('href') === current, soon })
+      const look = copyLook({ toHeader, current: link.getAttribute('href') === current })
       // The link to the section the visitor is in sits raised 2px up and left, as it is about to
       // be marked: the copy lands where it will be.
       const raised = look.yellow && !link.hasAttribute('aria-current')
@@ -332,16 +339,15 @@ export function startSectionNav({
       const pill = chip.appendChild(document.createElement('span'))
       pill.className = 'ab-flight-pill'
       if (look.yellow) pill.classList.add('is-current')
-      if (soon) pill.classList.add('is-soon')
-      // Its labels, in a box clipped to the pill as it grows or shrinks: what each end shows, My
-      // List's Soon tag too. My List reads the same at both ends, so it has one label, which stays:
-      // fading it out and the same words back in would leave the pill empty halfway.
+      // Its labels, in a box clipped to the pill as it grows or shrinks: what each end shows. My
+      // List reads the same at both ends, so it has one label, which stays: fading it out and the
+      // same words back in would leave the pill empty halfway.
       const text = chip.appendChild(document.createElement('span'))
       text.className = 'ab-flight-text'
       const same = button.textContent === link.textContent
       const [leaving, arriving] = (same ? [button] : [button, link]).map((source) => {
         const label = text.appendChild(document.createElement('span'))
-        label.className = soon ? 'ab-flight-label is-soon' : 'ab-flight-label'
+        label.className = 'ab-flight-label'
         label.append(...[...source.childNodes].map((node) => node.cloneNode(true)))
         return label
       })
@@ -475,16 +481,12 @@ export function startSectionNav({
       })
       // The buttons fly between the intro and the header only as the visitor scrolls them past
       // it, with both ends on the screen, the intro's entrance over and nothing in the way: else
-      // the sets swap at once (a jump, Tab, a reload, a resize, reduced motion). Each section's
-      // button flies to its link, and My List to My List, last.
-      const pairs = SECTIONS.flatMap((id) => {
-        const button = actions?.querySelector<HTMLElement>(`a[href="#${id}"]`)
-        const link = header.querySelector<HTMLElement>(`.ab-nav a[href="#${id}"]`)
-        return button && link ? [{ button, link }] : []
-      })
-      const soonButton = actions?.querySelector<HTMLElement>(':scope > .ab-soon')
-      const soonLink = header.querySelector<HTMLElement>('.ab-nav > .ab-soon')
-      if (soonButton && soonLink) pairs.push({ button: soonButton, link: soonLink })
+      // the sets swap at once (a jump, Tab, a reload, a resize, reduced motion). Each button flies
+      // to the header's link with its address (see flightPairs).
+      const pairs = flightPairs(
+        (href) => actions?.querySelector<HTMLElement>(`a[href="${href}"]`),
+        (href) => header.querySelector<HTMLElement>(`.ab-nav a[href="${href}"]`),
+      )
       const onScreen = pairs.every(({ button, link }) =>
         [button, link].every((el) => {
           const box = el.getBoundingClientRect()
@@ -582,6 +584,16 @@ export function startSectionNav({
       if (next) sizes.observe(next)
       // A new intro (a search cleared) docks by where it is, not by where the last one was.
       docked = false
+      evaluate()
+    },
+    /**
+     * The page has just scrolled itself (AniBeam going to the top, say), moving no focus: the sets
+     * swap at once, as for any jump, and the scroll's event, still to come, finds them swapped.
+     */
+    jumped() {
+      finishFlight()
+      cancelAnimationFrame(frame)
+      scrolledByVisitor = false
       evaluate()
     },
     stop() {

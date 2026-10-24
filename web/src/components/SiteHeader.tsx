@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ClickEvent } from 'react'
 import { confirmsWord, searchable } from '../lib/ime.ts'
 import { keyboardAfter, keyboardAt, oneLine, oneLineCaret, rowsShown } from '../lib/searchBox.ts'
 import {
@@ -16,9 +16,10 @@ import { MenuDrawer } from './MenuDrawer.tsx'
 import { openMenu } from './openMenu.ts'
 
 /**
- * A section link. `soon` marks a feature from a later phase: shown with a tag, not a link.
- * `current` marks the link to the page on screen (aria-current="page"); only the development
- * prototype (VariantD) sets it.
+ * A section link, or a link to another of the app's pages (My List's, /list, or on My List a
+ * section's on Discover, /#pull). `soon` marks a feature from a later phase: shown with a tag, not
+ * a link. `current` marks the link to the page on screen (aria-current="page"): My List's on My
+ * List, and the development prototype's (VariantD).
  */
 export type NavLink = { href: string; label: string; current?: boolean; soon?: boolean }
 
@@ -37,6 +38,7 @@ export function SiteHeader({
   onSearch,
   homeHref = '/',
   currentHref,
+  onGo,
 }: {
   links: NavLink[]
   search: string
@@ -45,6 +47,12 @@ export function SiteHeader({
   homeHref?: string
   /** The address of the section the visitor is in (#pull, say): its link is marked current. */
   currentHref?: string | null
+  /**
+   * A click on AniBeam, or on a link to another of the app's pages (My List, or Discover's
+   * sections from My List): the app goes there itself on a plain click (see App's go). Without
+   * it, the browser follows them, as any link.
+   */
+  onGo?: (event: ClickEvent<HTMLAnchorElement>) => void
 }) {
   const header = useRef<HTMLElement>(null)
   const burger = useRef<HTMLButtonElement>(null)
@@ -183,7 +191,7 @@ export function SiteHeader({
             <path d="M3 6h18M6 12h15M3 18h18" />
           </svg>
         </button>
-        <a className="ab-logo" href={homeHref}>
+        <a className="ab-logo" href={homeHref} onClick={onGo}>
           <ruby>
             AniBeam<rt>アニビーム</rt>
           </ruby>
@@ -204,6 +212,7 @@ export function SiteHeader({
                 aria-current={
                   link.current ? 'page' : link.href === currentHref ? 'location' : undefined
                 }
+                onClick={link.href.startsWith('#') ? undefined : onGo}
               >
                 {link.label}
               </a>
@@ -212,7 +221,13 @@ export function SiteHeader({
         </nav>
         <SearchBubble value={search} onChange={onSearch} />
       </header>
-      <MenuDrawer links={links} currentHref={currentHref} dialogRef={menu} onToggle={setMenuOpen} />
+      <MenuDrawer
+        links={links}
+        currentHref={currentHref}
+        onGo={onGo}
+        dialogRef={menu}
+        onToggle={setMenuOpen}
+      />
     </>
   )
 }
@@ -285,9 +300,10 @@ function SearchBubble({
     // The bubble at rest is 52px wider than its text (components.css).
     const choose = () =>
       setWhole(label.getBoundingClientRect().width >= placeholderCopy.offsetWidth + 52)
-    // At once, so the first frame drawn says the right one.
-    choose()
-    const observer = new ResizeObserver(() => {
+    // The bubble's size, from its text's, and the placeholder it says. At once, so the first frame
+    // drawn has them: the observer's first call comes a frame later, and the bubble, at its
+    // stand-in width till then, moved in a visit's first second. Then each time a size changes.
+    const measure = () => {
       label.style.setProperty('--text-w', `${copy.offsetWidth}px`)
       label.style.setProperty('--placeholder-w', `${placeholderCopy.offsetWidth}px`)
       choose()
@@ -303,7 +319,9 @@ function SearchBubble({
       // to the caret in the wider box, wouldn't scroll back until the next key.
       if (typed === document.activeElement && typed.selectionStart === typed.value.length)
         typed.scrollLeft = typed.scrollWidth
-    })
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
     observer.observe(label)
     observer.observe(copy)
     observer.observe(placeholderCopy)

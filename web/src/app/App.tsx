@@ -4,11 +4,13 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from '@tanstack/react-query'
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
+import { flushSync } from 'react-dom'
 import { coverFan, COVERS } from '../components/coverFan.ts'
 import { IntroHero } from '../components/IntroHero.tsx'
 import { MangaPage, PANELS } from '../components/MangaPage.tsx'
 import { MotionSwitch } from '../components/MotionSwitch.tsx'
+import { isPlainClick } from '../components/plainClick.ts'
 import { SiteHeader, type NavLink } from '../components/SiteHeader.tsx'
 import { Strip } from '../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../components/TitleCard.tsx'
@@ -28,7 +30,7 @@ import {
 } from '../features/anime/queries.ts'
 import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { isRateLimited } from '../lib/anilist.ts'
-import { markPointerJumps } from '../lib/jumps.ts'
+import { focusOn, jumpTo, markPointerJumps } from '../lib/jumps.ts'
 import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
 import {
@@ -42,19 +44,25 @@ import {
   titlePath,
   usePathname,
 } from '../lib/route.ts'
-import { startSectionNav } from '../lib/sectionNav.ts'
+import { LIST_HREF, startSectionNav } from '../lib/sectionNav.ts'
 import { useSteadyList } from '../lib/steadyList.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
 import { cardNote, noteFor, NOT_FOUND, sampleNote, searchStatus, titleNote } from './status.ts'
 
 const note = (query: UseQueryResult<Media[]>) => noteFor(query, isRateLimited())
-// The header's links: the page's three sections, and My List, to come.
+// The header's links: the page's three sections, and My List's page, marked current on it. No
+// count beside My List (the plan's D12): a number changing width would move the header, which the
+// intro's buttons fly into by its links' measured places. On My List the sections' links lead to
+// Discover's, at / (/#pull, say), which App goes to itself (see go).
 const HEADER_LINKS: NavLink[] = [
   { href: '#ab-trending', label: 'Trending' },
   { href: '#pull', label: 'Pull' },
   { href: '#decades', label: 'Decades' },
-  { href: '#my-list', label: 'My List', soon: true },
+  { href: LIST_HREF, label: 'My List' },
 ]
+const HEADER_LINKS_ON_LIST = HEADER_LINKS.map((link) =>
+  link.href === LIST_HREF ? { ...link, current: true } : { ...link, href: `/${link.href}` },
+)
 // A Try again button when a section's last attempt failed (see App's retryFailed).
 const retryFor = (query: UseQueryResult<Media[]>, retryFailed: () => void) =>
   query.isError && !query.isFetching ? retryFailed : undefined
@@ -243,8 +251,9 @@ export default function App() {
   // Screen readers hear search outcomes from one line that is always on the page.
   const [announcement, setAnnouncement] = useState('')
   // Debounce every change to the box, then trim what is searched: a typed space, or a letter an
-  // input method is still converting, is typing too, so it restarts the pause.
-  const term = useDebounced(search, 300).text.trim()
+  // input method is still converting, is typing too, so it restarts the pause. An emptied box (its
+  // X, Esc, AniBeam) has nothing to wait for: the results go at once, not 300 ms after the text.
+  const term = useDebounced(search, 300, (box) => !box.text).text.trim()
   // Results show on Discover, not on My List: a search typed there goes to /, as a new history
   // entry, so Back returns to My List, and shows its results there (the plan's D11). Only as the
   // search starts or changes: back on My List with a search still in the box, the page stays My
@@ -338,6 +347,41 @@ export default function App() {
     sectionNav.current?.intro(searching || onList ? null : actionsRef.current)
   }, [searching, onList])
 
+  // AniBeam and My List's links go to their page with no new page, on a plain click, as a link on
+  // My List does: a new history entry, so Back returns, drawn at once and shown from its top.
+  // AniBeam empties the search too, as the app loaded again did. On My List, a section's link
+  // (/#pull) goes to Discover the same way, and jumps to its heading once Discover has drawn, as
+  // the link does there: followed by the browser, a new page would draw the section only after
+  // the browser's own jump. Any other click (a new tab, say) is the browser's. Going to the top is
+  // a jump too, which the section links tell apart from a visitor's scroll: the intro's buttons
+  // swap in at once, with no flight down from the header.
+  const go = (event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isPlainClick(event)) return
+    event.preventDefault()
+    const to = event.currentTarget.getAttribute('href')!
+    flushSync(() => {
+      if (to === '/') setSearch({ shown: '', text: '' })
+      if (to !== `${location.pathname}${location.search}${location.hash}`) push(to, null)
+    })
+    const [, section] = to.split('#')
+    if (section) jumpTo(section, event.nativeEvent)
+    else {
+      scrollTo({ top: 0, behavior: 'instant' })
+      sectionNav.current?.jumped()
+    }
+    if (to === LIST_HREF && !focusOn('ab-list', event.nativeEvent))
+      arrival.current = event.nativeEvent
+  }
+
+  // My List's links hand focus to its heading, as a section's link does to its own, so that the
+  // keyboard goes on from there and a screen reader says where it is: the intro's goes with the
+  // intro as it is followed, and focus would fall to the page's start. Once the page has drawn,
+  // should its file still be loading as it opens.
+  const arrival = useRef<globalThis.MouseEvent>(null)
+  useLayoutEffect(() => {
+    if (arrival.current && (!onList || focusOn('ab-list', arrival.current))) arrival.current = null
+  })
+
   // Search results take the intro's place at the top of the page; bring them into view.
   useEffect(() => {
     if (searching) window.scrollTo({ top: 0 })
@@ -354,10 +398,11 @@ export default function App() {
         Skip to Reduce motion
       </a>
       <SiteHeader
-        links={HEADER_LINKS}
+        links={onList ? HEADER_LINKS_ON_LIST : HEADER_LINKS}
         search={search.shown}
         onSearch={(shown, text) => setSearch({ shown, text })}
         currentHref={currentHref}
+        onGo={go}
       />
       <main id="main">
         <p role="status" className="sr-only">
@@ -412,9 +457,10 @@ export default function App() {
               },
               { href: '#pull', label: 'Pull a random title' },
               { href: '#decades', label: 'Browse by decade' },
-              // To come, as in the header: it docks there with the section links.
-              { href: '#my-list', label: 'My List', soon: true },
+              // My List's page, as in the header: it docks there with the section links.
+              { href: LIST_HREF, label: 'My List' },
             ]}
+            onGo={go}
           />
         )}
         {/* Discover's sections, not on My List. */}

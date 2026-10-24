@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { chromeArgs, GOOGLE, sessionWindow } from './browser.ts'
+import { chromeArgs, GOOGLE, poll, sessionWindow } from './browser.ts'
 
 // The addresses Chrome is started unable to resolve: those its --host-resolver-rules map to
 // ~NOTFOUND, one rule each, as Chrome reads them, comma-separated.
@@ -82,5 +82,32 @@ test('layout shifts count in session windows, the largest one the score, and shi
   assert.deepEqual(
     sessionWindow([at(0, 0.01), at(2000, 0.2), at(2500, 0.01)]).shifts.map(({ time }) => time),
     [2000, 2500],
+  )
+})
+
+// A check that waits for the page (waitFor) asks again as its document is replaced: Chrome drops a
+// question under way as a reload or a navigation takes the old document away, answering it with an
+// error, and a check that took that for a failure failed at random on a reload (list.e2e.ts's, 2 of
+// 7 runs). Any other error still fails it at once.
+test('waitFor asks again when a reload takes away the document it was asking, and fails on any other error', async () => {
+  const answers: (boolean | Error)[] = [
+    new Error('Runtime.evaluate: Inspected target navigated or closed'),
+    new Error('Runtime.evaluate: Cannot find context with specified id'),
+    false,
+    true,
+  ]
+  let asked = 0
+  const check = async () => {
+    const answer = answers[asked++]
+    if (answer instanceof Error) throw answer
+    return answer
+  }
+  assert.equal(await poll(check, 5000), true, 'its answer once the new document is there')
+  assert.equal(asked, 4, 'how many times it asked')
+  await assert.rejects(
+    poll(async () => {
+      throw new Error('Runtime.evaluate: ReferenceError: nowhere is not defined')
+    }, 5000),
+    /ReferenceError/,
   )
 })

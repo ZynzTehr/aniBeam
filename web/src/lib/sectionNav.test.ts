@@ -6,8 +6,10 @@ import {
   dockedAfter,
   FLIGHT,
   flightFrames,
+  flightPairs,
   HIDE_SLACK,
   linkSet,
+  LIST_HREF,
   sectionLine,
   SHOW_SLACK,
   topAfter,
@@ -198,30 +200,51 @@ test('a copy’s shadow fades from the look of the end it leaves to the end it l
   ])
 })
 
-test('a copy has its shadow as an intro button and as the current section’s link, lands yellow only on that link, and My List’s has neither, current or not', () => {
-  assert.deepEqual(copyLook({ toHeader: true, current: false, soon: false }), {
+test('a copy has its shadow as an intro button and as the current section’s link, and lands yellow only on that link', () => {
+  assert.deepEqual(copyLook({ toHeader: true, current: false }), {
     shadows: { from: true, to: false },
     yellow: false,
   })
-  assert.deepEqual(copyLook({ toHeader: true, current: true, soon: false }), {
+  assert.deepEqual(copyLook({ toHeader: true, current: true }), {
     shadows: { from: true, to: true },
     yellow: true,
   })
-  assert.deepEqual(copyLook({ toHeader: false, current: false, soon: false }), {
+  assert.deepEqual(copyLook({ toHeader: false, current: false }), {
     shadows: { from: false, to: true },
     yellow: false,
   })
-  assert.deepEqual(copyLook({ toHeader: false, current: true, soon: false }), {
+  assert.deepEqual(copyLook({ toHeader: false, current: true }), {
     shadows: { from: true, to: true },
     yellow: false,
   })
-  // My List has no address, so above the first section, where none is current, it matches "no
-  // section" as `current`: it still lands plain.
-  for (const toHeader of [true, false])
-    for (const current of [true, false])
-      assert.deepEqual(
-        copyLook({ toHeader, current, soon: true }),
-        { shadows: { from: false, to: false }, yellow: false },
-        `My List ${toHeader ? 'docking' : 'undocking'}${current ? ', taken for current' : ''}`,
-      )
+})
+
+test('each intro button flies to the header’s link with its address, in order, My List last by its page’s, /list; one with no partner stays put', () => {
+  assert.equal(LIST_HREF, '/list')
+  // Each set as a map from an address to the name of what has it.
+  const find = (set: Record<string, string>) => (href: string) => set[href]
+  const intro = {
+    '#ab-trending': 'See what’s trending',
+    '#pull': 'Pull a random title',
+    '#decades': 'Browse by decade',
+    '/list': 'My List',
+  }
+  const header = {
+    '/list': 'My List',
+    '#decades': 'Decades',
+    '#pull': 'Pull',
+    '#ab-trending': 'Trending',
+  }
+  const pairs = (button: Record<string, string>, link: Record<string, string>) =>
+    flightPairs(find(button), find(link)).map((pair) => `${pair.button} to ${pair.link}`)
+  assert.deepEqual(pairs(intro, header), [
+    'See what’s trending to Trending',
+    'Pull a random title to Pull',
+    'Browse by decade to Decades',
+    'My List to My List',
+  ])
+  // My List with some other address at one end, a fragment, say, is no pair: nor is it a section.
+  const { '/list': _, ...sections } = header
+  assert.deepEqual(pairs(intro, { ...sections, '#my-list': 'My List' }).length, 3)
+  assert.deepEqual(pairs({}, header), [])
 })

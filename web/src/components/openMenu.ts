@@ -1,8 +1,9 @@
 /**
- * Opens the menu, focusing the link to the section the visitor is in, or the first, with the
- * keyboard's ring only when a key opened it (`byKey`). The hamburger takes focus first, if it
- * hasn't it (Safari doesn't focus a tapped button), so the dialog has it to give focus back to as
- * it shuts. Says whether it opened it: not if it was open already.
+ * Opens the menu, focusing the link marked current (the section the visitor is in, or My List's on
+ * My List), or the first, with the keyboard's ring only when a key opened it (`byKey`). The
+ * hamburger takes focus first, if it hasn't it (Safari doesn't focus a tapped button), so the
+ * dialog has it to give focus back to as it shuts. Says whether it opened it: not if it was open
+ * already.
  */
 export function openMenu(
   dialog: HTMLDialogElement | null,

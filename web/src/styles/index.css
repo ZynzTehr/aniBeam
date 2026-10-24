@@ -23,12 +23,17 @@
  * Fonts, self-hosted so visitors never contact Google. Each file is a subset
  * (Latin, kana and ★, about 100 KB for all three); kanji fall back to a system
  * font. Licenses: public/fonts/OFL.txt.
+ *
+ * optional, not swap: a font that comes after the page has drawn its text in a
+ * fallback is left out until the next visit, so nothing moves. Swapped in, a
+ * late M PLUS moved My List's notes 3px and the header's links sideways.
+ * index.html preloads all three, so they come in time on nearly every visit.
  */
 @font-face {
   font-family: 'Dela Gothic One';
   font-style: normal;
   font-weight: 400;
-  font-display: swap;
+  font-display: optional;
   src: url('/fonts/dela-gothic-one-400.woff2') format('woff2');
 }
 
@@ -36,7 +41,7 @@
   font-family: 'M PLUS Rounded 1c';
   font-style: normal;
   font-weight: 700;
-  font-display: swap;
+  font-display: optional;
   src: url('/fonts/m-plus-rounded-1c-700.woff2') format('woff2');
 }
 
@@ -44,7 +49,7 @@
   font-family: 'M PLUS Rounded 1c';
   font-style: normal;
   font-weight: 800;
-  font-display: swap;
+  font-display: optional;
   src: url('/fonts/m-plus-rounded-1c-800.woff2') format('woff2');
 }
 
