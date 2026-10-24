@@ -389,8 +389,9 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // phone menu's My List a link too, and the intro's, the Soon look My List's flying copy had went
 // from the CSS, which came down to 11,830 B; with the section links on My List leading to
 // Discover's sections, AniBeam's jump to the top and My List's heading taking focus as its links
-// are followed, the JS every visit loads is 90,440 B, so its budget stays 90,500 B. My List's page
-// itself, ListPage and features/list/view.ts, is 2,323 B, so its own budget is 2,500 B (the user
+// are followed, the JS every visit loads is 90,440 B, and 90,468 B (CSS 11,839 B) with the search
+// bubble measured before its first frame, so its budget stays 90,500 B. My List's page itself,
+// ListPage and features/list/view.ts, is 2,322 B, so its own budget is 2,500 B (the user
 // agreed to about 3,000 B, the plan's D18); the grid's covers kept their focus rings on a phone's
 // screen with a wider scroll margin (11,866 B of CSS, before the Soon look went). The JS loaded
 // only when needed rose to 14,028 B when the samples began to carry each title's synopsis, running
