@@ -400,6 +400,61 @@ const STOP = `(() => {
   return { name, problems }
 })()`
 
+test('Enter on My List’s link, the intro’s, the header’s or the phone menu’s, hands focus to My List’s heading, with its ring, before its file has loaded and after', async () => {
+  // The intro's goes with the intro as it is followed, so focus would fall to the page's start,
+  // with nothing said: My List's heading takes it, as a section's does after its link.
+  const where = `(() => {
+    const focused = document.activeElement
+    return {
+      path: location.pathname,
+      focus: focused.id || focused.tagName,
+      ring: focused.matches(':focus-visible'),
+      jump: focused.dataset.jump ?? 'unmarked',
+      top: scrollY,
+    }
+  })()`
+  const arrived = { path: '/list', focus: 'ab-list', ring: true, jump: 'unmarked', top: 0 }
+  await browser.forget()
+  await browser.load({ width: 1440, height: 900, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  // With nothing saved, My List's page loads only as it is opened (see features/list/page.ts).
+  const pageLoaded = `performance.getEntriesByType('resource').some((entry) => entry.name.includes('ListPage'))`
+  assert.equal(await browser.evaluate(pageLoaded), false, 'My List’s file loaded before it opened')
+  for (const [i, [link, label]] of [
+    ['.ab-intro-actions a[href="/list"]', 'the intro’s, before My List’s file has loaded'],
+    ['.ab-intro-actions a[href="/list"]', 'the intro’s, once it has'],
+    ['.ab-nav a[href="/list"]', 'the header’s'],
+  ].entries()) {
+    // Back to Discover from My List, after the first.
+    if (i > 0) {
+      await browser.evaluate(`history.back(); true`)
+      assert.ok(await browser.waitFor(`document.querySelector('.ab-intro-actions')`, 5000), label)
+    }
+    // The header's shows once the intro's buttons have docked, at the page's end.
+    if (link.startsWith('.ab-nav'))
+      await browser.evaluate(
+        `scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }); true`,
+      )
+    await browser.evaluate(`document.querySelector('${link}').focus(); true`)
+    await browser.evaluate(NEXT_FRAME)
+    await browser.press('Enter')
+    await browser.waitFor(`document.activeElement.id === 'ab-list'`, 5000)
+    assert.deepEqual(await browser.evaluate(where), arrived, label)
+  }
+  // On a phone, the menu's, which shuts the menu as it goes.
+  await browser.load({ width: 390, height: 844, phone: true, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.evaluate(`document.querySelector('.ab-burger').focus(); true`)
+  await browser.press('Enter')
+  assert.ok(await browser.waitFor(`document.querySelector('.ab-drawer').open`, 5000), 'no menu')
+  await browser.evaluate(`document.querySelector('.ab-drawer a[href="/list"]').focus(); true`)
+  await browser.press('Enter')
+  await browser.waitFor(`document.activeElement.id === 'ab-list'`, 5000)
+  await browser.evaluate(SETTLED)
+  assert.deepEqual(await browser.evaluate(where), arrived, 'the menu’s')
+  assert.equal(await browser.evaluate(`document.querySelector('.ab-drawer').open`), false)
+})
+
 // Waits for the page's time-based animations and transitions running now to finish, then two
 // frames more: those due to end within 3 s, so that one stuck or far behind shows as a problem
 // instead of being waited out.

@@ -30,7 +30,7 @@ import {
 } from '../features/anime/queries.ts'
 import { PullMachine } from '../features/mood/PullMachine.tsx'
 import { isRateLimited } from '../lib/anilist.ts'
-import { jumpTo, markPointerJumps } from '../lib/jumps.ts'
+import { focusOn, jumpTo, markPointerJumps } from '../lib/jumps.ts'
 import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
 import {
@@ -369,7 +369,18 @@ export default function App() {
       scrollTo({ top: 0, behavior: 'instant' })
       sectionNav.current?.jumped()
     }
+    if (to === LIST_HREF && !focusOn('ab-list', event.nativeEvent))
+      arrival.current = event.nativeEvent
   }
+
+  // My List's links hand focus to its heading, as a section's link does to its own, so that the
+  // keyboard goes on from there and a screen reader says where it is: the intro's goes with the
+  // intro as it is followed, and focus would fall to the page's start. Once the page has drawn,
+  // should its file still be loading as it opens.
+  const arrival = useRef<globalThis.MouseEvent>(null)
+  useLayoutEffect(() => {
+    if (arrival.current && (!onList || focusOn('ab-list', arrival.current))) arrival.current = null
+  })
 
   // Search results take the intro's place at the top of the page; bring them into view.
   useEffect(() => {
