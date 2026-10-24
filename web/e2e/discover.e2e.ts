@@ -4766,12 +4766,12 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     // Every part of the page that moves with motion allowed, done once each as a visitor does it:
     // the scroll slam and the intro's buttons flying into the header, the decade strip scrolled
     // sideways, a search, a title's card with its band, its banner and its details coming in, Read
-    // more and the spoiler tags, its My List buttons clicked, the trailer, a pull, My List's page
-    // with its tabs and Favorites only, a title taken off there and its Undo, and on a phone the
-    // header sliding away and back, the menu sliding in and out by its button and by a swipe, and
-    // the search bubble growing. Each may start fades and changes of color, reduced motion's
-    // own versions (the card's, the trailer's and the menu's fades must be heard, so that a
-    // recorder hearing nothing can't pass), but no animation or transition that moves or resizes,
+    // more and the spoiler tags, Show less, its My List buttons clicked, the trailer, a pull, My
+    // List's page with its tabs and Favorites only, a title taken off there and its Undo, and on a
+    // phone the header sliding away and back, the menu sliding in and out by its button and by a
+    // swipe, and the search bubble growing. Each may start fades and changes of color, reduced
+    // motion's own versions (the card's, the trailer's and the menu's fades must be heard, so that
+    // a recorder hearing nothing can't pass), but no animation or transition that moves or resizes,
     // by CSS or the Web Animations API, heard for at least 500 ms after the step (see startedBy),
     // and nothing may be left on the page 1 s on, playing, paused or holding its last frame. A
     // script that moves something by setting its style, with no animation at all, makes nothing to
@@ -4781,9 +4781,10 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     // button (the fade checks above). With motion allowed, the same walk, before its My List steps,
     // started 80 moving ones across its steps, in all but Read more and the trailer's closing (the
     // My List buttons, and My List's tabs, lift as they are hovered, as every .ab-btn does), and
-    // the hamburger's bars and the menu move under the finger. Set on the site, the setting is
-    // turned on by a click on the switch after the first load, and the phone's load gets it back
-    // from the saved choice.
+    // the hamburger's bars and the menu move under the finger; Read more and Show less now start
+    // one each, the synopsis's height and its fade moving (see title.e2e.ts). Set on the site, the
+    // setting is turned on by a click on the switch after the first load, and the phone's load gets
+    // it back from the saved choice.
     const seen: Record<string, Awaited<ReturnType<typeof startedBy>>> = {}
     let followed: string[] = []
     const step = async (name: string, act: () => Promise<unknown>) => {
@@ -4923,6 +4924,10 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
           ),
           'Read more and Show spoiler tags didn’t open',
         )
+      })
+      await step('Show less', async () => {
+        await press('Show less')
+        assert.ok(await browser.waitFor(button('Read more'), 2000), 'Show less didn’t close')
       })
       await step('Save, Want to try and Favorite, each clicked', async () => {
         for (const label of ['Save', 'Want to try', 'Favorite']) {
@@ -5097,7 +5102,7 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
         `localStorage.removeItem('anibeam:motion'); localStorage.removeItem('anibeam:list:v1'); delete document.documentElement.dataset.motion; true`,
       )
     }
-    assert.equal(Object.keys(seen).length, 20, 'steps the walk took')
+    assert.equal(Object.keys(seen).length, 21, 'steps the walk took')
     assert.deepEqual(
       Object.fromEntries(
         Object.entries(seen).flatMap(([name, { moving, left }]) =>

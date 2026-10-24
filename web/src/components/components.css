@@ -2291,14 +2291,24 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 
 /* Five lines until Read more, in line heights, which the page's own font and a fallback share,
    so the clamp is as tall before the font arrives as after. Where it hides some of the text, the
-   last lines fade into the paper. */
+   last lines fade into the paper, over the foot's 2.25 line heights. The fade is drawn below a
+   mask as tall as the text and as the fade together, set at the text's foot: as the text opens or
+   closes, the script moves the mask up, the fade sliding down out of sight below the text, or
+   back, as its height moves (see TitleDetails), past the clamp, the rest of the text clipped. */
 .ab-synopsis-text.is-clamped {
   max-height: 5lh;
   overflow: hidden;
 }
 
-.ab-synopsis-text.is-cut {
-  mask-image: linear-gradient(#000 55%, transparent);
+.ab-synopsis-text.is-cut,
+.ab-synopsis-text[data-moving] {
+  mask: linear-gradient(#000 calc(100% - 2.25lh), transparent) 0 100% / 100% calc(100% + 2.25lh)
+    no-repeat;
+}
+
+.ab-synopsis-text[data-moving] {
+  max-height: none;
+  overflow: hidden;
 }
 
 .ab-source {

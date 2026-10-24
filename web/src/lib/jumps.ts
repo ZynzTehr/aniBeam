@@ -12,9 +12,12 @@ export const byPointer = (pointerType: string | undefined, last: 'pointer' | 'ke
 // The last input before a click, a pointer's or a key's, as markPointerJumps follows it.
 let last: 'pointer' | 'key' = 'key'
 
+/** Whether `event`, a click, came from a pointer, as byPointer tells, by the last input too. */
+export const pointed = (event: MouseEvent) => byPointer((event as PointerEvent).pointerType, last)
+
 /** Marks `target`, a heading a link's click focuses, as a pointer's jump or not (see below). */
 function mark(target: HTMLElement, event: MouseEvent) {
-  if (byPointer((event as PointerEvent).pointerType, last)) target.dataset.jump = 'pointer'
+  if (pointed(event)) target.dataset.jump = 'pointer'
   else delete target.dataset.jump
 }
 
