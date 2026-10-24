@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom'
 import type { Media, Tag } from '../features/anime/queries.ts'
 import { parseSynopsis, type Run } from '../features/anime/synopsis.ts'
 import { tagsOf } from '../features/anime/tags.ts'
+import { pointed } from '../lib/jumps.ts'
 import { reducedMotion } from '../lib/motion.ts'
 
 /**
@@ -62,11 +63,12 @@ function Synopsis({ description }: { description: string | null }) {
    * it goes, in 280 to 350 ms by its length, eased out, so the content below follows its foot, and
    * the fade at its foot slides down out of sight below it as it opens, and back as it closes (see
    * .ab-synopsis-text[data-moving]). A second press part way turns it back from where it is, in
-   * the part of that time its way back takes. Under reduced motion it changes at once.
+   * the part of that time its way back takes. Under reduced motion it changes at once. `pointer`
+   * says whether the press was a pointer's (a mouse, a finger, a pen) or a key's (see
+   * lib/jumps.ts), which decides what opening scrolls (see below).
    */
-  const toggle = (button: HTMLButtonElement) => {
+  const toggle = (button: HTMLButtonElement, pointer: boolean) => {
     const element = text.current!
-    const card = element.closest('dialog') ?? document.documentElement
     const style = getComputedStyle(element)
     const height = () => parseFloat(style.height)
     const from = height()
@@ -75,30 +77,20 @@ function Synopsis({ description }: { description: string | null }) {
     element.removeAttribute('data-moving')
     flushSync(() => setOpen(!open))
     const to = height()
-    const line = parseFloat(style.lineHeight)
-    const clamp = 5 * line
+    const clamp = 5 * parseFloat(style.lineHeight)
     const travel = Math.max(element.scrollHeight - clamp, Math.abs(to - from), 1)
     // Closing, the button moves up with the text's foot, maybe off the screen, from under it: it is
     // kept in view, its ring too (see .ab-more's scroll-margin), in each frame as the browser is
-    // about to draw it. Opening, the reader keeps their place: the button goes down below the text,
-    // and the card scrolls after it, as the text grows, only as far as keeps the clamp's last line
-    // on the screen. On a phone a long synopsis pushes the button far down, and following it all
-    // the way whipped the lines being read up off the screen's top.
-    const keep = () => button.scrollIntoView({ block: 'nearest' })
-    const top = card.scrollTop
-    const scroll = open
-      ? 0
-      : Math.max(
-          0,
-          Math.min(
-            button.getBoundingClientRect().bottom +
-              parseFloat(getComputedStyle(button).scrollMarginBottom) -
-              innerHeight,
-            element.getBoundingClientRect().top + clamp - line,
-          ),
-        )
+    // about to draw it. Opening at a pointer's press, the reader keeps their place: the text opens
+    // below the lines being read, and the card doesn't scroll. On a phone a long synopsis pushes
+    // the button far down, and following it whipped those lines up off the screen's top. Opening
+    // at a key's, the button, which has focus, is brought into view once the text has opened, as
+    // near as it goes, smoothly (at once under reduced motion), so focus is never left off the
+    // screen (WCAG 2.4.11).
+    const keep = (behavior?: ScrollBehavior) =>
+      button.scrollIntoView({ block: 'nearest', behavior })
     if (reducedMotion() || Math.abs(to - from) < 1)
-      return void (open ? requestAnimationFrame(keep) : (card.scrollTop = top + scroll))
+      return void ((open || !pointer) && requestAnimationFrame(() => keep()))
     // How far the fade lies below the clamp's foot, at a height: all the way down, out of sight,
     // once the text is open. Its position goes by its prefixed name too, which Chrome 111 to 119
     // know it by: they drop a name they don't know, and the fade would stay put as the text moved.
@@ -143,7 +135,11 @@ function Synopsis({ description }: { description: string | null }) {
     for (const type of ['wheel', 'touchstart', 'keydown'])
       addEventListener(type, () => quit.abort(), { passive: true, signal: quit.signal })
     requestAnimationFrame(function follow() {
-      if (moving.playState !== 'running') return quit.abort()
+      if (moving.playState !== 'running') {
+        if (!open && !pointer && !quit.signal.aborted && moving.playState == 'finished')
+          keep('smooth')
+        return quit.abort()
+      }
       // A text that reflows as it opens, as when the screen turns, grows on from where it is to its
       // new height, in the time left or 280 ms if that is longer, as its new way may be the longer:
       // it grew to the old height and then snapped to the new one in a frame.
@@ -155,9 +151,7 @@ function Synopsis({ description }: { description: string | null }) {
         target = full
         moving = run(now, Math.max(left, 280), soft)
       }
-      if (!quit.signal.aborted)
-        if (open) keep()
-        else card.scrollTop = top + scroll * Math.min((height() - from) / (to - from), 1)
+      if (open && !quit.signal.aborted) keep()
       requestAnimationFrame(follow)
     })
   }
@@ -191,7 +185,7 @@ function Synopsis({ description }: { description: string | null }) {
           className="ab-more"
           aria-expanded={open}
           aria-controls={id}
-          onClick={(event) => toggle(event.currentTarget)}
+          onClick={(event) => toggle(event.currentTarget, pointed(event.nativeEvent))}
         >
           {open ? 'Show less' : 'Read more'}
         </button>
