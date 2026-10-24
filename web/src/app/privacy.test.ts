@@ -390,8 +390,11 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // from the CSS, which came down to 11,830 B; with the section links on My List leading to
 // Discover's sections, AniBeam's jump to the top and My List's heading taking focus as its links
 // are followed, the JS every visit loads is 90,440 B, and 90,468 B (CSS 11,839 B) with the search
-// bubble measured before its first frame, so its budget stays 90,500 B. My List's page itself,
-// ListPage and features/list/view.ts, is 2,322 B, so its own budget is 2,500 B (the user
+// bubble measured before its first frame, so its budget stayed 90,500 B; then 91,000 B with Read
+// more and Show less moving the synopsis's height smoothly, its fade sliding with it, a second
+// press turning it back from where it is, the button kept in view as it moves (the user asked for
+// it not to jolt open: 90,661 B; the fade's taller mask left the CSS at 11,856 B). My List's page
+// itself, ListPage and features/list/view.ts, is 2,322 B, so its own budget is 2,500 B (the user
 // agreed to about 3,000 B, the plan's D18); the grid's covers kept their focus rings on a phone's
 // screen with a wider scroll margin (11,866 B of CSS, before the Soon look went). The JS loaded
 // only when needed rose to 14,028 B when the samples began to carry each title's synopsis, running
@@ -399,7 +402,7 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // with no request (the user agreed to about 15 KB more, gzipped), so its budget is 14,500 B.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 90_500,
+  'the JS every visit loads': 91_000,
   'the CSS': 12_000,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,

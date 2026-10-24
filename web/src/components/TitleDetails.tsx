@@ -3,6 +3,7 @@ import { flushSync } from 'react-dom'
 import type { Media, Tag } from '../features/anime/queries.ts'
 import { parseSynopsis, type Run } from '../features/anime/synopsis.ts'
 import { tagsOf } from '../features/anime/tags.ts'
+import { reducedMotion } from '../lib/motion.ts'
 
 /**
  * What the title card shows below its facts and buttons, last in it: the synopsis, five lines of
@@ -47,13 +48,67 @@ function Synopsis({ description }: { description: string | null }) {
   useLayoutEffect(() => {
     const element = text.current
     if (!element || !whole.current || open) return
-    const measure = () => setCut(element.scrollHeight > element.clientHeight + 1)
+    // Not while the text closes (see toggle): its height is then the animation's, not the clamp's.
+    const measure = () =>
+      element.hasAttribute('data-moving') || setCut(element.scrollHeight > element.clientHeight + 1)
     measure()
     const resized = new ResizeObserver(() => flushSync(measure))
     resized.observe(element)
     resized.observe(whole.current)
     return () => resized.disconnect()
   }, [open])
+  /**
+   * Opens the text or closes it. With motion allowed, its height moves from where it is to where
+   * it goes, in 280 to 350 ms by its length, eased out, so the content below follows its foot, and
+   * the fade at its foot slides down out of sight below it as it opens, and back as it closes (see
+   * .ab-synopsis-text[data-moving]). A second press part way turns it back from where it is, in
+   * the part of that time its way back takes. Under reduced motion it changes at once.
+   */
+  const toggle = (button: HTMLButtonElement) => {
+    const element = text.current!
+    const style = getComputedStyle(element)
+    const from = parseFloat(style.height)
+    const turning = element.getAnimations().length > 0
+    element.getAnimations().forEach((animation) => animation.cancel())
+    element.removeAttribute('data-moving')
+    flushSync(() => setOpen(!open))
+    // The button moves with the text's foot, maybe off the screen: down below it as the text opens
+    // above it (on a phone, a long synopsis pushes it past the screen's foot), and up as it closes
+    // from under it. Either way it is kept in view, its ring too (see .ab-more's scroll-margin), in
+    // each frame as the browser is about to draw it.
+    const keep = () => button.scrollIntoView({ block: 'nearest' })
+    const to = parseFloat(style.height)
+    const clamp = 5 * parseFloat(style.lineHeight)
+    const travel = Math.max(element.scrollHeight - clamp, Math.abs(to - from), 1)
+    if (reducedMotion() || Math.abs(to - from) < 1) return void requestAnimationFrame(keep)
+    // How far the fade lies below the clamp's foot, at a height: all the way down, out of sight,
+    // once the text is open.
+    const fade = (height: number) =>
+      `0 ${100 - Math.min(Math.max((height - clamp) / travel, 0), 1) * 100}%`
+    element.setAttribute('data-moving', '')
+    const moving = element.animate(
+      { height: [`${from}px`, `${to}px`], maskPosition: [fade(from), fade(to)] },
+      {
+        duration: Math.max(120, (Math.abs(to - from) / travel) * Math.min(350, 280 + travel / 20)),
+        // A soft ease out, a third of the way in its first 40 ms, where a steeper one leapt half
+        // way. Turning back, it sets off slowly, as from a stop, not at an ease out's first speed.
+        easing: turning ? 'cubic-bezier(0.4, 0, 0.2, 1)' : 'cubic-bezier(0.3, 0.6, 0.3, 1)',
+      },
+    )
+    requestAnimationFrame(function follow() {
+      keep()
+      if (moving.playState === 'running') requestAnimationFrame(follow)
+    })
+    // Once the text has closed, whether the clamp hides anything is measured again, as the text may
+    // have changed size as it moved. A second press cancels this, and its own animation does it.
+    moving.finished.then(
+      () => {
+        element.removeAttribute('data-moving')
+        if (open) setCut(element.scrollHeight > element.clientHeight + 1)
+      },
+      () => {},
+    )
+  }
   const { paragraphs, source } = parseSynopsis(description)
   if (paragraphs.length === 0) return <p className="ab-synopsis-none">Description unavailable.</p>
   return (
@@ -84,15 +139,7 @@ function Synopsis({ description }: { description: string | null }) {
           className="ab-more"
           aria-expanded={open}
           aria-controls={id}
-          onClick={(event) => {
-            // The button moves with the text's foot, maybe off the screen: down below it as the
-            // text opens above it (on a phone, a long synopsis pushes it past the screen's foot),
-            // and up as it closes from under it. Either way it is brought back into view, its ring
-            // too (see .ab-more's scroll-margin), before the browser draws the text's new height.
-            const button = event.currentTarget
-            setOpen(!open)
-            requestAnimationFrame(() => button.scrollIntoView({ block: 'nearest' }))
-          }}
+          onClick={(event) => toggle(event.currentTarget)}
         >
           {open ? 'Show less' : 'Read more'}
         </button>

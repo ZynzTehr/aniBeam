@@ -781,6 +781,278 @@ test('the synopsis shows five lines, and where they hide some of it, Read more o
   assert.deepEqual(seen, [], 'synopses clamped or opened wrongly')
 })
 
+// The open card's synopsis as it lies, frame by frame, from a click on its button on, brought
+// `into` view first as scrollIntoView puts it, for 900 ms. Each frame is read in its turn, after
+// the page's own work for the frame, as it will be drawn: the text's height and full height,
+// whether text spills out of its box (taller than it, and not clipped), how far the button and the
+// tags lie below the text's foot, where its fade lies (its mask's position, or null with none), the
+// button's words and whether it is whole on the screen, and the text's animations. With
+// `reverseAt`, the button is clicked again in the first frame that many milliseconds on. `before`
+// is the synopsis just before the first click, and `reversed` the frame the second came in.
+const FRAMES = (into: 'start' | 'center', reverseAt: number | null = null) => `(async () => {
+  const card = document.querySelector('dialog.ab-card[open]')
+  const text = card.querySelector('.ab-synopsis-text'), button = card.querySelector('.ab-synopsis .ab-more')
+  const read = (at) => {
+    const box = text.getBoundingClientRect(), style = getComputedStyle(text), own = button.getBoundingClientRect()
+    const tags = card.querySelector('.ab-tag-set')?.getBoundingClientRect() ?? own
+    return {
+      at: Math.round(at),
+      height: box.height,
+      full: text.scrollHeight,
+      spills: text.scrollHeight > text.clientHeight + 1 && style.overflowY === 'visible',
+      below: [own.top - box.bottom, tags.top - box.bottom],
+      fade: style.maskImage === 'none' ? null : style.maskPosition,
+      says: button.textContent,
+      whole: own.top >= 0 && own.bottom <= innerHeight,
+      moving: text.getAnimations().length,
+    }
+  }
+  const frame = () => new Promise((resolve) => requestAnimationFrame(resolve))
+  button.scrollIntoView({ block: '${into}' })
+  await frame()
+  await frame()
+  const before = read(0), frames = []
+  let reversed = null
+  const start = performance.now()
+  button.click()
+  while (performance.now() - start < 900) {
+    await frame()
+    const at = performance.now() - start
+    frames.push(read(at))
+    if (${reverseAt} !== null && reversed === null && at >= ${reverseAt}) {
+      reversed = frames.length
+      button.click()
+    }
+  }
+  return { before, frames, reversed }
+})()`
+
+type Frame = {
+  at: number
+  height: number
+  full: number
+  spills: boolean
+  below: number[]
+  fade: string | null
+  says: string
+  whole: boolean
+  moving: number
+}
+type Frames = { before: Frame; frames: Frame[]; reversed: number | null }
+
+// How far down the fade lies, in percent of the room it has, from a mask's position: 100 at the
+// clamp's foot, 0 once it is out of sight below the text.
+const fadeAt = (fade: string | null) =>
+  fade === null ? null : parseFloat(fade.trim().split(/\s+/)[1] ?? 'NaN')
+
+/**
+ * What went wrong in a smooth change of the synopsis's height, from `start` through `frames`, for a
+ * press `pressedAt` ms on: it must go one way only, through at least five heights in between, and
+ * reach its new height, the whole text's opening or the `clamp`'s closing, within 450 ms, no frame
+ * showing it at once, with no text spilling from its box, the button and the tags keeping their
+ * places below its foot, the button whole on the screen if it was, and the fade moving part way in
+ * three frames or more, out of sight below the text as it opens, back at the clamp's foot closed.
+ */
+function judgeSmooth(
+  where: string,
+  start: Frame,
+  frames: Frame[],
+  pressedAt: number,
+  opening: boolean,
+  clamp: number,
+): string[] {
+  const problems: string[] = []
+  const end = frames.at(-1)!
+  if (opening && Math.abs(end.height - end.full) > 1)
+    problems.push(`${where}: ended ${end.height}px tall, not its full ${end.full}px`)
+  if (Math.abs(frames[0].height - end.height) < 1 && Math.abs(start.height - end.height) >= 1)
+    problems.push(`${where}: its first frame showed its new height, ${end.height}px, at once`)
+  const way = opening ? 1 : -1
+  frames.forEach((frame, i) => {
+    const last = i ? frames[i - 1] : start
+    if ((frame.height - last.height) * way < -0.5)
+      problems.push(
+        `${where}: went back from ${last.height}px to ${frame.height}px at ${frame.at} ms`,
+      )
+  })
+  const low = Math.min(start.height, end.height) + 1
+  const high = Math.max(start.height, end.height) - 1
+  const between = frames.filter((frame) => frame.height > low && frame.height < high).length
+  if (between < 5)
+    problems.push(`${where}: ${between} frames between ${start.height}px and ${end.height}px`)
+  const settled = frames.findIndex((_, i) =>
+    frames.slice(i).every((frame) => Math.abs(frame.height - end.height) < 0.5),
+  )
+  const took = frames[settled].at - pressedAt
+  if (took > 450) problems.push(`${where}: took ${took} ms to reach ${end.height}px`)
+  if (!opening && Math.abs(end.height - clamp) > 1)
+    problems.push(`${where}: ended ${end.height}px tall, not the clamp's ${clamp}px`)
+  const spilt = frames.filter((frame) => frame.spills)
+  if (spilt.length) problems.push(`${where}: text spilt from its box at ${spilt[0].at} ms`)
+  const moved = frames.filter((frame) =>
+    frame.below.some((gap, i) => Math.abs(gap - start.below[i]) > 1),
+  )
+  if (moved.length)
+    problems.push(
+      `${where}: the button and tags lay ${moved[0].below.map(Math.round)}px below the text's foot at ${moved[0].at} ms, not ${start.below.map(Math.round)}px`,
+    )
+  const hidden = frames.filter((frame) => !frame.whole)
+  if (start.whole && hidden.length)
+    problems.push(`${where}: the button left the screen at ${hidden[0].at} ms`)
+  const fades = frames.map((frame) => fadeAt(frame.fade))
+  const fading = fades.filter((at) => at !== null && at > 1 && at < 99).length
+  if (fading < 3) problems.push(`${where}: the fade was part way in ${fading} frames`)
+  if (fades.at(-1) !== (opening ? null : 100))
+    problems.push(`${where}: the fade ended at ${fades.at(-1)}, not ${opening ? 'gone' : 100}`)
+  if (end.moving) problems.push(`${where}: ${end.moving} animations still on the text 900 ms on`)
+  return problems
+}
+
+/** What went wrong in an instant change, as under reduced motion: nothing in between, no motion. */
+function judgeInstant(where: string, { before, frames }: Frames): string[] {
+  const end = frames.at(-1)!
+  const problems: string[] = []
+  if (Math.abs(frames[0].height - end.height) > 0.5)
+    problems.push(`${where}: ${frames[0].height}px in its first frame, ${end.height}px at the end`)
+  if (Math.abs(before.height - end.height) < 1) problems.push(`${where}: its height didn't change`)
+  const moving = frames.filter((frame) => frame.moving)
+  if (moving.length) problems.push(`${where}: the text was animated at ${moving[0].at} ms`)
+  return problems
+}
+
+test('with motion allowed, Read more grows the synopsis to its full height and Show less shrinks it, smoothly, and a second press turns it back from where it is', async () => {
+  // The user's ask: Read more opened the rest of the synopsis at once, a jolt. Now its height
+  // moves from the clamp's five lines to the whole text, and back for Show less, in about 300 ms
+  // with an ease out, the content below moving with its foot, never a frame showing the whole text
+  // first, the fade at its foot sliding out of sight below it as it opens and back as it closes,
+  // and the button kept on the screen. A second press part way turns it back from where it is.
+  // In the card at Frieren's address and in one opened over Discover from a search, from 280 to
+  // 1440 px, in a fallback font, and with a long synopsis, closed far down it in a card without
+  // scroll anchoring, as in Safari. Reduced motion, on the device or set on the site, keeps the
+  // change instant, with no animation (the walk in discover.e2e.ts holds the rest of the card).
+  const seen: string[] = []
+  const motion = async (screen: { width: number; height: number; phone?: boolean }) => {
+    await browser.forget()
+    await browser.load({ ...screen, url: at('/anime/154587') })
+    assert.ok(
+      await browser.waitFor(`document.querySelector('dialog.ab-card.is-landed')`, 10_000),
+      `at ${screen.width}px, no card landed for Frieren`,
+    )
+    await browser.animationsDone()
+  }
+  // Read more, then Show less, each from rest, with the button `into` view first.
+  const both = async (where: string, into: 'start' | 'center' = 'center') => {
+    const opened = await browser.evaluate<Frames>(FRAMES('center'))
+    seen.push(
+      ...judgeSmooth(
+        `${where}, Read more`,
+        opened.before,
+        opened.frames,
+        0,
+        true,
+        opened.before.height,
+      ),
+    )
+    const closed = await browser.evaluate<Frames>(FRAMES(into))
+    seen.push(
+      ...judgeSmooth(
+        `${where}, Show less`,
+        closed.before,
+        closed.frames,
+        0,
+        false,
+        opened.before.height,
+      ),
+    )
+    if (closed.frames.at(-1)?.says !== 'Read more') seen.push(`${where}: Show less didn't close`)
+  }
+  const PHONE = { width: 280, height: 653, phone: true }
+  try {
+    for (const screen of [PHONE, SCREENS[0], SCREENS[2]]) {
+      await motion(screen)
+      await both(`${screen.width}px at its address`)
+      // Read more, then Show less 120 ms on, part way.
+      const turned = await browser.evaluate<Frames>(FRAMES('center', 120))
+      const where = `${screen.width}px, Show less part way`
+      const back = turned.reversed!
+      const steps = turned.frames
+        .slice(1, back)
+        .map((frame, i) => Math.abs(frame.height - turned.frames[i].height))
+      const from = turned.frames[back - 1]
+      const jump = Math.abs(turned.frames[back].height - from.height)
+      if (jump > Math.max(...steps, 0) + 2)
+        seen.push(`${where}: jumped ${Math.round(jump)}px from ${from.height}px as it turned back`)
+      const ahead = turned.frames.slice(back)
+      seen.push(...judgeSmooth(where, from, ahead, from.at, false, turned.before.height))
+      if (from.height <= turned.before.height + 1 || from.height >= from.full - 1)
+        seen.push(`${where}: ${from.height}px at 120 ms, not part way`)
+    }
+    for (const screen of [SCREENS[0], SCREENS[2]]) {
+      await browser.forget()
+      await browser.load(screen)
+      assert.ok(await browser.titlesShown(), `at ${screen.width}px, no titles showed`)
+      await browser.search('frieren')
+      assert.ok(
+        await browser.waitFor(`document.querySelector('.ab-results a[href="/anime/154587"]')`),
+        'no result for Frieren',
+      )
+      await browser.evaluate(
+        `document.querySelector('.ab-results a[href="/anime/154587"]').click(); true`,
+      )
+      assert.ok(
+        await browser.waitFor(
+          `document.querySelector('dialog.ab-card.is-landed .ab-synopsis .ab-more')`,
+          10_000,
+        ),
+        `at ${screen.width}px, Frieren's card didn't open over Discover`,
+      )
+      await browser.animationsDone()
+      await both(`${screen.width}px over Discover`)
+    }
+    await motion(SCREENS[0])
+    await browser.evaluate(
+      `document.querySelector('dialog.ab-card[open] .ab-synopsis-text').style.fontFamily = 'serif'; true`,
+    )
+    await both('390px in a fallback font')
+    const paragraph =
+      'Frieren walks on, year after year, through towns and seasons, remembering the friends she outlived and learning, too late and just in time, what their years together meant.'
+    await stageDescription(Array(12).fill(paragraph).join('<br><br>'))
+    for (const screen of [PHONE, SCREENS[2]]) {
+      await motion(screen)
+      await browser.evaluate(`(() => {
+        const card = document.querySelector('dialog.ab-card[open]')
+        card.style.overflowAnchor = 'none'
+        const room = document.createElement('div')
+        room.style.height = 2 * innerHeight + 'px'
+        card.querySelector('.ab-details').after(room)
+        return true
+      })()`)
+      await both(`${screen.width}px, a long synopsis`, 'start')
+    }
+    await browser.rewriteAniList(null)
+    for (const site of [false, true]) {
+      await browser.forget()
+      await browser.load({ ...SCREENS[0], reduceMotion: !site, url: at('/anime/154587') })
+      if (site) await browser.evaluate(`document.documentElement.dataset.motion = 'reduce'; true`)
+      assert.ok(
+        await browser.waitFor(`document.querySelector('dialog.ab-card.is-landed')`, 10_000),
+        'no card landed for Frieren',
+      )
+      await browser.animationsDone()
+      const where = `390px, reduced motion ${site ? 'set on the site' : 'on the device'}`
+      seen.push(
+        ...judgeInstant(`${where}, Read more`, await browser.evaluate<Frames>(FRAMES('center'))),
+      )
+      seen.push(
+        ...judgeInstant(`${where}, Show less`, await browser.evaluate<Frames>(FRAMES('center'))),
+      )
+    }
+  } finally {
+    await browser.rewriteAniList(null)
+  }
+  assert.deepEqual(seen, [], 'Read more and Show less moving wrongly')
+})
+
 test('the synopsis keeps AniList’s lines, italics and bold, shows markup only as text, and says “Description unavailable.” when there is none', async () => {
   // Spec §3I: a title with no description says "Description unavailable.", as does one whose
   // description is only its source. Otherwise the card draws what synopsis.ts makes of it:
