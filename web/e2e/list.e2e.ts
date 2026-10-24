@@ -420,7 +420,7 @@ test('while My List’s answer comes, an empty card holds each title’s place, 
     )
     assert.deepEqual(await browser.evaluate(ROW), WANT_4.map(String))
     const cold = await browser.layoutShift()
-    assert.equal(cold.value.toFixed(4), '0.0000', `cold: ${JSON.stringify(cold.shifts)}`)
+    assert.equal(cold.value, 0, `cold: ${JSON.stringify(cold.shifts)}`)
 
     // After a first visit to Discover, whose trending and 1990s hold 6 of the 8: those show at
     // once, in their places, and an empty card holds each of the other two's.
@@ -449,9 +449,104 @@ test('while My List’s answer comes, an empty card holds each title’s place, 
     )
     assert.deepEqual(await browser.evaluate(ROW), SAVED_8.map(String))
     const warm = await browser.layoutShift()
-    assert.equal(warm.value.toFixed(4), '0.0000', `with copies: ${JSON.stringify(warm.shifts)}`)
+    assert.equal(warm.value, 0, `with copies: ${JSON.stringify(warm.shifts)}`)
   } finally {
     await browser.holdAniList(0)
+  }
+})
+
+// Resolves once the page has drawn two more frames, so what it shows now is on the screen.
+const DRAWN =
+  'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))'
+
+test('nothing on My List moves however late its fonts come, while its empty cards show or after its titles land', async () => {
+  // A font that came after the page had drawn its text in a fallback was swapped in: under a full
+  // run's load, a late M PLUS moved the header's links sideways and the notes 3px up, at 0.0001.
+  // Here the fonts are held till the page has drawn, then let go at each of those two moments.
+  try {
+    for (const late of ['while the empty cards show', 'after the titles land']) {
+      await browser.forget()
+      await browser.load({ ...DESKTOP, reduceMotion: true, url: at('/list') })
+      await writeList(TWELVE)
+      await browser.holdFonts()
+      await browser.holdAniList(60_000)
+      // Not load(): the load event waits for the fonts held.
+      await browser.send('Page.navigate', { url: at('/list') })
+      assert.ok(
+        await browser.waitFor(
+          `document.fonts.status === 'loading' && ${ROW}.join() === '${SAVED_8.map(() => 'wait')}'`,
+          10_000,
+        ),
+        `${late}: My List didn’t show an empty card for each of its 8 Saved titles, fonts held`,
+      )
+      await browser.evaluate(DRAWN)
+      const fontsCome = async () => {
+        await browser.holdFonts(false)
+        await browser.evaluate('document.fonts.ready.then(() => true)')
+        await browser.evaluate(DRAWN)
+      }
+      if (late === 'while the empty cards show') await fontsCome()
+      await browser.holdAniList(0)
+      assert.ok(
+        await browser.waitFor(`document.querySelectorAll(${COVERS}).length === 8`, 10_000),
+        `${late}: My List didn’t show its 8 Saved covers`,
+      )
+      await browser.evaluate(DRAWN)
+      if (late === 'after the titles land') await fontsCome()
+      const shift = await browser.layoutShift()
+      assert.equal(shift.value, 0, `fonts ${late}: ${JSON.stringify(shift.shifts)}`)
+    }
+  } finally {
+    await browser.holdFonts(false)
+    await browser.holdAniList(0)
+  }
+})
+
+test('a cold visit to My List, 40 ms from the server, draws in the page’s own fonts, preloaded', async () => {
+  // A font that misses the page's first draw is left out till the next visit (index.css), so the
+  // fonts must come before the text: index.html preloads them, while the app's code loads. Not
+  // preloaded, M PLUS was asked for only once the text needed it, too late at 40 ms.
+  await saveList(TWELVE)
+  await browser.send('DOM.enable')
+  await browser.send('CSS.enable')
+  try {
+    await browser.send('Network.setCacheDisabled', { cacheDisabled: true })
+    await browser.send('Network.emulateNetworkConditions', {
+      offline: false,
+      latency: 40,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+    })
+    await browser.load({ ...DESKTOP, reduceMotion: true, url: at('/list') })
+    // The fonts a text is drawn in, as Chrome has them: web fonts named as their files name them.
+    const drawnIn = async (selector: string) => {
+      const { root } = await browser.send('DOM.getDocument')
+      const { nodeId } = await browser.send('DOM.querySelector', { nodeId: root.nodeId, selector })
+      const { fonts } = await browser.send('CSS.getPlatformFontsForNode', { nodeId })
+      return fonts.map(({ familyName }: { familyName: string }) => familyName).join(' + ')
+    }
+    assert.deepEqual(
+      {
+        heading: await drawnIn('#ab-list'),
+        order: await drawnIn('.ab-list-order b'),
+        note: await drawnIn('.ab-list-foot p'),
+      },
+      {
+        heading: 'Dela Gothic One',
+        order: 'Rounded Mplus 1c ExtraBold',
+        note: 'Rounded Mplus 1c Bold',
+      },
+    )
+  } finally {
+    await browser.send('Network.emulateNetworkConditions', {
+      offline: false,
+      latency: 0,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+    })
+    await browser.send('Network.setCacheDisabled', { cacheDisabled: false })
+    await browser.send('CSS.disable')
+    await browser.send('DOM.disable')
   }
 })
 
@@ -906,11 +1001,7 @@ test('a title AniList’s answer leaves out keeps its place with no details, the
       'with one title left out',
     )
     const shift = await browser.layoutShift()
-    assert.equal(
-      shift.value.toFixed(4),
-      '0.0000',
-      `as the answer came: ${JSON.stringify(shift.shifts)}`,
-    )
+    assert.equal(shift.value, 0, `as the answer came: ${JSON.stringify(shift.shifts)}`)
     asked.length = 0
     const button = `document.querySelector('#main .ab-list-lost button')`
     await browser.evaluate(`${button}.focus(); ${button}.click(); true`)

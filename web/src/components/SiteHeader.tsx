@@ -300,9 +300,10 @@ function SearchBubble({
     // The bubble at rest is 52px wider than its text (components.css).
     const choose = () =>
       setWhole(label.getBoundingClientRect().width >= placeholderCopy.offsetWidth + 52)
-    // At once, so the first frame drawn says the right one.
-    choose()
-    const observer = new ResizeObserver(() => {
+    // The bubble's size, from its text's, and the placeholder it says. At once, so the first frame
+    // drawn has them: the observer's first call comes a frame later, and the bubble, at its
+    // stand-in width till then, moved in a visit's first second. Then each time a size changes.
+    const measure = () => {
       label.style.setProperty('--text-w', `${copy.offsetWidth}px`)
       label.style.setProperty('--placeholder-w', `${placeholderCopy.offsetWidth}px`)
       choose()
@@ -318,7 +319,9 @@ function SearchBubble({
       // to the caret in the wider box, wouldn't scroll back until the next key.
       if (typed === document.activeElement && typed.selectionStart === typed.value.length)
         typed.scrollLeft = typed.scrollWidth
-    })
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
     observer.observe(label)
     observer.observe(copy)
     observer.observe(placeholderCopy)

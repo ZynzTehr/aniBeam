@@ -187,6 +187,9 @@ const ANSWER_HEADERS = [
 // against that: some look at the page while a request is out. So a recorded answer comes as late.
 const ANSWER_MS = 200
 
+// Where the app's own web fonts are (see Browser.holdFonts).
+const FONTS = new URL('/fonts/', BASE_URL).href
+
 // The keys press() knows, as a US keyboard sends them. Each is named by its code, which is its
 // key as well, but for Space, whose key is " ". keyCode is the key's old number, which Chrome
 // still reads for some of what a key does: it scrolls the page on the arrows, Home, End and the
@@ -298,6 +301,8 @@ export class Browser {
   #where: string
   #blocking = false
   #holdMs = 0
+  // The app's font requests on hold (see holdFonts), each with what lets it go on.
+  #fontsHeld: Map<string, () => Promise<unknown>> | null = null
   // What each request on hold does once let go: go on to AniList, or get its recorded answer.
   #held = new Map<string, () => Promise<unknown>>()
   #rewrite: Rewrite | null = null
@@ -687,6 +692,21 @@ export class Browser {
   }
 
   /**
+   * Holds every request for the app's own web fonts (public/fonts/) until `held` is false, as a
+   * slow connection might, so that a page draws with its fallback fonts and a check sees what moves
+   * as the fonts come. Chrome's cache is skipped meanwhile, or a font loaded earlier would come
+   * from it, never asked for.
+   */
+  async holdFonts(held = true) {
+    const before = this.#fontsHeld
+    this.#fontsHeld = held ? (before ?? new Map()) : null
+    await this.send('Network.enable')
+    await this.send('Network.setCacheDisabled', { cacheDisabled: held })
+    if (!held && before) await Promise.all([...before.values()].map((release) => release()))
+    return this.#intercept()
+  }
+
+  /**
    * Changes AniList's answers before the page sees them, to stage what AniList rarely does.
    * `rewrite` gets each answer and returns a new status and body, or null to pass it on as
    * it is. It may return headers too, sent in place of the answer's own of the same name or
@@ -705,6 +725,12 @@ export class Browser {
   /** Answers, fails, holds or lets go a request to AniList that Chrome has paused. */
   #paused(params: any) {
     const { requestId, request, responseStatusCode, responseErrorReason } = params
+    const go = () => this.send('Fetch.continueRequest', { requestId }).catch(() => {})
+    if (request.url.startsWith(FONTS)) {
+      if (this.#fontsHeld) this.#fontsHeld.set(requestId, go)
+      else void go()
+      return
+    }
     // Paused again once the answer (or a failure) is in (see rewriteAniList).
     if (responseStatusCode !== undefined || responseErrorReason !== undefined) {
       const answering = this.#answer(params).finally(() => this.#answering.delete(answering))
@@ -878,6 +904,7 @@ export class Browser {
         : []),
       ...(!recorded && this.#rewrite ? [{ urlPattern, requestStage: 'Response' }] : []),
     ]
+    if (this.#fontsHeld) patterns.push({ urlPattern: `${FONTS}*`, requestStage: 'Request' })
     // Answers still being rewritten go through first: switching interception off drops them.
     await Promise.all(this.#answering)
     return patterns.length ? this.send('Fetch.enable', { patterns }) : this.send('Fetch.disable')
