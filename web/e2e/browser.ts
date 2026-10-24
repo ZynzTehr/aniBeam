@@ -210,6 +210,30 @@ const KEYS = {
   PageDown: { keyCode: 34 },
 } satisfies Record<string, Key>
 
+// What Chrome answers a question about the page with as a reload or a navigation takes away the
+// document it was asked of, or before the new one can be asked.
+const REPLACED =
+  /Inspected target navigated or closed|Execution context was destroyed|Cannot find context with specified id/
+
+/**
+ * Asks `check` every 250 ms until it answers true or `ms` runs out, calling `first` before each
+ * try and once more at the end; returns the last answer. A question the page's document went away
+ * under, as it reloads (see REPLACED), counts as a no and is asked again; any other error throws.
+ */
+export async function poll(check: () => Promise<boolean>, ms: number, first = () => {}) {
+  for (let waited = 0; waited < ms; waited += 250) {
+    first()
+    try {
+      if (await check()) return true
+    } catch (error) {
+      if (!REPLACED.test(String(error))) throw error
+    }
+    await sleep(250)
+  }
+  first()
+  return false
+}
+
 /** A layout shift as the page reports it: when, in ms from its start; how much; whether it came
  * within 500 ms of the visitor's input; and what moved, for messages. */
 export type LayoutShift = { time: number; value: number; input: boolean; moved?: string[] }
@@ -468,16 +492,15 @@ export class Browser {
 
   /**
    * Polls a true/false expression until it is true or the time runs out; returns the last answer.
-   * Throws instead once the page has asked a recorded browser for anything with no recording.
+   * Throws instead once the page has asked a recorded browser for anything with no recording. Asked
+   * as the page reloads, it asks the new page (see poll).
    */
-  async waitFor(expression: string, ms = 20_000): Promise<boolean> {
-    for (let waited = 0; waited < ms; waited += 250) {
-      this.#throwMisses()
-      if (await this.evaluate<boolean>(`Boolean(${expression})`)) return true
-      await sleep(250)
-    }
-    this.#throwMisses()
-    return false
+  waitFor(expression: string, ms = 20_000): Promise<boolean> {
+    return poll(
+      () => this.evaluate<boolean>(`Boolean(${expression})`),
+      ms,
+      () => this.#throwMisses(),
+    )
   }
 
   /** Sets the screen size and motion preference, loads the app, and waits for titles and fonts. */

@@ -430,13 +430,24 @@ test('Enter on My List’s link, the intro’s, the header’s or the phone menu
       await browser.evaluate(`history.back(); true`)
       assert.ok(await browser.waitFor(`document.querySelector('.ab-intro-actions')`, 5000), label)
     }
-    // The header's shows once the intro's buttons have docked, at the page's end.
-    if (link.startsWith('.ab-nav'))
-      await browser.evaluate(
-        `scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }); true`,
-      )
+    // The header's shows once the intro's buttons have docked, at the page's end, a frame or so
+    // after the scroll there: hidden, it can't take focus.
+    await browser.evaluate(
+      `scrollTo({ top: ${link.startsWith('.ab-nav') ? 'document.documentElement.scrollHeight' : 0}, behavior: 'instant' }); true`,
+    )
+    assert.ok(
+      await browser.waitFor(
+        `getComputedStyle(document.querySelector('${link}')).visibility === 'visible'`,
+        5000,
+      ),
+      `${label}: not shown`,
+    )
     await browser.evaluate(`document.querySelector('${link}').focus(); true`)
     await browser.evaluate(NEXT_FRAME)
+    assert.ok(
+      await browser.evaluate(`document.activeElement === document.querySelector('${link}')`),
+      `${label}: took no focus`,
+    )
     await browser.press('Enter')
     await browser.waitFor(`document.activeElement.id === 'ab-list'`, 5000)
     assert.deepEqual(await browser.evaluate(where), arrived, label)
