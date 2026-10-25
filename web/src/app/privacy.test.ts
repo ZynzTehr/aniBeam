@@ -398,14 +398,16 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // height, and the fade moved by its prefixed name too, and 90,864 B with a pointer's press opening
 // it where the reader is and a key's bringing its focused button into view once it has opened;
 // then 91,500 B with Discover's pull skipping the titles on My List and the last 30 pulled
-// (features/mood/roll.ts, rollNext and pullNext, and the machine reading My List: 91,183 B; the
-// user agreed to the raises Phase 5 needs, each shown in its pull request). My List's page itself, ListPage and features/list/view.ts, is 2,322 B (2,329 B as the main file it
-// imports takes a new name with each change to it), so its own budget is 2,500 B (the user agreed
-// to about 3,000 B, the plan's D18); the grid's covers kept their focus rings on a phone's screen
-// with a wider scroll margin (11,866 B of CSS, before the Soon look went). The JS loaded only when
-// needed rose to 14,028 B when the samples began to carry each title's synopsis, running time and
-// the tags its card shows, as the lists' titles do, so that a sample's card opens on them with no
-// request (the user agreed to about 15 KB more, gzipped), so its budget is 14,500 B.
+// (features/mood/roll.ts, rollNext and pullNext, and the machine reading My List: 91,183 B, 319 B
+// more), a raise shown to the user in Phase 5's pull request and waiting for their OK. The README's
+// "Byte budgets now" table gives the same budgets, and readme.test.ts holds it to them. My List's
+// page itself, ListPage and features/list/view.ts, is 2,322 B (2,329 B as the main file it imports
+// takes a new name with each change to it), so its own budget is 2,500 B (the user agreed to about
+// 3,000 B, the plan's D18); the grid's covers kept their focus rings on a phone's screen with a
+// wider scroll margin (11,866 B of CSS, before the Soon look went). The JS loaded only when needed
+// rose to 14,028 B when the samples began to carry each title's synopsis, running time and the tags
+// its card shows, as the lists' titles do, so that a sample's card opens on them with no request
+// (the user agreed to about 15 KB more, gzipped), so its budget is 14,500 B.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
   'the JS every visit loads': 91_500,
