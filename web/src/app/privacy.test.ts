@@ -408,18 +408,31 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // wider scroll margin (11,866 B of CSS, before the Soon look went). The JS loaded only when needed
 // rose to 14,028 B when the samples began to carry each title's synopsis, running time and the tags
 // its card shows, as the lists' titles do, so that a sample's card opens on them with no request
-// (the user agreed to about 15 KB more, gzipped), so its budget is 14,500 B.
+// (the user agreed to about 15 KB more, gzipped), so its budget is 14,500 B. The mood scoring
+// (features/mood/scoring.ts, score.ts and the mood map) is a file of its own, loaded once the
+// browser is idle after the page has drawn, never before it draws: 910 B, so its budget is 1,500 B
+// (the user agreed to that budget, Phase 5's D5). Its loader, which tries again after a failure,
+// and the idle preload took the JS every visit loads from 91,217 B to 91,344 B, within its budget.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
   'the JS every visit loads': 91_500,
   'the CSS': 12_000,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,
+  'the mood scoring': 1_500,
   'every other file': 500,
 }
 
 // My List's page, a file of its own (see features/list/page.ts), weighed apart from the samples.
 const LIST_PAGE = 'src/features/list/ListPage.tsx'
+
+// The mood scoring, a file of its own (see features/mood/loadScoring.ts): scoring.ts and the
+// scoring it hands Discover's machine by import(), score.ts and the mood map, weighed apart too.
+const MOOD_SCORING = [
+  'src/features/mood/scoring.ts',
+  'src/features/mood/score.ts',
+  'src/features/mood/moodMap.ts',
+]
 
 const brotli = (content: string | Uint8Array) =>
   brotliCompressSync(content, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length
@@ -440,6 +453,7 @@ test('the production bundle stays within its byte budget', () => {
     'the CSS': 0,
     'the JS loaded only when needed': 0,
     'My List’s page': 0,
+    'the mood scoring': 0,
     'every other file': 0,
   }
   // My List's page is loaded only when needed, or once the browser is idle after the list holds a
@@ -453,6 +467,21 @@ test('the production bundle stays within its byte budget', () => {
     [{ everyVisit: false, samples: false }],
     `My List's page must be one file of its own, loaded only when needed: ${LIST_PAGE}`,
   )
+  // The mood scoring is loaded once the browser is idle after the page has drawn, never with what
+  // every visit loads before it draws, and all of it in one file of its own, which holds none of
+  // the samples: a static import of score.ts from code every visit loads would split it.
+  const scoring = chunks.filter((chunk) =>
+    chunk.moduleIds.map(fromWeb).some((id) => MOOD_SCORING.includes(id)),
+  )
+  assert.deepEqual(
+    scoring.map((chunk) => ({
+      everyVisit: loaded.has(chunk.fileName),
+      samples: chunk.moduleIds.map(fromWeb).includes('src/features/anime/samples.ts'),
+      holds: MOOD_SCORING.filter((id) => chunk.moduleIds.map(fromWeb).includes(id)),
+    })),
+    [{ everyVisit: false, samples: false, holds: MOOD_SCORING }],
+    `the mood scoring must be one file of its own, loaded only when needed: ${MOOD_SCORING}`,
+  )
   for (const file of output) {
     if (file.type === 'chunk')
       sizes[
@@ -460,7 +489,9 @@ test('the production bundle stays within its byte budget', () => {
           ? 'the JS every visit loads'
           : page.includes(file)
             ? 'My List’s page'
-            : 'the JS loaded only when needed'
+            : scoring.includes(file)
+              ? 'the mood scoring'
+              : 'the JS loaded only when needed'
       ] += brotli(file.code)
     else
       sizes[file.fileName.endsWith('.css') ? 'the CSS' : 'every other file'] += brotli(file.source)

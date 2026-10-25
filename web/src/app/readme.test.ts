@@ -66,7 +66,7 @@ test('the byte budgets in the README’s "Byte budgets now" table are the bundle
       Number(bytes.replaceAll('_', '')),
     ]),
   )
-  assert.equal(Object.keys(budget).length, 5, `BUDGET read as ${JSON.stringify(budget)}`)
+  assert.equal(Object.keys(budget).length, 6, `BUDGET read as ${JSON.stringify(budget)}`)
   // Each row reads `| <part> | <bytes> of <budget> B |`, after the heading row and its rule.
   const rows = budgetsNow()
     .split('\n')
@@ -83,6 +83,7 @@ test('the byte budgets in the README’s "Byte budgets now" table are the bundle
     'The CSS': 'the CSS',
     'The JS loaded only when needed (the samples)': 'the JS loaded only when needed',
     "My List's page, a file of its own": 'My List’s page',
+    'The mood scoring, a file of its own': 'the mood scoring',
     'Every other file': 'every other file',
   }
   assert.deepEqual(
