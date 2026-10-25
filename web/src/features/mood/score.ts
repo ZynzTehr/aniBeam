@@ -74,25 +74,33 @@ export function rankMatches<T extends Scored>(pool: readonly T[], sliders: Slide
  * The names for a title's Why line: the two tags that push it hardest toward the sliders that are
  * set (a tag's rank times how far its slider is from the middle), then a genre at a set slider's
  * end if there is room. Never a spoiler tag, nor an adult one, though spoilers count toward the
- * score. Nothing when no slider is set, and nothing for a title that has nothing at their ends.
+ * score, and never a tag that adds nothing (rank 0 or none). Nothing when no slider is set, and
+ * nothing for a title that has nothing at their ends.
  */
 export function whyOf(media: Scored, sliders: Sliders): string[] {
-  const pushes = new Map<string, number>()
+  const set = AXIS_KEYS.filter((axis) => sliders[axis] !== 0).map((axis) => ({
+    far: Math.abs(sliders[axis]),
+    end: sliders[axis] > 0 ? MOOD_MAP[axis].high : MOOD_MAP[axis].low,
+  }))
+  // Each tag once, for its hardest push if it sits at the set end of two sliders. The title's own
+  // order of its tags, AniList's, is what equal pushes keep, whichever sliders they come from.
+  const tags = media.tags
+    .filter((tag) => !tag.isAdult && !spoils(tag))
+    .map((tag) => ({
+      name: tag.name,
+      push: Math.max(
+        0,
+        ...set.map(({ far, end }) =>
+          end.tags.includes(tag.name) ? ((tag.rank ?? 0) / 100) * far : 0,
+        ),
+      ),
+    }))
+    .filter(({ push }) => push > 0)
+    .sort((a, b) => b.push - a.push)
+    .map(({ name }) => name)
   const genres: string[] = []
-  for (const axis of AXIS_KEYS) {
-    const stop = sliders[axis]
-    if (stop === 0) continue
-    const end = stop > 0 ? MOOD_MAP[axis].high : MOOD_MAP[axis].low
-    for (const tag of media.tags) {
-      if (tag.isAdult || spoils(tag) || !end.tags.includes(tag.name)) continue
-      const push = ((tag.rank ?? 0) / 100) * Math.abs(stop)
-      // A tag at the set end of two sliders is named once, for the harder push.
-      pushes.set(tag.name, Math.max(pushes.get(tag.name) ?? 0, push))
-    }
+  for (const { end } of set)
     for (const genre of media.genres)
       if (end.genres.includes(genre) && !genres.includes(genre)) genres.push(genre)
-  }
-  // Equal pushes keep the title's own order of its tags, AniList's.
-  const tags = [...pushes].sort((a, b) => b[1] - a[1]).map(([name]) => name)
   return [...tags, ...genres].slice(0, 2)
 }

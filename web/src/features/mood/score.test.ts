@@ -297,6 +297,21 @@ test('a tag at the set end of two sliders is named once', () => {
   assert.deepEqual(whyOf(media, { ...NONE, energy: -2, tone: -2 }), ['Iyashikei', 'Food'])
 })
 
+test('equal pushes on two sliders keep the title’s own order of its tags', () => {
+  // Gore (Dark) comes before Food (Cozy) among the title's tags, and each pushes 0.6 x 1, though
+  // the sliders are gone through Energy first.
+  const media = title([], [tag('Gore', 60), tag('Food', 60)])
+  assert.deepEqual(whyOf(media, { ...NONE, energy: -1, tone: 1 }), ['Gore', 'Food'])
+  const swapped = title([], [tag('Food', 60), tag('Gore', 60)])
+  assert.deepEqual(whyOf(swapped, { ...NONE, energy: -1, tone: 1 }), ['Food', 'Gore'])
+})
+
+test('a tag that adds nothing (rank 0 or none) is never named, so a genre is', () => {
+  const media = title(['Action', 'Mecha'], [tag('Military', null), tag('Swordplay', 0)])
+  assert.deepEqual(whyOf(media, { ...NONE, energy: 2 }), ['Action', 'Mecha'])
+  assert.deepEqual(whyOf(title([], [tag('Military', 0)]), { ...NONE, energy: 1 }), [])
+})
+
 test('with too few tags, the Why falls back to a genre at a set slider’s end', () => {
   assert.deepEqual(whyOf(title(['Action', 'Drama']), { ...NONE, energy: 2 }), ['Action'])
   assert.deepEqual(
