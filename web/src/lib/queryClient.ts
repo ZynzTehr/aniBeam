@@ -110,6 +110,32 @@ const afterDrawing = (save: () => void | PromiseLike<void>) =>
         document.addEventListener('visibilitychange', start)
       })
 
+/**
+ * How many decades' mood pools a save keeps, the newest (the plan's B1): 3, as the biggest pool
+ * recorded, the 1990s' (e2e/anilist/pool-1990s.json), is 243,874 characters once cut (see poolOf),
+ * well short of the 300 KB at which only 2 would be kept. Three of them are about 0.7 MB of the 5
+ * MB localStorage holds, and each save writes them out with the rest (see afterDrawing).
+ */
+export const POOLS_SAVED = 3
+
+/**
+ * `saving` with only its POOLS_SAVED newest mood pools, by when each came. Here, not in
+ * shouldDehydrateQuery, which is asked about one query at a time and can't see the others. The
+ * pools left out stay in the page's cache for the visit: only the saved copy goes without them.
+ */
+const newestPools = (saving: PersistedClient): PersistedClient => {
+  const { queries } = saving.clientState
+  const pools = queries
+    .filter(({ queryKey }) => queryKey[1] === QUERIES.pool)
+    .toSorted((a, b) => b.state.dataUpdatedAt - a.state.dataUpdatedAt)
+  if (pools.length <= POOLS_SAVED) return saving
+  const dropped = new Set(pools.slice(POOLS_SAVED))
+  return {
+    ...saving,
+    clientState: { ...saving.clientState, queries: queries.filter((query) => !dropped.has(query)) },
+  }
+}
+
 // localStorage holds about 5 MB per site; removeOldestQuery drops the oldest
 // result when it is full. Upgrade path if that ever limits us: an IndexedDB persister.
 // The storage is an argument so tests can hand it a stand-in (see persist.test.ts).
@@ -140,10 +166,11 @@ export const cachePersister = (
   return {
     ...persister,
     persistClient: (client) => {
-      const saving = signature(client)
+      const kept = newestPools(client)
+      const saving = signature(kept)
       if (saving === lastSaved) return
       lastSaved = saving
-      return afterDrawing(() => persister.persistClient(client))
+      return afterDrawing(() => persister.persistClient(kept))
     },
   }
 }

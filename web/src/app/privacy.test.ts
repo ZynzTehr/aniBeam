@@ -418,10 +418,11 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // map's tags the pool keeps, MOOD_TAGS, took the mood scoring to 955 B. Then 91,600 B with a
 // decade's page going in one request with its pool when both ask at once (together, decadeWithPool
 // and the page's query reading the pool's key: 91,558 B, 183 B more, a raise shown to the user in
-// PR 3a, as the plan's D5 lets the budget rise in measured steps).
+// PR 3a, as the plan's D5 lets the budget rise in measured steps); then 91,700 B with the saved
+// copy keeping only the 3 newest decades' mood pools (newestPools, in queryClient.ts: 91,641 B).
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 91_600,
+  'the JS every visit loads': 91_700,
   'the CSS': 12_000,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,
