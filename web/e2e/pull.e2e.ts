@@ -6,6 +6,8 @@ import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { QUERIES } from '../src/features/anime/queries.ts'
+import { MOODS, type Mood } from '../src/features/mood/moods.ts'
+import { pullable } from '../src/features/mood/roll.ts'
 import { BASE_URL, Browser } from './browser.ts'
 import { listsOf, recordings } from './recordings.ts'
 
@@ -187,6 +189,10 @@ test('pulls skip My List, and no pull repeats one of the last 30, kept across a 
     [],
     'after a trip to My List, pulls that gave one of the 30 before, a saved title, or none',
   )
+  // And the ring holds 30, no more. Pull 31 pushes pull 1's title out of it, and as that title
+  // comes first in the page's order of those left, pull 32 gives it again. A ring that never let
+  // go within the visit would give a title not pulled yet.
+  assert.equal(all[31], all[0], 'pull 32 is not pull 1’s title, back once 30 others came up')
 })
 
 /**
@@ -215,6 +221,49 @@ function pulls(times: number) {
     return pulled
   })()`)
 }
+
+// The first visit's machine in the page's order, trending then the 1990s, each title once, and
+// none that may not come out of it.
+const MACHINE = (() => {
+  const { trending, era } = listsOf(recordings().get('first-visit')!)
+  const all = [...trending, ...era]
+  return pullable(all.filter((media, i) => all.findIndex(({ id }) => id === media.id) === i))
+})()
+
+test('a pull gives a title with one of the chosen vibe’s genres', async () => {
+  await loadWithList([])
+  // With Math.random fixed at 0, a pull takes the first title in the page's order that has one
+  // of the vibe's genres and isn't among the pulls before it. Each vibe in turn, from a fresh
+  // visit.
+  const vibes: Mood[] = ['cozy', 'hype', 'cerebral', 'tears']
+  const expected: number[] = []
+  for (const vibe of vibes) {
+    const { genres } = MOODS[vibe]
+    const match = MACHINE.find(
+      (media) => !expected.includes(media.id) && media.genres.some((g) => genres.includes(g)),
+    )
+    assert.ok(match, `no title in the first visit's machine is ${MOODS[vibe].label}`)
+    expected.push(match.id)
+  }
+  // A machine that read every pull as Any vibe would give the page's first titles, in order.
+  assert.notDeepEqual(
+    expected,
+    MACHINE.slice(0, vibes.length).map(({ id }) => id),
+    'the vibes pick what Any vibe would, so this check would show nothing',
+  )
+  const pulled: (string | null)[] = []
+  for (const vibe of vibes) {
+    await browser.evaluate(
+      `document.querySelector('.ab-moods input[value="${vibe}"]').click(); true`,
+    )
+    pulled.push(...(await pulls(1)))
+  }
+  assert.deepEqual(
+    pulled,
+    expected.map((id) => `/anime/${id}`),
+    `pulls with the vibes ${vibes.join(', ')}`,
+  )
+})
 
 test('with every title in the machine on My List, the lever is off and the machine says so', async () => {
   await loadWithList(FIRST_VISIT)
