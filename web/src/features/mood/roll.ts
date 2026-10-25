@@ -13,8 +13,11 @@ export const WINDOW = 12
 /** Fewer titles than this left to come up: "few". */
 export const FEW = 20
 
-/** Fewer than this left to come up: the era's next page is worth fetching, once (A12). */
-export const PAGE_3 = 10
+/**
+ * Fewer than this left to come up, none included: the machine is worth filling with more titles,
+ * on Discover the decade's pool first and then its page 3, once (A12).
+ */
+export const NEED_MORE = 10
 
 /** What a roll reads of a title. */
 export type Rollable = Pick<Media, 'id' | 'genres'>
@@ -36,8 +39,8 @@ export type Roll<T> = {
   reason: 'ok' | 'few' | 'repeat' | 'empty'
   /** How many titles can still come up, counted before any slider's window. */
   left: number
-  /** Whether so few are left that the era's next page is worth fetching (left under PAGE_3). */
-  page3: boolean
+  /** Whether so few are left, none included, that more titles are worth asking for (NEED_MORE). */
+  needMore: boolean
 }
 
 /**
@@ -47,7 +50,7 @@ export type Roll<T> = {
  * `shown`, the title on screen, while another can come up. With only the last rolls left, the
  * oldest of them comes back. `random` is Math.random, or a stand-in in tests.
  *
- * `left` and `page3` are counted before the window, so moving a slider, which only reorders
+ * `left` and `needMore` are counted before the window, so moving a slider, which only reorders
  * `ranked`, can never change them.
  */
 export function rollNext<T extends Rollable>({
@@ -66,11 +69,11 @@ export function rollNext<T extends Rollable>({
   shown?: number
 }): Roll<T> {
   const unlisted = pullable(ranked).filter((media) => !listed.has(media.id))
-  if (!unlisted.length) return { media: null, reason: 'empty', left: 0, page3: false }
+  if (!unlisted.length) return { media: null, reason: 'empty', left: 0, needMore: true }
   const recent = new Set(ring)
   const fresh = unlisted.filter((media) => !recent.has(media.id))
   const left = fresh.length
-  const page3 = left < PAGE_3
+  const needMore = left < NEED_MORE
   // Once a roll lands on the title already showing, the lever looks like it did nothing.
   const notShown = (list: T[]) => {
     const others = list.filter((media) => media.id !== shown)
@@ -79,11 +82,11 @@ export function rollNext<T extends Rollable>({
   if (!fresh.length) {
     // Every title left is among the last rolls, oldest first: the oldest comes back.
     const byAge = ring.flatMap((id) => unlisted.filter((media) => media.id === id))
-    return { media: notShown(byAge)[0], reason: 'repeat', left, page3 }
+    return { media: notShown(byAge)[0], reason: 'repeat', left, needMore }
   }
   const from = notShown(windowed ? fresh.slice(0, WINDOW) : fresh)
   const media = from[Math.min(Math.floor(random() * from.length), from.length - 1)]
-  return { media, reason: left < FEW ? 'few' : 'ok', left, page3 }
+  return { media, reason: left < FEW ? 'few' : 'ok', left, needMore }
 }
 
 /**

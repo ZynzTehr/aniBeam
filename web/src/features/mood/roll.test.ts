@@ -5,7 +5,7 @@ import type { Tag } from '../anime/queries.ts'
 import type { Stop } from './moods.ts'
 import {
   FEW,
-  PAGE_3,
+  NEED_MORE,
   pullable,
   pullNext,
   remember,
@@ -160,28 +160,28 @@ test('without the window, a roll can give any title that can come up', () => {
   assert.deepEqual(windowed, [1, 7, 12])
 })
 
-test('the reason, the count left and the page-3 signal follow what can come up', () => {
+test('the reason, the count left and the need for more follow what can come up', () => {
   for (const { seed, results, may } of RUNS)
-    for (const [i, { reason, left, page3, ring }] of results.entries()) {
+    for (const [i, { reason, left, needMore, ring }] of results.entries()) {
       const fresh = may.filter((media) => !ring.includes(media.id)).length
       const where = `seed ${seed}, roll ${i + 1}`
       assert.equal(left, fresh, where)
-      assert.equal(page3, fresh < PAGE_3, where)
+      assert.equal(needMore, fresh < NEED_MORE, where)
       if (reason !== 'repeat') assert.equal(reason, fresh < FEW ? 'few' : 'ok', where)
     }
 })
 
-test('with every title on My List, or Ecchi, nothing comes out, and the reason is "empty"', () => {
+test('with every title on My List or Ecchi, nothing comes out: "empty", and more is needed', () => {
   const pool = [title(1), title(2, ['Ecchi']), title(3)]
   assert.deepEqual(
     rollNext({ ranked: pool, listed: new Set([1, 3]), ring: [], random: Math.random }),
-    { media: null, reason: 'empty', left: 0, page3: false },
+    { media: null, reason: 'empty', left: 0, needMore: true },
   )
   assert.deepEqual(rollNext({ ranked: [], listed: NOTHING, ring: [], random: Math.random }), {
     media: null,
     reason: 'empty',
     left: 0,
-    page3: false,
+    needMore: true,
   })
 })
 
@@ -232,8 +232,8 @@ const RECORDED: (Rollable & { tags: Tag[] })[] = JSON.parse(
   }),
 )
 
-test('the count left and the page-3 signal are the same at every slider setting', () => {
-  // Moving a slider must never send a request, so what would fetch page 3 can't change with it:
+test('the count left and the need for more are the same at every slider setting', () => {
+  // Moving a slider must never send a request, so what would ask for more can't change with it:
   // it is counted before the window, which only a set slider uses.
   const stops: Stop[] = [-2, -1, 0, 1, 2]
   const settings: Sliders[] = stops.flatMap((energy) =>
@@ -245,14 +245,14 @@ test('the count left and the page-3 signal are the same at every slider setting'
     const ring = ids(pool.slice(6, 6 + rolled))
     const counts = new Set(
       settings.map((sliders) => {
-        const { left, page3 } = rollNext({
+        const { left, needMore } = rollNext({
           ranked: rankMatches(pool, sliders),
           listed,
           ring,
           windowed: Object.values(sliders).some((stop) => stop !== 0),
           random: () => 0.5,
         })
-        return `${left} left, page 3 ${page3}`
+        return `${left} left, need more ${needMore}`
       }),
     )
     assert.equal(counts.size, 1, `with ${rolled} rolled: ${[...counts].join('; ')}`)
