@@ -398,8 +398,9 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // height, and the fade moved by its prefixed name too, and 90,864 B with a pointer's press opening
 // it where the reader is and a key's bringing its focused button into view once it has opened;
 // then 91,500 B with Discover's pull skipping the titles on My List and the last 30 pulled
-// (features/mood/roll.ts, rollNext and pullNext, and the machine reading My List: 91,183 B, 319 B
-// more), a raise shown to the user in Phase 5's pull request and waiting for their OK. The README's
+// (features/mood/roll.ts, rollNext and pullNext, and the machine reading My List: 91,183 B, then
+// 91,217 B, 353 B more, once an empty roll also says more titles are needed, needMore), a raise
+// shown to the user in Phase 5's pull request and waiting for their OK. The README's
 // "Byte budgets now" table gives the same budgets, and readme.test.ts holds it to them. My List's
 // page itself, ListPage and features/list/view.ts, is 2,322 B (2,329 B as the main file it imports
 // takes a new name with each change to it), so its own budget is 2,500 B (the user agreed to about
