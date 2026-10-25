@@ -295,6 +295,12 @@ export const listsOf = ({ body }: Recording): Record<string, Media[]> =>
     ]),
   )
 
+/**
+ * A mood pool's two pages, by their names in an answer (see QUERIES.pool and decadeWithPool): their
+ * titles carry their relations, which no list's copy of a title has.
+ */
+export const POOL_PAGES = ['p1', 'p2']
+
 /** A list of titles in the recordings: a recording's name, and the list's in its answer. */
 type List = [recording: string, list: string]
 

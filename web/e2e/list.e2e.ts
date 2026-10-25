@@ -10,7 +10,7 @@ import { after, afterEach, before, beforeEach, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { QUERIES } from '../src/features/anime/queries.ts'
 import { BASE_URL, Browser, type Answer } from './browser.ts'
-import { listsOf, recordings } from './recordings.ts'
+import { listsOf, POOL_PAGES, recordings } from './recordings.ts'
 
 let browser: Browser
 // What the page sent AniList's API, as the guarded Chrome's own network log has it, not as the page
@@ -104,11 +104,16 @@ test('/list and /list/ stay at their address and show My List, asking AniList fo
 })
 
 // The titles the recorded lists hold, by id, to build AniList's answer for My List from. A title
-// asked for on its own comes with its status, which a list's copy doesn't have, so only lists.
+// asked for on its own comes with its status, and a mood pool's with its relations, which a list's
+// copy doesn't have, so only the other lists.
 const RECORDED = new Map(
   [...recordings()]
     .filter(([name]) => !name.startsWith('title-'))
-    .flatMap(([, recording]) => Object.values(listsOf(recording)).flat())
+    .flatMap(([, recording]) =>
+      Object.entries(listsOf(recording)).flatMap(([list, titles]) =>
+        POOL_PAGES.includes(list) ? [] : titles,
+      ),
+    )
     .map((media) => [media.id, media]),
 )
 /** AniList's answer for My List's titles, as it would give it: the recorded titles with `ids`. */
@@ -120,6 +125,18 @@ const listAnswer = (ids: number[]): Answer => ({
 /** Answers My List's request as AniList would (listAnswer), and every other as recorded. */
 const answerList = (request: Answer['request']) =>
   request.query === QUERIES.list ? listAnswer(request.variables.ids as number[]) : null
+
+// My List's answer is built from RECORDED, so each title in it must be as the list's query has it:
+// no field that query never asks for, which AniList would never send.
+test('My List’s titles are built from the lists’ copies, with no field the list’s query lacks', () => {
+  assert.deepEqual(
+    [...RECORDED.values()]
+      .filter((media) => 'relations' in media || 'status' in media)
+      .map((media) => media.id),
+    [],
+    'titles with a field AniList’s answer for My List would not have',
+  )
+})
 
 // Frieren, Cowboy Bebop and Neon Genesis Evangelion, each in a recorded list.
 const SAVED = [154587, 1, 30]

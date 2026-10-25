@@ -9,7 +9,7 @@ import type { Media, Tag } from '../src/features/anime/queries.ts'
 import { parseSynopsis } from '../src/features/anime/synopsis.ts'
 import { tagsOf } from '../src/features/anime/tags.ts'
 import { BASE_URL, Browser } from './browser.ts'
-import { recordings } from './recordings.ts'
+import { POOL_PAGES, recordings } from './recordings.ts'
 
 let browser: Browser
 before(async () => {
@@ -515,11 +515,23 @@ test('in a contrast theme, the focused close button’s ring stands out from the
 })
 
 // Each recorded title as AniList gave it, by its id, from every recording: the lists' titles and
-// Frieren's own answer.
+// Frieren's own answer, but not a mood pool's pages (POOL_PAGES), whose copies no card opens.
 const RECORDED = new Map<number, Media>()
 for (const { body } of recordings().values())
-  for (const part of Object.values<any>(body?.data ?? {}))
-    for (const media of part?.media ?? [part]) if (media?.id) RECORDED.set(media.id, media)
+  for (const [name, part] of Object.entries<any>(body?.data ?? {}))
+    if (!POOL_PAGES.includes(name))
+      for (const media of part?.media ?? [part]) if (media?.id) RECORDED.set(media.id, media)
+
+// A card opened from a list shows the list's copy of its title, so each check reads that copy: not
+// a mood pool's (see POOL_PAGES), whose figures can differ from the strip's (AniList answered it
+// at another moment) and which carries the title's relations.
+test('each recorded title is the copy a list has, not a mood pool’s', () => {
+  assert.deepEqual(
+    [...RECORDED.values()].filter((media) => 'relations' in media).map((media) => media.id),
+    [],
+    'titles taken from a mood pool’s pages',
+  )
+})
 
 /**
  * What a title's card should show of its synopsis, as synopsis.ts reads AniList's description:
