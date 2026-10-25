@@ -1,9 +1,13 @@
-// The pull machine when no title on the page may come out of it: spec §3G keeps Ecchi out of
-// the pull. Its own file, so the doctored answers stay in a profile of their own.
+// What can come out of the pull machine: never a title on My List, nor one of the last 30 pulled,
+// and none at all when no title on the page may come out of it (spec §3G keeps Ecchi out of the
+// pull) or all that may are on My List. Its own file, so the doctored answers and the saved lists
+// stay in a profile of their own.
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { Browser } from './browser.ts'
+import { QUERIES } from '../src/features/anime/queries.ts'
+import { BASE_URL, Browser } from './browser.ts'
+import { listsOf, recordings } from './recordings.ts'
 
 /** Adds Ecchi to the genres of every title in an AniList answer. */
 function tagEcchi(value: any): any {
@@ -91,4 +95,137 @@ test('the off lever looks off, and never tilts or swings', async () => {
   assert.notEqual(cursor, workingCursor, `the off lever has the ${cursor} cursor of one that works`)
   assert.equal(hovered, 'none', 'the off lever tilts on hover')
   assert.equal(pressed, 'none', 'the off lever swings when pressed')
+})
+
+// The titles in a first visit's machine, trending and the 1990s, as recorded, Ecchi ones too.
+const FIRST_VISIT = [
+  ...new Set(
+    Object.values(listsOf(recordings().get('first-visit')!))
+      .flat()
+      .map(({ id }) => id),
+  ),
+]
+// Cowboy Bebop and Neon Genesis Evangelion, both in the 1990s.
+const SAVED = [1, 30]
+
+/**
+ * Loads Discover, on a first visit, with nothing saved but `ids` on My List, Saved: written on the
+ * site's own page, before the load that reads it. Reduced motion opens each capsule at once.
+ */
+async function loadWithList(ids: number[]) {
+  await browser.rewriteAniList(null)
+  await browser.forget()
+  await browser.load({ reduceMotion: true })
+  await browser.evaluate(`(() => {
+    const now = Date.now()
+    localStorage.setItem('anibeam:list:v1', JSON.stringify(Object.fromEntries(${JSON.stringify(ids)}.map((id, i) => [id, { status: 'SAVED', favorite: false, updatedAt: now - i }]))))
+    return true
+  })()`)
+  await browser.load({ reduceMotion: true, url: BASE_URL })
+  assert.ok(await browser.titlesShown(), 'no titles on the page')
+}
+
+test('pulls skip My List, and no pull repeats one of the last 30, kept across a visit to My List', async () => {
+  await loadWithList(SAVED)
+  // Both are in the decade row, so the machine holds them.
+  assert.deepEqual(
+    await browser.evaluate(
+      `${JSON.stringify(SAVED)}.filter((id) => !document.querySelector('.ab-strip-row a[href="/anime/' + id + '"]'))`,
+    ),
+    [],
+    'saved titles missing from the page',
+  )
+  // With Math.random fixed at 0, each pull takes the first title it may: the page's own order,
+  // trending then the 1990s, where both saved titles come within the first 30. A saved title let
+  // through would come out, and a pull that forgot the last ones would give the same two over and
+  // over.
+  const pulled = await pulls(30)
+  assert.deepEqual(
+    pulled.flatMap((href, i) => (href ? [] : [i + 1])),
+    [],
+    'pulls that never opened',
+  )
+  const saved = SAVED.map((id) => `/anime/${id}`)
+  assert.deepEqual(
+    pulled.filter((href) => saved.includes(href!)),
+    [],
+    'pulls that gave a title on My List',
+  )
+  assert.deepEqual(
+    pulled.filter((href, i) => pulled.indexOf(href) !== i),
+    [],
+    'titles that came up twice in 30 pulls',
+  )
+  // The last 30 are kept for the visit. After a trip to My List and back, which draws the machine
+  // anew, no pull gives one of the 30 before it: the first, one of the 5 titles of the 35 not
+  // pulled yet, not the first title again, as a machine that forgot would give. My List's request
+  // is answered with no titles: the page there isn't what this checks.
+  await browser.rewriteAniList(({ request }) =>
+    request.query === QUERIES.list
+      ? { status: 200, body: { data: { Page: { media: [] } } } }
+      : null,
+  )
+  await browser.evaluate(
+    `document.querySelector('.ab-intro-actions a[href="/list"]').click(); true`,
+  )
+  assert.ok(
+    await browser.waitFor(`location.pathname === '/list' && !document.getElementById('pull')`),
+    'My List did not take the machine’s place',
+  )
+  await browser.evaluate('history.back(); true')
+  assert.ok(
+    await browser.waitFor(`location.pathname === '/' && document.querySelector('.ab-lever')`),
+    'Back did not bring the machine back',
+  )
+  const all = [...pulled, ...(await pulls(5))]
+  assert.deepEqual(
+    all.flatMap((href, i) =>
+      i >= 30 && (!href || saved.includes(href) || all.slice(i - 30, i).includes(href))
+        ? [`pull ${i + 1}: ${href}`]
+        : [],
+    ),
+    [],
+    'after a trip to My List, pulls that gave one of the 30 before, a saved title, or none',
+  )
+})
+
+/**
+ * Pulls `times` in page script with Math.random fixed at 0, each once the last has opened (at
+ * once, under reduced motion), and gives each pulled title's address, or null for a pull that
+ * never opened.
+ */
+function pulls(times: number) {
+  return browser.evaluate<(string | null)[]>(`(async () => {
+    const random = Math.random
+    Math.random = () => 0
+    const pulled = []
+    try {
+      document.querySelector('#pull').scrollIntoView()
+      for (let i = 0; i < ${times}; i++) {
+        document.querySelector('.ab-result')?.setAttribute('data-old', '')
+        document.querySelector('.ab-lever').click()
+        let panel = null
+        for (let wait = 0; wait < 100 && !(panel = document.querySelector('.ab-result.is-open:not([data-old]) .ab-result-panel')); wait++)
+          await new Promise((resolve) => setTimeout(resolve, 5))
+        pulled.push(panel?.getAttribute('href') ?? null)
+      }
+    } finally {
+      Math.random = random
+    }
+    return pulled
+  })()`)
+}
+
+test('with every title in the machine on My List, the lever is off and the machine says so', async () => {
+  await loadWithList(FIRST_VISIT)
+  const machine = await browser.evaluate<{ off: boolean; hint: string; capsules: number }>(`({
+    off: document.querySelector('.ab-lever').disabled,
+    hint: document.querySelector('.ab-hint')?.textContent ?? '',
+    capsules: document.querySelectorAll('.ab-capsule').length,
+  })`)
+  assert.deepEqual(machine, {
+    off: true,
+    hint: 'Everything in the machine is on your list. Try another decade below.',
+    capsules: 0,
+  })
 })

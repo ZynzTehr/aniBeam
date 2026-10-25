@@ -7,12 +7,14 @@ import type { OpenTitle } from '../../components/TitleCard.tsx'
 import { reducedMotion } from '../../lib/motion.ts'
 import { formatOf, seasonOf, studioOf, titleOf } from '../anime/format.ts'
 import type { Media } from '../anime/queries.ts'
+import { useListIds } from '../list/store.ts'
 import { accentVars } from '../theming/deriveAccent.ts'
 import { MOODS, type Mood } from './moods.ts'
-import { pickTitle, pullable } from './pick.ts'
+import { pullable, pullNext, remember } from './roll.ts'
 import { titlePath } from '../../lib/route.ts'
 
-// What the machine says before a pull: with no titles yet, with none it may hand out, or with some.
+// What the machine says before a pull: with no titles yet, with none it may hand out, with all it
+// may on My List, or with some.
 const HINTS = {
   empty: (
     <>The machine fills up with titles once AniList answers. It&rsquo;s not something you did.</>
@@ -20,6 +22,7 @@ const HINTS = {
   unpullable: (
     <>None of the titles on this page can come out of the machine. Try another decade below.</>
   ),
+  listed: <>Everything in the machine is on your list. Try another decade below.</>,
   ready: (
     <>
       Pick a vibe, then pull. Every capsule holds a real anime from what&rsquo;s on this page.
@@ -36,26 +39,43 @@ function rarityOf(score: number | null) {
   return { key: 'r', label: 'R', stars: '★', sfx: 'R' }
 }
 
+// The visit's last pulls, the oldest first, which a pull skips while it can (see rollNext). Kept
+// while the visitor moves around the site, which draws the machine again on the way back to
+// Discover, and gone on a reload.
+let ring: number[] = []
+
 /**
  * The gacha machine, drawn in ink: pick a vibe, pull the lever, and a capsule drops with a
- * random title from `pool` (titles already loaded, so a pull costs no API request). See
- * pullable and pickTitle for which titles can come up.
+ * random title from `pool` (titles already loaded, so a pull costs no API request). A pull
+ * gives a title with one of the vibe's genres, never one on My List, nor any of the last 30
+ * pulled while another can come up (see pullable and pullNext).
  */
 export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle }) {
   const [mood, setMood] = useState<Mood>('any')
   const [pulled, setPulled] = useState<Media | null>(null)
   const [pulls, setPulls] = useState(0)
   const [revealed, setRevealed] = useState(false)
-  const seen = useRef(new Set<number>())
   const timer = useRef<number | undefined>(undefined)
   useEffect(() => () => clearTimeout(timer.current), [])
-  // What can come out: the dome shows these, and with none the lever is off.
+  const listedIds = useListIds()
+  const listed = useMemo(() => new Set(listedIds), [listedIds])
   const titles = useMemo(() => pullable(pool), [pool])
+  // What can come out, the titles not on My List: the dome shows these, and with none the lever
+  // is off.
+  const out = useMemo(() => titles.filter((media) => !listed.has(media.id)), [titles, listed])
 
   function pull() {
-    const choice = pickTitle(titles, MOODS[mood].genres, seen.current, Math.random, pulled?.id)
+    const { genres } = MOODS[mood]
+    const choice = pullNext({
+      titles,
+      genres,
+      listed,
+      ring,
+      random: Math.random,
+      shown: pulled?.id,
+    })
     if (!choice) return
-    seen.current.add(choice.id)
+    ring = remember(ring, choice.id)
     clearTimeout(timer.current)
     setPulled(choice)
     setPulls((n) => n + 1)
@@ -64,7 +84,13 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
   }
 
   const rarity = pulled ? rarityOf(pulled.averageScore) : null
-  const hint: Hint = !pool.length ? 'empty' : !titles.length ? 'unpullable' : 'ready'
+  const hint: Hint = !pool.length
+    ? 'empty'
+    : !titles.length
+      ? 'unpullable'
+      : !out.length
+        ? 'listed'
+        : 'ready'
   return (
     // The links to #pull land on the heading, which takes their focus, as the other sections' do.
     <section className="ab-pull" aria-labelledby="pull">
@@ -74,7 +100,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
       <div className="ab-pull-row">
         <div className="ab-machine">
           <div className="ab-dome" aria-hidden="true">
-            {titles.slice(0, 9).map((media, i) => (
+            {out.slice(0, 9).map((media, i) => (
               <span
                 key={media.id}
                 className="ab-capsule"
@@ -98,7 +124,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
                 </label>
               ))}
             </fieldset>
-            <button type="button" className="ab-lever" onClick={pull} disabled={!titles.length}>
+            <button type="button" className="ab-lever" onClick={pull} disabled={!out.length}>
               <span>{pulls ? 'Again!' : 'Pull!'}</span>
             </button>
             <p className="ab-count">
