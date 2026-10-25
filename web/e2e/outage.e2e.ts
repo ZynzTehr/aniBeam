@@ -1,6 +1,7 @@
 // A visitor while AniList is unreachable: a returning visitor keeps last visit's titles, and a
-// first-time visitor gets sample titles with friendly messages, then Try again. Slow on purpose:
-// after a failed connection the AniList client waits a minute before retrying.
+// first-time visitor gets sample titles with friendly messages, then Try again. After a failed
+// connection the AniList client waits a minute before retrying: the checks that wait it out do so
+// on a stopped page clock, in a browser of their own.
 import { hashKey, type QueryKey } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
@@ -11,7 +12,7 @@ import { SAMPLES } from '../src/features/anime/samples.ts'
 import { parseSynopsis } from '../src/features/anime/synopsis.ts'
 import { tagsOf } from '../src/features/anime/tags.ts'
 import { deriveAccent } from '../src/features/theming/deriveAccent.ts'
-import { Browser } from './browser.ts'
+import { Browser, poll } from './browser.ts'
 
 let browser: Browser
 before(async () => {
@@ -691,81 +692,218 @@ describe('AniList down on a first visit', () => {
     assert.deepEqual(saved, [], 'titles saved while the samples show')
   })
 
-  test('once retrying fails, each section offers Try again over its samples, with no loading panels', async () => {
-    assert.ok(
-      await browser.waitFor(`document.querySelectorAll('.ab-retry').length === 2`, 150_000),
-      'no Try again buttons',
-    )
-    const page = await browser.evaluate<Shown & { placeholders: number }>(
-      `({ ...${shown}, placeholders: document.querySelectorAll('.ab-skeleton, .ab-skeleton-fill').length })`,
-    )
-    assert.deepEqual(page, {
-      ...samplesShown(
-        'AniList, where AniBeam gets its anime, isn’t responding right now. It’s not something you did. Try again in a minute.',
-      ),
-      placeholders: 0,
+  // The rest wait out anilist()'s minute after a failed connection, and the wait AniList's 429
+  // asks for, on the page's own clock, stopped and moved on by the check (see Browser.stopClock):
+  // on a real clock, each of the two that wait a minute took a minute of the run. A stopped clock
+  // can't start again, so they share a browser of their own: a first visit again, with AniList
+  // blocked. The page's every request to AniList is noted in window.__asked as it goes, with when
+  // it went and when its answer or failure came, by Date.now(), which anilist() times its pauses
+  // by, and which the stopped clock moves only as the check ticks it on.
+  describe('on a clock the check moves', () => {
+    let own: Browser
+    type Asked = { sent: number; settled?: number; status?: number | 'failed' }
+    const noteAsked = `(() => {
+      const fetch = window.fetch
+      window.__asked = []
+      window.fetch = function (url) {
+        if (url !== 'https://graphql.anilist.co') return fetch.apply(this, arguments)
+        const asked = { sent: Date.now() }
+        window.__asked.push(asked)
+        return fetch.apply(this, arguments).then(
+          (response) => Object.assign(asked, { settled: Date.now(), status: response.status }) && response,
+          (error) => { Object.assign(asked, { settled: Date.now(), status: 'failed' }); throw error },
+        )
+      }
+    })()`
+    const asked = () => own.evaluate<Asked[]>('window.__asked')
+
+    /** Moves the stopped clock on to `ms` past `from`, a moment by the page's Date.now(). */
+    const tickTo = async (from: number, ms: number) => {
+      const now = await own.evaluate<number>('Date.now()')
+      if (from + ms <= now)
+        throw new Error(`The page's clock is ${now - from - ms} ms past where the check moves it`)
+      await own.tick(from + ms - now)
+    }
+
+    /**
+     * Ticks the stopped clock on 10 ms at a time until `expression` holds, for up to 5 s (200 ms
+     * on the page's clock). An answer or a failure comes on Node's clock, and the page takes it
+     * in only during a tick (see Browser.stopClock).
+     */
+    const settles = (expression: string) =>
+      poll(async () => {
+        await own.tick(10)
+        return own.evaluate<boolean>(`Boolean(${expression})`)
+      }, 5_000)
+
+    // Each of the two that wait a minute must take seconds, the minute being the page's alone.
+    const quick = (started: number) => {
+      const took = Math.round((performance.now() - started) / 1000)
+      assert.ok(took < 15, `the check took ${took} s, over 15 s`)
+    }
+
+    before(async () => {
+      own = await Browser.open()
+      await own.blockAniList()
+      await own.send('Page.addScriptToEvaluateOnNewDocument', { source: noteAsked })
+      await own.load()
+      assert.ok(
+        await own.waitFor(
+          `${notes}.every((note) => note.endsWith('Trying again in a minute.')) && document.querySelectorAll('.ab-grid .ab-link').length && document.querySelectorAll('.ab-intro-art img').length`,
+          15_000,
+        ),
+        'the samples never showed, retrying',
+      )
+      await own.animationsDone()
+      await own.stopClock()
     })
-  })
+    after(() => own?.close())
 
-  test('Try again keeps the samples on screen while it runs', async () => {
-    // Press it from the keyboard: the button disappears while retrying, so focus must land
-    // somewhere useful (the section's heading), not fall back to the top of the page.
-    await browser.evaluate(`document.querySelector('.ab-page .ab-retry').focus(); true`)
-    await browser.press('Enter')
-    // Focus moves as the button goes, once the page has re-rendered.
-    const landed = await browser.waitFor(`document.activeElement.id === 'ab-trending'`, 5_000)
-    const focus = await browser.evaluate<string>(
-      `document.activeElement.id || document.activeElement.tagName`,
-    )
-    assert.ok(landed, `focus went to ${focus}, not the section's heading`)
-    // TanStack clears the lists' failure as they try again, and the try waits out anilist()'s
-    // pause first.
-    assert.deepEqual(
-      await browser.evaluate<Shown>(shown),
-      samplesShown(
-        'Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.',
-      ),
-    )
-  })
+    test('once retrying fails, each section offers Try again over its samples, with no loading panels', async () => {
+      const started = performance.now()
+      const [failed] = await asked()
+      // A second short of a minute after the first try failed, the page still waits.
+      await tickTo(failed.settled!, 59_000)
+      assert.deepEqual(
+        await own.evaluate(
+          `({ asked: window.__asked.length, retry: document.querySelectorAll('.ab-retry').length })`,
+        ),
+        { asked: 1, retry: 0 },
+        'within a minute of the first try failing, the page asked AniList again or gave up',
+      )
+      await tickTo(failed.settled!, 61_000)
+      assert.ok(
+        await settles(`document.querySelectorAll('.ab-retry').length === 2`),
+        'no Try again buttons',
+      )
+      const tries = await asked()
+      assert.equal(tries.length, 2, 'the page tried AniList more than twice')
+      // Its one retry went as the minute after the first failure ended, by the page's Date.now().
+      const waited = tries[1].sent - failed.settled!
+      assert.ok(
+        waited >= 60_000 && waited <= 60_050,
+        `the page tried again ${waited} ms after the first try failed, not a minute`,
+      )
+      const page = await own.evaluate<Shown & { placeholders: number }>(
+        `({ ...${shown}, placeholders: document.querySelectorAll('.ab-skeleton, .ab-skeleton-fill').length })`,
+      )
+      assert.deepEqual(page, {
+        ...samplesShown(
+          'AniList, where AniBeam gets its anime, isn’t responding right now. It’s not something you did. Try again in a minute.',
+        ),
+        placeholders: 0,
+      })
+      quick(started)
+    })
 
-  test('once AniList answers, every section shows its own titles again', async () => {
-    // With the panels on screen: a new order of AniList's titles waits there (see
-    // useSteadyList), but the samples give way to AniList's titles at once.
-    await browser.evaluate(`document.querySelector('#ab-trending').scrollIntoView(); true`)
-    await browser.blockAniList(false)
-    // Both lists come in one answer, and the 1990s outnumber their samples.
-    assert.ok(
-      await browser.waitFor(
-        `document.querySelectorAll('.ab-strip-row .ab-strip-panel[href]').length > ${nineties.length}`,
-        120_000,
-      ),
-      'AniList’s titles did not come back',
-    )
-    await browser.waitFor(
-      `document.querySelectorAll('.ab-grid .ab-rank').length === 9 && ${notes}.join('') === ''`,
-      5_000,
-    )
-    const page = await browser.evaluate<Shown>(shown)
-    assert.deepEqual(
-      {
-        heading: page.heading,
-        button: page.button,
-        ranks: page.ranks,
-        ranked: page.ranked,
-        notes: page.notes,
-      },
-      {
-        heading: 'Trending now',
-        button: 'See what’s trending',
-        ranks: 9,
-        ranked: 9,
-        notes: ['', ''],
-      },
-    )
-    assert.notDeepEqual(
-      page.panels,
-      SAMPLES.slice(0, 9).map(titleOf),
-      'the samples stayed on screen once AniList answered',
-    )
+    test('Try again keeps the samples on screen while it runs', async () => {
+      // Press it from the keyboard: the button disappears while retrying, so focus must land
+      // somewhere useful (the section's heading), not fall back to the top of the page.
+      await own.evaluate(`document.querySelector('.ab-page .ab-retry').focus(); true`)
+      await own.press('Enter')
+      // Focus moves as the button goes, once the page has re-rendered.
+      const landed = await settles(`document.activeElement.id === 'ab-trending'`)
+      const focus = await own.evaluate<string>(
+        `document.activeElement.id || document.activeElement.tagName`,
+      )
+      assert.ok(landed, `focus went to ${focus}, not the section's heading`)
+      // TanStack clears the lists' failure as they try again, and the try waits out anilist()'s
+      // pause first.
+      assert.deepEqual(
+        await own.evaluate<Shown>(shown),
+        samplesShown(
+          'Taking a short break from AniList so it isn’t overloaded. It’s not something you did. Trying again within a minute.',
+        ),
+      )
+    })
+
+    test('once AniList answers, every section shows its own titles again', async () => {
+      const started = performance.now()
+      // Try again's try goes a minute after the retry failed.
+      const back = (await asked())[1].settled! + 60_000
+      // With the panels on screen: a new order of AniList's titles waits there (see
+      // useSteadyList), but the samples give way to AniList's titles at once.
+      await own.evaluate(`document.querySelector('#ab-trending').scrollIntoView(); true`)
+      // AniList answers 429 twice first, its X-RateLimit-Reset in whole seconds on its clock,
+      // which the page reads against its own Date.now() (see retryAt): 30 s on, which the page
+      // waits for, and then 90 s on, past AniList's own minute, which it doesn't trust, waiting
+      // the minute instead.
+      const reset = Math.ceil(back / 1000) + 30
+      let busy = 0
+      await own.rewriteAniList(() =>
+        ++busy > 2
+          ? null
+          : {
+              status: 429,
+              body: { data: null, errors: [{ message: 'Too Many Requests.', status: 429 }] },
+              headers: { 'X-RateLimit-Reset': String(busy === 1 ? reset : reset + 90) },
+            },
+      )
+      await own.blockAniList(false)
+      try {
+        await tickTo(back, 1_000)
+        assert.ok(await settles(`window.__asked[2]?.settled`), 'Try again’s try never went')
+        await tickTo(reset * 1000, -500)
+        assert.equal((await asked()).length, 3, 'the page asked AniList before its reset time')
+        // The page spreads its try over 2 s past the reset (see retryAt).
+        await tickTo(reset * 1000, 2_500)
+        assert.ok(
+          await settles(`window.__asked[3]?.settled`),
+          'the page didn’t ask AniList again by its reset time',
+        )
+        const second = (await asked())[3]
+        assert.ok(
+          second.sent >= reset * 1000 && second.sent <= reset * 1000 + 2_050,
+          `the page asked AniList again ${second.sent - reset * 1000} ms after its reset time, not within 2 s`,
+        )
+        await tickTo(second.settled!, 59_000)
+        assert.equal((await asked()).length, 4, 'the page asked AniList again within a minute')
+        await tickTo(second.settled!, 61_000)
+        assert.ok(
+          await settles(`window.__asked[4]`),
+          'told to wait 90 s, past AniList’s own minute, the page didn’t ask again a minute on',
+        )
+        const waited = (await asked())[4].sent - second.settled!
+        assert.ok(
+          waited >= 60_000 && waited <= 60_050,
+          `told to wait 90 s, the page asked AniList again ${waited} ms on, not a minute`,
+        )
+        // Both lists come in one answer, and the 1990s outnumber their samples.
+        assert.ok(
+          await settles(
+            `document.querySelectorAll('.ab-strip-row .ab-strip-panel[href]').length > ${nineties.length}`,
+          ),
+          'AniList’s titles did not come back',
+        )
+      } finally {
+        await own.rewriteAniList(null)
+      }
+      await settles(
+        `document.querySelectorAll('.ab-grid .ab-rank').length === 9 && ${notes}.join('') === ''`,
+      )
+      const page = await own.evaluate<Shown>(shown)
+      assert.deepEqual(
+        {
+          heading: page.heading,
+          button: page.button,
+          ranks: page.ranks,
+          ranked: page.ranked,
+          notes: page.notes,
+        },
+        {
+          heading: 'Trending now',
+          button: 'See what’s trending',
+          ranks: 9,
+          ranked: 9,
+          notes: ['', ''],
+        },
+      )
+      assert.notDeepEqual(
+        page.panels,
+        SAMPLES.slice(0, 9).map(titleOf),
+        'the samples stayed on screen once AniList answered',
+      )
+      quick(started)
+    })
   })
 })

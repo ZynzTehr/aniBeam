@@ -328,7 +328,7 @@ To run them, start the app with `npm run dev`, then point `CHROME_BIN` at a Chro
 CHROME_BIN="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm run test:browser
 ```
 
-A run takes about 20 minutes. The outage checks take about two of them, because the app waits a minute before retrying a failed connection.
+A run takes about 20 minutes. The app waits a minute before retrying a failed connection, and the outage checks wait that minute out on the page's own clock, stopped and moved on by the check, so they take seconds, not two minutes.
 
 #### Recorded answers
 
