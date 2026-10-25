@@ -415,10 +415,13 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // and the idle preload took the JS every visit loads from 91,217 B to 91,344 B, within its budget.
 // A decade's mood pool took it to 91,375 B: its query's text in QUERIES, which the saved copy's
 // reading keeps whole (restored, in queryClient.ts), though nothing asks for a pool yet; the mood
-// map's tags the pool keeps, MOOD_TAGS, took the mood scoring to 955 B.
+// map's tags the pool keeps, MOOD_TAGS, took the mood scoring to 955 B. Then 91,600 B with a
+// decade's page going in one request with its pool when both ask at once (together, decadeWithPool
+// and the page's query reading the pool's key: 91,558 B, 183 B more, a raise shown to the user in
+// PR 3a, as the plan's D5 lets the budget rise in measured steps).
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 91_500,
+  'the JS every visit loads': 91_600,
   'the CSS': 12_000,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,

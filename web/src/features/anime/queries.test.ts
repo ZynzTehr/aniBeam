@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test, type TestContext } from 'node:test'
 import {
   cardOf,
   ERAS,
@@ -623,6 +623,130 @@ test('when that request fails, both lists retry it together, still one request a
   assert.equal(sent.length, 2, `sent ${sent.length} requests over two tries`)
   assert.deepEqual(client.getQueryData(trendingQuery().queryKey), [{ id: 1, tags: [] }])
   assert.deepEqual(client.getQueryData(eraQuery(nineties).queryKey), [{ id: 2, tags: [] }])
+})
+
+// AniList's answer to a request for a decade's page and its pool both (decadeWithPool), or to the
+// page alone or the pool alone, each with one title, and the pool with no page after it.
+const POOL_PAGE = { pageInfo: { hasNextPage: false }, media: [] }
+const answerTo = (query: string) =>
+  query === QUERIES.decadeWithPool
+    ? { data: { era: { media: [{ id: 5, tags: [] }] }, p1: POOL_PAGE, p2: POOL_PAGE } }
+    : query === QUERIES.pool
+      ? { data: { p1: POOL_PAGE, p2: POOL_PAGE } }
+      : query === QUERIES.firstVisit
+        ? both
+        : { data: { Page: { media: [{ id: 6, tags: [] }] } } }
+
+/** A fetch that answers each request (see answerTo), and keeps what it sent. */
+function answering(t: TestContext) {
+  const sent: Sent[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    const request: Sent = JSON.parse(init.body as string)
+    sent.push(request)
+    return Response.json(answerTo(request.query))
+  })
+  return sent
+}
+
+/** Until each observer's query has stopped fetching. */
+const settled = (...observers: QueryObserver<any, any, any, any, any>[]) =>
+  Promise.all(
+    observers.map(
+      (observer) =>
+        new Promise<void>((resolve) => {
+          const check = () => observer.getCurrentResult().fetchStatus === 'idle' && resolve()
+          observer.subscribe(check)
+          check()
+        }),
+    ),
+  )
+
+// The machine holds the open decade's pool in the cache from the first draw, asking for it only
+// once it is wanted (enabled), so a decade picked with every slider at No preference is its page's
+// own request, unchanged: the pool's query in the cache doesn't make it ask for the pool.
+test('a decade picked with its pool not wanted asks for its own page alone, as before', async (t) => {
+  const sent = answering(t)
+  const client = new QueryClient()
+  t.after(() => client.clear())
+  const [eighties] = decades('1980s')
+  const pool = new QueryObserver(client, { ...poolQuery(eighties), enabled: false })
+  const page = new QueryObserver(client, eraQuery(eighties))
+  const stops = [pool, page].map((observer) => observer.subscribe(() => {}))
+  await settled(page)
+  stops.forEach((stop) => stop())
+  assert.deepEqual(sent, [{ query: QUERIES.era, variables: eighties.variables }])
+  assert.deepEqual(client.getQueryData(eraQuery(eighties).queryKey), [{ id: 6, tags: [] }])
+  assert.equal(client.getQueryData(poolQuery(eighties).queryKey), undefined)
+})
+
+// With the decade's page cached (picked earlier, before a slider was set), the pool goes alone.
+test('a pool wanted for a decade whose page is cached asks for the pool alone', async (t) => {
+  const sent = answering(t)
+  const client = new QueryClient()
+  t.after(() => client.clear())
+  const [eighties] = decades('1980s')
+  client.setQueryData(eraQuery(eighties).queryKey, [complete])
+  const page = new QueryObserver(client, eraQuery(eighties))
+  const pool = new QueryObserver(client, poolQuery(eighties))
+  const stops = [pool, page].map((observer) => observer.subscribe(() => {}))
+  await settled(pool, page)
+  stops.forEach((stop) => stop())
+  assert.deepEqual(sent, [{ query: QUERIES.pool, variables: eighties.variables }])
+})
+
+// A first visit's lists come in their own request (see bothLists), whatever the machine holds: the
+// 1990s' pool in the cache with no answer must not draw the 1990s away from trending.
+test('a first visit still asks for trending and the 1990s in one request, with their pool held', async (t) => {
+  const sent = answering(t)
+  const client = new QueryClient()
+  t.after(() => client.clear())
+  const [nineties] = decades('1990s')
+  const pool = new QueryObserver(client, { ...poolQuery(nineties), enabled: false })
+  const stopPool = pool.subscribe(() => {})
+  const { decade, leave } = page(client, nineties)
+  await settled(decade)
+  leave()
+  stopPool()
+  assert.deepEqual(sent, [{ query: QUERIES.firstVisit, variables: nineties.variables }])
+})
+
+// As with a first visit's request (see the test above it), a failed request for a decade's page
+// and its pool is tried again by both together, still one request a try.
+test('when a decade’s page and pool fail together, they retry together, one request a try', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const sent: Sent[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    const request: Sent = JSON.parse(init.body as string)
+    sent.push(request)
+    return sent.length === 1
+      ? Response.json(
+          { data: null, errors: [{ message: 'Internal Server Error', status: 500 }] },
+          { status: 500 },
+        )
+      : Response.json(answerTo(request.query))
+  })
+  const client = new QueryClient({ defaultOptions: { queries: { retry: 1 } } })
+  t.after(() => client.clear())
+  const [eighties] = decades('1980s')
+  const page = new QueryObserver(client, eraQuery(eighties))
+  const pool = new QueryObserver(client, poolQuery(eighties))
+  const stops = [pool, page].map((observer) => observer.subscribe(() => {}))
+  for (let step = 0; step < 40; step++) {
+    await new Promise((resolve) => setImmediate(resolve))
+    t.mock.timers.tick(100)
+  }
+  stops.forEach((stop) => stop())
+  assert.deepEqual(
+    sent.map(({ query }) => query),
+    [QUERIES.decadeWithPool, QUERIES.decadeWithPool],
+    `sent ${sent.length} requests over two tries`,
+  )
+  assert.deepEqual(client.getQueryData(eraQuery(eighties).queryKey), [{ id: 5, tags: [] }])
+  assert.deepEqual(client.getQueryData(poolQuery(eighties).queryKey), {
+    titles: [],
+    count: 0,
+    hasNextPage: false,
+  })
 })
 
 test('switching lists keeps a request that was already sent, so its result is cached', async (t) => {

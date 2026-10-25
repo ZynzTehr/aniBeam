@@ -1,9 +1,17 @@
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
 import { test, type TestContext } from 'node:test'
 import { isDeepStrictEqual } from 'node:util'
 import { titleOf } from '../src/features/anime/format.ts'
-import { ERAS, poolQuery, type Media, type PoolAnswer } from '../src/features/anime/queries.ts'
+import {
+  cardOf,
+  ERAS,
+  eraQuery,
+  poolQuery,
+  type Media,
+  type Pool,
+  type PoolAnswer,
+} from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { compare, JUDGED, problems, recordings, requests } from './recordings.ts'
 
@@ -418,4 +426,38 @@ for (const [id, count, titles, hasNextPage] of [
       pool.titles.some((media) => media.seasons.length),
       'no title came with its seasons',
     )
+  })
+
+// A decade picked with a slider set and nothing of it cached (the plan's REC-3): the page asks for
+// its page and the machine for its pool at the same moment, in either order, as the page
+// subscribes them, and the two go in one request that fills both.
+for (const first of ['pool', 'page'] as const)
+  test(`a decade picked with a slider set, its ${first} asking first, is 1 request, AniList’s recorded one, filling its page and its pool`, async (t) => {
+    const { request, sent, data } = replay(t, 'era-pool-1980s')
+    const client = new QueryClient()
+    t.after(() => client.clear())
+    const eighties = eraOf('1980s')
+    // Both built first, as the page renders them, then subscribed, as it then does.
+    const page = new QueryObserver(client, eraQuery(eighties))
+    const pool = new QueryObserver(client, poolQuery(eighties))
+    const stops = (first === 'pool' ? [pool, page] : [page, pool]).map((observer) =>
+      observer.subscribe(() => {}),
+    )
+    t.after(() => stops.forEach((stop) => stop()))
+    const answered = (observer: QueryObserver<any, any, any, any, any>) =>
+      new Promise<void>((resolve) => {
+        const check = () => observer.getCurrentResult().fetchStatus === 'idle' && resolve()
+        observer.subscribe(check)
+        check()
+      })
+    await Promise.all([answered(page), answered(pool)])
+    assert.deepEqual(sent, [request], 'not the one request recorded')
+    assert.deepEqual(
+      client.getQueryData<Media[]>(eraQuery(eighties).queryKey),
+      data.era.media.map(cardOf),
+      'the page’s titles aren’t its part of the answer',
+    )
+    const filled = client.getQueryData<Pool>(poolQuery(eighties).queryKey)
+    assert.equal(filled?.count, 100)
+    assert.equal(filled?.titles.length, 93, 'not its 93 titles that aren’t Ecchi')
   })

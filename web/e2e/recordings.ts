@@ -20,7 +20,6 @@ import {
   FIRST_ERA,
   listQuery,
   poolQuery,
-  QUERIES,
   searchQuery,
   titleQuery,
   trendingQuery,
@@ -29,7 +28,7 @@ import {
 } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { pullable } from '../src/features/mood/roll.ts'
-import { anilist, AniListError } from '../src/lib/anilist.ts'
+import { AniListError } from '../src/lib/anilist.ts'
 import type { Recording } from './browser.ts'
 
 export const FOLDER = fileURLToPath(new URL('./anilist/', import.meta.url))
@@ -73,8 +72,8 @@ export const POOLS = ['1990s', 'pre-1970', 'upcoming']
 
 /**
  * The decades the checks pick with a slider set and nothing cached for them, so the page asks for
- * the decade's page and its mood pool in one request (QUERIES.decadeWithPool): the 1980s (REC-3).
- * Sent with anilist(), as POOLS are, until the app's own code sends it.
+ * the decade's page and its mood pool in one request (decadeWithPool; see together in queries.ts):
+ * the 1980s (REC-3).
  */
 export const DECADES_WITH_POOLS = ['1980s']
 
@@ -194,7 +193,13 @@ export async function requests(): Promise<{ name: string; request: Request }[]> 
   for (const id of DECADES_WITH_POOLS)
     wanted.push({
       name: `era-pool-${id}`,
-      request: await sent(() => anilist(QUERIES.decadeWithPool, eraOf(id).variables)),
+      // The decade's pool in the cache with no answer yet, as the machine has it, and then both
+      // asking for theirs, as the page does once the decade is picked: they go in one request.
+      request: await sent((client) => {
+        const era = eraOf(id)
+        new QueryObserver(client, poolQuery(era))
+        return Promise.all([client.fetchQuery(eraQuery(era)), client.fetchQuery(poolQuery(era))])
+      }),
     })
   for (const term of SEARCHES) {
     const request = await sent((client) => client.fetchQuery(searchQuery(term)))
