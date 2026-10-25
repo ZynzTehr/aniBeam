@@ -17,6 +17,7 @@ import {
   searchQuery,
   titleQuery,
   trendingQuery,
+  wantPool,
   type Era,
   type Media,
   type Pool,
@@ -25,6 +26,7 @@ import {
 import { tagsOf } from './tags.ts'
 import { AniListError } from '../../lib/anilist.ts'
 import { shouldRetry } from '../../lib/queryClient.ts'
+import { moodScoring } from '../mood/loadScoring.ts'
 import { MOOD_MAP, MOOD_TAGS } from '../mood/moodMap.ts'
 
 test('every media query excludes adult titles', () => {
@@ -662,13 +664,15 @@ const settled = (...observers: QueryObserver<any, any, any, any, any>[]) =>
   )
 
 // The machine holds the open decade's pool in the cache from the first draw, asking for it only
-// once it is wanted (enabled), so a decade picked with every slider at No preference is its page's
-// own request, unchanged: the pool's query in the cache doesn't make it ask for the pool.
+// once it is wanted, so a decade picked with every slider at No preference is its page's own
+// request, unchanged: neither the pool's query in the cache nor another decade's pool wanted makes
+// it ask for its pool.
 test('a decade picked with its pool not wanted asks for its own page alone, as before', async (t) => {
   const sent = answering(t)
   const client = new QueryClient()
   t.after(() => client.clear())
-  const [eighties] = decades('1980s')
+  const [eighties, nineties] = decades('1980s', '1990s')
+  wantPool(client, nineties)
   const pool = new QueryObserver(client, { ...poolQuery(eighties), enabled: false })
   const page = new QueryObserver(client, eraQuery(eighties))
   const stops = [pool, page].map((observer) => observer.subscribe(() => {}))
@@ -692,6 +696,27 @@ test('a pool wanted for a decade whose page is cached asks for the pool alone', 
   await settled(pool, page)
   stops.forEach((stop) => stop())
   assert.deepEqual(sent, [{ query: QUERIES.pool, variables: eighties.variables }])
+})
+
+// A pool asked for alone isn't asked for again by its page: a page asking again meanwhile (its
+// titles marked out of date) asks for its own titles alone.
+test('a decade’s page asked for again while its pool is asked for alone asks alone', async (t) => {
+  const sent = answering(t)
+  const client = new QueryClient()
+  t.after(() => client.clear())
+  const [eighties] = decades('1980s')
+  client.setQueryData(eraQuery(eighties).queryKey, [complete])
+  const page = new QueryObserver(client, eraQuery(eighties))
+  const pool = new QueryObserver(client, poolQuery(eighties))
+  const stops = [pool, page].map((observer) => observer.subscribe(() => {}))
+  void page.refetch()
+  await settled(pool, page)
+  stops.forEach((stop) => stop())
+  assert.deepEqual(
+    sent.map(({ query }) => query).sort(),
+    [QUERIES.era, QUERIES.pool].sort(),
+    'the pool was asked for twice',
+  )
 })
 
 // A first visit's lists come in their own request (see bothLists), whatever the machine holds: the
@@ -742,6 +767,104 @@ test('when a decade’s page and pool fail together, they retry together, one re
     `sent ${sent.length} requests over two tries`,
   )
   assert.deepEqual(client.getQueryData(eraQuery(eighties).queryKey), [{ id: 5, tags: [] }])
+  assert.deepEqual(client.getQueryData(poolQuery(eighties).queryKey), {
+    titles: [],
+    count: 0,
+    hasNextPage: false,
+  })
+})
+
+// The plan's section 2 lets the pool ask only once the decade's page has its titles, so the page
+// can't wait for the pool to ask: a pool said to be wanted before the page asks (a decade picked
+// with a slider set) goes with the page's request, and takes its half when it asks, then or a few
+// ms into the page's request, still one request in all (the plan's REC-3).
+for (const when of ['once the page is in', 'a few ms into the page’s request'] as const)
+  test(`a decade picked with its pool wanted is 1 request, the pool asking ${when}`, async (t) => {
+    const sent = answering(t)
+    const client = new QueryClient()
+    t.after(() => client.clear())
+    const [eighties] = decades('1980s')
+    wantPool(client, eighties)
+    const pool = new QueryObserver(client, { ...poolQuery(eighties), enabled: false })
+    const page = new QueryObserver(client, eraQuery(eighties))
+    const stops = [pool, page].map((observer) => observer.subscribe(() => {}))
+    t.after(() => stops.forEach((stop) => stop()))
+    if (when === 'once the page is in') await settled(page)
+    else await new Promise((resolve) => setTimeout(resolve, 2))
+    pool.setOptions(poolQuery(eighties))
+    await settled(pool, page)
+    assert.deepEqual(
+      sent.map(({ query }) => query),
+      [QUERIES.decadeWithPool],
+      'not one request for the page and its pool',
+    )
+    assert.deepEqual(client.getQueryData(eraQuery(eighties).queryKey), [{ id: 5, tags: [] }])
+    assert.deepEqual(client.getQueryData(poolQuery(eighties).queryKey), {
+      titles: [],
+      count: 0,
+      hasNextPage: false,
+    })
+  })
+
+// Back on a decade whose page is cached but out of date (over 6 hours), with a slider set: the page
+// asks again as it is drawn, and its pool is wanted. Whichever the page subscribes first, the two
+// go in one request.
+for (const first of ['pool', 'page'] as const)
+  test(`a decade's out-of-date page and its wanted pool, the ${first} first, are 1 request`, async (t) => {
+    const sent = answering(t)
+    const client = new QueryClient()
+    t.after(() => client.clear())
+    const [eighties] = decades('1980s')
+    client.setQueryData(eraQuery(eighties).queryKey, [complete], {
+      updatedAt: Date.now() - 7 * 60 * 60 * 1000,
+    })
+    wantPool(client, eighties)
+    const page = new QueryObserver(client, eraQuery(eighties))
+    const pool = new QueryObserver(client, poolQuery(eighties))
+    const stops = (first === 'pool' ? [pool, page] : [page, pool]).map((observer) =>
+      observer.subscribe(() => {}),
+    )
+    t.after(() => stops.forEach((stop) => stop()))
+    await settled(pool, page)
+    assert.deepEqual(
+      sent.map(({ query }) => query),
+      [QUERIES.decadeWithPool],
+    )
+    assert.deepEqual(client.getQueryData(eraQuery(eighties).queryKey), [{ id: 5, tags: [] }])
+  })
+
+// The pool keeps its half of a request it went in until the mood scoring has loaded, so a scoring
+// file that fails once (a flaky connection) costs no second request when the pool tries again.
+test('a pool whose scoring fails to load once takes its half of the request again, sending nothing', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] })
+  const sent = answering(t)
+  const { current, load } = moodScoring
+  moodScoring.current = undefined
+  t.after(() => (moodScoring.current = current))
+  let loads = 0
+  t.mock.method(moodScoring, 'load', () =>
+    ++loads === 1
+      ? Promise.reject(new TypeError('Failed to fetch dynamically imported module'))
+      : load(),
+  )
+  const client = new QueryClient({ defaultOptions: { queries: { retry: 1 } } })
+  t.after(() => client.clear())
+  const [eighties] = decades('1980s')
+  wantPool(client, eighties)
+  const page = new QueryObserver(client, eraQuery(eighties))
+  const pool = new QueryObserver(client, poolQuery(eighties))
+  const stops = [page, pool].map((observer) => observer.subscribe(() => {}))
+  for (let step = 0; step < 40; step++) {
+    await new Promise((resolve) => setImmediate(resolve))
+    t.mock.timers.tick(100)
+  }
+  stops.forEach((stop) => stop())
+  assert.equal(loads, 2, 'the scoring wasn’t tried twice')
+  assert.deepEqual(
+    sent.map(({ query }) => query),
+    [QUERIES.decadeWithPool],
+    'the retry sent a request of its own',
+  )
   assert.deepEqual(client.getQueryData(poolQuery(eighties).queryKey), {
     titles: [],
     count: 0,

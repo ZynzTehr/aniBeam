@@ -206,15 +206,11 @@ export const eraQuery = (era: Era) => {
   return queryOptions({
     ...options,
     // A first visit's request for both lists goes first (see mediaQuery); otherwise the decade's
-    // page goes with its mood pool when the pool asks too (see together).
-    queryFn: async (context): Promise<Media[]> => {
-      const met =
-        !(era === FIRST_ERA && firstVisit(context.client)) &&
-        mayMeet(context.client, era, poolKey(era))
-          ? await together(era, 'era')
-          : undefined
-      return met ? (await met.sent).era.media.map(cardOf) : options.queryFn!(context)
-    },
+    // page asks for its mood pool with it when the pool is wanted (see wantPool).
+    queryFn: async (context): Promise<Media[]> =>
+      !(era === FIRST_ERA && firstVisit(context.client)) && withPool(context.client, era)
+        ? (await sendWithPool(context.client, era)).era.media.map(cardOf)
+        : options.queryFn!(context),
   })
 }
 
@@ -304,45 +300,60 @@ const poolKey = (era: Era) => ['anilist', QUERIES.pool, era.variables]
 type DecadeAndPool = { era: Page; p1: PoolPage; p2: PoolPage }
 
 // Spec §2 again: a decade picked with a slider set needs its page and its mood pool at the same
-// moment, so the two come in one request (decadeWithPool), as a first visit's two lists do. Which
-// of the two asks first depends on the order the page subscribes them, so each that may go with
-// the other says so here and waits for the page's next task, by when both have asked if both will.
-const meetings = new Map<string, { asked: Set<'era' | 'pool'>; sent?: Promise<DecadeAndPool> }>()
+// moment, so the two come in one request (decadeWithPool), as a first visit's two lists do. The
+// page decides, as it asks: the pool is let ask only once the page's titles are in (the plan's
+// section 2), so a page that waited for the pool to ask would always go alone. What a query client
+// knows of each decade's pool beyond its cache, by the decade's id: whether it is wanted (see
+// wantPool); the request that went for the page and the pool both (see sendWithPool); and whether
+// the pool is being asked for on its own.
+type Pools = {
+  wanted: Set<string>
+  shared: Map<string, Shared>
+  alone: Set<string>
+}
 
-/**
- * Whether a decade's page or pool, asking now, may go with the other (see together): when the
- * other is in the cache with no answer yet (`other`, its key), or is already waiting to go with it.
- * A query run on its own, outside TanStack (as some tests do), has no client and never goes with
- * the other.
- */
-const mayMeet = (client: QueryClient | undefined, era: Era, other: QueryKey) => {
-  if (meetings.has(hashKey([era.variables]))) return true
-  const state = client?.getQueryState(other)
-  return state !== undefined && state.data === undefined
+/** A request for a decade's page and its pool, its answer kept until the pool has been cut. */
+type Shared = { sent: Promise<DecadeAndPool>; failed?: true }
+const known = new WeakMap<QueryClient, Pools>()
+const poolsOf = (client: QueryClient) => {
+  let pools = known.get(client)
+  if (!pools)
+    known.set(client, (pools = { wanted: new Set(), shared: new Map(), alone: new Set() }))
+  return pools
 }
 
 /**
- * The request for a decade's page and its mood pool both, once both have asked within the page's
- * next task: the first to go on after it sends it and the other goes with it, as does either one
- * asking while it runs. Undefined when only `part` asked: it then asks alone. Like the request for
- * a first visit's lists, it reads no abort signal, so leaving one can't cancel the other's half.
+ * Says a decade's mood pool is wanted, for the visit (the plan's section 2: a slider pressed, the
+ * decade changed with a slider set, and so on). Said before the decade's page asks, the page asks
+ * for its pool too, in one request (decadeWithPool), and the pool takes its half whenever it asks.
+ * The pool asking says so too, for a page that is about to ask again (see poolQuery).
  */
-async function together(era: Era, part: 'era' | 'pool') {
-  const key = hashKey([era.variables])
-  let meeting = meetings.get(key)
-  if (!meeting) meetings.set(key, (meeting = { asked: new Set() }))
-  meeting.asked.add(part)
-  if (!meeting.sent) await new Promise((resolve) => setTimeout(resolve))
-  if (!meeting.sent) {
-    if (meeting.asked.size < 2) {
-      meetings.delete(key)
-      return undefined
-    }
-    meeting.sent = anilist<DecadeAndPool>(QUERIES.decadeWithPool, era.variables).finally(() =>
-      meetings.delete(key),
-    )
-  }
-  return { sent: meeting.sent }
+export const wantPool = (client: QueryClient, era: Era) => void poolsOf(client).wanted.add(era.id)
+
+/**
+ * Whether a decade's page, asking now, asks for its pool with it: when the pool is wanted, has no
+ * answer and isn't being asked for on its own. A query run on its own, outside TanStack (as some
+ * tests do), has no client and asks alone.
+ */
+const withPool = (client: QueryClient | undefined, era: Era) => {
+  const pools = client && known.get(client)
+  return (
+    pools?.wanted.has(era.id) === true &&
+    !pools.alone.has(era.id) &&
+    client!.getQueryData(poolKey(era)) === undefined
+  )
+}
+
+/**
+ * The request for a decade's page and its pool both, kept for the pool to take its half (see
+ * poolQuery). Like the request for a first visit's lists, it reads no abort signal, so leaving the
+ * page can't cancel the pool's half. A failed one is marked so, and the page's retry sends another.
+ */
+function sendWithPool(client: QueryClient, era: Era) {
+  const shared: Shared = { sent: anilist<DecadeAndPool>(QUERIES.decadeWithPool, era.variables) }
+  shared.sent.catch(() => (shared.failed = true))
+  poolsOf(client).shared.set(era.id, shared)
+  return shared.sent
 }
 
 /**
@@ -351,27 +362,45 @@ async function together(era: Era, part: 'era' | 'pool') {
  * page is, and kept a day (see keptFor); never asked for again just because the visitor comes back
  * to the tab. The mood map's tags it keeps come with the mood scoring, a file of its own, so alone
  * it waits for that file first: should the file fail to load, the pool fails without spending one
- * of AniList's requests. With the decade's page not yet in, it goes with the page's request (see
- * together), which the page needs anyway, and the file loads meanwhile.
+ * of AniList's requests. When the decade's page went with the pool (see wantPool), it takes its
+ * half of that request, sent or answered, and keeps it until the file has loaded, so a retry after
+ * the file failed sends nothing new either.
  */
 export const poolQuery = (era: Era) =>
   queryOptions({
     queryKey: poolKey(era),
     queryFn: async (context): Promise<Pool> => {
-      const met = mayMeet(context.client, era, eraQuery(era).queryKey)
-        ? await together(era, 'pool')
-        : undefined
-      if (met) {
-        const [pages, { MOOD_TAGS }] = await Promise.all([met.sent, moodScoring.load()])
-        return poolOf(pages, MOOD_TAGS)
+      const pools = context.client && poolsOf(context.client)
+      if (pools) {
+        pools.wanted.add(era.id)
+        // A page with no titles yet, or out of date, asks within the page's next task, as the page
+        // subscribes its lists in one go, whichever comes first (or retries with the pool, when a
+        // request for both failed): it then takes the pool with it. A request sent meanwhile is
+        // the pool's too, even if it has already failed: the pool then fails and retries with it.
+        const before = pools.shared.get(era.id)
+        const page = context.client.getQueryCache().find({ queryKey: eraQuery(era).queryKey })
+        if ((!before || before.failed) && page?.isStaleByTime(6 * HOUR))
+          await new Promise((resolve) => setTimeout(resolve))
+        const shared = pools.shared.get(era.id)
+        if (shared && (shared !== before || !shared.failed)) {
+          const answer = await shared.sent
+          const { MOOD_TAGS } = moodScoring.current ?? (await moodScoring.load())
+          if (pools.shared.get(era.id) === shared) pools.shared.delete(era.id)
+          return poolOf(answer, MOOD_TAGS)
+        }
+        pools.alone.add(era.id)
       }
-      const { MOOD_TAGS } = moodScoring.current ?? (await moodScoring.load())
-      const pages = await anilist<{ p1: PoolPage; p2: PoolPage }>(
-        QUERIES.pool,
-        era.variables,
-        isRateLimited() ? context.signal : undefined,
-      )
-      return poolOf(pages, MOOD_TAGS)
+      try {
+        const { MOOD_TAGS } = moodScoring.current ?? (await moodScoring.load())
+        const pages = await anilist<{ p1: PoolPage; p2: PoolPage }>(
+          QUERIES.pool,
+          era.variables,
+          isRateLimited() ? context.signal : undefined,
+        )
+        return poolOf(pages, MOOD_TAGS)
+      } finally {
+        pools?.alone.delete(era.id)
+      }
     },
     staleTime: 6 * HOUR,
     refetchOnWindowFocus: false,

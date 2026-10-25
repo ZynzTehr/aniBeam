@@ -8,6 +8,7 @@ import {
   ERAS,
   eraQuery,
   poolQuery,
+  wantPool,
   type Media,
   type Pool,
   type PoolAnswer,
@@ -428,15 +429,16 @@ for (const [id, count, titles, hasNextPage] of [
     )
   })
 
-// A decade picked with a slider set and nothing of it cached (the plan's REC-3): the page asks for
-// its page and the machine for its pool at the same moment, in either order, as the page
-// subscribes them, and the two go in one request that fills both.
+// A decade picked with a slider set and nothing of it cached (the plan's REC-3): its pool wanted,
+// the page asks for its page and the machine for its pool at the same moment, in either order, as
+// the page subscribes them, and the two go in one request that fills both.
 for (const first of ['pool', 'page'] as const)
   test(`a decade picked with a slider set, its ${first} asking first, is 1 request, AniList’s recorded one, filling its page and its pool`, async (t) => {
     const { request, sent, data } = replay(t, 'era-pool-1980s')
     const client = new QueryClient()
     t.after(() => client.clear())
     const eighties = eraOf('1980s')
+    wantPool(client, eighties)
     // Both built first, as the page renders them, then subscribed, as it then does.
     const page = new QueryObserver(client, eraQuery(eighties))
     const pool = new QueryObserver(client, poolQuery(eighties))

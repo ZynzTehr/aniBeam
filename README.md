@@ -198,12 +198,12 @@ Each part of the production build, compressed with Brotli at quality 11, against
 
 | Part                                         | Now, of its budget |
 | -------------------------------------------- | ------------------ |
-| The JS every visit loads                     | 91,641 of 91,700 B |
+| The JS every visit loads                     | 91,542 of 91,700 B |
 | The CSS                                      | 11,856 of 12,000 B |
 | The JS loaded only when needed (the samples) | 14,350 of 14,500 B |
-| My List's page, a file of its own            | 2,328 of 2,500 B   |
+| My List's page, a file of its own            | 2,326 of 2,500 B   |
 | The mood scoring, a file of its own          | 955 of 1,500 B     |
-| Every other file                             | 365 of 500 B       |
+| Every other file                             | 356 of 500 B       |
 
 ## Notes
 
@@ -251,7 +251,7 @@ The component gallery, at `?gallery` on the dev server, shows every component on
 
 The mood sliders, `MoodSlider` in `web/src/features/mood`, show in the gallery until Phase 5 puts them on the pull machine. Each is a native range input from -2 to 2, so the browser gives it the keyboard, touch and a screen reader's controls; its stops' words are in `moods.ts`. Its look, a capsule thumb on a white track with an ink dot at each stop, is in its own stylesheet, `MoodSlider.css`, which ships only once the app shows a slider.
 
-`npm test` builds the production bundle in memory and fails on any trace of development-only code: a file made from the prototypes' or the gallery's folder, or named like them, their markers, a class only their stylesheets name (as a CSS `@import` would bring in), or a check of the address for them (the word gallery, or variant as a word of its own). A file in `web/public` named like them fails too, as that folder ships as it is. It also holds the bundle to a byte budget, each part brotli-compressed: the JS every visit loads, the CSS, the JS loaded only when needed (the samples), My List's page (which must be a file of its own), and every other file the build makes (`index.html`, and any image a module imports). A change that needs more bytes raises its budget in `web/src/app/privacy.test.ts` and says why.
+`npm test` builds the production bundle in memory and fails on any trace of development-only code: a file made from the prototypes' or the gallery's folder, or named like them, their markers, a class only their stylesheets name (as a CSS `@import` would bring in), or a check of the address for them (the word gallery, or variant as a word of its own). A file in `web/public` named like them fails too, as that folder ships as it is. It also holds the bundle to a byte budget, each part brotli-compressed: the JS every visit loads, the CSS, the JS loaded only when needed (the samples), My List's page (which must be a file of its own), the mood scoring (`scoring.ts`, `score.ts` and the mood map, which must be one file of its own, loaded once the browser is idle after the page has drawn), and every other file the build makes (`index.html`, and any image a module imports). A change that needs more bytes raises its budget in `web/src/app/privacy.test.ts` and says why.
 
 ### Reduced motion
 
@@ -347,7 +347,7 @@ A run takes about 20 minutes. The app waits a minute before retrying a failed co
 
 Every check but the two live ones gets AniList's answers from `web/e2e/anilist/`, not from its API. A run would otherwise send AniList about 30 requests, 22 of them in its first minute, against its limit of 30 a minute for each IP address. Each file there holds AniList's real answer to one request the checks send, recorded by `npm run e2e:record`. `web/e2e/browser.ts` answers each request in Chrome with a copy of its recording, 200 ms after the page asks, about as long as AniList takes to answer. Chrome can't even look up AniList's address, so a request that got past the recordings would fail before it reached AniList. No browser's Chrome, live or recorded, can look up YouTube's or Google's addresses either (`GOOGLE` in `browser.ts`), so a check that presses Watch trailer sees the page ask for the embed, and nothing reaches YouTube.
 
-The recordings are [AniList](https://anilist.co)'s data. The folder holds only the 22 answers the checks ask for, about 1.5 MB of JSON (AniList's answers as they came, every tag of each title), with no images and no user data. Only the checks use it. `npm test` builds the production bundle in memory and fails if any code or file in it came from `web/e2e/`, whether an import, a glob or an alias brought it in, or a stylesheet or `index.html` named it. A second check reads the code in `web/src` for a path into `web/e2e/` and names the line it finds.
+The recordings are [AniList](https://anilist.co)'s data. The folder holds only the 26 answers the checks ask for, about 3.5 MB of JSON (AniList's answers as they came, every tag of each title), with no images and no user data. Only the checks use it. `npm test` builds the production bundle in memory and fails if any code or file in it came from `web/e2e/`, whether an import, a glob or an alias brought it in, or a stylesheet or `index.html` named it. A second check reads the code in `web/src` for a path into `web/e2e/` and names the line it finds.
 
 Some checks stage answers AniList rarely gives, such as a refused request or titles all tagged Ecchi. `browser.ts` rewrites the answer before the page sees it, whether it was recorded or came from AniList. A rewrite can send headers too, such as a 429's `X-RateLimit-Reset` a second away, so that the app tries again a second later rather than a minute.
 

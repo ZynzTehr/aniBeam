@@ -420,6 +420,8 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // and the page's query reading the pool's key: 91,558 B, 183 B more, a raise shown to the user in
 // PR 3a, as the plan's D5 lets the budget rise in measured steps); then 91,700 B with the saved
 // copy keeping only the 3 newest decades' mood pools (newestPools, in queryClient.ts: 91,641 B).
+// The page deciding that by itself, from a pool said to be wanted (wantPool, in place of together),
+// took it back to 91,542 B.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
   'the JS every visit loads': 91_700,

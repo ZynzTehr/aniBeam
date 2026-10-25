@@ -23,6 +23,7 @@ import {
   searchQuery,
   titleQuery,
   trendingQuery,
+  wantPool,
   type Era,
   type Media,
 } from '../src/features/anime/queries.ts'
@@ -72,7 +73,7 @@ export const POOLS = ['1990s', 'pre-1970', 'upcoming']
 
 /**
  * The decades the checks pick with a slider set and nothing cached for them, so the page asks for
- * the decade's page and its mood pool in one request (decadeWithPool; see together in queries.ts):
+ * the decade's page and its mood pool in one request (decadeWithPool; see wantPool in queries.ts):
  * the 1980s (REC-3).
  */
 export const DECADES_WITH_POOLS = ['1980s']
@@ -193,11 +194,11 @@ export async function requests(): Promise<{ name: string; request: Request }[]> 
   for (const id of DECADES_WITH_POOLS)
     wanted.push({
       name: `era-pool-${id}`,
-      // The decade's pool in the cache with no answer yet, as the machine has it, and then both
-      // asking for theirs, as the page does once the decade is picked: they go in one request.
+      // The decade's pool wanted, as a slider set makes it, and then both asking for theirs, as
+      // the page does once the decade is picked: the page takes the pool with it, one request.
       request: await sent((client) => {
         const era = eraOf(id)
-        new QueryObserver(client, poolQuery(era))
+        wantPool(client, era)
         return Promise.all([client.fetchQuery(eraQuery(era)), client.fetchQuery(poolQuery(era))])
       }),
     })
