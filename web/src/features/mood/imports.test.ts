@@ -1,0 +1,84 @@
+import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { test } from 'node:test'
+
+// Moving a slider, or rolling, must cost no request (spec §1), and the sure way is for the scoring
+// and the roll to have no way to make one: they import nothing that talks to AniList or keeps its
+// answers, only each other and the slider's words. A type, which the build erases, may come from
+// anywhere.
+const RULED = ['moodMap.ts', 'score.ts', 'roll.ts']
+const ALLOWED = ['./moodMap.ts', './moods.ts', ...RULED.map((file) => `./${file}`)]
+
+/** The modules a file's code imports at run time: every import but `import type`. */
+function runtimeImports(code: string): string[] {
+  const statements = code
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '')
+    .matchAll(
+      /(?:^|\n)\s*(import|export)\s+(type\s+)?([^'"]*?)\s*from\s*['"]([^'"]+)['"]|(?:^|\n)\s*import\s*['"]([^'"]+)['"]|\bimport\s*\(\s*['"`]([^'"`]+)['"`]\s*\)/g,
+    )
+  return [...statements].flatMap((match) => {
+    if (match[5] ?? match[6]) return [match[5] ?? match[6]]
+    // import type { A } from 'x', or import { type A, type B } from 'x': erased.
+    const names = match[3].trim()
+    const erased =
+      match[2] !== undefined ||
+      (/^\{[\s\S]*\}$/.test(names) &&
+        names
+          .slice(1, -1)
+          .split(',')
+          .map((name) => name.trim())
+          .filter(Boolean)
+          .every((name) => name.startsWith('type ')))
+    return erased ? [] : [match[4]]
+  })
+}
+
+const read = (file: string) => readFileSync(new URL(`./${file}`, import.meta.url), 'utf8')
+
+test('the scoring and the roll import nothing that could ask AniList for anything', () => {
+  const wrong = RULED.flatMap((file) =>
+    runtimeImports(read(file))
+      .filter((from) => !ALLOWED.includes(from))
+      .map((from) => `${file} imports ${from}`),
+  )
+  assert.deepEqual(wrong, [], 'only the mood map, the score, the roll and moods.ts may be imported')
+  // What they may import must keep to the same rule.
+  assert.deepEqual(runtimeImports(read('moods.ts')), [], 'moods.ts imports at run time')
+})
+
+test('the roll does not import the scoring, so Discover’s pull leaves it out of every visit', () => {
+  assert.deepEqual(
+    runtimeImports(read('roll.ts')).filter((from) => from !== './moods.ts'),
+    [],
+    'roll.ts imports',
+  )
+})
+
+test('the reading finds every way a file can import at run time, and lets types through', () => {
+  const code = [
+    "import { anilist } from '../../lib/anilist.ts'",
+    "import { useQuery } from '@tanstack/react-query'",
+    "import * as queries from '../anime/queries.ts'",
+    "import Default, { type Media } from '../anime/queries.ts'",
+    "export { tagsOf } from '../anime/tags.ts'",
+    "import '../../lib/queryClient.ts'",
+    "const lazy = () => import('../anime/samples.ts')",
+    'import {',
+    '  ERAS,',
+    "} from '../anime/queries.ts'",
+    "import type { Media } from '../anime/queries.ts'",
+    "import { type Tag, type Media as M } from '../anime/queries.ts'",
+    "// import { anilist } from '../../lib/anilist.ts'",
+  ].join('\n')
+  assert.deepEqual(runtimeImports(code), [
+    '../../lib/anilist.ts',
+    '@tanstack/react-query',
+    '../anime/queries.ts',
+    '../anime/queries.ts',
+    '../anime/tags.ts',
+    '../../lib/queryClient.ts',
+    '../anime/samples.ts',
+    '../anime/queries.ts',
+  ])
+})
