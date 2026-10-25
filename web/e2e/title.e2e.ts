@@ -9,7 +9,7 @@ import type { Media, Tag } from '../src/features/anime/queries.ts'
 import { parseSynopsis } from '../src/features/anime/synopsis.ts'
 import { tagsOf } from '../src/features/anime/tags.ts'
 import { BASE_URL, Browser } from './browser.ts'
-import { POOL_PAGES, recordings } from './recordings.ts'
+import { copyIn, onlyInPools, POOL_RECORDINGS, recordings } from './recordings.ts'
 
 let browser: Browser
 before(async () => {
@@ -515,22 +515,26 @@ test('in a contrast theme, the focused close button’s ring stands out from the
 })
 
 // Each recorded title as AniList gave it, by its id, from every recording: the lists' titles and
-// Frieren's own answer, but not a mood pool's pages (POOL_PAGES), whose copies no card opens.
+// Frieren's own answer, but not a recording with a mood pool (POOL_RECORDINGS), whose copies no
+// card opens.
 const RECORDED = new Map<number, Media>()
-for (const { body } of recordings().values())
-  for (const [name, part] of Object.entries<any>(body?.data ?? {}))
-    if (!POOL_PAGES.includes(name))
+for (const [name, { body }] of recordings())
+  if (!POOL_RECORDINGS.includes(name))
+    for (const part of Object.values<any>(body?.data ?? {}))
       for (const media of part?.media ?? [part]) if (media?.id) RECORDED.set(media.id, media)
 
 // A card opened from a list shows the list's copy of its title, so each check reads that copy: not
-// a mood pool's (see POOL_PAGES), whose figures can differ from the strip's (AniList answered it
-// at another moment) and which carries the title's relations.
+// a mood pool's, which carries the title's relations, nor the copy a decade's page has when it came
+// with its pool (era-pool-1980s), AniList's answer at another moment: Saint Seiya scores 74 there,
+// where the 1980s strip a check opens with no slider set (era-1980s) has 73.
 test('each recorded title is the copy a list has, not a mood pool’s', () => {
   assert.deepEqual(
     [...RECORDED.values()].filter((media) => 'relations' in media).map((media) => media.id),
     [],
     'titles taken from a mood pool’s pages',
   )
+  assert.deepEqual(onlyInPools(RECORDED), [], 'titles whose copy only a mood pool’s recording has')
+  assert.deepEqual(RECORDED.get(1254), copyIn('era-1980s', 1254), 'Saint Seiya isn’t the strip’s')
 })
 
 /**
