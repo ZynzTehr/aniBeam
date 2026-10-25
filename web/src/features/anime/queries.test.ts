@@ -833,6 +833,27 @@ for (const first of ['pool', 'page'] as const)
     assert.deepEqual(client.getQueryData(eraQuery(eighties).queryKey), [{ id: 5, tags: [] }])
   })
 
+// A pool asking alone waits for the mood scoring before it asks AniList, so a scoring file that
+// fails to load (offline, or an old tab after a deploy renamed it) costs none of the 30 requests a
+// minute a class on one Wi-Fi shares: asked for on its own, or with its decade's page cached.
+test('a pool asking alone whose scoring fails to load sends AniList nothing', async (t) => {
+  const sent = answering(t)
+  const { current } = moodScoring
+  moodScoring.current = undefined
+  t.after(() => (moodScoring.current = current))
+  t.mock.method(moodScoring, 'load', () =>
+    Promise.reject(new TypeError('Failed to fetch dynamically imported module')),
+  )
+  const [eighties] = decades('1980s')
+  for (const pageCached of [false, true]) {
+    const client = new QueryClient()
+    t.after(() => client.clear())
+    if (pageCached) client.setQueryData(eraQuery(eighties).queryKey, [complete])
+    await assert.rejects(client.fetchQuery(poolQuery(eighties)), TypeError)
+    assert.deepEqual(sent, [], `a request went out${pageCached ? ', the page cached' : ''}`)
+  }
+})
+
 // The pool keeps its half of a request it went in until the mood scoring has loaded, so a scoring
 // file that fails once (a flaky connection) costs no second request when the pool tries again.
 test('a pool whose scoring fails to load once takes its half of the request again, sending nothing', async (t) => {

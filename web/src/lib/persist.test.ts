@@ -321,6 +321,44 @@ test('of five decades’ mood pools, only the newest three are saved, with every
   assert.equal(client.getQueryCache().findAll({ queryKey: ['anilist', QUERIES.pool] }).length, 5)
 })
 
+// The pools a save leaves out (see newestPools) are left out of what tells whether anything saved
+// has changed too, so a change to one of them alone, such as being marked out of date or failing
+// to refresh, writes nothing: each write is the whole copy, the saved pools' 0.7 MB among it.
+test('a change to a mood pool the save leaves out writes nothing', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
+  const now = Date.now()
+  const storage = fakeStorage()
+  let writes = 0
+  const { setItem } = storage
+  storage.setItem = (key, value) => {
+    writes++
+    setItem(key, value)
+  }
+  const client = new QueryClient()
+  t.after(saveChanges(client, storage))
+  // The 1980s came first, so it is the pool the save leaves out.
+  const keys = ['1980s', '1990s', '2000s', '2010s'].map(
+    (id) => poolQuery(ERAS.find((era) => era.id === id)!).queryKey,
+  )
+  keys.forEach((queryKey, i) =>
+    client.setQueryData(
+      queryKey,
+      { titles: [], count: i, hasNextPage: true },
+      { updatedAt: now - (4 - i) * MINUTE },
+    ),
+  )
+  await wait(t, 2000)
+  const saved = writes
+  assert.ok(saved > 0, 'the pools were never saved')
+  await client.invalidateQueries({ queryKey: keys[0], exact: true })
+  await wait(t, 2000)
+  assert.equal(writes - saved, 0, 'the copy was written again for the pool it leaves out')
+  // A pool the save keeps, marked out of date, is written: the check above can see a write.
+  await client.invalidateQueries({ queryKey: keys[3], exact: true })
+  await wait(t, 2000)
+  assert.equal(writes - saved, 1, 'a pool the copy keeps changed, and nothing was written')
+})
+
 // When the copy is saved. Each save writes the whole cache, which can grow to megabytes, so the
 // page saves at most once a second. But once a list shows, the visitor may close the tab.
 

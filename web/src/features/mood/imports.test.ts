@@ -117,3 +117,19 @@ test('the reading finds every way a file can import at run time, and lets types 
   )
   assert.equal(staticImports(code).length, runtimeImports(code).length - 1)
 })
+
+// The scoring loads once the browser is idle after the page has drawn (preloadScoring), so it is
+// there before a slider first moves: only if main.tsx calls it, once it has drawn.
+test('the page preloads the mood scoring once it has drawn', () => {
+  const main = read('../../main.tsx')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '')
+  const render = main.slice(main.indexOf('const render = () =>'))
+  const body = render.slice(0, render.indexOf('\n}\n'))
+  const drawn = body.indexOf('.render(')
+  assert.ok(drawn > 0, 'main.tsx has no render that draws the page')
+  assert.ok(
+    body.indexOf('preloadScoring()', drawn) > drawn,
+    'main.tsx doesn’t preload the mood scoring once it has drawn',
+  )
+})
