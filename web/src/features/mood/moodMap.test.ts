@@ -42,6 +42,92 @@ const ends = AXIS_KEYS.flatMap((axis) =>
   (['low', 'high'] as const).map((end) => ({ where: `${axis} ${end}`, ...MOOD_MAP[axis][end] })),
 )
 
+// Spec §3C's table, written out again by hand. The checks below loop over the mood map itself, so
+// a name dropped from it would take its own check with it; held to this copy, it fails.
+const SPEC_3C = {
+  energy: {
+    low: {
+      genres: ['Slice of Life'],
+      tags: [
+        'Iyashikei',
+        'Cute Girls Doing Cute Things',
+        'Food',
+        'Camping',
+        'Agriculture',
+        'Rural',
+        'Family Life',
+        'Episodic',
+      ],
+    },
+    high: {
+      genres: ['Action', 'Sports', 'Mecha'],
+      tags: [
+        'Martial Arts',
+        'Super Power',
+        'Swordplay',
+        'Battle Royale',
+        'Military',
+        'Super Robot',
+        'Athletics',
+      ],
+    },
+  },
+  tone: {
+    low: {
+      genres: ['Comedy'],
+      tags: ['Found Family', 'Coming of Age', 'Iyashikei', 'Parenthood', 'Slapstick'],
+    },
+    high: {
+      genres: ['Horror', 'Psychological', 'Thriller'],
+      tags: [
+        'Tragedy',
+        'Death Game',
+        'Survival',
+        'Post-Apocalyptic',
+        'Dystopian',
+        'Gore',
+        'Body Horror',
+        'Cosmic Horror',
+        'War',
+        'Revenge',
+      ],
+    },
+  },
+  complexity: {
+    low: {
+      genres: [],
+      tags: [
+        'Parody',
+        'Slapstick',
+        'Surreal Comedy',
+        'Episodic',
+        'Kids',
+        'Cute Girls Doing Cute Things',
+      ],
+    },
+    high: {
+      genres: ['Mystery', 'Psychological', 'Sci-Fi'],
+      tags: [
+        'Philosophy',
+        'Politics',
+        'Conspiracy',
+        'Time Manipulation',
+        'Time Loop',
+        'Achronological Order',
+        'Dissociative Identities',
+        'Detective',
+      ],
+    },
+  },
+}
+
+test('the mood map names what spec §3C’s table lists at each end, in its order, and no more', () => {
+  assert.deepEqual(Object.keys(MOOD_MAP), Object.keys(SPEC_3C))
+  for (const axis of Object.keys(SPEC_3C) as Axis[])
+    for (const end of ['low', 'high'] as const)
+      assert.deepEqual(MOOD_MAP[axis][end], SPEC_3C[axis][end], `${axis} ${end}`)
+})
+
 test('the mood map has a low and a high end for each slider', () => {
   assert.deepEqual(Object.keys(MOOD_MAP), AXIS_KEYS)
   for (const { where, genres, tags } of ends)

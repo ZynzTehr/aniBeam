@@ -171,6 +171,25 @@ test('the reason, the count left and the need for more follow what can come up',
     }
 })
 
+test('20 left to come up are ok and 19 few; 10 left need no more titles and 9 do', () => {
+  // The spec's numbers, written out: under 20 is few, and fewer than 10 unseen titles left asks
+  // for more (§3C). The check above holds the roll to FEW and NEED_MORE, whatever they are; this
+  // one holds them to 20 and 10. Two titles on My List and three among the last rolls are never
+  // counted.
+  const at = (fresh: number) => {
+    const pool = Array.from({ length: fresh + 5 }, (_, i) => title(i + 1))
+    const listed = new Set([fresh + 1, fresh + 2])
+    const ring = [fresh + 3, fresh + 4, fresh + 5]
+    const { reason, left, needMore } = rollNext({ ranked: pool, listed, ring, random: () => 0 })
+    return { reason, left, needMore }
+  }
+  assert.deepEqual(at(20), { reason: 'ok', left: 20, needMore: false })
+  assert.deepEqual(at(19), { reason: 'few', left: 19, needMore: false })
+  assert.deepEqual(at(10), { reason: 'few', left: 10, needMore: false })
+  assert.deepEqual(at(9), { reason: 'few', left: 9, needMore: true })
+  assert.deepEqual({ FEW, NEED_MORE }, { FEW: 20, NEED_MORE: 10 })
+})
+
 test('with every title on My List or Ecchi, nothing comes out: "empty", and more is needed', () => {
   const pool = [title(1), title(2, ['Ecchi']), title(3)]
   assert.deepEqual(
