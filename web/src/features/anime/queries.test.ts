@@ -893,6 +893,52 @@ test('a pool whose scoring fails to load once takes its half of the request agai
   })
 })
 
+// That half is kept only while the pool would still be fresh from it: TanStack dates the pool from
+// when it is cut, not from when AniList sent it. So a pool whose scoring failed, tried again 7
+// hours later (Try again on the matches), asks AniList for itself, not an old answer counted fresh.
+test('a pool tried again over 6 hours after its scoring failed asks alone, taking no old half', async (t) => {
+  const start = Date.UTC(2000, 0, 3)
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: start })
+  const sent = answering(t)
+  const { current, load } = moodScoring
+  moodScoring.current = undefined
+  t.after(() => (moodScoring.current = current))
+  let loads = 0
+  t.mock.method(moodScoring, 'load', () =>
+    ++loads === 1
+      ? Promise.reject(new TypeError('Failed to fetch dynamically imported module'))
+      : load(),
+  )
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  t.after(() => client.clear())
+  const [eighties] = decades('1980s')
+  wantPool(client, eighties)
+  const page = new QueryObserver(client, eraQuery(eighties))
+  const pool = new QueryObserver(client, poolQuery(eighties))
+  const stops = [page, pool].map((observer) => observer.subscribe(() => {}))
+  t.after(() => stops.forEach((stop) => stop()))
+  const steps = async () => {
+    for (let step = 0; step < 40; step++) {
+      await new Promise((resolve) => setImmediate(resolve))
+      t.mock.timers.tick(100)
+    }
+  }
+  await steps()
+  assert.equal(pool.getCurrentResult().status, 'error', 'the pool didn’t fail with its scoring')
+  t.mock.timers.setTime(start + 7 * 60 * 60 * 1000)
+  void pool.refetch()
+  await steps()
+  assert.equal(loads, 2, 'the scoring wasn’t tried twice')
+  assert.deepEqual(
+    sent.map(({ query }) =>
+      query === QUERIES.pool ? 'pool' : query === QUERIES.decadeWithPool ? 'both' : query,
+    ),
+    ['both', 'pool'],
+    'the pool took its half of a request sent 7 hours before',
+  )
+  assert.equal(pool.getCurrentResult().status, 'success')
+})
+
 test('switching lists keeps a request that was already sent, so its result is cached', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => {
     return new Response(JSON.stringify({ data: { Page: { media: [{ id: 1, tags: [] }] } } }))

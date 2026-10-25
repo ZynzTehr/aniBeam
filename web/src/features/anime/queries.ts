@@ -312,8 +312,11 @@ type Pools = {
   alone: Set<string>
 }
 
-/** A request for a decade's page and its pool, its answer kept until the pool has been cut. */
-type Shared = { sent: Promise<DecadeAndPool>; failed?: true }
+/**
+ * A request for a decade's page and its pool, its answer kept until the pool has been cut, or until
+ * the pool would no longer be fresh from it (POOL_FRESH after it was sent, `at`).
+ */
+type Shared = { sent: Promise<DecadeAndPool>; at: number; failed?: true }
 const known = new WeakMap<QueryClient, Pools>()
 const poolsOf = (client: QueryClient) => {
   let pools = known.get(client)
@@ -350,11 +353,17 @@ const withPool = (client: QueryClient | undefined, era: Era) => {
  * page can't cancel the pool's half. A failed one is marked so, and the page's retry sends another.
  */
 function sendWithPool(client: QueryClient, era: Era) {
-  const shared: Shared = { sent: anilist<DecadeAndPool>(QUERIES.decadeWithPool, era.variables) }
+  const shared: Shared = {
+    sent: anilist<DecadeAndPool>(QUERIES.decadeWithPool, era.variables),
+    at: Date.now(),
+  }
   shared.sent.catch(() => (shared.failed = true))
   poolsOf(client).shared.set(era.id, shared)
   return shared.sent
 }
+
+/** How long a decade's mood pool stays fresh: 6 hours, as a decade's page does. */
+const POOL_FRESH = 6 * HOUR
 
 /**
  * A decade's mood pool, its first two pages of 50 in one request (the plan's B1 a), keyed by the
@@ -364,7 +373,8 @@ function sendWithPool(client: QueryClient, era: Era) {
  * it waits for that file first: should the file fail to load, the pool fails without spending one
  * of AniList's requests. When the decade's page went with the pool (see wantPool), it takes its
  * half of that request, sent or answered, and keeps it until the file has loaded, so a retry after
- * the file failed sends nothing new either.
+ * the file failed sends nothing new either: for 6 hours from when it was sent, after which the
+ * pool asks again (see POOL_FRESH).
  */
 export const poolQuery = (era: Era) =>
   queryOptions({
@@ -373,6 +383,12 @@ export const poolQuery = (era: Era) =>
       const pools = context.client && poolsOf(context.client)
       if (pools) {
         pools.wanted.add(era.id)
+        // TanStack dates the pool from when it is cut, not from when AniList sent the request it
+        // came in, so a pool taking a half kept for hours (its scoring failed, and Try again came
+        // much later) would count an old answer fresh for 6 more hours. Past the pool's freshness,
+        // the half is let go, and the pool asks again: alone, or with a page about to ask.
+        const kept = pools.shared.get(era.id)
+        if (kept && Date.now() - kept.at >= POOL_FRESH) pools.shared.delete(era.id)
         // A page with no titles yet, or out of date, asks within the page's next task, as the page
         // subscribes its lists in one go, whichever comes first (or retries with the pool, when a
         // request for both failed): it then takes the pool with it. A request sent meanwhile is
@@ -402,7 +418,7 @@ export const poolQuery = (era: Era) =>
         pools?.alone.delete(era.id)
       }
     },
-    staleTime: 6 * HOUR,
+    staleTime: POOL_FRESH,
     refetchOnWindowFocus: false,
   })
 
