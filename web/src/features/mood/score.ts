@@ -1,8 +1,8 @@
 // How a title meets the mood sliders (spec §3C): its place on each slider, worked out from its
-// genres and tags (axisRaw, normalise), and the pool ranked by how close each title sits to the
-// sliders (rankMatches). Pure functions of what a title already carries, so a slider move asks
-// AniList for nothing.
-import type { Media } from '../anime/queries.ts'
+// genres and tags (axisRaw, normalise), the pool ranked by how close each title sits to the sliders
+// (rankMatches), and the Why line's names (whyOf). Pure functions of what a title already carries,
+// so a slider move asks AniList for nothing.
+import type { Media, Tag } from '../anime/queries.ts'
 import { MOOD_MAP } from './moodMap.ts'
 import type { Axis, Stop } from './moods.ts'
 
@@ -14,10 +14,12 @@ export type Sliders = Record<Axis, Stop>
 /** What scoring reads of a title. */
 export type Scored = Pick<Media, 'genres' | 'tags'>
 
+const spoils = (tag: Tag) => Boolean(tag.isGeneralSpoiler || tag.isMediaSpoiler)
+
 /**
  * A title's raw score on one slider: each genre at its high end adds 1.0 and each tag there its
  * rank / 100, and the low end's take as much away. Spoiler tags count, as they say what the title
- * is like (Tragedy is always one), though they are never named; adult tags never do.
+ * is like (Tragedy is always one), though they are never named (see whyOf); adult tags never do.
  */
 export function axisRaw(media: Scored, axis: Axis) {
   const { low, high } = MOOD_MAP[axis]
@@ -66,4 +68,31 @@ export function rankMatches<T extends Scored>(pool: readonly T[], sliders: Slide
     }))
     .sort((a, b) => a.distance - b.distance || a.index - b.index)
     .map(({ media }) => media)
+}
+
+/**
+ * The names for a title's Why line: the two tags that push it hardest toward the sliders that are
+ * set (a tag's rank times how far its slider is from the middle), then a genre at a set slider's
+ * end if there is room. Never a spoiler tag, nor an adult one, though spoilers count toward the
+ * score. Nothing when no slider is set, and nothing for a title that has nothing at their ends.
+ */
+export function whyOf(media: Scored, sliders: Sliders): string[] {
+  const pushes = new Map<string, number>()
+  const genres: string[] = []
+  for (const axis of AXIS_KEYS) {
+    const stop = sliders[axis]
+    if (stop === 0) continue
+    const end = stop > 0 ? MOOD_MAP[axis].high : MOOD_MAP[axis].low
+    for (const tag of media.tags) {
+      if (tag.isAdult || spoils(tag) || !end.tags.includes(tag.name)) continue
+      const push = ((tag.rank ?? 0) / 100) * Math.abs(stop)
+      // A tag at the set end of two sliders is named once, for the harder push.
+      pushes.set(tag.name, Math.max(pushes.get(tag.name) ?? 0, push))
+    }
+    for (const genre of media.genres)
+      if (end.genres.includes(genre) && !genres.includes(genre)) genres.push(genre)
+  }
+  // Equal pushes keep the title's own order of its tags, AniList's.
+  const tags = [...pushes].sort((a, b) => b[1] - a[1]).map(([name]) => name)
+  return [...tags, ...genres].slice(0, 2)
 }

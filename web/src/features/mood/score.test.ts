@@ -4,7 +4,7 @@ import { test } from 'node:test'
 import type { Tag } from '../anime/queries.ts'
 import { MOOD_MAP } from './moodMap.ts'
 import { AXES, type Axis, type Stop } from './moods.ts'
-import { axisRaw, K, normalise, rankMatches, type Scored, type Sliders } from './score.ts'
+import { axisRaw, K, normalise, rankMatches, type Scored, type Sliders, whyOf } from './score.ts'
 
 type Titled = Scored & { id: number; name: string }
 
@@ -243,4 +243,72 @@ test('the closest title comes first, by every set slider together', () => {
   assert.equal(rankMatches(pool, { ...NONE, energy: -2, tone: 2 })[0], cozyDark)
   assert.equal(rankMatches(pool, { ...NONE, energy: -2, tone: -2 })[0], cozyLight)
   assert.equal(rankMatches(pool, { ...NONE, energy: 2, tone: 2 })[0], hypeDark)
+})
+
+test('Mushishi at Very cozy is named for Iyashikei and Episodic, its strongest cozy tags', () => {
+  const why = whyOf(recorded(MUSHISHI), { ...NONE, energy: -2 })
+  assert.deepEqual(why, ['Iyashikei', 'Episodic'])
+  assert.ok(why.every((name) => MOOD_MAP.energy.low.tags.includes(name)))
+})
+
+test('no recorded title at any of the 125 slider settings is named for a spoiler tag', () => {
+  // Spoiler tags count toward the score, but naming one would give the twist away. A name that is
+  // a spoiler on the title it is shown for is the leak, whatever it is on other titles.
+  const leaks: string[] = []
+  let named = 0
+  for (const media of RECORDED) {
+    const spoilers = new Set(
+      media.tags
+        .filter((tag) => tag.isGeneralSpoiler || tag.isMediaSpoiler || tag.isAdult)
+        .map((tag) => tag.name),
+    )
+    for (const sliders of SETTINGS)
+      for (const name of whyOf(media, sliders)) {
+        named++
+        if (spoilers.has(name)) leaks.push(`${media.name}: ${name} at ${JSON.stringify(sliders)}`)
+      }
+  }
+  assert.ok(named > 10_000, `only ${named} names given, too few to show anything`)
+  assert.deepEqual(leaks.slice(0, 10), [], `${leaks.length} spoiler or adult tags named`)
+})
+
+test('Attack on Titan at Very dark names a dark tag, never its spoiler Tragedy', () => {
+  // Tragedy (89) is its strongest dark tag after Revenge (93), but a spoiler.
+  const why = whyOf(recorded(ATTACK_ON_TITAN), { ...NONE, tone: 2 })
+  assert.deepEqual(why, ['Revenge', 'Post-Apocalyptic'])
+})
+
+test('with no slider set, there is no Why', () => {
+  for (const media of RECORDED) assert.deepEqual(whyOf(media, NONE), [], media.name)
+})
+
+test('the Why names the tags that push hardest toward the set sliders, rank by how far', () => {
+  const media = title(['Slice of Life', 'Horror'], [tag('Iyashikei', 90), tag('Gore', 60)])
+  // Very cozy and Dark: Iyashikei pushes 0.9 x 2, Gore 0.6 x 1.
+  assert.deepEqual(whyOf(media, { ...NONE, energy: -2, tone: 1 }), ['Iyashikei', 'Gore'])
+  // Cozy and Very dark: Gore pushes 0.6 x 2, more than Iyashikei's 0.9 x 1.
+  assert.deepEqual(whyOf(media, { ...NONE, energy: -1, tone: 2 }), ['Gore', 'Iyashikei'])
+  // Only toward a set slider's own end: at High-octane, nothing cozy is named.
+  assert.deepEqual(whyOf(media, { ...NONE, energy: 2 }), [])
+})
+
+test('a tag at the set end of two sliders is named once', () => {
+  const media = title([], [tag('Iyashikei', 90), tag('Food', 40)])
+  assert.deepEqual(whyOf(media, { ...NONE, energy: -2, tone: -2 }), ['Iyashikei', 'Food'])
+})
+
+test('with too few tags, the Why falls back to a genre at a set slider’s end', () => {
+  assert.deepEqual(whyOf(title(['Action', 'Drama']), { ...NONE, energy: 2 }), ['Action'])
+  assert.deepEqual(
+    whyOf(title(['Action', 'Mecha'], [tag('Military', 30)]), { ...NONE, energy: 1 }),
+    ['Military', 'Action'],
+  )
+  assert.deepEqual(
+    whyOf(title(['Sci-Fi'], [tag('Tragedy', 90, { isMediaSpoiler: true })]), {
+      ...NONE,
+      tone: 2,
+      complexity: 2,
+    }),
+    ['Sci-Fi'],
+  )
 })
