@@ -9,6 +9,9 @@ import {
   isRefinement,
   keptFor,
   listQuery,
+  poolOf,
+  poolQuery,
+  poolTitleOf,
   QUERIES,
   SAFE,
   searchQuery,
@@ -16,10 +19,13 @@ import {
   trendingQuery,
   type Era,
   type Media,
+  type Pool,
+  type PoolAnswer,
 } from './queries.ts'
 import { tagsOf } from './tags.ts'
 import { AniListError } from '../../lib/anilist.ts'
 import { shouldRetry } from '../../lib/queryClient.ts'
+import { MOOD_MAP, MOOD_TAGS } from '../mood/moodMap.ts'
 
 test('every media query excludes adult titles', () => {
   for (const [name, query] of Object.entries(QUERIES)) {
@@ -92,19 +98,31 @@ const selections = (query: string) =>
     return fields.sort()
   })
 
+/** A pool title with every field set, as `complete` is: Media's, and its relations (PoolAnswer). */
+const completePool: PoolAnswer = {
+  ...complete,
+  relations: { edges: [{ relationType: 'SEQUEL', node: { id: 2, type: 'ANIME' } }] },
+}
+
 // Media is typed by hand and CARD is a plain string, so the type check can't tell when they drift
 // apart, and a field a query leaves out is undefined on every title it returns. Whole paths are
 // compared, because a check that each name appears would still find a dropped "season" inside
 // "seasonYear", or "episode" inside "episodes".
-// One title on its own (Title) asks for its status too, for how long it stays fresh.
+// One title on its own (Title) asks for its status too, for how long it stays fresh, and a mood
+// pool's two pages (PoolAnswer) its relations, for the seasons a roll skips.
 test('every query asks AniList for exactly the fields of Media, and a title alone its status too', () => {
+  const pool = fieldsOf(completePool).sort()
   for (const [name, query] of Object.entries(QUERIES)) {
-    const wanted = [...fieldsOf(complete), ...(name === 'title' ? ['status'] : [])].sort()
+    const media = [...fieldsOf(complete), ...(name === 'title' ? ['status'] : [])].sort()
     const calls = selections(query)
     assert.ok(calls.length > 0, `${name} has no media(...) call`)
-    for (const fields of calls) {
-      assert.deepEqual(fields, wanted, `${name} doesn't ask for exactly the fields it needs`)
-    }
+    const wanted =
+      name === 'pool'
+        ? [pool, pool]
+        : name === 'decadeWithPool'
+          ? [media, pool, pool]
+          : calls.map(() => media)
+    assert.deepEqual(calls, wanted, `${name} doesn't ask for exactly the fields it needs`)
   }
 })
 
@@ -161,6 +179,122 @@ test("cardOf keeps the tags a card shows, One Piece's top 8 and top 8 spoilers, 
   assert.equal(media.tags.length, 75, "cardOf cut the answer's own list")
   // A title alone keeps its status, which titleQuery's staleTime reads.
   assert.equal(cardOf({ ...media, status: 'FINISHED' }).status, 'FINISHED')
+})
+
+/** A tag of AniList's, not a spoiler or adult unless `flags` say so. */
+const tag = (name: string, rank: number, flags: Partial<Media['tags'][number]> = {}) => ({
+  name,
+  rank,
+  isAdult: false,
+  isGeneralSpoiler: false,
+  isMediaSpoiler: false,
+  ...flags,
+})
+
+/** A pool title with `tags`, `edges` for its relations, and `media`'s other fields. */
+const poolTitle = (
+  media: Partial<PoolAnswer>,
+  edges: NonNullable<PoolAnswer['relations']>['edges'] = [],
+): PoolAnswer => ({ ...complete, relations: { edges }, ...media })
+
+test('the mood pool keeps the tags every slider’s ends name, the mood map’s, and no others', () => {
+  const named = Object.values(MOOD_MAP).flatMap(({ low, high }) => [...low.tags, ...high.tags])
+  assert.deepEqual([...MOOD_TAGS].sort(), [...new Set(named)].sort())
+  // Every name at rank 1, below any card's top 8, with one the map doesn't name.
+  const tags = [...MOOD_TAGS, 'Not on the map'].map((name) => tag(name, 1))
+  const kept = poolTitleOf(poolTitle({ tags }), MOOD_TAGS).tags.map((tag) => tag.name)
+  assert.deepEqual(kept.toSorted(), [...MOOD_TAGS].sort(), 'not every mood map tag, or one more')
+})
+
+// The pool ranks a decade's titles by every mood map tag they have (spec §3C), and spoilers count
+// toward the score, as they say what a title is like (Tragedy is always one; see score.ts). So it
+// keeps more of a title's tags than a card: of One Piece's 75, its card's 16 (see cardOf), and a
+// spoiler Tragedy ranked 55, below its card's top 8 spoilers (the last at 60), and an Iyashikei
+// ranked 12. Not the 59 others, nor an adult Gore, which never counts toward the score.
+test("a pool title keeps its card's tags and the mood map's beyond them, spoilers too, no others", () => {
+  const tragedy = tag('Tragedy', 55, { isMediaSpoiler: true })
+  const iyashikei = tag('Iyashikei', 12)
+  const gore = tag('Gore', 40, { isAdult: true })
+  const answer = onePieceTags()
+  answer.splice(10, 0, tragedy)
+  answer.push(iyashikei, gore, tag('Not on the map', 30))
+  const card = new Set(cardOf({ ...complete, tags: answer }).tags)
+  const pool = poolTitleOf(poolTitle({ tags: answer }), MOOD_TAGS)
+  assert.equal(pool.tags.length, 18, `kept ${pool.tags.length} tags, not 16 + 2`)
+  assert.deepEqual(
+    pool.tags,
+    answer.filter((tag) => card.has(tag) || tag === tragedy || tag === iyashikei),
+    'not the card’s tags, Tragedy and Iyashikei, in AniList’s order',
+  )
+  // So a match or a roll opens a card that shows what a card from the lists would.
+  assert.deepEqual(tagsOf(pool.tags), tagsOf(answer), 'its card would show other tags')
+  const { relations, ...media } = poolTitle({ tags: answer })
+  assert.ok(relations, 'the stand-in has no relations')
+  assert.deepEqual(
+    { ...pool, tags: answer, seasons: [] },
+    { ...media, seasons: [] },
+    'another field changed',
+  )
+})
+
+// The user's choice, B2 b: a roll skips a title when another season of it came up lately. A
+// season is another anime linked as its prequel or sequel; a side story, a film's source manga or
+// a title AniList leaves out (null) is not.
+test('a pool title keeps its anime prequels and sequels as its seasons, by id, and no other link', () => {
+  const pool = poolTitleOf(
+    poolTitle({}, [
+      { relationType: 'PREQUEL', node: { id: 10, type: 'ANIME' } },
+      { relationType: 'SIDE_STORY', node: { id: 11, type: 'ANIME' } },
+      { relationType: 'SEQUEL', node: { id: 12, type: 'MANGA' } },
+      { relationType: 'SOURCE', node: { id: 13, type: 'MANGA' } },
+      { relationType: 'SEQUEL', node: null },
+      { relationType: null, node: { id: 14, type: 'ANIME' } },
+      { relationType: 'SEQUEL', node: { id: 15, type: 'ANIME' } },
+    ]),
+    MOOD_TAGS,
+  )
+  assert.deepEqual(pool.seasons, [10, 15])
+  assert.ok(!('relations' in pool), 'the relations themselves are kept too')
+  assert.deepEqual(poolTitleOf({ ...completePool, relations: null }, MOOD_TAGS).seasons, [])
+})
+
+// Spec §3G keeps Ecchi out of the mood pool. Page 3 is asked for only when there is one (A12): not
+// when the two pages brought fewer than 100 titles, or page 2 says it is the last.
+test('a pool leaves out Ecchi titles and one sent twice, and keeps the count and page 2’s hasNextPage', () => {
+  const page = (ids: number[], hasNextPage: boolean, genres = ['Comedy']) => ({
+    pageInfo: { hasNextPage },
+    media: ids.map((id) => poolTitle({ id, genres })),
+  })
+  const ecchi = page([3], true, ['Comedy', 'Ecchi'])
+  const pool: Pool = poolOf(
+    {
+      p1: { ...page([1, 2], true), media: [...page([1, 2], true).media, ...ecchi.media] },
+      p2: page([2, 4], false),
+    },
+    MOOD_TAGS,
+  )
+  assert.deepEqual(
+    pool.titles.map((media) => media.id),
+    [1, 2, 4],
+  )
+  assert.equal(pool.count, 5, 'not every title AniList sent')
+  assert.equal(pool.hasNextPage, false, 'not page 2’s hasNextPage')
+  assert.equal(poolOf({ p1: page([1], false), p2: page([2], true) }, MOOD_TAGS).hasNextPage, true)
+})
+
+// A slider moved must cost no request (spec §1), so the pool's key is the decade alone.
+test('each decade’s pool has a key of its own, the decade alone, fresh 6 hours and kept a day', () => {
+  const HOUR = 60 * 60_000
+  assert.equal(poolQuery.length, 1, 'poolQuery takes more than the decade')
+  for (const era of ERAS) {
+    const options = poolQuery(era)
+    assert.deepEqual(options.queryKey, ['anilist', QUERIES.pool, era.variables], era.id)
+    assert.equal(options.staleTime, 6 * HOUR, era.id)
+    assert.equal(options.refetchOnWindowFocus, false, `${era.id} refreshes on coming back`)
+    assert.equal(keptFor(options.queryKey, { titles: [] }), 24 * HOUR, era.id)
+  }
+  const keys = ERAS.map((era) => JSON.stringify(poolQuery(era).queryKey))
+  assert.equal(new Set(keys).size, ERAS.length)
 })
 
 test('one title is asked for by its id, a number, with its own cache entry', () => {
@@ -293,6 +427,7 @@ test('cache keys include the query text, so editing a query discards its saved r
   assert.ok(trendingQuery().queryKey.includes(QUERIES.trending))
   assert.ok(eraQuery(ERAS[0]).queryKey.includes(QUERIES.era))
   assert.ok(searchQuery('x').queryKey.includes(QUERIES.search))
+  assert.ok(poolQuery(ERAS[0]).queryKey.includes(QUERIES.pool))
 })
 
 test('searches ignore capitals and extra spaces, so they share one request', async (t) => {
@@ -608,8 +743,11 @@ test('every variable a query sends is declared by that query', async (t) => {
   const sent: { query: string; variables: Record<string, unknown> }[] = []
   t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
     sent.push(JSON.parse(init.body as string))
-    // A list for the lists, a title for the title on its own.
-    return new Response(JSON.stringify({ data: { Page: { media: [] }, Media: { id: 1 } } }))
+    // A list for the lists, a title for the title on its own, two pages for a pool.
+    const page = { pageInfo: { hasNextPage: false }, media: [] }
+    return new Response(
+      JSON.stringify({ data: { Page: { media: [] }, Media: { id: 1 }, p1: page, p2: page } }),
+    )
   })
   for (const options of [
     trendingQuery(),
@@ -617,11 +755,12 @@ test('every variable a query sends is declared by that query', async (t) => {
     searchQuery('frieren'),
     titleQuery(154587),
     listQuery([154587, 1]),
+    ...ERAS.map((era) => poolQuery(era)),
   ]) {
     // The cast stands in for the context TanStack Query passes; only the signal is used.
     await options.queryFn!({ signal: new AbortController().signal } as never)
   }
-  assert.equal(sent.length, ERAS.length + 4)
+  assert.equal(sent.length, 2 * ERAS.length + 4)
   for (const { query, variables } of sent) {
     for (const name of Object.keys(variables)) {
       assert.ok(query.includes(`$${name}:`), `sends $${name}, which its query doesn't declare`)

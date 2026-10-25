@@ -413,6 +413,9 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // browser is idle after the page has drawn, never before it draws: 910 B, so its budget is 1,500 B
 // (the user agreed to that budget, Phase 5's D5). Its loader, which tries again after a failure,
 // and the idle preload took the JS every visit loads from 91,217 B to 91,344 B, within its budget.
+// A decade's mood pool took it to 91,375 B: its query's text in QUERIES, which the saved copy's
+// reading keeps whole (restored, in queryClient.ts), though nothing asks for a pool yet; the mood
+// map's tags the pool keeps, MOOD_TAGS, took the mood scoring to 955 B.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
   'the JS every visit loads': 91_500,

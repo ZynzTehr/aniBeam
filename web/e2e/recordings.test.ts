@@ -1,7 +1,9 @@
+import { QueryClient } from '@tanstack/react-query'
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test, type TestContext } from 'node:test'
+import { isDeepStrictEqual } from 'node:util'
 import { titleOf } from '../src/features/anime/format.ts'
-import type { Media } from '../src/features/anime/queries.ts'
+import { ERAS, poolQuery, type Media, type PoolAnswer } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { compare, JUDGED, problems, recordings, requests } from './recordings.ts'
 
@@ -361,3 +363,59 @@ test('building the requests the checks send leaves fetch as it found it', async 
     globalThis.fetch = fetch
   }
 })
+
+// AniList's answers to a mood pool, replayed to the app's own query (poolQuery in queries.ts).
+
+type Sent = { query: string; variables: Record<string, unknown> }
+
+/**
+ * A fetch that answers only `name`'s own request, from its recording, and keeps what it sent. Any
+ * other request gets a 400, not an error thrown: anilist() reads a failed fetch as a lost
+ * connection and pauses a minute, which would hold up the tests after this one.
+ */
+function replay(t: TestContext, name: string) {
+  const { request, body } = recorded(name)
+  const sent: Sent[] = []
+  t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
+    sent.push(JSON.parse(init.body as string))
+    return isDeepStrictEqual(sent.at(-1), request)
+      ? Response.json(body)
+      : Response.json(
+          { errors: [{ message: 'Not the recorded request.', status: 400 }] },
+          { status: 400 },
+        )
+  })
+  return { request, sent, data: body.data }
+}
+
+const eraOf = (id: string) => ERAS.find((era) => era.id === id)!
+
+// AniList's own answers (the plan's REC-2, REC-3b and REC-3c), so the pool is cut from what AniList
+// sends, not from a stand-in: the 1990s, 2 Ecchi titles among 100; Pre-1970, 56 with no page 3;
+// Upcoming, 7 Ecchi titles among 100.
+for (const [id, count, titles, hasNextPage] of [
+  ['1990s', 100, 98, true],
+  ['pre-1970', 56, 56, false],
+  ['upcoming', 100, 93, true],
+] as const)
+  test(`the pool for ${id}, from AniList’s recorded answer, is 1 request and its ${titles} titles that aren’t Ecchi`, async (t) => {
+    const { request, sent, data } = replay(t, `pool-${id}`)
+    const client = new QueryClient()
+    t.after(() => client.clear())
+    const asked = client.fetchQuery(poolQuery(eraOf(id)))
+    await asked.catch(() => {})
+    assert.deepEqual(sent, [request], 'not the one request recorded')
+    const pool = await asked
+    assert.equal(pool.count, count)
+    assert.equal(pool.hasNextPage, hasNextPage)
+    const answered: PoolAnswer[] = [...data.p1.media, ...data.p2.media]
+    assert.deepEqual(
+      pool.titles.map((media) => media.id),
+      answered.filter((media) => !media.genres.includes('Ecchi')).map((media) => media.id),
+    )
+    assert.equal(pool.titles.length, titles)
+    assert.ok(
+      pool.titles.some((media) => media.seasons.length),
+      'no title came with its seasons',
+    )
+  })

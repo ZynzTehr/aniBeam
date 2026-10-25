@@ -19,14 +19,17 @@ import {
   eraQuery,
   FIRST_ERA,
   listQuery,
+  poolQuery,
+  QUERIES,
   searchQuery,
   titleQuery,
   trendingQuery,
+  type Era,
   type Media,
 } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { pullable } from '../src/features/mood/roll.ts'
-import { AniListError } from '../src/lib/anilist.ts'
+import { anilist, AniListError } from '../src/lib/anilist.ts'
 import type { Recording } from './browser.ts'
 
 export const FOLDER = fileURLToPath(new URL('./anilist/', import.meta.url))
@@ -61,6 +64,21 @@ export const SEARCHES = [
 export const DECADES = ['1980s', '1990s']
 
 /**
+ * The decades whose mood pool the checks ask for on its own, two pages of 50 in one request
+ * (poolQuery): the 1990s, which a slider's first touch asks for on a first visit (the plan's
+ * REC-2), and the smallest, Pre-1970 and Upcoming, for the "few" line and whether a page 3 is
+ * worth asking for (REC-3b, REC-3c).
+ */
+export const POOLS = ['1990s', 'pre-1970', 'upcoming']
+
+/**
+ * The decades the checks pick with a slider set and nothing cached for them, so the page asks for
+ * the decade's page and its mood pool in one request (QUERIES.decadeWithPool): the 1980s (REC-3).
+ * Sent with anilist(), as POOLS are, until the app's own code sends it.
+ */
+export const DECADES_WITH_POOLS = ['1980s']
+
+/**
  * The titles the checks open at their address (/anime/:id), so the page asks for each on its own:
  * Frieren. Not here: an id AniList has no anime for, which the checks answer with a rewrite.
  */
@@ -81,9 +99,18 @@ export const LISTS: Record<string, number[]> = {
 
 type Request = Recording['request']
 
-// What the stand-in for fetch answers: no titles, for whichever lists, or title, were asked for.
+// What the stand-in for fetch answers: no titles, for whichever lists, or title, were asked for,
+// and a mood pool's two pages with none and no page after them.
+const NO_POOL_TITLES = { pageInfo: { hasNextPage: false }, media: [] }
 const NO_TITLES = {
-  data: { Page: { media: [] }, trending: { media: [] }, era: { media: [] }, Media: null },
+  data: {
+    Page: { media: [] },
+    trending: { media: [] },
+    era: { media: [] },
+    Media: null,
+    p1: NO_POOL_TITLES,
+    p2: NO_POOL_TITLES,
+  },
 }
 
 /**
@@ -128,6 +155,13 @@ function searchName(search: string) {
   return ['search', words, hash].filter(Boolean).join('-')
 }
 
+/** The era an id in DECADES, POOLS or DECADES_WITH_POOLS names. */
+function eraOf(id: string): Era {
+  const era = ERAS.find((era) => era.id === id)
+  if (!era) throw new Error(`${id} isn't in ERAS.`)
+  return era
+}
+
 /**
  * Every request the browser checks send AniList, by its recording's name, each built by the app's
  * own code with a stand-in for fetch. Only the recorder and recordings.test.ts call this, as it
@@ -147,14 +181,21 @@ export async function requests(): Promise<{ name: string; request: Request }[]> 
     },
     { name: 'trending', request: await sent((client) => client.fetchQuery(trendingQuery())) },
   ]
-  for (const id of DECADES) {
-    const era = ERAS.find((era) => era.id === id)
-    if (!era) throw new Error(`DECADES lists ${id}, which isn't in ERAS.`)
+  for (const id of DECADES)
     wanted.push({
       name: `era-${id}`,
-      request: await sent((client) => client.fetchQuery(eraQuery(era))),
+      request: await sent((client) => client.fetchQuery(eraQuery(eraOf(id)))),
     })
-  }
+  for (const id of POOLS)
+    wanted.push({
+      name: `pool-${id}`,
+      request: await sent((client) => client.fetchQuery(poolQuery(eraOf(id)))),
+    })
+  for (const id of DECADES_WITH_POOLS)
+    wanted.push({
+      name: `era-pool-${id}`,
+      request: await sent(() => anilist(QUERIES.decadeWithPool, eraOf(id).variables)),
+    })
   for (const term of SEARCHES) {
     const request = await sent((client) => client.fetchQuery(searchQuery(term)))
     wanted.push({ name: searchName(String(request.variables.search)), request })
@@ -169,7 +210,9 @@ export async function requests(): Promise<{ name: string; request: Request }[]> 
   const names = wanted.map(({ name }) => name)
   const twice = names.filter((name, i) => names.indexOf(name) !== i)
   if (twice.length)
-    throw new Error(`SEARCHES, DECADES, TITLES or LISTS asks for one request twice: ${twice}`)
+    throw new Error(
+      `SEARCHES, DECADES, POOLS, DECADES_WITH_POOLS, TITLES or LISTS asks for one request twice: ${twice}`,
+    )
   return wanted
 }
 

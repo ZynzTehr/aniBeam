@@ -1,5 +1,7 @@
 import { hashKey, queryOptions, type QueryClient, type QueryKey } from '@tanstack/react-query'
 import { anilist, AniListError, isRateLimited, type Variables } from '../../lib/anilist.ts'
+import { moodScoring } from '../mood/loadScoring.ts'
+import { pullable } from '../mood/roll.ts'
 import { tagsOf, type TagFlags } from './tags.ts'
 
 /** One of AniList's tags on a title, with what the card needs to place it (see tags.ts). */
@@ -69,6 +71,20 @@ const ERA_VARIABLES =
   '$from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus'
 const ERA = `Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: "JP", startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, ${SAFE}) { ${CARD} } }`
 
+/**
+ * A page of 50 of a decade's mood pool (the plan's B1 a): its most popular Japanese titles, as the
+ * decade's own page has them, but only those on more than 1,000 AniList users' lists, and every
+ * field a title card needs, so a match or a roll opens with no request. Every tag comes with them,
+ * as AniList can't be asked for some: the mood map's tags and the card's own cut are kept in code
+ * (see poolTitleOf). hasNextPage says whether page 3 is worth asking for.
+ */
+// Each pool title also says which titles came before and after it (its seasons, films and the
+// like), so a roll can skip another season of a show rolled lately (the user's choice, B2 b).
+const SEASONS = 'relations { edges { relationType(version: 2) node { id type } } }'
+
+const poolPage = (page: number) =>
+  `Page(page: ${page}, perPage: 50) { pageInfo { hasNextPage } media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: "JP", popularity_greater: 1000, startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, ${SAFE}) { ${CARD} ${SEASONS} } }`
+
 export const QUERIES = {
   trending: `query { ${TRENDING} }`,
   era: `query (${ERA_VARIABLES}) { ${ERA} }`,
@@ -76,6 +92,11 @@ export const QUERIES = {
   // A first visit's trending and first decade in one request, each list under its own name
   // (see bothLists).
   firstVisit: `query (${ERA_VARIABLES}) { trending: ${TRENDING} era: ${ERA} }`,
+  // A decade's mood pool, its first two pages of 50 in one request, each under its own name.
+  pool: `query (${ERA_VARIABLES}) { p1: ${poolPage(1)} p2: ${poolPage(2)} }`,
+  // A decade's page and its mood pool in one request, for a decade picked with a slider set, each
+  // list under its own name, as the pool and the decade's page have them on their own.
+  decadeWithPool: `query (${ERA_VARIABLES}) { era: ${ERA} p1: ${poolPage(1)} p2: ${poolPage(2)} }`,
   // The titles bundled for when AniList can't be reached, by id (see scripts/refresh-samples.ts).
   // Only finished titles, so none has an episode countdown that would go stale in the bundle.
   // One title by its AniList id, for a card opened at its address (/anime/:id). AniList answers 404
@@ -184,6 +205,99 @@ const searchTerm = (term: string) => term.trim().replace(/\s+/g, ' ').toLowerCas
 
 export const searchQuery = (term: string) =>
   mediaQuery(QUERIES.search, { search: searchTerm(term) }, 6 * HOUR)
+
+/**
+ * A title of a decade's mood pool as AniList sends it: a card's fields, and its relations, the
+ * titles linked to it (see SEASONS). AniList may leave a relation's title out, as null.
+ */
+export type PoolAnswer = Media & {
+  relations: {
+    edges: { relationType: string | null; node: { id: number; type: string | null } | null }[]
+  } | null
+}
+
+/** A title of a decade's mood pool, as the cache keeps it (see poolTitleOf). */
+export type PoolTitle = Media & {
+  /** The ids of the anime just before it and just after it: its prequels and sequels. */
+  seasons: number[]
+}
+
+/** A decade's mood pool: its first two pages of 50, as the cache keeps them (see poolOf). */
+export type Pool = {
+  /** In AniList's order, the most popular first, with no Ecchi title and none twice. */
+  titles: PoolTitle[]
+  /** How many titles AniList sent, Ecchi and all: under 100, the decade has no page 3. */
+  count: number
+  /** Whether AniList has a page 3, from page 2's pageInfo. */
+  hasNextPage: boolean
+}
+
+/** One page of a pool, as AniList sends it under its alias. */
+type PoolPage = { pageInfo: { hasNextPage: boolean }; media: PoolAnswer[] }
+
+// The relations that make another season of the same show (relationType version 2).
+const SEASON_LINKS: (string | null)[] = ['PREQUEL', 'SEQUEL']
+
+/**
+ * A pool title as the cache keeps it: the tags its card shows (cardOf), and every other tag the
+ * mood map names (`moodTags`), spoilers included, as they count toward the score, but not adult
+ * ones, which never do; each in AniList's order, so the card still shows the same ones. Of its
+ * relations, only the ids of its anime prequels and sequels (seasons). A title has 28 tags on
+ * average, 75 for One Piece, and the pool is saved in the browser with the lists, so the rest stay
+ * out of the copy.
+ */
+export function poolTitleOf(
+  { relations, ...media }: PoolAnswer,
+  moodTags: ReadonlySet<string>,
+): PoolTitle {
+  const shown = new Set(cardOf(media).tags)
+  return {
+    ...media,
+    tags: media.tags.filter((tag) => shown.has(tag) || (!tag.isAdult && moodTags.has(tag.name))),
+    seasons: (relations?.edges ?? []).flatMap(({ relationType, node }) =>
+      node?.type === 'ANIME' && SEASON_LINKS.includes(relationType) ? [node.id] : [],
+    ),
+  }
+}
+
+/**
+ * A decade's mood pool from AniList's two pages: each title cut (poolTitleOf), each once, and no
+ * Ecchi title, which spec §3G keeps out of the mood pool, with what page 3 needs (see Pool).
+ */
+export function poolOf({ p1, p2 }: { p1: PoolPage; p2: PoolPage }, moodTags: ReadonlySet<string>) {
+  const sent = [...p1.media, ...p2.media]
+  const ids = sent.map((media) => media.id)
+  const titles = pullable(sent.filter((media, i) => ids.indexOf(media.id) === i))
+  return {
+    titles: titles.map((media) => poolTitleOf(media, moodTags)),
+    count: sent.length,
+    hasNextPage: p2.pageInfo.hasNextPage,
+  } satisfies Pool
+}
+
+/**
+ * A decade's mood pool, its first two pages of 50 in one request (the plan's B1 a), keyed by the
+ * decade alone, so no slider's value ever makes a new request. Fresh for 6 hours, as a decade's
+ * page is, and kept a day (see keptFor); never asked for again just because the visitor comes back
+ * to the tab. The mood map's tags it keeps come with the mood scoring, a file of its own, so it
+ * waits for that file first: should the file fail to load, the pool fails without spending one of
+ * AniList's requests.
+ */
+export const poolQuery = (era: Era) =>
+  queryOptions({
+    queryKey: ['anilist', QUERIES.pool, era.variables],
+    queryFn: async (context): Promise<Pool> => {
+      const { MOOD_TAGS } = moodScoring.current ?? (await moodScoring.load())
+      const pages = await anilist<{ p1: PoolPage; p2: PoolPage }>(
+        QUERIES.pool,
+        era.variables,
+        isRateLimited() ? context.signal : undefined,
+      )
+      return poolOf(pages, MOOD_TAGS)
+    },
+    staleTime: 6 * HOUR,
+    refetchOnWindowFocus: false,
+  })
 
 /**
  * The titles on the visitor's list, by their ids, in one request (spec §3F): at most 50, AniList's

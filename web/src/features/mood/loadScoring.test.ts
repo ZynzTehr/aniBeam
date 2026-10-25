@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { moodScoring, preloadScoring, scoringLoader } from './loadScoring.ts'
+import { MOOD_TAGS } from './moodMap.ts'
 import { rankMatches, whyOf } from './score.ts'
 import * as scoring from './scoring.ts'
 
@@ -25,10 +26,12 @@ test('the mood scoring’s loader runs once, and after a failed import the next 
   assert.equal(calls, 2, `ran the import ${calls} times, not twice`)
 })
 
-test('the mood scoring’s file holds the scoring itself: rankMatches and whyOf', async () => {
+test('the mood scoring’s file holds the scoring itself, rankMatches and whyOf, and MOOD_TAGS', async () => {
   const loaded = await moodScoring.load()
   assert.equal(loaded.rankMatches, rankMatches)
   assert.equal(loaded.whyOf, whyOf)
+  // The mood map's tags a decade's mood pool keeps (see poolQuery in queries.ts).
+  assert.equal(loaded.MOOD_TAGS, MOOD_TAGS)
   assert.equal(moodScoring.current, loaded)
 })
 
