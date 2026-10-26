@@ -280,6 +280,21 @@ const FORMATS: [path: string, needs: string, holds: (value: any) => boolean][] =
       trailer === null ||
       (typeof trailer === 'object' && nameOrNull(trailer.id) && nameOrNull(trailer.site)),
   ],
+  [
+    // Only a mood pool's titles have it (SEASONS in queries.ts): poolTitleOf keeps the ids of the
+    // anime linked as a prequel or sequel, so a link that isn't an object, or an id that isn't a
+    // number, would make another season of a show unknown to the roll.
+    'relations',
+    'a list of links, each a relation type (a name or null) and the title linked: null, or an id above 0 and its type (a name or null)',
+    (relations) =>
+      Array.isArray(relations?.edges) &&
+      relations.edges.every(
+        (edge: any) =>
+          nameOrNull(edge?.relationType) &&
+          (edge.node === null ||
+            (whole(edge.node?.id) && edge.node.id > 0 && nameOrNull(edge.node.type))),
+      ),
+  ],
 ]
 
 /** Whether `field`, named as listsAsked() names it, is at `path` in a title, or under it. */
@@ -296,7 +311,10 @@ function titleProblems(media: any, where: string, fields: string[]): string[] {
   const extra = held.filter((path) => !fields.some((field) => under(field, path)))
   if (missing.length) found.push(`${where} has no ${missing.join(', ')}, which the app asks for`)
   if (extra.length) found.push(`${where} has ${extra.join(', ')}, which the app doesn't ask for`)
-  for (const [path, needs, holds] of FORMATS) {
+  // A format is for a field the query asks for: only a mood pool asks for a title's relations.
+  for (const [path, needs, holds] of FORMATS.filter(([path]) =>
+    fields.some((field) => under(field, path)),
+  )) {
     const value = path.split('.').reduce((value: any, key) => value?.[key], media)
     if (!holds(value))
       found.push(`${where}.${path} is ${shown(value)}, where the app needs ${needs}`)

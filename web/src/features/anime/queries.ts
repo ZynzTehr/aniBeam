@@ -1,5 +1,7 @@
 import { hashKey, queryOptions, type QueryClient, type QueryKey } from '@tanstack/react-query'
 import { anilist, AniListError, isRateLimited, type Variables } from '../../lib/anilist.ts'
+import { moodScoring } from '../mood/loadScoring.ts'
+import { pullable } from '../mood/roll.ts'
 import { tagsOf, type TagFlags } from './tags.ts'
 
 /** One of AniList's tags on a title, with what the card needs to place it (see tags.ts). */
@@ -69,6 +71,20 @@ const ERA_VARIABLES =
   '$from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus'
 const ERA = `Page(perPage: 20) { media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: "JP", startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, ${SAFE}) { ${CARD} } }`
 
+/**
+ * A page of 50 of a decade's mood pool (the plan's B1 a): its most popular Japanese titles, as the
+ * decade's own page has them, but only those on more than 1,000 AniList users' lists, and every
+ * field a title card needs, so a match or a roll opens with no request. Every tag comes with them,
+ * as AniList can't be asked for some: the mood map's tags and the card's own cut are kept in code
+ * (see poolTitleOf). hasNextPage says whether page 3 is worth asking for.
+ */
+// Each pool title also says which titles came before and after it (its seasons, films and the
+// like), so a roll can skip another season of a show rolled lately (the user's choice, B2 b).
+const SEASONS = 'relations { edges { relationType(version: 2) node { id type } } }'
+
+const poolPage = (page: number) =>
+  `Page(page: ${page}, perPage: 50) { pageInfo { hasNextPage } media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: "JP", popularity_greater: 1000, startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, ${SAFE}) { ${CARD} ${SEASONS} } }`
+
 export const QUERIES = {
   trending: `query { ${TRENDING} }`,
   era: `query (${ERA_VARIABLES}) { ${ERA} }`,
@@ -76,6 +92,11 @@ export const QUERIES = {
   // A first visit's trending and first decade in one request, each list under its own name
   // (see bothLists).
   firstVisit: `query (${ERA_VARIABLES}) { trending: ${TRENDING} era: ${ERA} }`,
+  // A decade's mood pool, its first two pages of 50 in one request, each under its own name.
+  pool: `query (${ERA_VARIABLES}) { p1: ${poolPage(1)} p2: ${poolPage(2)} }`,
+  // A decade's page and its mood pool in one request, for a decade picked with a slider set, each
+  // list under its own name, as the pool and the decade's page have them on their own.
+  decadeWithPool: `query (${ERA_VARIABLES}) { era: ${ERA} p1: ${poolPage(1)} p2: ${poolPage(2)} }`,
   // The titles bundled for when AniList can't be reached, by id (see scripts/refresh-samples.ts).
   // Only finished titles, so none has an episode countdown that would go stale in the bundle.
   // One title by its AniList id, for a card opened at its address (/anime/:id). AniList answers 404
@@ -175,8 +196,23 @@ const mediaQuery = (
 
 export const trendingQuery = () => mediaQuery(QUERIES.trending, {}, 30 * MINUTE, 'trending')
 
-export const eraQuery = (era: Era) =>
-  mediaQuery(QUERIES.era, era.variables, 6 * HOUR, era === FIRST_ERA ? 'era' : undefined)
+export const eraQuery = (era: Era) => {
+  const options = mediaQuery(
+    QUERIES.era,
+    era.variables,
+    6 * HOUR,
+    era === FIRST_ERA ? 'era' : undefined,
+  )
+  return queryOptions({
+    ...options,
+    // A first visit's request for both lists goes first (see mediaQuery); otherwise the decade's
+    // page asks for its mood pool with it when the pool is wanted (see wantPool).
+    queryFn: async (context): Promise<Media[]> =>
+      !(era === FIRST_ERA && firstVisit(context.client)) && withPool(context.client, era)
+        ? (await sendWithPool(context.client, era)).era.media.map(cardOf)
+        : options.queryFn!(context),
+  })
+}
 
 // AniList search ignores capitals and extra spaces, so "Frieren " and "frieren"
 // share one request and one cache entry.
@@ -184,6 +220,207 @@ const searchTerm = (term: string) => term.trim().replace(/\s+/g, ' ').toLowerCas
 
 export const searchQuery = (term: string) =>
   mediaQuery(QUERIES.search, { search: searchTerm(term) }, 6 * HOUR)
+
+/**
+ * A title of a decade's mood pool as AniList sends it: a card's fields, and its relations, the
+ * titles linked to it (see SEASONS). AniList may leave a relation's title out, as null.
+ */
+export type PoolAnswer = Media & {
+  relations: {
+    edges: { relationType: string | null; node: { id: number; type: string | null } | null }[]
+  } | null
+}
+
+/** A title of a decade's mood pool, as the cache keeps it (see poolTitleOf). */
+export type PoolTitle = Media & {
+  /** The ids of the anime just before it and just after it: its prequels and sequels. */
+  seasons: number[]
+}
+
+/** A decade's mood pool: its first two pages of 50, as the cache keeps them (see poolOf). */
+export type Pool = {
+  /** In AniList's order, the most popular first, with no Ecchi title and none twice. */
+  titles: PoolTitle[]
+  /** How many titles AniList sent, Ecchi and all: under 100, the decade has no page 3. */
+  count: number
+  /** Whether AniList has a page 3, from page 2's pageInfo. */
+  hasNextPage: boolean
+}
+
+/** One page of a pool, as AniList sends it under its alias. */
+type PoolPage = { pageInfo: { hasNextPage: boolean }; media: PoolAnswer[] }
+
+// The relations that make another season of the same show (relationType version 2).
+const SEASON_LINKS: (string | null)[] = ['PREQUEL', 'SEQUEL']
+
+/**
+ * A pool title as the cache keeps it: the tags its card shows (cardOf), and every other tag the
+ * mood map names (`moodTags`), spoilers included, as they count toward the score, but not adult
+ * ones, which never do; each in AniList's order, so the card still shows the same ones. Of its
+ * relations, only the ids of its anime prequels and sequels (seasons). A title has 28 tags on
+ * average, 75 for One Piece, and the pool is saved in the browser with the lists, so the rest stay
+ * out of the copy.
+ */
+export function poolTitleOf(
+  { relations, ...media }: PoolAnswer,
+  moodTags: ReadonlySet<string>,
+): PoolTitle {
+  const shown = new Set(cardOf(media).tags)
+  return {
+    ...media,
+    tags: media.tags.filter((tag) => shown.has(tag) || (!tag.isAdult && moodTags.has(tag.name))),
+    seasons: (relations?.edges ?? []).flatMap(({ relationType, node }) =>
+      node?.type === 'ANIME' && SEASON_LINKS.includes(relationType) ? [node.id] : [],
+    ),
+  }
+}
+
+/**
+ * A decade's mood pool from AniList's two pages: each title cut (poolTitleOf), each once, and no
+ * Ecchi title, which spec §3G keeps out of the mood pool, with what page 3 needs (see Pool).
+ */
+export function poolOf({ p1, p2 }: { p1: PoolPage; p2: PoolPage }, moodTags: ReadonlySet<string>) {
+  const sent = [...p1.media, ...p2.media]
+  const ids = sent.map((media) => media.id)
+  const titles = pullable(sent.filter((media, i) => ids.indexOf(media.id) === i))
+  return {
+    titles: titles.map((media) => poolTitleOf(media, moodTags)),
+    count: sent.length,
+    hasNextPage: p2.pageInfo.hasNextPage,
+  } satisfies Pool
+}
+
+/**
+ * A decade's mood pool's cache key (see poolQuery), which a decade's page reads on its own: built
+ * from poolQuery, the page would bring the pool's cut into the JS every visit loads.
+ */
+const poolKey = (era: Era) => ['anilist', QUERIES.pool, era.variables]
+
+/** A decade's page and its mood pool, as AniList answers decadeWithPool. */
+type DecadeAndPool = { era: Page; p1: PoolPage; p2: PoolPage }
+
+// Spec §2 again: a decade picked with a slider set needs its page and its mood pool at the same
+// moment, so the two come in one request (decadeWithPool), as a first visit's two lists do. The
+// page decides, as it asks: the pool is let ask only once the page's titles are in (the plan's
+// section 2), so a page that waited for the pool to ask would always go alone. What a query client
+// knows of each decade's pool beyond its cache, by the decade's id: whether it is wanted (see
+// wantPool); the request that went for the page and the pool both (see sendWithPool); and whether
+// the pool is being asked for on its own.
+type Pools = {
+  wanted: Set<string>
+  shared: Map<string, Shared>
+  alone: Set<string>
+}
+
+/**
+ * A request for a decade's page and its pool, its answer kept until the pool has been cut, or until
+ * the pool would no longer be fresh from it (POOL_FRESH after it was sent, `at`).
+ */
+type Shared = { sent: Promise<DecadeAndPool>; at: number; failed?: true }
+const known = new WeakMap<QueryClient, Pools>()
+const poolsOf = (client: QueryClient) => {
+  let pools = known.get(client)
+  if (!pools)
+    known.set(client, (pools = { wanted: new Set(), shared: new Map(), alone: new Set() }))
+  return pools
+}
+
+/**
+ * Says a decade's mood pool is wanted, for the visit (the plan's section 2: a slider pressed, the
+ * decade changed with a slider set, and so on). Said before the decade's page asks, the page asks
+ * for its pool too, in one request (decadeWithPool), and the pool takes its half whenever it asks.
+ * The pool asking says so too, for a page that is about to ask again (see poolQuery).
+ */
+export const wantPool = (client: QueryClient, era: Era) => void poolsOf(client).wanted.add(era.id)
+
+/**
+ * Whether a decade's page, asking now, asks for its pool with it: when the pool is wanted, has no
+ * answer and isn't being asked for on its own. A query run on its own, outside TanStack (as some
+ * tests do), has no client and asks alone.
+ */
+const withPool = (client: QueryClient | undefined, era: Era) => {
+  const pools = client && known.get(client)
+  return (
+    pools?.wanted.has(era.id) === true &&
+    !pools.alone.has(era.id) &&
+    client!.getQueryData(poolKey(era)) === undefined
+  )
+}
+
+/**
+ * The request for a decade's page and its pool both, kept for the pool to take its half (see
+ * poolQuery). Like the request for a first visit's lists, it reads no abort signal, so leaving the
+ * page can't cancel the pool's half. A failed one is marked so, and the page's retry sends another.
+ */
+function sendWithPool(client: QueryClient, era: Era) {
+  const shared: Shared = {
+    sent: anilist<DecadeAndPool>(QUERIES.decadeWithPool, era.variables),
+    at: Date.now(),
+  }
+  shared.sent.catch(() => (shared.failed = true))
+  poolsOf(client).shared.set(era.id, shared)
+  return shared.sent
+}
+
+/** How long a decade's mood pool stays fresh: 6 hours, as a decade's page does. */
+const POOL_FRESH = 6 * HOUR
+
+/**
+ * A decade's mood pool, its first two pages of 50 in one request (the plan's B1 a), keyed by the
+ * decade alone, so no slider's value ever makes a new request. Fresh for 6 hours, as a decade's
+ * page is, and kept a day (see keptFor); never asked for again just because the visitor comes back
+ * to the tab. The mood map's tags it keeps come with the mood scoring, a file of its own, so alone
+ * it waits for that file first: should the file fail to load, the pool fails without spending one
+ * of AniList's requests. When the decade's page went with the pool (see wantPool), it takes its
+ * half of that request, sent or answered, and keeps it until the file has loaded, so a retry after
+ * the file failed sends nothing new either: for 6 hours from when it was sent, after which the
+ * pool asks again (see POOL_FRESH).
+ */
+export const poolQuery = (era: Era) =>
+  queryOptions({
+    queryKey: poolKey(era),
+    queryFn: async (context): Promise<Pool> => {
+      const pools = context.client && poolsOf(context.client)
+      if (pools) {
+        pools.wanted.add(era.id)
+        // TanStack dates the pool from when it is cut, not from when AniList sent the request it
+        // came in, so a pool taking a half kept for hours (its scoring failed, and Try again came
+        // much later) would count an old answer fresh for 6 more hours. Past the pool's freshness,
+        // the half is let go, and the pool asks again: alone, or with a page about to ask.
+        const kept = pools.shared.get(era.id)
+        if (kept && Date.now() - kept.at >= POOL_FRESH) pools.shared.delete(era.id)
+        // A page with no titles yet, or out of date, asks within the page's next task, as the page
+        // subscribes its lists in one go, whichever comes first (or retries with the pool, when a
+        // request for both failed): it then takes the pool with it. A request sent meanwhile is
+        // the pool's too, even if it has already failed: the pool then fails and retries with it.
+        const before = pools.shared.get(era.id)
+        const page = context.client.getQueryCache().find({ queryKey: eraQuery(era).queryKey })
+        if ((!before || before.failed) && page?.isStaleByTime(6 * HOUR))
+          await new Promise((resolve) => setTimeout(resolve))
+        const shared = pools.shared.get(era.id)
+        if (shared && (shared !== before || !shared.failed)) {
+          const answer = await shared.sent
+          const { MOOD_TAGS } = moodScoring.current ?? (await moodScoring.load())
+          if (pools.shared.get(era.id) === shared) pools.shared.delete(era.id)
+          return poolOf(answer, MOOD_TAGS)
+        }
+        pools.alone.add(era.id)
+      }
+      try {
+        const { MOOD_TAGS } = moodScoring.current ?? (await moodScoring.load())
+        const pages = await anilist<{ p1: PoolPage; p2: PoolPage }>(
+          QUERIES.pool,
+          era.variables,
+          isRateLimited() ? context.signal : undefined,
+        )
+        return poolOf(pages, MOOD_TAGS)
+      } finally {
+        pools?.alone.delete(era.id)
+      }
+    },
+    staleTime: POOL_FRESH,
+    refetchOnWindowFocus: false,
+  })
 
 /**
  * The titles on the visitor's list, by their ids, in one request (spec §3F): at most 50, AniList's

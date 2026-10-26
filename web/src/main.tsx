@@ -4,6 +4,7 @@ import { createRoot } from 'react-dom/client'
 import './styles/index.css'
 import App from './app/App.tsx'
 import { loadListPage, preloadListPage } from './features/list/page.ts'
+import { preloadScoring } from './features/mood/loadScoring.ts'
 import { savedMotionChoice } from './lib/motion.ts'
 import { persistOptions, queryClient } from './lib/queryClient.ts'
 import { isListPath, pageBeneath } from './lib/route.ts'
@@ -42,6 +43,7 @@ const render = () => {
     </StrictMode>,
   )
   preloadListPage()
+  preloadScoring()
 }
 
 // My List's page is a file of its own (see features/list/page.ts). A visit that starts on it, or

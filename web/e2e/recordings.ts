@@ -19,9 +19,12 @@ import {
   eraQuery,
   FIRST_ERA,
   listQuery,
+  poolQuery,
   searchQuery,
   titleQuery,
   trendingQuery,
+  wantPool,
+  type Era,
   type Media,
 } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
@@ -61,6 +64,21 @@ export const SEARCHES = [
 export const DECADES = ['1980s', '1990s']
 
 /**
+ * The decades whose mood pool the checks ask for on its own, two pages of 50 in one request
+ * (poolQuery): the 1990s, which a slider's first touch asks for on a first visit (the plan's
+ * REC-2), and the smallest, Pre-1970 and Upcoming, for the "few" line and whether a page 3 is
+ * worth asking for (REC-3b, REC-3c).
+ */
+export const POOLS = ['1990s', 'pre-1970', 'upcoming']
+
+/**
+ * The decades the checks pick with a slider set and nothing cached for them, so the page asks for
+ * the decade's page and its mood pool in one request (decadeWithPool; see wantPool in queries.ts):
+ * the 1980s (REC-3).
+ */
+export const DECADES_WITH_POOLS = ['1980s']
+
+/**
  * The titles the checks open at their address (/anime/:id), so the page asks for each on its own:
  * Frieren. Not here: an id AniList has no anime for, which the checks answer with a rewrite.
  */
@@ -81,9 +99,18 @@ export const LISTS: Record<string, number[]> = {
 
 type Request = Recording['request']
 
-// What the stand-in for fetch answers: no titles, for whichever lists, or title, were asked for.
+// What the stand-in for fetch answers: no titles, for whichever lists, or title, were asked for,
+// and a mood pool's two pages with none and no page after them.
+const NO_POOL_TITLES = { pageInfo: { hasNextPage: false }, media: [] }
 const NO_TITLES = {
-  data: { Page: { media: [] }, trending: { media: [] }, era: { media: [] }, Media: null },
+  data: {
+    Page: { media: [] },
+    trending: { media: [] },
+    era: { media: [] },
+    Media: null,
+    p1: NO_POOL_TITLES,
+    p2: NO_POOL_TITLES,
+  },
 }
 
 /**
@@ -128,6 +155,28 @@ function searchName(search: string) {
   return ['search', words, hash].filter(Boolean).join('-')
 }
 
+/** The name of a decade's mood pool's recording (POOLS). */
+const poolName = (id: string) => `pool-${id}`
+
+/** The name of the recording of a decade's page with its mood pool (DECADES_WITH_POOLS). */
+const eraPoolName = (id: string) => `era-pool-${id}`
+
+/**
+ * The recordings that hold a mood pool (POOLS, DECADES_WITH_POOLS), whose copies of a title no card
+ * opens. A pool's titles carry their relations, which no list's copy has. And a decade's page that
+ * came with its pool is the same page as the decade's own recording (era-pool-1980s, era-1980s),
+ * as AniList answered it at another moment, so its figures can differ: Saint Seiya's averageScore
+ * is 74 there, 73 in the strip a check gets when it picks the 1980s with no slider set.
+ */
+export const POOL_RECORDINGS = [...POOLS.map(poolName), ...DECADES_WITH_POOLS.map(eraPoolName)]
+
+/** The era an id in DECADES, POOLS or DECADES_WITH_POOLS names. */
+function eraOf(id: string): Era {
+  const era = ERAS.find((era) => era.id === id)
+  if (!era) throw new Error(`${id} isn't in ERAS.`)
+  return era
+}
+
 /**
  * Every request the browser checks send AniList, by its recording's name, each built by the app's
  * own code with a stand-in for fetch. Only the recorder and recordings.test.ts call this, as it
@@ -147,14 +196,27 @@ export async function requests(): Promise<{ name: string; request: Request }[]> 
     },
     { name: 'trending', request: await sent((client) => client.fetchQuery(trendingQuery())) },
   ]
-  for (const id of DECADES) {
-    const era = ERAS.find((era) => era.id === id)
-    if (!era) throw new Error(`DECADES lists ${id}, which isn't in ERAS.`)
+  for (const id of DECADES)
     wanted.push({
       name: `era-${id}`,
-      request: await sent((client) => client.fetchQuery(eraQuery(era))),
+      request: await sent((client) => client.fetchQuery(eraQuery(eraOf(id)))),
     })
-  }
+  for (const id of POOLS)
+    wanted.push({
+      name: poolName(id),
+      request: await sent((client) => client.fetchQuery(poolQuery(eraOf(id)))),
+    })
+  for (const id of DECADES_WITH_POOLS)
+    wanted.push({
+      name: eraPoolName(id),
+      // The decade's pool wanted, as a slider set makes it, and then both asking for theirs, as
+      // the page does once the decade is picked: the page takes the pool with it, one request.
+      request: await sent((client) => {
+        const era = eraOf(id)
+        wantPool(client, era)
+        return Promise.all([client.fetchQuery(eraQuery(era)), client.fetchQuery(poolQuery(era))])
+      }),
+    })
   for (const term of SEARCHES) {
     const request = await sent((client) => client.fetchQuery(searchQuery(term)))
     wanted.push({ name: searchName(String(request.variables.search)), request })
@@ -169,7 +231,9 @@ export async function requests(): Promise<{ name: string; request: Request }[]> 
   const names = wanted.map(({ name }) => name)
   const twice = names.filter((name, i) => names.indexOf(name) !== i)
   if (twice.length)
-    throw new Error(`SEARCHES, DECADES, TITLES or LISTS asks for one request twice: ${twice}`)
+    throw new Error(
+      `SEARCHES, DECADES, POOLS, DECADES_WITH_POOLS, TITLES or LISTS asks for one request twice: ${twice}`,
+    )
   return wanted
 }
 
@@ -245,6 +309,28 @@ export const listsOf = ({ body }: Recording): Record<string, Media[]> =>
       isTitle(name, list) ? [list] : Array.isArray(list?.media) ? list.media : [],
     ]),
   )
+
+/**
+ * The ids in a check's map of the recorded titles whose copy there no recording has but a mood
+ * pool's (POOL_RECORDINGS): a card opened from a list, or at its address, shows a copy that list or
+ * that title's own answer has.
+ */
+export function onlyInPools(recorded: Map<number, Media>, saved = recordings()): number[] {
+  const copies = [...saved]
+    .filter(([name]) => !POOL_RECORDINGS.includes(name))
+    .flatMap(([, recording]) => Object.values(listsOf(recording)).flat())
+  return [...recorded]
+    .filter(
+      ([id, media]) => !copies.some((copy) => copy.id === id && isDeepStrictEqual(copy, media)),
+    )
+    .map(([id]) => id)
+}
+
+/** The copy of a title the recording `name` has, in any of its lists. */
+export const copyIn = (name: string, id: number, saved = recordings()) =>
+  Object.values(listsOf(saved.get(name)!))
+    .flat()
+    .find((media) => media.id === id)
 
 /** A list of titles in the recordings: a recording's name, and the list's in its answer. */
 type List = [recording: string, list: string]

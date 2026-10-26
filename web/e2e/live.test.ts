@@ -65,33 +65,46 @@ test('every recording is in the formats the app reads AniList’s answers in', (
 // A field the app asks for with no format to be held to would let a title in any form pass. Each
 // field the first visit's query asks for is set to 0.5, which no format allows (no text, flag,
 // whole number or list), in a title that holds them all (a next episode, a studio, a tag and a
-// trailer too), and must be named, or the object or list it is in.
+// trailer too), and must be named, or the object or list it is in. So is each field a mood pool
+// asks for beyond those, a title's relations, in a 1990s title with a link to another title.
 test('every field the app asks AniList for is held to a format', () => {
-  const answer = recorded('first-visit')
-  const i = answer.body.data.trending.media.findIndex(
-    (media: any) =>
-      media.nextAiringEpisode && media.studios.nodes.length && media.tags.length && media.trailer,
+  const card = [...new Set([...listsAsked(QUERIES.firstVisit).values()].flat())]
+  assert.ok(card.length > 0, 'no field read from the first visit’s query')
+  const pool = [...new Set([...listsAsked(QUERIES.pool).values()].flat())].filter(
+    (field) => !card.includes(field),
   )
-  assert.ok(i >= 0, 'no trending title has a next episode, a studio, a tag and a trailer')
-  const fields = [...new Set([...listsAsked(QUERIES.firstVisit).values()].flat())]
-  assert.ok(fields.length > 0, 'no field read from the first visit’s query')
-  for (const field of fields) {
-    const broken = structuredClone(answer)
-    const keys = field.split('.')
-    const parent = keys
-      .slice(0, -1)
-      .reduce(
-        (at, key) => (Array.isArray(at[key]) ? at[key][0] : at[key]),
-        broken.body.data.trending.media[i],
+  assert.ok(pool.length > 0, 'no field read from the pool’s query beyond a card’s')
+  for (const [name, list, fields, holdsAll] of [
+    [
+      'first-visit',
+      'trending',
+      card,
+      (media: any) =>
+        media.nextAiringEpisode && media.studios.nodes.length && media.tags.length && media.trailer,
+    ],
+    ['pool-1990s', 'p1', pool, (media: any) => media.relations.edges[0]?.node],
+  ] as const) {
+    const answer = recorded(name)
+    const i = answer.body.data[list].media.findIndex(holdsAll)
+    assert.ok(i >= 0, `no title in ${name}'s ${list} has every field asked for`)
+    for (const field of fields) {
+      const broken = structuredClone(answer)
+      const keys = field.split('.')
+      const parent = keys
+        .slice(0, -1)
+        .reduce(
+          (at, key) => (Array.isArray(at[key]) ? at[key][0] : at[key]),
+          broken.body.data[list].media[i],
+        )
+      parent[keys.at(-1)!] = 0.5
+      const named = keys.map(
+        (_, n) => `data.${list}.media[${i}].${keys.slice(0, n + 1).join('.')} is `,
       )
-    parent[keys.at(-1)!] = 0.5
-    const named = keys.map(
-      (_, n) => `data.trending.media[${i}].${keys.slice(0, n + 1).join('.')} is `,
-    )
-    assert.ok(
-      answerProblems(broken).some((problem) => named.some((start) => problem.startsWith(start))),
-      `${field} set to 0.5 went unnoticed`,
-    )
+      assert.ok(
+        answerProblems(broken).some((problem) => named.some((start) => problem.startsWith(start))),
+        `${name}: ${field} set to 0.5 went unnoticed`,
+      )
+    }
   }
 })
 

@@ -10,6 +10,8 @@ import {
 import assert from 'node:assert/strict'
 import { test, type TestContext } from 'node:test'
 import {
+  ERAS,
+  poolQuery,
   QUERIES,
   searchQuery,
   titleQuery,
@@ -18,7 +20,7 @@ import {
   type Title,
 } from '../features/anime/queries.ts'
 import { SAMPLES } from '../features/anime/samples.ts'
-import { cachePersister, persistOptions } from './queryClient.ts'
+import { cachePersister, persistOptions, POOLS_SAVED } from './queryClient.ts'
 
 const MINUTE = 60_000
 const HOUR = 60 * MINUTE
@@ -275,6 +277,86 @@ test('when storage is full, the oldest results make way and the rest are still s
     [['trending'], ['frieren']],
     'with storage full, the lists saved were not the newest that fit',
   )
+})
+
+// A decade's mood pool is about 100 whole titles, up to about 250 KB once cut (see poolOf), so the
+// saved copy keeps only the newest POOLS_SAVED (the plan's B1). Five decades opened with a slider
+// set, so two must go, and the newest is not the last asked for, so the cache's order isn't theirs.
+test('of five decades’ mood pools, only the newest three are saved, with every list', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
+  const now = Date.now()
+  const storage = fakeStorage()
+  const client = new QueryClient()
+  const pool = (count: number) => ({ titles: [], count, hasNextPage: true })
+  const minutesAgo = { '1980s': 6, '1990s': 1, '2000s': 5, '2010s': 3, '2020s': 2 }
+  for (const [id, minutes] of Object.entries(minutesAgo))
+    client.setQueryData(poolQuery(ERAS.find((era) => era.id === id)!).queryKey, pool(minutes), {
+      updatedAt: now - minutes * MINUTE,
+    })
+  client.setQueryData(trendingQuery().queryKey, SAMPLES.slice(0, 2), { updatedAt: now - HOUR })
+
+  const saving = persistQueryClientSave({
+    ...persistOptions,
+    queryClient: client,
+    persister: cachePersister(storage),
+  })
+  t.mock.timers.tick(1000) // the copy is saved at most once a second
+  await saving
+  const saved: { queryKey: unknown[]; state: { data: { count?: number } } }[] = JSON.parse(
+    storage.items.get('anibeam:cache') ?? '{"clientState":{"queries":[]}}',
+  ).clientState.queries
+  assert.equal(POOLS_SAVED, 3)
+  assert.deepEqual(
+    saved
+      .filter(({ queryKey }) => queryKey[1] === QUERIES.pool)
+      .map(({ state }) => state.data.count),
+    [1, 3, 2],
+    'not the 1990s, 2010s and 2020s, the three pools that came last, in the cache’s order',
+  )
+  assert.ok(
+    saved.some(({ queryKey }) => queryKey[1] === QUERIES.trending),
+    'a list went with the pools',
+  )
+  // The page keeps all five for the visit: only the copy goes without the oldest.
+  assert.equal(client.getQueryCache().findAll({ queryKey: ['anilist', QUERIES.pool] }).length, 5)
+})
+
+// The pools a save leaves out (see newestPools) are left out of what tells whether anything saved
+// has changed too, so a change to one of them alone, such as being marked out of date or failing
+// to refresh, writes nothing: each write is the whole copy, the saved pools' 0.7 MB among it.
+test('a change to a mood pool the save leaves out writes nothing', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
+  const now = Date.now()
+  const storage = fakeStorage()
+  let writes = 0
+  const { setItem } = storage
+  storage.setItem = (key, value) => {
+    writes++
+    setItem(key, value)
+  }
+  const client = new QueryClient()
+  t.after(saveChanges(client, storage))
+  // The 1980s came first, so it is the pool the save leaves out.
+  const keys = ['1980s', '1990s', '2000s', '2010s'].map(
+    (id) => poolQuery(ERAS.find((era) => era.id === id)!).queryKey,
+  )
+  keys.forEach((queryKey, i) =>
+    client.setQueryData(
+      queryKey,
+      { titles: [], count: i, hasNextPage: true },
+      { updatedAt: now - (4 - i) * MINUTE },
+    ),
+  )
+  await wait(t, 2000)
+  const saved = writes
+  assert.ok(saved > 0, 'the pools were never saved')
+  await client.invalidateQueries({ queryKey: keys[0], exact: true })
+  await wait(t, 2000)
+  assert.equal(writes - saved, 0, 'the copy was written again for the pool it leaves out')
+  // A pool the save keeps, marked out of date, is written: the check above can see a write.
+  await client.invalidateQueries({ queryKey: keys[3], exact: true })
+  await wait(t, 2000)
+  assert.equal(writes - saved, 1, 'a pool the copy keeps changed, and nothing was written')
 })
 
 // When the copy is saved. Each save writes the whole cache, which can grow to megabytes, so the

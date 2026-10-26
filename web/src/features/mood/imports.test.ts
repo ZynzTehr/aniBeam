@@ -6,7 +6,7 @@ import { test } from 'node:test'
 // and the roll to have no way to make one: they import nothing that talks to AniList or keeps its
 // answers, only each other and the slider's words. A type, which the build erases, may come from
 // anywhere.
-const RULED = ['moodMap.ts', 'score.ts', 'roll.ts']
+const RULED = ['moodMap.ts', 'score.ts', 'scoring.ts', 'roll.ts']
 const ALLOWED = ['./moodMap.ts', './moods.ts', ...RULED.map((file) => `./${file}`)]
 
 /** The modules a file's code imports at run time: every import but `import type`. */
@@ -66,11 +66,13 @@ test('the roll does not import the scoring, so Discover’s pull leaves it out o
   )
 })
 
-// Discover's machine and the app around it load on every visit, so a static import of the scoring
-// from either would put it in the JS every visit loads. They may only ask for it by import(), as
-// the machine will once the sliders arrive, or import its types.
-const SCORING = ['score.ts', 'moodMap.ts'].map((file) => new URL(`./${file}`, import.meta.url).href)
-const EVERY_VISIT = ['PullMachine.tsx', '../../app/App.tsx']
+// Discover's machine, the app around it and the scoring's loader load on every visit, so a static
+// import of the scoring from any of them would put it in the JS every visit loads. They may only
+// ask for it by import(), as the loader does (loadScoring.ts), or import its types.
+const SCORING = ['score.ts', 'moodMap.ts', 'scoring.ts'].map(
+  (file) => new URL(`./${file}`, import.meta.url).href,
+)
+const EVERY_VISIT = ['PullMachine.tsx', 'loadScoring.ts', '../../app/App.tsx', '../../main.tsx']
 
 test('Discover’s machine and App never import the scoring statically, only by import()', () => {
   const wrong = EVERY_VISIT.flatMap((file) => {
@@ -114,4 +116,20 @@ test('the reading finds every way a file can import at run time, and lets types 
     [],
   )
   assert.equal(staticImports(code).length, runtimeImports(code).length - 1)
+})
+
+// The scoring loads once the browser is idle after the page has drawn (preloadScoring), so it is
+// there before a slider first moves: only if main.tsx calls it, once it has drawn.
+test('the page preloads the mood scoring once it has drawn', () => {
+  const main = read('../../main.tsx')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '')
+  const render = main.slice(main.indexOf('const render = () =>'))
+  const body = render.slice(0, render.indexOf('\n}\n'))
+  const drawn = body.indexOf('.render(')
+  assert.ok(drawn > 0, 'main.tsx has no render that draws the page')
+  assert.ok(
+    body.indexOf('preloadScoring()', drawn) > drawn,
+    'main.tsx doesn’t preload the mood scoring once it has drawn',
+  )
 })

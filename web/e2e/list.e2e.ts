@@ -10,7 +10,7 @@ import { after, afterEach, before, beforeEach, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { QUERIES } from '../src/features/anime/queries.ts'
 import { BASE_URL, Browser, type Answer } from './browser.ts'
-import { listsOf, recordings } from './recordings.ts'
+import { copyIn, listsOf, onlyInPools, POOL_RECORDINGS, recordings } from './recordings.ts'
 
 let browser: Browser
 // What the page sent AniList's API, as the guarded Chrome's own network log has it, not as the page
@@ -104,10 +104,11 @@ test('/list and /list/ stay at their address and show My List, asking AniList fo
 })
 
 // The titles the recorded lists hold, by id, to build AniList's answer for My List from. A title
-// asked for on its own comes with its status, which a list's copy doesn't have, so only lists.
+// asked for on its own comes with its status, which a list's copy doesn't have, and no card opens
+// a mood pool's copy (see POOL_RECORDINGS), so only the other lists.
 const RECORDED = new Map(
   [...recordings()]
-    .filter(([name]) => !name.startsWith('title-'))
+    .filter(([name]) => !name.startsWith('title-') && !POOL_RECORDINGS.includes(name))
     .flatMap(([, recording]) => Object.values(listsOf(recording)).flat())
     .map((media) => [media.id, media]),
 )
@@ -120,6 +121,26 @@ const listAnswer = (ids: number[]): Answer => ({
 /** Answers My List's request as AniList would (listAnswer), and every other as recorded. */
 const answerList = (request: Answer['request']) =>
   request.query === QUERIES.list ? listAnswer(request.variables.ids as number[]) : null
+
+// My List's answer is built from RECORDED, so each title in it must be as the list's query has it:
+// no field that query never asks for, which AniList would never send.
+test('My List’s titles are built from the lists’ copies, with no field the list’s query lacks', () => {
+  assert.deepEqual(
+    [...RECORDED.values()]
+      .filter((media) => 'relations' in media || 'status' in media)
+      .map((media) => media.id),
+    [],
+    'titles with a field AniList’s answer for My List would not have',
+  )
+})
+
+// Each title's copy is one a list has, as a card opened from that list shows it: a decade's page
+// that came with its mood pool (era-pool-1980s) is the strip's page as AniList answered it at
+// another moment, so Saint Seiya there scores 74, where the 1980s strip (era-1980s) has 73.
+test('My List’s titles are copies a list has, none only a mood pool’s: Saint Seiya the strip’s', () => {
+  assert.deepEqual(onlyInPools(RECORDED), [], 'titles whose copy only a mood pool’s recording has')
+  assert.deepEqual(RECORDED.get(1254), copyIn('era-1980s', 1254), 'Saint Seiya isn’t the strip’s')
+})
 
 // Frieren, Cowboy Bebop and Neon Genesis Evangelion, each in a recorded list.
 const SAVED = [154587, 1, 30]

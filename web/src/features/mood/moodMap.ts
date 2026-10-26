@@ -90,3 +90,12 @@ export const MOOD_MAP: Record<Axis, { low: End; high: End }> = {
     },
   },
 }
+
+/**
+ * Every tag the mood map names, at either end of any slider: what a decade's mood pool keeps of a
+ * title's tags beyond those its card shows (see poolQuery in queries.ts), spoilers included, as
+ * they count toward the score.
+ */
+export const MOOD_TAGS: ReadonlySet<string> = new Set(
+  Object.values(MOOD_MAP).flatMap(({ low, high }) => [...low.tags, ...high.tags]),
+)

@@ -1,0 +1,5426 @@
+{
+  "request": {
+    "query": "query ($from: FuzzyDateInt, $to: FuzzyDateInt, $status: MediaStatus, $notStatus: MediaStatus) { p1: Page(page: 1, perPage: 50) { pageInfo { hasNextPage } media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: \"JP\", popularity_greater: 1000, startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } trailer { id site } relations { edges { relationType(version: 2) node { id type } } } } } p2: Page(page: 2, perPage: 50) { pageInfo { hasNextPage } media(type: ANIME, sort: POPULARITY_DESC, countryOfOrigin: \"JP\", popularity_greater: 1000, startDate_greater: $from, startDate_lesser: $to, status: $status, status_not: $notStatus, isAdult: false, genre_not_in: [\"Hentai\"]) { id title { romaji english native } coverImage { extraLarge large color } bannerImage\n  genres averageScore format episodes season seasonYear studios(isMain: true) { nodes { name } }\n  nextAiringEpisode { episode airingAt } description(asHtml: false) duration\n  tags { name rank isAdult isGeneralSpoiler isMediaSpoiler } trailer { id site } relations { edges { relationType(version: 2) node { id type } } } } } }",
+    "variables": {
+      "from": 10000000,
+      "to": 19700000,
+      "notStatus": "NOT_YET_RELEASED"
+    }
+  },
+  "status": 200,
+  "body": {
+    "data": {
+      "p1": {
+        "pageInfo": {
+          "hasNextPage": true
+        },
+        "media": [
+          {
+            "id": 5760,
+            "title": {
+              "romaji": "Dororo to Hyakkimaru",
+              "english": "Dororo",
+              "native": "どろろと百鬼丸"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b5760-0nnYt4GrL1NO.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b5760-0nnYt4GrL1NO.png",
+              "color": null
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/5760-jq9DlZoinp2O.png",
+            "genres": ["Action", "Adventure", "Supernatural"],
+            "averageScore": 69,
+            "format": "TV",
+            "episodes": 26,
+            "season": "SPRING",
+            "seasonYear": 1969,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Mushi Production"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Hyakkimaru is a young man who lacks 48 body parts because they were taken from him by demons before birth, as payment by his father, Kagemitsu Daigo, to obtain his wish to take over the country. When the baby boy was born he was missing 48 parts of his body, and thus was abandoned&mdash;thrown into a river. Hyakkimaru has grown up and now has obtained fake body parts so he can eliminate the 48 demons that were made from his body, and to retrieve his missing parts. Along for the adventure is the boy thief, Dororo, with whom he becomes friends.<br><br>\n(Source: Anime News Network)",
+            "duration": 26,
+            "tags": [
+              {
+                "name": "Youkai",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 89,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anti-Hero",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "War",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Samurai",
+                "rank": 77,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gore",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dystopian",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Body Horror",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Disability",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Skip",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Crossdressing",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Estranged Family",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "mY3LDcP0PDQ",
+              "site": "youtube"
+            },
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 31658,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "SUMMARY",
+                  "node": {
+                    "id": 11471,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 101347,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 1445,
+            "title": {
+              "romaji": "Mach GoGoGo",
+              "english": "Speed Racer",
+              "native": "マッハ　ＧｏＧｏＧｏ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/1445.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/1445.jpg",
+              "color": "#e43543"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/n1445-rfPhOQSGRe0i.jpg",
+            "genres": ["Action", "Adventure", "Sports"],
+            "averageScore": 64,
+            "format": "TV",
+            "episodes": 52,
+            "season": "SPRING",
+            "seasonYear": 1967,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Tatsunoko Production"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "The Mach 5 is one of the fastest and most technologically advanced race cars built by man. Equipped with various gadgets and a powerful engine, it provides a challenge for anyone who would dare race against it. The driver of this amazing vehicle is Gou Mifune, a teenager who dreams of breaking into the world of professional racing.<br><br>\n\nIn spite of this, Gou's father and the creator of the Mach 5, Daisuke Mifune, does not want his son anywhere near a racetrack. Undeterred, his girlfriend Michi, younger brother Kurio, and Kurio's monkey sidekick Sanpei become Gou's biggest fans as he sets out to become the greatest racer of all time. <br><br>\n\nHowever, Gou soon learns that becoming a professional racer is not easy. From the underhanded plots of corrupt businessmen to stiff competition in the form of his rival, Racer X, Gou faces many obstacles on the road ahead, and has a lot to prove before he can cross the finish line.<br><br>\n\n(Source: MAL Rewrite)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Cars",
+                "rank": 97,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anti-Hero",
+                "rank": 63,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Estranged Family",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Guns",
+                "rank": 45,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 37546,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 3571,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "CHARACTER",
+                  "node": {
+                    "id": 107908,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "CHARACTER",
+                  "node": {
+                    "id": 145358,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SPIN_OFF",
+                  "node": {
+                    "id": 4905,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "CHARACTER",
+                  "node": {
+                    "id": 185887,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 101429,
+            "title": {
+              "romaji": "Katsudou Shashin",
+              "english": "Katsudou Shashin",
+              "native": "活動写真"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx101429-fAZXxvSAcOPY.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/nx101429-fAZXxvSAcOPY.jpg",
+              "color": "#e45043"
+            },
+            "bannerImage": null,
+            "genres": [],
+            "averageScore": 52,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "The film consists of a series of cartoon images on fifty frames of a celluloid strip and lasts three seconds at sixteen frames per second. It depicts a young boy in a sailor suit who writes the kanji characters \"活動写真\" (katsudou shashin, or \"moving picture\"), then turns towards the viewer, removes his hat, and offers a salute. The fragment was discovered in 2005, having been purchased with a private collection in Kyoto. The film was likely created between 1905 and 1911. If so, the film may be the oldest known piece of animation from Japan.\n<br><br>\n(Source: Wikipedia)",
+            "duration": 1,
+            "tags": [
+              {
+                "name": "No Dialogue",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Writing",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Calligraphy",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Meta",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 2747,
+            "title": {
+              "romaji": "Tetsuwan Atom",
+              "english": "Astro Boy",
+              "native": "鉄腕アトム"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/2747.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/2747.jpg",
+              "color": null
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2747-9vSxJNN5dr3Y.jpg",
+            "genres": ["Action", "Adventure", "Drama", "Mecha", "Sci-Fi"],
+            "averageScore": 66,
+            "format": "TV",
+            "episodes": 193,
+            "season": "WINTER",
+            "seasonYear": 1963,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Mushi Production"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "In the distant year 2003, Japan is a technological utopia, and robots are everywhere. One such robot, Tobio, was built by the brilliant Dr. Tenma to replace his dead son. But when it soon becomes apparent that Tobio is an imperfect copy of his departed child, Dr. Tenma throws him out. He is rescued from the scrap heap by the benevolent Professor Ochanomizu, a crusader for robot civil rights. Now the little robot, renamed Astro Boy, is given a mission to defend Japan and the world from all manner of sinister threats. Using his seven super-abilities and 100,000 horsepower worth of strength to battle evil, Astro hopes to set an example to the world of the good which all robots are capable of.",
+            "duration": 26,
+            "tags": [
+              {
+                "name": "Robots",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Episodic",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Artificial Intelligence",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aliens",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Superhero",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Meta",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Robot",
+                "rank": 10,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "KGq6z1mEU9Q",
+              "site": "youtube"
+            },
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 30728,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 971,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 3044,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 17959,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 17961,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 17963,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "PREQUEL",
+                  "node": {
+                    "id": 21830,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "OTHER",
+                  "node": {
+                    "id": 105746,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "OTHER",
+                  "node": {
+                    "id": 10342,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "CHARACTER",
+                  "node": {
+                    "id": 141984,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "OTHER",
+                  "node": {
+                    "id": 126871,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "CHARACTER",
+                  "node": {
+                    "id": 99088,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "OTHER",
+                  "node": {
+                    "id": 188526,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "CHARACTER",
+                  "node": {
+                    "id": 2755,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 6654,
+            "title": {
+              "romaji": "Namakura Gatana",
+              "english": "The Dull Sword",
+              "native": "なまくら刀"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b6654-QUEjnBLm7u5s.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b6654-QUEjnBLm7u5s.png",
+              "color": "#c9ae50"
+            },
+            "bannerImage": null,
+            "genres": ["Comedy"],
+            "averageScore": 49,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "A samurai buys a dull sword from a merchant. He is quickly defeated by his intended victims due to his cheap sword and clumsiness.\n<br><br>\n(Source: IMDB)",
+            "duration": 4,
+            "tags": [
+              {
+                "name": "Samurai",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "No Dialogue",
+                "rank": 95,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 64,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SEQUEL",
+                  "node": {
+                    "id": 113139,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 5225,
+            "title": {
+              "romaji": "Lupin III: Pilot Film",
+              "english": null,
+              "native": "ルパン三世 Pilot Film"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5225-ZTPKnILQxGVJ.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx5225-ZTPKnILQxGVJ.jpg",
+              "color": "#e44378"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/5225-lw3o3ZvdHbL8.jpg",
+            "genres": ["Action"],
+            "averageScore": 61,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "Two years after the birth of the manga a pilot film was realized. It was a brief film of only 15 minutes that had the purpose of assay the response to a possible future anime realization of Lupin III. The pilot opens with a challenge call from Lupin to Zenigata from a public phone.<br><br>\nA remastered version was realised in 1978, re-photographed in cinemascope and re-dubbed for being screened in cinema before the 1st movie The Secret of Mamo.<br><br>",
+            "duration": 15,
+            "tags": [
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Fugitive",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Guns",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ensemble Cast",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Nudity",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Samurai",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "PARENT",
+                  "node": {
+                    "id": 1412,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 1044,
+            "title": {
+              "romaji": "Taiyou no Ouji: Horus no Daibouken",
+              "english": "The Little Norse Prince",
+              "native": "太陽の王子 ホルスの大冒険"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1044-Z3nShiFF7x5p.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx1044-Z3nShiFF7x5p.jpg",
+              "color": "#d61a35"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1044-tEPPoVubLNew.jpg",
+            "genres": ["Action", "Adventure", "Drama", "Fantasy"],
+            "averageScore": 63,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 1968,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Horus is a boy that one day, hunted by silver wolfs, found the sword of the sun. The day his father died he left his home to find the people from the town his father told him. Together with a small bear named Koro he start the journey an run into a great adventure fighting against Grunwald and his subordinates who wants to rule the world.",
+            "duration": 82,
+            "tags": [
+              {
+                "name": "Magic",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mythology",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Foreign",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kids",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Revenge",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Swordplay",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kaiju",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Survival",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Archery",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Snowscape",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Nudity",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "8ZX5NosrYl8",
+              "site": "youtube"
+            },
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 1550,
+            "title": {
+              "romaji": "Attack No.1",
+              "english": null,
+              "native": "アタックNo.1"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1550-bhaPXtT9dk2h.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx1550-bhaPXtT9dk2h.png",
+              "color": "#f1bb00"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1550-UWVAdQvlFnQ0.jpg",
+            "genres": ["Drama", "Sports"],
+            "averageScore": 65,
+            "format": "TV",
+            "episodes": 104,
+            "season": "FALL",
+            "seasonYear": 1969,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Tokyo Movie Shinsha"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Kozue Ayuhara is a highschool girl and enthusiastic volleyball player. Her dream is to play in the Japanese national volleyball team. During the series she makes it from the school district league up to the Japanese volleyball finals, step by step till the international volleyball championship. But the faster and higher Kozue climbs the career ladder up, the more she gets confronted with the dark side of success: too high expectations, self-conceit and envy are progressing towards serious problems.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Shoujo",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Volleyball",
+                "rank": 88,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Adoption",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Tragedy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School Club",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Female Cast",
+                "rank": 71,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Foreign",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Primarily Teen Cast",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Delinquents",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 40199,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "SIDE_STORY",
+                  "node": {
+                    "id": 9163,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SIDE_STORY",
+                  "node": {
+                    "id": 9164,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SIDE_STORY",
+                  "node": {
+                    "id": 9165,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SIDE_STORY",
+                  "node": {
+                    "id": 9166,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 3009,
+            "title": {
+              "romaji": "Tiger Mask",
+              "english": "Tiger Mask",
+              "native": "タイガーマスク"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b3009-7bHBgwMpl7TL.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b3009-7bHBgwMpl7TL.jpg",
+              "color": "#e4bb50"
+            },
+            "bannerImage": null,
+            "genres": ["Sports"],
+            "averageScore": 69,
+            "format": "TV",
+            "episodes": 105,
+            "season": "FALL",
+            "seasonYear": 1969,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Tiger Mask (whose real name was Naoto Date) was a feared heel wrestler in America who was extremely vicious in the ring. However, he became a face after returning to Japan when a young boy said that he wanted to be a villain like Tiger Mask when he grew up. The boy resided in an orphanage, the same one that Tiger Mask grew up in during his childhood. Feeling that he did not want the boy to idolize a villain, Tiger was inspired to be a heroic wrestler.<br><br>\nThe main antagonist in the manga and anime was Tiger's Cave, a mysterious organization that trained young people to be villainous heel wrestlers on the condition that they gave half of their earnings to the organization. Tiger Mask was once a member of Tiger's Cave under the name \"Yellow Devil\", but no longer wanted anything to do with them, instead donating his money to the orphanage. This infuriated the leader of the organization and he sent numerous assassins, including other professional wrestlers, to punish him.<br><br>\n(Source: Wikipedia)",
+            "duration": 23,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Wrestling",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Martial Arts",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Revenge",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Foreign",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Criminal Organization",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SEQUEL",
+                  "node": {
+                    "id": 5832,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 60575,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 21682,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SUMMARY",
+                  "node": {
+                    "id": 18061,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SUMMARY",
+                  "node": {
+                    "id": 18063,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "PARENT",
+                  "node": {
+                    "id": 148001,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 3024,
+            "title": {
+              "romaji": "Ribbon no Kishi",
+              "english": "Princess Knight",
+              "native": "リボンの騎士"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/3024-OaPzY6IV9cLl.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/3024-OaPzY6IV9cLl.png",
+              "color": "#e48643"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/3024-hH5aU722H8NJ.jpg",
+            "genres": ["Action", "Fantasy", "Mystery", "Romance"],
+            "averageScore": 65,
+            "format": "TV",
+            "episodes": 52,
+            "season": "SPRING",
+            "seasonYear": 1967,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Mushi Production"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Princess Sapphire is a girl raised as a Prince. Through the mischief of an angel, the princess is born with both a girl's body and boy's mind. Since there is no boy successor in her kingdom, Sapphire is raised as a boy, but evil ministers try to reveal her secret. Unable to put up with the kind of vicious conduct prevailing in the kingdom, Sapphire disguises herself as \"Princess Knight\" and wields her sword of justice.<br><br>\nThis is an animated version of the girls' manga featuring Sapphire's romance and adventure, which marked the first made-for-TV animated program geared towards girls in Japan.<br><br>\n(Source: Official site)",
+            "duration": 23,
+            "tags": [
+              {
+                "name": "Female Protagonist",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Foreign",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shoujo",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Fairy Tale",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gender Bending",
+                "rank": 55,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "LGBTQ+ Themes",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "amNCTbRJL44",
+              "site": "youtube"
+            },
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 31676,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "PREQUEL",
+                  "node": {
+                    "id": 103709,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "CHARACTER",
+                  "node": {
+                    "id": 6513,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 1572,
+            "title": {
+              "romaji": "Jungle Taitei",
+              "english": "Kimba the White Lion",
+              "native": "ジャングル大帝"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/1572-IIMmL0Mpbpop.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/1572-IIMmL0Mpbpop.png",
+              "color": "#ffae35"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/n1572-81YLQHgwGSn8.jpg",
+            "genres": ["Adventure"],
+            "averageScore": 62,
+            "format": "TV",
+            "episodes": 52,
+            "season": "FALL",
+            "seasonYear": 1965,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Mushi Production"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "The series follows the adventures Leo, a young lion cub. Leo becomes king of the jungle when his father, the previous king of the jungle is killed by a human hunter.<br><br>(Source: Anime News Network)",
+            "duration": 23,
+            "tags": [
+              {
+                "name": "Animals",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kids",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Environmental",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Episodic",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 31771,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "SIDE_STORY",
+                  "node": {
+                    "id": 18533,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 2556,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SIDE_STORY",
+                  "node": {
+                    "id": 2264,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SEQUEL",
+                  "node": {
+                    "id": 2565,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 20381,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "CHARACTER",
+                  "node": {
+                    "id": 9991,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "CHARACTER",
+                  "node": {
+                    "id": 2213,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ADAPTATION",
+                  "node": {
+                    "id": 146952,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 4513,
+            "title": {
+              "romaji": "Hakujaden",
+              "english": "Panda and the Magic Serpent",
+              "native": "白蛇伝"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b4513-CimSIpSc6u3Z.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b4513-CimSIpSc6u3Z.jpg",
+              "color": "#f14335"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/4513-gnFAqZMVBfoj.jpg",
+            "genres": ["Adventure", "Fantasy", "Romance"],
+            "averageScore": 56,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 1958,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "As a young boy, Xu-Xian is forced to free his pet, a small snake. Unbeknownst to him, the snake is actually a young snake goddess named Bai-Niang and she is in love with him. Many years later, when they are both adults, the princess is magically transformed into a human and sets out to find her love. But the local wizard believes her to be a vampire, and banishes Xu-Xian from the village in order to save him. Xu-Xian's pet pandas Panda and Mimi set out to save him and bring him, in the process becoming leaders of an animal gang.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 78,
+            "tags": [
+              {
+                "name": "Historical",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Fairy Tale",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Foreign",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ancient China",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kids",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shapeshifting",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Musical Theater",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Youkai",
+                "rank": 45,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Afterlife",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 203022,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 2406,
+            "title": {
+              "romaji": "Sazae-san",
+              "english": null,
+              "native": "サザエさん"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx2406-nP8NIct9Sci3.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx2406-nP8NIct9Sci3.jpg",
+              "color": "#f1bb43"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2406-ROqXxejQ5bH9.jpg",
+            "genres": ["Comedy", "Slice of Life"],
+            "averageScore": 56,
+            "format": "TV",
+            "episodes": null,
+            "season": "FALL",
+            "seasonYear": 1969,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Eiken"
+                }
+              ]
+            },
+            "nextAiringEpisode": {
+              "episode": 2856,
+              "airingAt": 1793525400
+            },
+            "description": "The main character is a mother named Sazae-san. She lives in a house with her husband, her kid, her siblings and her parents. The show is the ultimate family program and tends to follow traditional themes. Think of this show as the Japanese equivalent to \"The Partridge Family\" and you'll get a good feel for this show's atmosphere. Don't expect to see things like violence, swearing, kung-fu action or magical girls. The plots are more like \"Today, Sazae-san goes to the new mall and gets lost\". Such \"boring\" plotlines and the simplistic art are often a turn-off to non-Japanese audiences, but most Japanese find the show incredibly good. As a result, it continues to be one of the top ratings grabbers on TV and is one of the few anime that is considered \"acceptable\" by adults.",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Educational",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Family Life",
+                "rank": 86,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ensemble Cast",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Josei",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Slavery",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 43192,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "CHARACTER",
+                  "node": {
+                    "id": 101099,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SIDE_STORY",
+                  "node": {
+                    "id": 116324,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 19973,
+            "title": {
+              "romaji": "Ashita no Joe Pilots",
+              "english": null,
+              "native": "あしたのジョー パイロットフィルム"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx19973-csV8PzQ4eKx2.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx19973-csV8PzQ4eKx2.png",
+              "color": "#e4865d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/19973-PRQ41BeIlubs.jpg",
+            "genres": ["Action", "Drama", "Sports"],
+            "averageScore": 60,
+            "format": "SPECIAL",
+            "episodes": 2,
+            "season": "FALL",
+            "seasonYear": 1969,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Mushi Production"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Pilot films for <i>Ashita no Joe</i>, released as bonus material on the series' DVD box.<br>\n<br>\n- Aoyama-hen (prod. 1969/11/06)<br>\n- Rikiishi-hen (prod. 1969/12/22)",
+            "duration": 10,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Boxing",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Delinquents",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rehabilitation",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achronological Order",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Crime",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Yakuza",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ojou-sama",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Teen Cast",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "OTHER",
+                  "node": {
+                    "id": 2402,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 31303,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 1497,
+            "title": {
+              "romaji": "Aru Machi Kado no Monogatari",
+              "english": "Tales of the Street Corner",
+              "native": "ある街角の物語"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/1497.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/1497.jpg",
+              "color": "#f1935d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1497-qivayRHBmgOZ.jpg",
+            "genres": ["Drama", "Fantasy", "Music", "Romance"],
+            "averageScore": 62,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 1962,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "The scene is set with a poster on a street corner, a girl who cherishes her teddy bear, a street lamp and a playful moth that is drawn to the lamp. These creatures and inanimate objects, each with their own dramas, get involved in a war and the story ends in a tragic climax. This is a private animated piece that expresses feelings rather than telling a story. It can be said that Tezuka Osamu, frustrated with working for big companies, made an attempt here to depict what he really wanted in his animation. This work illustrates that even a poster on the wall can have a vivid drama behind it, and brings the magic of animation alive for us.",
+            "duration": 38,
+            "tags": [
+              {
+                "name": "No Dialogue",
+                "rank": 76,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "War",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Urban",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Jazz Music",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Politics",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Animals",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 8234,
+            "title": {
+              "romaji": "Moomin",
+              "english": null,
+              "native": "ムーミン"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx8234-QwZruOPEXm6H.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx8234-QwZruOPEXm6H.png",
+              "color": "#f1930d"
+            },
+            "bannerImage": null,
+            "genres": ["Adventure", "Comedy", "Fantasy", "Slice of Life"],
+            "averageScore": 66,
+            "format": "TV",
+            "episodes": 65,
+            "season": "FALL",
+            "seasonYear": 1969,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "Very loosely based upon the Moomin books by Finnish author Tove Jansson. Jansson, however, never really approved of the series due to dramatic changes in plot, atmosphere, character personality, appearance and names etc. The series was directed to adults rather than children.<br><br>\n(Source: Wikipedia)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Classic Literature",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 2150,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 8235,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "OTHER",
+                  "node": {
+                    "id": 147725,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 11471,
+            "title": {
+              "romaji": "Dororo (Pilot)",
+              "english": null,
+              "native": "どろろ（パイロット）"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/11471-lJANGo0iznfq.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/11471-lJANGo0iznfq.png",
+              "color": "#e4930d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/11471-kK0d2ed5YnZf.jpg",
+            "genres": ["Action", "Supernatural"],
+            "averageScore": 55,
+            "format": "SPECIAL",
+            "episodes": 1,
+            "season": "WINTER",
+            "seasonYear": 1968,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "Before producing a TV series, a pilot film was made to let sponsors and television stations grasp the work's pervasive quality. This is the pilot film for \"Dororo\" in which the characters are closer to those of the original story compared to the characters in the TV series. The faces and personalities of the characters in the TV series are altered from time to time to gain popularity among its viewers. As a result, sometimes viewers really loved it, but at other times it didn't go over as well. The pilot for \"Dororo\" was made in color, but the TV series was monochrome due to a tighter budget. The story depicts a journey in which the boy thief named Dororo and a cursed man called Hyakkimaru destroy monsters. Hyakkimaru can be a complete \"human\" only after he destroys 48 devils.<br><br>\n(Source: Official site)",
+            "duration": 14,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Samurai",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Youkai",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "oymtKQkT14M",
+              "site": "youtube"
+            },
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 31658,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "PARENT",
+                  "node": {
+                    "id": 5760,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 3356,
+            "title": {
+              "romaji": "Mahoutsukai Sally",
+              "english": null,
+              "native": "魔法使いサリー"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx3356-trl1vv3OYjw5.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx3356-trl1vv3OYjw5.png",
+              "color": "#e4bb28"
+            },
+            "bannerImage": null,
+            "genres": ["Fantasy", "Mahou Shoujo"],
+            "averageScore": 65,
+            "format": "TV",
+            "episodes": 109,
+            "season": "WINTER",
+            "seasonYear": 1967,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Sally is the witch princess of the Magic Kingdom who longs to visit the mortal realm. One day, by mistake, Sally teleports there and uses her magic to fend off a couple of burglars menacing two schoolgirls. Immediately befriended by her new acquaintances—tomboyish Yoshiko Hanamura and girly Sumire Kasugano—Sally decides to stay on Earth indefinitely, leading to mischief.",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Shoujo",
+                "rank": 100,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Witch",
+                "rank": 90,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Child Cast",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Isekai",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SEQUEL",
+                  "node": {
+                    "id": 3875,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 42461,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 2811,
+            "title": {
+              "romaji": "Sora Tobu Yuurei Sen",
+              "english": "The Flying Ghost Ship",
+              "native": "空飛ぶゆうれい船"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/2811.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/2811.jpg",
+              "color": "#f1931a"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2811-T6KKtMANmCzM.jpg",
+            "genres": ["Action", "Adventure", "Drama", "Mecha", "Sci-Fi"],
+            "averageScore": 60,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 1969,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "Hayato's city is devastated by a giant robot, his parents are killed in the massacre. The only friend left to him is his dog Jack, the only things left are mom's shoe and a picture of a man and a woman who, as his father tells him on his deathbed, are his real parents. Now Hayato wants revenge on the one who is said to have sent the robot: the terrible Ghost Ship which threatens ships and is rumored to wish to exterminate everything. But then Hayato stumbles on a secret underground factory of Mr. Kurosio, owner of mostly everything in the city - and realizes things are not as Mr. Kurosio has been telling him... Someone terrible lives in a castle under the sea... Hayato is trying to tell people the truth - but his life is now in danger by from the one who does not wish to be known. Then Hayato is saved by no other than the captain of the Ghost Ship... Hayato is about to uncover more than the one secret he has been searching for.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 60,
+            "tags": [
+              {
+                "name": "Conspiracy",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Ghost",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ships",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Robots",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tanks",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kaiju",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Skeleton",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Orphan",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 113015,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 3905,
+            "title": {
+              "romaji": "Wanpaku Ouji no Orochi Taiji",
+              "english": "Orochi, the Eight-Headed Dragon",
+              "native": "わんぱく王子の大蛇退治"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx3905-uu3lXujtSS6M.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx3905-uu3lXujtSS6M.jpg",
+              "color": "#d6501a"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/3905-sVCTDm9yYTmj.jpg",
+            "genres": ["Adventure"],
+            "averageScore": 64,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 1963,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "This anime film tells the story of the god Susanoo (as a cute boy), whose mother Izanami had passed away. He was deeply hurt by the loss of his mother, but his father Izanagi told him that once she had died, she had gone to the heavens. Despite Izanagi's warnings, Susanoo eventually sets off to find her. Along with his companions Akahana (a little talking rabbit) and Taitanbo (a strong but friendly giant from the Land of Fire), Susanoo overcomes all obstacles in his long, wonderous voyage. He eventually comes to the Izumo Province, where he meets a little girl, Princess Kushinada, whom he becomes friends with (He also thought she was so beautiful that she looks like his mother Izanami). Kushinada's family tells Susanoo that their other seven daughters were sacrificed to the fearsome eight-headed serpent, the Orochi. Susanoo was so infatuated with Kushinada that he decided to help her family protect her and slay the Orochi once and for all, as he, Akahana and Taitanbo prepare for the spectacular showdown . . .<br><br>\n(Source: nationmaster.com)",
+            "duration": 86,
+            "tags": [
+              {
+                "name": "Mythology",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dragons",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kids",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 8394,
+            "title": {
+              "romaji": "Cyborg 009",
+              "english": "Cyborg 009",
+              "native": "サイボーグ009"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx8394-nO1PASsb5Tkj.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx8394-nO1PASsb5Tkj.jpg",
+              "color": null
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/8394-EAFkJkSEfuVO.jpg",
+            "genres": ["Action", "Adventure", "Mecha", "Sci-Fi"],
+            "averageScore": 60,
+            "format": "TV",
+            "episodes": 26,
+            "season": "SPRING",
+            "seasonYear": 1968,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Nine people are tricked and forced by a evil organization called The Neo-Black Ghosts into becoming cyborgs. But they refuse to become the neo-black ghosts killing machines, and guided by Dr. Gilmore the cyborgs escape. They team up in order to fight the neo-black ghosts and injustice where ever it shows it's face.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 24,
+            "tags": [
+              {
+                "name": "Episodic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cyborg",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 31639,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 1678,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 4690,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 11755,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ADAPTATION",
+                  "node": {
+                    "id": 202189,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 2279,
+            "title": {
+              "romaji": "Nagagutsu wo Haita Neko",
+              "english": "The Wonderful World of Puss 'n Boots",
+              "native": "長靴をはいた猫"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx2279-Ruw2GfDQJI21.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx2279-Ruw2GfDQJI21.jpg",
+              "color": "#f19335"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2279-C7VcDnVtTM4g.jpg",
+            "genres": ["Adventure", "Comedy", "Fantasy"],
+            "averageScore": 66,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 1969,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "A comic adaptation of Charles Perrault's classic fairy tale about a clever musketeer feline in boots. His goal is to help the weak and defenseless, but his saving a mouse makes him the most wanted in all Catdom. On the run from the notorious Three Blunderers, Perro befriends a young miller's boy, Pierre, and together, they decide to seek their fame and fortune. When they cross paths with the lovely Princess Rosa, Perro determines to get Pierre hitched to Her Royal Highness. But the wicked ogre, Lucifer, also has his sights on Rosa. Nonetheless, with the help of a band of comic mice thieves, Perro manages to get Pierre to become engaged to Rosa. But on the night of the full moon, Lucifer kidnaps the princess, and Pierre, Perro, and the mice bandits set off to rescue her.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 80,
+            "tags": [
+              {
+                "name": "Kids",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Classic Literature",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "CRhm9nGfh2c",
+              "site": "youtube"
+            },
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SEQUEL",
+                  "node": {
+                    "id": 5006,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "CHARACTER",
+                  "node": {
+                    "id": 127506,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 91347,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 5688,
+            "title": {
+              "romaji": "Gegege no Kitarou (1968)",
+              "english": null,
+              "native": "ゲゲゲの鬼太郎"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/5688.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/5688.jpg",
+              "color": "#d61a1a"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/5688-fLWmh2odslhU.jpg",
+            "genres": ["Adventure", "Comedy", "Fantasy", "Horror", "Supernatural"],
+            "averageScore": 65,
+            "format": "TV",
+            "episodes": 65,
+            "season": "WINTER",
+            "seasonYear": 1968,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "Kitarou, a ghost, spends his afterlife helping humans in need of his skills. He thwarts the plans of evil spirits who live to torment humanity.",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Youkai",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ghost",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Episodic",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 40499,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 2165,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 6971,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 7307,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 7619,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 8149,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 100978,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 6303,
+            "title": {
+              "romaji": "Perman",
+              "english": null,
+              "native": "パーマン"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/6303.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/6303.jpg",
+              "color": "#e47828"
+            },
+            "bannerImage": null,
+            "genres": ["Comedy"],
+            "averageScore": 66,
+            "format": "TV",
+            "episodes": 54,
+            "season": "SPRING",
+            "seasonYear": 1967,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": null,
+            "duration": 22,
+            "tags": [
+              {
+                "name": "Super Power",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kids",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "School",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Superhero",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Episodic",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "jMaSpTM1k9g",
+              "site": "youtube"
+            },
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "PREQUEL",
+                  "node": {
+                    "id": 11595,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 142779,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 6953,
+            "title": {
+              "romaji": "Ningen Doubutsuen",
+              "english": "Human Zoo",
+              "native": "人間動物園"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/6953.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/6953.jpg",
+              "color": "#937828"
+            },
+            "bannerImage": null,
+            "genres": [],
+            "averageScore": 24,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "<i>Ningen Doubutsuen</i> is based on a poem by Shuntarou Tanikawa.\n<br><br>\nThe film won the Special Jury Prize at Annecy in 1963 and the bronze award for animation at the 1963 Biennale in Venice. It also won the 1965 Oofuji Noburou Award.",
+            "duration": 2,
+            "tags": [
+              {
+                "name": "No Dialogue",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Satire",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 4481,
+            "title": {
+              "romaji": "Saiyuuki",
+              "english": "Alakazam the Great",
+              "native": "西遊記"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx4481-teZlyolwFmuG.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx4481-teZlyolwFmuG.png",
+              "color": "#f19335"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/n4481-VruxM6ssgKty.jpg",
+            "genres": ["Adventure", "Fantasy"],
+            "averageScore": 56,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 1960,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Alakazam is a young and brave monkey who convinces all the other monkeys to make him their king. After attaining the throne and learning magic, he becomes so vain that he goes to heaven to challenge the gods. He is defeated by King Amo, and sentenced to serve as the bodyguard of Prince Amat in order to learn humility.\n<br>\n---\n<br>\nOsamu Tezuka was named as a director of the film by Toei Company. However, Tezuka later stated that the only time he was in the studio was to pose for publicity photos. His involvement in promoting the film, however, led to his interest in animation.\n\n\n",
+            "duration": 88,
+            "tags": [
+              {
+                "name": "Classic Literature",
+                "rank": 86,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mythology",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Wuxia",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Foreign",
+                "rank": 75,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Musical Theater",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Gods",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 49507,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 3285,
+            "title": {
+              "romaji": "Himitsu no Akko-chan",
+              "english": null,
+              "native": "ひみつのアッコちゃん"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/3285.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/3285.jpg",
+              "color": "#fed650"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/3285-LEE0pWQWYqAV.jpg",
+            "genres": ["Comedy", "Mahou Shoujo"],
+            "averageScore": 66,
+            "format": "TV",
+            "episodes": 94,
+            "season": "WINTER",
+            "seasonYear": 1969,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Atsuko \"Akko-chan\" Kagami (known variously as \"Stilly,\" \"Caroline,\" or \"Julie\" in Western versions of the anime) is an energetic elementary school girl who has an affinity for mirrors. One day, her favorite mirror which was given to Akko by her mother (or in some versions, by her father, as a present from India) is broken, and she prefers to bury it in her yard rather than throw it to the trash can. In her dreams, she is contacted by a spirit (or in some cases the Queen of the Mirror Kingdom) who is moved that the little girl would treat the mirror so respectfully and not simply throw it away. Akko-chan is then given the gift of a magical mirror and taught an enchantment that will allow her to transform into anything she wishes.<br><br>\n(Source: Wikipedia)",
+            "duration": 20,
+            "tags": [
+              {
+                "name": "Shoujo",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Female Protagonist",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shapeshifting",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Child Cast",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 3838,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 3839,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 51406,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 2686,
+            "title": {
+              "romaji": "Tetsujin 28-gou",
+              "english": "Gigantor",
+              "native": "鉄人28号"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx2686-TuhNXLgXsszW.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx2686-TuhNXLgXsszW.png",
+              "color": null
+            },
+            "bannerImage": null,
+            "genres": ["Adventure", "Mecha", "Sci-Fi"],
+            "averageScore": 59,
+            "format": "TV",
+            "episodes": 83,
+            "season": "FALL",
+            "seasonYear": 1963,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Eiken"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Dr.Haneda was developing experimental giant robot warriors to fight the allies during the Second World War, but before his creations could see action, Allied bombs destroyed the facility and killed him. A decade later criminals discovered two of the surviving prototypes, #26 and 27 in the series, and used the remote controlled robots to commit a number of crimes. Young Shotaro Haneda, the twelve year old son of Dr.Haneda, did some investigating and discovered that the mob were hunting for the twenty-eighth robot in the series, rumoured to be the most powerful of them all. Racing the villains, Shotaro discovers the robot first, along with Dr.Shikashima, a colleague of his father's who was also believed killed by the Allied bombing. Together the two prevent Tetusjin-28 (the robot's official designation) from falling into the hands of the bad guys, and decide to dedicate him to peace rather than war.<br><br>\nShotaro fought crime for a long time, supported by Dr.Shikashima, who would repair Tetsujin-28 when he was damaged, and by police officer Otsuka. Shotaro even battled the alien Magmans, invaders from the planet Magma, who came to Earth late in his career, bringing their own giant robots, Magma X and Gold Wolf, with them.",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Achromatic",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Robot",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Detective",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 76486,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 2337,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SEQUEL",
+                  "node": {
+                    "id": 145563,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 2047,
+            "title": {
+              "romaji": "Ningyo",
+              "english": "Mermaid",
+              "native": "人魚"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/2047.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/2047.jpg",
+              "color": null
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2047-CYFpeeBjnDOM.jpg",
+            "genres": ["Fantasy"],
+            "averageScore": 58,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 1964,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "In a fictional place where using the imagination is banned, a boy saves a fish, which surprises everyone by turning into a mermaid. The boy is arrested for imagining this \"nonsense\", and is robbed of his imagination as punishment.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 8,
+            "tags": [
+              {
+                "name": "Mermaid",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Memory Manipulation",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Torture",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Satire",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 6535,
+            "title": {
+              "romaji": "Ai",
+              "english": "Love",
+              "native": "愛"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b6535-N3wje4QfC3qX.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b6535-N3wje4QfC3qX.jpg",
+              "color": "#782843"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/6535-0YNhxcv2cQlm.jpg",
+            "genres": ["Psychological", "Romance"],
+            "averageScore": 37,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "A short experimental anime about a woman desperately in love. Made by Yoji Kuri, a well-known Japanese indie animator.\n",
+            "duration": 5,
+            "tags": [
+              {
+                "name": "Primarily Adult Cast",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Heterosexual",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Surreal Comedy",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 7610,
+            "title": {
+              "romaji": "Anju to Zushioumaru",
+              "english": null,
+              "native": "安寿と厨子王丸"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx7610-knPFRnDYQmHt.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx7610-knPFRnDYQmHt.jpg",
+              "color": "#e4bb93"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/7610-16TbZmLUGIo0.jpg",
+            "genres": ["Fantasy"],
+            "averageScore": 60,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 1961,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "After their father quarrels with local military men, Anju and Zushio are forced to flee, but they are captured and sold into slavery. When their mother dies, they are sold to Sansho the Bailiff, a cruel man who subjects them to hideous torments.<br>\nWhile Anju falls into a lake and is transformed into a swan, Zushio escapes and after being adopted to a nobleman grows to a young man. He will then fight to defeat the evil Dayu and free all the slaves.<br><br>\n(Source: AniDB)",
+            "duration": 83,
+            "tags": [
+              {
+                "name": "Historical",
+                "rank": 92,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Slavery",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Mythology",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Animals",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coming of Age",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Time Skip",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Musical Theater",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Archery",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mermaid",
+                "rank": 45,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 5875,
+            "title": {
+              "romaji": "Kobu-tori",
+              "english": null,
+              "native": "瘤取り (1929)"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/5875.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/5875.jpg",
+              "color": null
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Supernatural"],
+            "averageScore": 54,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "Short movie from 1929.",
+            "duration": 14,
+            "tags": [
+              {
+                "name": "Achromatic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Youkai",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Dancing",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Slapstick",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Fairy Tale",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 126177,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 177218,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 6872,
+            "title": {
+              "romaji": "Cyborg 009 (Movie)",
+              "english": "Cyborg 009",
+              "native": "サイボーグ009"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx6872-yvxqZqLuVOZh.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx6872-yvxqZqLuVOZh.jpg",
+              "color": "#50a1f1"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Adventure", "Drama", "Sci-Fi"],
+            "averageScore": 54,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SUMMER",
+            "seasonYear": 1966,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "Original Cyborg 009 1966 movie based on the manga. Features 009's origin and an epic battle against Black Ghost and their evil robot forces.",
+            "duration": 65,
+            "tags": [
+              {
+                "name": "Robots",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Conspiracy",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Ensemble Cast",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Superhero",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Cyborg",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Slapstick",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SEQUEL",
+                  "node": {
+                    "id": 7290,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 31639,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 101819,
+            "title": {
+              "romaji": "Acchi wa Kocchi",
+              "english": "Here and There",
+              "native": "あっちはこっち"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx101819-E7b8KZXj9EFa.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx101819-E7b8KZXj9EFa.png",
+              "color": null
+            },
+            "bannerImage": null,
+            "genres": [],
+            "averageScore": 53,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "Here and There (1961) fuses live action and animation and was screened at Three-Person Animation 2. Musique concrète and electronic sounds made by modulating everyday noises such as flush toilets are interspersed throughout the work. Contrasts between opposites, as encapsulated by the title – between live-action space and animated space, between mundane sounds of daily life and bizarre noises – and the war between the sexes, a signature theme in Yōji Kuri’s work, are also palpable in the juxtaposition of musique concrète and scat singing.",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Surreal Comedy",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kuudere",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 1982,
+            "title": {
+              "romaji": "Osu",
+              "english": "Male",
+              "native": "おす"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx1982-XW3AItdy1oRi.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/nx1982-XW3AItdy1oRi.jpg",
+              "color": null
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/n1982-TNfY8MY2lS2E.jpg",
+            "genres": ["Slice of Life"],
+            "averageScore": 46,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 1962,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "A cat just wants some alone time with his girl, but is interrupted by his stressed owner. Can't those stupid humans just keep things like relationships simple?",
+            "duration": 3,
+            "tags": [
+              {
+                "name": "Animals",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Crime",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              }
+            ],
+            "trailer": {
+              "id": "MyN1NXlfJG0",
+              "site": "youtube"
+            },
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 5834,
+            "title": {
+              "romaji": "Kyojin no Hoshi",
+              "english": null,
+              "native": "巨人の星"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5834-MOjnHPAqVfPG.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx5834-MOjnHPAqVfPG.png",
+              "color": "#d6931a"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/5834-pXxzXxCyj7fn.jpg",
+            "genres": ["Drama", "Sports"],
+            "averageScore": 64,
+            "format": "TV",
+            "episodes": 182,
+            "season": "SPRING",
+            "seasonYear": 1968,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Tokyo Movie Shinsha"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "The story is about Hyuma Hoshi, a promising young baseball pitcher who dreams of becoming a top star like his father Ittetsu Hoshi in the professional Japanese league. His father was once a 3rd baseman until he was injured in World War II and was forced to retire. The boy would join the ever popular Giants team, and soon he realized the difficulty of managing the high expectations. From the grueling training to battling the rival Mitsuru Hanagata on the Hanshin Tigers, he would have to take out his best pitching magic to step up to the challenge.<br><br>\n(Source: Wikipedia)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Shounen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Baseball",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tragedy",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": true,
+                "isMediaSpoiler": true
+              }
+            ],
+            "trailer": {
+              "id": "amUAybsv8aM",
+              "site": "youtube"
+            },
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SEQUEL",
+                  "node": {
+                    "id": 15875,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 45305,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "SIDE_STORY",
+                  "node": {
+                    "id": 17441,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SIDE_STORY",
+                  "node": {
+                    "id": 17443,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SIDE_STORY",
+                  "node": {
+                    "id": 17445,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 17439,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SIDE_STORY",
+                  "node": {
+                    "id": 17447,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "CHARACTER",
+                  "node": {
+                    "id": 141984,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 5997,
+            "title": {
+              "romaji": "Sabu to Ichi Torimono Hikae",
+              "english": "Sabu & Ichi's Arrest Warrant",
+              "native": "佐武と市捕物控"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5997-MiaOOIfCYak2.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx5997-MiaOOIfCYak2.png",
+              "color": "#d6861a"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/5997-5GFvsDsCGKyF.jpg",
+            "genres": ["Action", "Adventure", "Drama"],
+            "averageScore": 68,
+            "format": "TV",
+            "episodes": 52,
+            "season": "FALL",
+            "seasonYear": 1968,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                },
+                {
+                  "name": "Mushi Production"
+                },
+                {
+                  "name": "Studio Zero"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "The series follows the adventures of Sabu, a young Edo bakufu investigator traveling with the blind master swordsman Ichi. In their travels, they assist the common people in solving mysteries and righting wrongs (usually committed by bandits or corrupt officials). Sabu is engaged to Midori, the daughter of his boss, who works as a police officer for the Tokugawa shogunate.<br><br>\n(Source: Wikipedia)",
+            "duration": 22,
+            "tags": [
+              {
+                "name": "Seinen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 42427,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 148818,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 9884,
+            "title": {
+              "romaji": "Osomatsu-kun",
+              "english": null,
+              "native": "おそ松くん(1966年版)"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/9884-CGiD1zldkPwY.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/9884-CGiD1zldkPwY.png",
+              "color": null
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/9884-R5kZqe0lcBeF.jpg",
+            "genres": ["Comedy"],
+            "averageScore": 61,
+            "format": "TV",
+            "episodes": 56,
+            "season": "WINTER",
+            "seasonYear": 1966,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Studio Zero"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "A wacky comedy about identical sextuplets causing wild pranks. Each episode features 2 stories.<br>\n<br>\n<i>Note: The original 1966 broadcast of Osomatsu-kun ran over 60 time slots. Four of these were entirely rerun content, while eight others featured one new half-episode and one rerun.</i>",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Slapstick",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Episodic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Twins",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Male Cast",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kids",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 9883,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 54033,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 2765,
+            "title": {
+              "romaji": "Momotarou: Umi no Shinpei",
+              "english": "Momotaro, Sacred Sailors",
+              "native": "桃太郎　海の神兵"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b2765-mFlSYnsfVtzR.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b2765-mFlSYnsfVtzR.jpg",
+              "color": null
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2765-hEuOqeT8LaqK.jpg",
+            "genres": ["Action"],
+            "averageScore": 46,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 1945,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "Like the prior film, the movie features the \"Peach Boy\" character of Japanese folklore. The film is about the surprise maneuver on Sulawesi island, depicting parachute troops' actions. The whole movie also depicts how Japan \"liberates Asia\", as proclaimed by the Government at the time.<br><br>\nThere are some musical scenes. Of note is The Song of AIUEO (&#12450;&#12452;&#12454;&#12456;&#12458;&#12398;&#27468;, AIUEO no Uta), a scene where Japanese soldiers teach local animals how to speak.<br><br>\n(Source: Wikipedia)",
+            "duration": 74,
+            "tags": [
+              {
+                "name": "Achromatic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Aviation",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Primarily Animal Cast",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "War",
+                "rank": 68,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Musical Theater",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Coastal",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "PREQUEL",
+                  "node": {
+                    "id": 6857,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 5023,
+            "title": {
+              "romaji": "Ninpuu Kamui Gaiden",
+              "english": "The Legend of Ninja Kamui",
+              "native": "忍風カムイ外伝"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5023-iSXRK58Swz4V.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx5023-iSXRK58Swz4V.png",
+              "color": "#f19343"
+            },
+            "bannerImage": null,
+            "genres": ["Action", "Adventure"],
+            "averageScore": 61,
+            "format": "TV",
+            "episodes": 26,
+            "season": "SPRING",
+            "seasonYear": 1969,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Eiken"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Kamui is a ninja from the Edo period who has decided to leave his clan. After doing so he is pursued relentlessly by the members of his former clan; who consider him to be a traitor and therefore wish to kill him. Kamui then wanders around Japan to escape from them by using his intelligence and great abilities to survive. In the course of the series Kamui begins to suffer from paranoia because of his status as a persecuted man. Kamui then started to believe that everybody wished to murder him and became distrusting of everyone he came across.<br><br>\n(Source: Wikipedia)",
+            "duration": 22,
+            "tags": [
+              {
+                "name": "Historical",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Seinen",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ninja",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Fugitive",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Samurai",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 41749,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "SUMMARY",
+                  "node": {
+                    "id": 138804,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 3900,
+            "title": {
+              "romaji": "Ougon Bat",
+              "english": "Golden Bat",
+              "native": "黄金バット"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/3900.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/3900.jpg",
+              "color": "#e4bb5d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/3900-H71iDcbTR1hg.jpg",
+            "genres": ["Action", "Sci-Fi"],
+            "averageScore": 60,
+            "format": "TV",
+            "episodes": 52,
+            "season": "SPRING",
+            "seasonYear": 1967,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "A golden warrior wearing a cape and a scepter, Ougon Bat was a protector spirit  from Atlantis reanimated by a scientist and his friends (specially the sweet Marie) from his tomb covered in hieroglyphics. His entry was heralded by a golden bat and a sinister laugh and he would put good use of his super powers to combat the evil forces of Dr. Zero.",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Anti-Hero",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Skeleton",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Episodic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Tokusatsu",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Super Power",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Superhero",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 138189,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 158678,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 170542,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 6056,
+            "title": {
+              "romaji": "Sasuke",
+              "english": "SASUKE",
+              "native": "サスケ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b6056-zTKPKiBiYsT1.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b6056-zTKPKiBiYsT1.png",
+              "color": "#93351a"
+            },
+            "bannerImage": null,
+            "genres": ["Action"],
+            "averageScore": 65,
+            "format": "TV",
+            "episodes": 29,
+            "season": "FALL",
+            "seasonYear": 1968,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Eiken"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "Sasuke is the son of a very skilled ninja, whose name is Ozaru. After the defeat of their lord, Yukimura Sanada, Tokugawa's and Hattori's ninjas begin to persecute all their enemies still alive: that means Ozaru and Sasuke must leave their house and start a violent struggle for their own life. Danger, vengeance, anger, loyalty, pain are the basic elements of this story, where the worst aspects of the human soul are described together with the growth of the main character, the young Sasuke.",
+            "duration": 20,
+            "tags": [
+              {
+                "name": "Ninja",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": {
+              "id": "0pn3hUyXyE4",
+              "site": "youtube"
+            },
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 136429,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 1984,
+            "title": {
+              "romaji": "Memory",
+              "english": null,
+              "native": "めもりい"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/1984-AxWxVpjQzLBB.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/1984-AxWxVpjQzLBB.png",
+              "color": "#784328"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1984-yE5h0iZoRH4p.jpg",
+            "genres": ["Mystery"],
+            "averageScore": 54,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 1964,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "This is a short, privately produced animated film. While elucidating the mystery and fuzziness as well as merits and demerits of memory in idealizing reality, the story develops into a tale of destruction of human beings, turning the existence of the earth into a memory of the universe. The production, only 5 minutes long, greatly helps expand the viewer's imagination, embodying the enchantment of animation.<br><br>\n(Source: AniDB)",
+            "duration": 5,
+            "tags": [
+              {
+                "name": "Philosophy",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 6993,
+            "title": {
+              "romaji": "Koneko no Rakugaki",
+              "english": null,
+              "native": "こねこのらくがき"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx6993-9K3SFQJ4bIAZ.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx6993-9K3SFQJ4bIAZ.png",
+              "color": "#e4931a"
+            },
+            "bannerImage": null,
+            "genres": ["Comedy"],
+            "averageScore": 54,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 1957,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "Yasuji Mori's short about a kitten drawing pictures on a wall.",
+            "duration": 13,
+            "tags": [
+              {
+                "name": "Kids",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "No Dialogue",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Drawing",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Trains",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SEQUEL",
+                  "node": {
+                    "id": 6994,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 3990,
+            "title": {
+              "romaji": "Kumo to Tulip",
+              "english": null,
+              "native": "くもとちゅうりっぷ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/3990.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/3990.jpg",
+              "color": null
+            },
+            "bannerImage": null,
+            "genres": [],
+            "averageScore": 52,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 1943,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "A spider attempts to lure a ladybug into his web. When she manages to escape and hide in a tulip, a storm comes that batters the spider, while the ladybug remains safe.",
+            "duration": 16,
+            "tags": [
+              {
+                "name": "Survival",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 4398,
+            "title": {
+              "romaji": "Kuro Nyago",
+              "english": null,
+              "native": "黒ニャゴ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/4398.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/4398.jpg",
+              "color": null
+            },
+            "bannerImage": null,
+            "genres": ["Fantasy"],
+            "averageScore": 45,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "A short movie from 1929 about four children who dream of having a pet cat. Their wishes are answered when they encounter a black cat who proceeds to sing them a song about how he and his tabby brother are descended from tigers.",
+            "duration": 3,
+            "tags": [
+              {
+                "name": "Animals",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Musical Theater",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kids",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 4439,
+            "title": {
+              "romaji": "Kurenai Sanshirou",
+              "english": "Judo Boy",
+              "native": "紅三四郎"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx4439-2jScXnDnAIeQ.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx4439-2jScXnDnAIeQ.jpg",
+              "color": "#f1ae43"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/n4439-RW4y3XO0Q9DP.jpg",
+            "genres": ["Action", "Sports"],
+            "averageScore": 57,
+            "format": "TV",
+            "episodes": 26,
+            "season": "SPRING",
+            "seasonYear": 1969,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "Young Sanshiro Kurenai is the proud heir of a judo dojo. One day, he finds his beloved father dead and a glass eye not too far from the corpse. Ready to avenge his father and take his honour back, Sanshiro and his friend Ken start searching for the mysterious one-eyed murderer ...\n<br><br>\n(Source: Anime News Network)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Martial Arts",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Episodic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Revenge",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Judo",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Shounen",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "SOURCE",
+                  "node": {
+                    "id": 129981,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 4948,
+            "title": {
+              "romaji": "Shounen Sarutobi Sasuke",
+              "english": "Magic Boy",
+              "native": "少年猿飛佐助"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx4948-jCgpSVUX3srk.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx4948-jCgpSVUX3srk.png",
+              "color": "#933528"
+            },
+            "bannerImage": null,
+            "genres": ["Adventure", "Fantasy"],
+            "averageScore": 55,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 1959,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "\"Magic Boy\" was the first ever Japanese animation to be released theatrically in North America. <br><br>\nSasuke, a boy vexed by an evil witch, studies magic and uses his powers to defeat her. <br><br>\n(Source: bcdb)",
+            "duration": 83,
+            "tags": [
+              {
+                "name": "Witch",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Magic",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Demons",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Historical",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Kids",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Skeleton",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": true
+              },
+              {
+                "name": "Samurai",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 30,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 11447,
+            "title": {
+              "romaji": "Yuurei-sen",
+              "english": null,
+              "native": "幽霊船"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/11447.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/11447.jpg",
+              "color": "#e4a143"
+            },
+            "bannerImage": null,
+            "genres": ["Supernatural"],
+            "averageScore": 53,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 1956,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "Film about a ghost ship. There is no dialogue, just music and a choir.",
+            "duration": 11,
+            "tags": [
+              {
+                "name": "Ships",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "No Dialogue",
+                "rank": 83,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Pirates",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Swordplay",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ghost",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Mixed Media",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 7494,
+            "title": {
+              "romaji": "Kyouiku Otogi Manga Usagi to Kame",
+              "english": "The Hare and the Tortoise",
+              "native": "教育お伽漫画　兎と亀"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b7494-UuW8hvHkhV9w.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b7494-UuW8hvHkhV9w.png",
+              "color": null
+            },
+            "bannerImage": null,
+            "genres": ["Fantasy"],
+            "averageScore": 48,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "The story develops based on The Hare and the Tortoise, a song for kids (lyrics by Wasaburo Ishihara; composed by Benjiro Nosho). The pictures are drawn with a simple technique using only lines. Despite being a silent film, it is designed to incorporate musical elements. For example, the lyrics of the song The Hare and the Tortoise are represented as musical notes coming out of the characters' mouths. The unique backgrounds remind us of scenery in some foreign country rather than a landscape used in an old Japanese folk tale. This film is one of Sanae Yamamoto's earliest works and is described in documents as being produced by Kitayama Eiga Seisakusho owned by Seitaro Kitayama, Yamamoto's teacher.\n<br><br>\n(Japanese Animated Film Classics)",
+            "duration": 7,
+            "tags": [
+              {
+                "name": "Animals",
+                "rank": 85,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 80,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Fairy Tale",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Rural",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "No Dialogue",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Educational",
+                "rank": 53,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Travel",
+                "rank": 46,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          }
+        ]
+      },
+      "p2": {
+        "pageInfo": {
+          "hasNextPage": false
+        },
+        "media": [
+          {
+            "id": 4044,
+            "title": {
+              "romaji": "Youkai Ningen Bem",
+              "english": "Humanoid Monster Bem",
+              "native": "妖怪人間ベム"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx4044-O1lQ5cT4If0A.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/bx4044-O1lQ5cT4If0A.jpg",
+              "color": "#e47843"
+            },
+            "bannerImage": null,
+            "genres": ["Horror"],
+            "averageScore": 59,
+            "format": "TV",
+            "episodes": 26,
+            "season": "FALL",
+            "seasonYear": 1968,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "Three monsters, Bem, who looks like a gangster, Bero, who looks like a boy, and Bera, a witch, act as agents of justice, hoping that they will be allowed to become human. Several episodes involve them protecting a young boy. The style of animation is fairly distinctive, and the storylines not without interest. <br><br>\n(Source: AniDB)",
+            "duration": 25,
+            "tags": [
+              {
+                "name": "Youkai",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Episodic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 4823,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 99856,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 107876,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ADAPTATION",
+                  "node": {
+                    "id": 140170,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "ADAPTATION",
+                  "node": {
+                    "id": 148318,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "SEQUEL",
+                  "node": {
+                    "id": 150846,
+                    "type": "ANIME"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 171371,
+                    "type": "MANGA"
+                  }
+                },
+                {
+                  "relationType": "ALTERNATIVE",
+                  "node": {
+                    "id": 173316,
+                    "type": "MANGA"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "id": 1989,
+            "title": {
+              "romaji": "Shizuku",
+              "english": "The Drop",
+              "native": "しずく"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/1989-Dm1rneWQkXBA.png",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/1989-Dm1rneWQkXBA.png",
+              "color": "#780d0d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1989-DLY41qSfk26E.jpg",
+            "genres": ["Comedy"],
+            "averageScore": 51,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 1965,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "A man trapped on a raft in the middle of the ocean is in desperate need of water. Luckily for him, a few drops of rain water are about to fall from the raft's mast. Comedy ensues as the thirsty man attempts to drink the few small drops of water.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 4,
+            "tags": [
+              {
+                "name": "Slapstick",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Survival",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Male Protagonist",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 3472,
+            "title": {
+              "romaji": "Tenrankai no E",
+              "english": "Pictures at an Exhibition",
+              "native": "展覧会の絵"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/3472.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/3472.jpg",
+              "color": "#e4ae5d"
+            },
+            "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/3472-gWmE0dnzTQZ6.jpg",
+            "genres": ["Comedy"],
+            "averageScore": 56,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "FALL",
+            "seasonYear": 1966,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "A series of short animated segments, without dialog, explore major characters of modern society, such as the plastic surgeon, the fashion-obsessed woman, the rumor-monger, and others, leading to a concluding comment on the progress of civilization.\n<br><br>\n(Source: Anime News Network)",
+            "duration": 39,
+            "tags": [
+              {
+                "name": "Satire",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "No Dialogue",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Boxing",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 6950,
+            "title": {
+              "romaji": "Aos",
+              "english": null,
+              "native": "アオス"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/6950.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/6950.jpg",
+              "color": null
+            },
+            "bannerImage": null,
+            "genres": ["Fantasy"],
+            "averageScore": 31,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "Surrealist explanation of reality. People enclosed in a room.<br>",
+            "duration": 9,
+            "tags": [
+              {
+                "name": "Achromatic",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Nudity",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 104189,
+            "title": {
+              "romaji": "Ahiru Riku Sentai",
+              "english": "The Quack Infantry Troop",
+              "native": "あひる陸戰隊"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx104189-x35c1ZO9N974.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/nx104189-x35c1ZO9N974.jpg",
+              "color": null
+            },
+            "bannerImage": null,
+            "genres": ["Action"],
+            "averageScore": 46,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": null,
+            "seasonYear": null,
+            "studios": {
+              "nodes": []
+            },
+            "nextAiringEpisode": null,
+            "description": "The conflict between ducklings and frogs escalates into war. However, a lightning strike makes the fighters realize the trivial nature of their battle.\n<br><br>\n(Source: TMDB)",
+            "duration": 13,
+            "tags": [
+              {
+                "name": "Animals",
+                "rank": 73,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 70,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Military",
+                "rank": 66,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "War",
+                "rank": 65,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 50,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Slapstick",
+                "rank": 33,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Ships",
+                "rank": 20,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": []
+            }
+          },
+          {
+            "id": 6994,
+            "title": {
+              "romaji": "Koneko no Studio",
+              "english": "Kitty's Studio",
+              "native": "こねこのスタジオ"
+            },
+            "coverImage": {
+              "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b6994-UFUeKKd9V7Ib.jpg",
+              "large": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b6994-UFUeKKd9V7Ib.jpg",
+              "color": null
+            },
+            "bannerImage": null,
+            "genres": ["Comedy"],
+            "averageScore": 58,
+            "format": "MOVIE",
+            "episodes": 1,
+            "season": "SPRING",
+            "seasonYear": 1959,
+            "studios": {
+              "nodes": [
+                {
+                  "name": "Toei Animation"
+                }
+              ]
+            },
+            "nextAiringEpisode": null,
+            "description": "The kitten from Yasuji Mori's earlier \"Koneko no Rakugai\" returns, this time putting his talents toward directing a samurai film starring his mouse friends.",
+            "duration": 16,
+            "tags": [
+              {
+                "name": "Filmmaking",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Anthropomorphism",
+                "rank": 79,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Animals",
+                "rank": 60,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Robots",
+                "rank": 40,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              },
+              {
+                "name": "Achromatic",
+                "rank": 10,
+                "isAdult": false,
+                "isGeneralSpoiler": false,
+                "isMediaSpoiler": false
+              }
+            ],
+            "trailer": null,
+            "relations": {
+              "edges": [
+                {
+                  "relationType": "PREQUEL",
+                  "node": {
+                    "id": 6993,
+                    "type": "ANIME"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}
