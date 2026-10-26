@@ -192,6 +192,18 @@ The browser checks run only in headless Chrome. These are still open for Phase 4
 - **Safari, on an iPhone and a Mac, and Firefox:** saving, and My List, in each. Safari deletes a site's storage after 7 days without a visit, which My List's note warns of ("Saved in this browser only."); a private window, where storage can refuse a save, which the card then says; and two tabs open on the list at once.
 - **AniList itself:** `list-12` is AniList's real answer for 12 saved ids, but neither live check sends My List's request, so only recording it again would show a change on AniList's side.
 
+## Byte budgets now
+
+Each part of the production build, compressed with Brotli at quality 11, against its budget. `web/src/app/privacy.test.ts` "the production bundle stays within its byte budget" weighs them on every run, and its comment gives the reason for each raise. `web/src/app/readme.test.ts` holds each budget here to the bundle check's, so a raise is written in both places in the same commit. The Phase 4 table above keeps the figures that phase closed on, and is no longer checked.
+
+| Part                                         | Now, of its budget |
+| -------------------------------------------- | ------------------ |
+| The JS every visit loads                     | 91,217 of 91,500 B |
+| The CSS                                      | 11,856 of 12,000 B |
+| The JS loaded only when needed (the samples) | 14,350 of 14,500 B |
+| My List's page, a file of its own            | 2,326 of 2,500 B   |
+| Every other file                             | 378 of 500 B       |
+
 ## Notes
 
 ### AniList requests

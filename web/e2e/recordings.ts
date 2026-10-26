@@ -25,7 +25,7 @@ import {
   type Media,
 } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
-import { pullable } from '../src/features/mood/pick.ts'
+import { pullable } from '../src/features/mood/roll.ts'
 import { AniListError } from '../src/lib/anilist.ts'
 import type { Recording } from './browser.ts'
 

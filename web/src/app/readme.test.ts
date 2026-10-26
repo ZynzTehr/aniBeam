@@ -44,11 +44,20 @@ test('each check the README’s Phase 4 section names is in the file it names', 
   )
 })
 
+// The README's "Byte budgets now" section, from its heading to the next, or nothing if it has none.
+function budgetsNow() {
+  const start = readme.indexOf('\n## Byte budgets now\n')
+  if (start < 0) return ''
+  const end = readme.indexOf('\n## ', start + 1)
+  return readme.slice(start, end < 0 ? undefined : end)
+}
+
 // The table's byte budgets are the bundle check's own: BUDGET in privacy.test.ts, read as text, as
-// importing it would run its checks. A budget changed in one and not the other fails. The bytes
-// themselves come from a build, and the Tab stops and the test totals from a run, so they are not
-// checked here: each row names the check that measures its figure.
-test('the byte budgets the README’s Phase 4 table gives are the bundle check’s', () => {
+// importing it would run its checks. A budget changed in one and not the other fails, so a raise is
+// written in both in the same commit. The bytes themselves come from a build, so they are not
+// checked here, only that each is written within its budget. The Phase 4 table keeps the figures
+// that phase closed on, as history, and is not held to the budgets any more.
+test('the byte budgets in the README’s "Byte budgets now" table are the bundle check’s', () => {
   const privacy = readFileSync(`${root}web/src/app/privacy.test.ts`, 'utf8')
   const block = /\nconst BUDGET = \{([^}]*)\}/.exec(privacy)?.[1] ?? ''
   const budget = Object.fromEntries(
@@ -57,34 +66,37 @@ test('the byte budgets the README’s Phase 4 table gives are the bundle check�
       Number(bytes.replaceAll('_', '')),
     ]),
   )
-  // Each row reads `| Bytes, <part> | <before> | <bytes> of <budget> B | <checked by> |`.
-  const rows = phase4()
+  assert.equal(Object.keys(budget).length, 5, `BUDGET read as ${JSON.stringify(budget)}`)
+  // Each row reads `| <part> | <bytes> of <budget> B |`, after the heading row and its rule.
+  const rows = budgetsNow()
     .split('\n')
-    .filter((line) => line.startsWith('| Bytes, '))
+    .filter((line) => line.startsWith('|'))
+    .slice(2)
     .map((line) => line.split('|').map((cell) => cell.trim()))
   const read = (cell: string) =>
     /^([\d,]+) of ([\d,]+) B$/
       .exec(cell)
       ?.slice(1)
       .map((n) => Number(n.replaceAll(',', '')))
+  const parts: Record<string, string> = {
+    'The JS every visit loads': 'the JS every visit loads',
+    'The CSS': 'the CSS',
+    'The JS loaded only when needed (the samples)': 'the JS loaded only when needed',
+    "My List's page, a file of its own": 'My List’s page',
+    'Every other file': 'every other file',
+  }
   assert.deepEqual(
-    Object.fromEntries(rows.map(([, part, , after]) => [part, read(after)?.[1]])),
-    {
-      'Bytes, the JS every visit loads': budget['the JS every visit loads'],
-      'Bytes, the CSS': budget['the CSS'],
-      'Bytes, the JS loaded only when needed (the samples)':
-        budget['the JS loaded only when needed'],
-      "Bytes, My List's page, a file of its own": budget['My List’s page'],
-    },
+    Object.fromEntries(rows.map(([, part, now]) => [parts[part] ?? part, read(now)?.[1]])),
+    budget,
     'the budgets in the table, against privacy.test.ts',
   )
   assert.deepEqual(
     rows
-      .filter(([, , , after]) => {
-        const [bytes, most] = read(after) ?? [NaN, NaN]
+      .filter(([, , now]) => {
+        const [bytes, most] = read(now) ?? [NaN, NaN]
         return !(bytes <= most)
       })
-      .map(([, part, , after]) => `${part}: ${after}`),
+      .map(([, part, now]) => `${part}: ${now}`),
     [],
     'figures over their budget, or not written as "N of M B"',
   )
