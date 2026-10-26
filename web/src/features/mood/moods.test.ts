@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { AXES, wordOf } from './moods.ts'
+import { ERAS } from '../anime/queries.ts'
+import { AXES, popularHeading, samplesLine, wordOf } from './moods.ts'
 
 test('each mood axis names its 5 stops with 5 different words, the middle one "No preference"', () => {
   assert.deepEqual(Object.keys(AXES), ['energy', 'tone', 'complexity'])
@@ -27,4 +28,32 @@ test("each axis's words run from its low end to its high end, as its track does"
     assert.ok(high.startsWith(highWord), `${name} at 1: ${highWord}, toward ${high}`)
     assert.ok(veryHigh.endsWith(highWord) && veryHigh !== highWord, `${name} at 2: ${veryHigh}`)
   }
+})
+
+test('at no preference, the matches are headed by their decade, each in words of its own', () => {
+  assert.deepEqual(
+    [...ERAS, null].map((era) => popularHeading(era)),
+    [
+      'Most popular before 1970',
+      'Most popular in the 1970s',
+      'Most popular in the 1980s',
+      'Most popular in the 1990s',
+      'Most popular in the 2000s',
+      'Most popular in the 2010s',
+      'Most popular in the 2020s',
+      'Most popular upcoming titles',
+      'Most popular',
+    ],
+  )
+})
+
+test('the outage line counts the sample titles that can come out, one as one, and none not at all', () => {
+  assert.deepEqual(
+    [5, 1, 0].map((count) => samplesLine(count)),
+    [
+      'AniList can’t be reached. Pulling from 5 sample titles.',
+      'AniList can’t be reached. Pulling from 1 sample title.',
+      'AniList can’t be reached.',
+    ],
+  )
 })

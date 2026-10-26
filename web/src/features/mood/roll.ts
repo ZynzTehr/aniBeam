@@ -89,29 +89,6 @@ export function rollNext<T extends Rollable>({
   return { media, reason: left < FEW ? 'few' : 'ok', left, needMore }
 }
 
-/**
- * Discover's pull: a roll (see rollNext) from `titles`, in the page's order, among those with one
- * of the vibe's `genres` (all of them, for Any vibe), or among them all once none of those can
- * come up, as when none has the genres or all that do are on My List.
- */
-export function pullNext<T extends Rollable>({
-  titles,
-  genres,
-  ...roll
-}: {
-  titles: readonly T[]
-  genres: readonly string[]
-  listed: ReadonlySet<number>
-  ring: readonly number[]
-  random: () => number
-  shown?: number
-}): T | null {
-  const matches = genres.length
-    ? titles.filter((media) => media.genres.some((genre) => genres.includes(genre)))
-    : titles
-  return rollNext({ ranked: matches, ...roll }).media ?? rollNext({ ranked: titles, ...roll }).media
-}
-
 /** The ring after a roll of `id`: it moves to the newest end, and any past RING drop off. */
 export const remember = (ring: readonly number[], id: number) =>
   [...ring.filter((other) => other !== id), id].slice(-RING)

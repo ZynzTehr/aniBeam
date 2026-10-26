@@ -56,7 +56,8 @@ export default function VariantD(props: VariantProps) {
           titles={shows}
           onOpen={open}
         />
-        <PullMachine pool={pool} onOpen={open} />
+        {/* It holds the prototype's titles alone, and asks AniList for no decade's pool. */}
+        <PullMachine era={null} titles={pool} settled={false} onOpen={open} />
         <Strip
           id="ab-throwback"
           heading="Throwback: the ’90s"

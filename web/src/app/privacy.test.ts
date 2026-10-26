@@ -421,11 +421,38 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // PR 3a, as the plan's D5 lets the budget rise in measured steps); then 91,700 B with the saved
 // copy keeping only the 3 newest decades' mood pools (newestPools, in queryClient.ts: 91,641 B).
 // The page deciding that by itself, from a pool said to be wanted (wantPool, in place of together),
-// took it back to 91,542 B.
+// took it back to 91,542 B. Then 92,300 B with the three mood sliders in place of the vibe chips
+// on Discover's machine (PullMachine with MoodSlider, a tap on a track setting its stop, Reset
+// moods, the sliders ranking the titles through the mood scoring, and the sliders, the last pulls
+// and the pulled title kept for the visit in features/mood/session.ts, less the vibes and pullNext:
+// 92,203 B, 661 B more), and the CSS 12,400 B, as MoodSlider.css now ships with every visit (the
+// slider's look, less the vibe chips' rules: 12,324 B, 468 B more); raises the plan's D5 lets come
+// in measured steps. Then 92,900 B with the machine following the decade below it and asking for
+// its mood pool only once wanted (the pool's query and its cut, poolOf, now in the code every
+// visit loads, the wanted rule kept per decade for the visit, and the decade's page told to ask
+// for the pool with it: 92,789 B, 586 B more). Then 93,400 B with the machine's top 3 under the
+// pulled title, each with its cover, rarity sticker and Why line (features/mood/Matches.tsx), the
+// "Most popular in the 1990s" heading, the dome in the best matches' colors, and a refresh of the
+// pool held while the matches are on screen (features/mood/heldPool.ts): 93,284 B, 495 B more;
+// and the CSS 12,500 B for the matches' fixed slots (12,481 B, 157 B more). Raises the plan's D5
+// lets come in measured steps. Then 93,550 B with the machine's line over the matches ("Filling
+// the machine…", the outage's samples, offline with no titles, AniList busy, and the mood scoring
+// that didn't load, with Try again), the last decade's matches kept while a new one's pool is on
+// its way, and the sliders off offline: 93,459 B, 175 B more; and the CSS 12,550 B for the line's
+// room of two lines (12,501 B, 20 B more). Then 93,700 B with the review's fixes: the status line
+// that says each pull also saying what holds the machine up (never the sliders' words), one sample
+// title said as one, the line no longer "Filling the machine…" while nothing can come, the matches
+// ranked, pulled and headed by the decade their titles come from (popularHeading), a pool that
+// failed with the mood scoring asked for again once it loads, and a pool cut from a shared answer
+// dated from when that request was sent: 93,643 B, 175 B more; the CSS still within 12,550 B with
+// the line's room of three lines on a phone and Reset moods' border for contrast themes (12,506 B).
+// Then 93,800 B with the same code: the top matches moved 1rem down, clear of the pulled title's
+// rays, renamed the CSS file and so My List's page, whose new name in the import alone took the
+// JS from 93,643 B to 93,711 B (its bytes uncompressed the same); the CSS 12,530 B.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 91_700,
-  'the CSS': 12_000,
+  'the JS every visit loads': 93_800,
+  'the CSS': 12_550,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,
   'the mood scoring': 1_500,

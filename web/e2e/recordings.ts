@@ -19,7 +19,9 @@ import {
   eraQuery,
   FIRST_ERA,
   listQuery,
+  poolOf,
   poolQuery,
+  QUERIES,
   searchQuery,
   titleQuery,
   trendingQuery,
@@ -28,6 +30,7 @@ import {
   type Media,
 } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
+import { MOOD_TAGS } from '../src/features/mood/moodMap.ts'
 import { pullable } from '../src/features/mood/roll.ts'
 import { AniListError } from '../src/lib/anilist.ts'
 import type { Recording } from './browser.ts'
@@ -154,6 +157,31 @@ function searchName(search: string) {
   const hash = createHash('sha256').update(search).digest('hex').slice(0, 8)
   return ['search', words, hash].filter(Boolean).join('-')
 }
+
+/**
+ * What a request asks AniList for, in words, for a check that counts them: "first visit"
+ * (trending and the 1990s), "decade 1980s", "pool 1990s" (a decade's mood pool), "decade and pool
+ * 1980s" (the two in one request), "my list", "title", "search" or "samples".
+ */
+export function askedFor({ query, variables }: Request): string {
+  const era = ERAS.find((era) => isDeepStrictEqual(era.variables, variables))?.id ?? '?'
+  const kinds: [string, string][] = [
+    [QUERIES.firstVisit, 'first visit'],
+    [QUERIES.trending, 'trending'],
+    [QUERIES.era, `decade ${era}`],
+    [QUERIES.pool, `pool ${era}`],
+    [QUERIES.decadeWithPool, `decade and pool ${era}`],
+    [QUERIES.list, 'my list'],
+    [QUERIES.title, 'title'],
+    [QUERIES.search, 'search'],
+    [QUERIES.samples, 'samples'],
+  ]
+  return kinds.find(([text]) => text === query)?.[1] ?? 'something else'
+}
+
+/** A decade's mood pool as the app keeps it (poolOf), from its recording (POOLS). */
+export const recordedPool = (id: string, saved = recordings()) =>
+  poolOf(saved.get(poolName(id))!.body.data, MOOD_TAGS)
 
 /** The name of a decade's mood pool's recording (POOLS). */
 const poolName = (id: string) => `pool-${id}`

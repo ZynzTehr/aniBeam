@@ -1,15 +1,17 @@
 // What can come out of the pull machine: never a title on My List, nor one of the last 30 pulled,
-// and none at all when no title on the page may come out of it (spec §3G keeps Ecchi out of the
-// pull) or all that may are on My List. Its own file, so the doctored answers and the saved lists
-// stay in a profile of their own.
+// and none at all when no title of the decade may come out of it (spec §3G keeps Ecchi out of the
+// pull) or all that may are on My List. The machine holds the decade below it, its 20 titles on
+// the page and then its mood pool, which it asks for only when wanted (see PullMachine): these
+// checks count those requests. Its own file, so the doctored answers and the saved lists stay in
+// a profile of their own.
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { QUERIES } from '../src/features/anime/queries.ts'
-import { MOODS, type Mood } from '../src/features/mood/moods.ts'
-import { pullable } from '../src/features/mood/roll.ts'
-import { BASE_URL, Browser } from './browser.ts'
-import { listsOf, recordings } from './recordings.ts'
+import { cardOf, QUERIES } from '../src/features/anime/queries.ts'
+import { NEED_MORE, pullable } from '../src/features/mood/roll.ts'
+import { rankMatches, type Sliders } from '../src/features/mood/score.ts'
+import { BASE_URL, Browser, poll } from './browser.ts'
+import { askedFor, listsOf, recordedPool, recordings } from './recordings.ts'
 
 /** Adds Ecchi to the genres of every title in an AniList answer. */
 function tagEcchi(value: any): any {
@@ -21,15 +23,28 @@ function tagEcchi(value: any): any {
 }
 
 let browser: Browser
+// What the first load asked AniList for (see askedFor).
+const askedFirst: string[] = []
 before(async () => {
   browser = await Browser.open()
-  await browser.rewriteAniList(({ status, body }) => ({ status, body: tagEcchi(body) }))
+  await browser.rewriteAniList(({ request, status, body }) => {
+    askedFirst.push(askedFor(request))
+    return { status, body: tagEcchi(body) }
+  })
   await browser.load()
 })
 after(() => browser?.close())
 
-test('with nothing on the page it may hand out, the lever is off and the machine says why', async () => {
+// Whether a decade's mood pool is in the page's saved copy: it is saved within a second of
+// arriving, after the machine has it.
+const poolSaved = `(JSON.parse(localStorage.getItem('anibeam:cache'))?.clientState.queries ?? []).some((query) => query.queryKey[1] === ${JSON.stringify(QUERIES.pool)} && query.state.data)`
+
+test('with nothing in the decade it may hand out, the machine asks once for its pool, then its lever is off and it says why, its sliders still working', async () => {
   assert.ok(await browser.titlesShown(), 'no titles on the page')
+  // None of the page's titles can come out, so the pool is wanted with no press, once they have
+  // landed: here its titles are all Ecchi too.
+  assert.ok(await poll(async () => askedFirst.length >= 2, 10_000), 'the pool was never asked for')
+  assert.ok(await browser.waitFor(poolSaved), 'the pool never arrived')
   const machine = await browser.evaluate<{ off: boolean; hint: string; capsules: number }>(`({
     off: document.querySelector('.ab-lever').disabled,
     hint: document.querySelector('.ab-hint')?.textContent ?? '',
@@ -38,13 +53,27 @@ test('with nothing on the page it may hand out, the lever is off and the machine
   assert.equal(machine.off, true, 'the lever can be pulled, but nothing would come out')
   assert.match(machine.hint, /another decade/)
   assert.equal(machine.capsules, 0, 'the dome shows titles that cannot come out')
+  await setSlider('Energy', -2)
+  assert.equal(
+    await browser.evaluate(
+      `document.querySelector('.ab-pull .ab-slider-value').textContent + ', ' + document.querySelector('.ab-lever').disabled`,
+    ),
+    'Very cozy, true',
+    'the slider did not move, or the lever came on',
+  )
+  await setSlider('Energy', 0)
+  assert.deepEqual(askedFirst, ['first visit', 'pool 1990s'], 'what the page asked AniList for')
 })
 
 test('the off lever looks off, and never tilts or swings', async () => {
   // The off lever used to look like a working one, and with motion allowed (as here) it tilted
   // on hover and swung on a press that pulls nothing. A working copy of it, put next to it for
   // a moment, shows what it must not look like, whatever the off look is.
-  await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+  // In the middle of the screen: below the sliders, the lever can be past its foot, where the
+  // mouse would hover nothing and the check would show nothing.
+  await browser.evaluate(
+    `document.querySelector('.ab-lever').scrollIntoView({ block: 'center' }); true`,
+  )
   const at = await browser.evaluate<{ x: number; y: number }>(
     `(() => { const r = document.querySelector('.ab-lever').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
   )
@@ -99,20 +128,16 @@ test('the off lever looks off, and never tilts or swings', async () => {
   assert.equal(pressed, 'none', 'the off lever swings when pressed')
 })
 
-// The titles in a first visit's machine, trending and the 1990s, as recorded, Ecchi ones too.
-const FIRST_VISIT = [
-  ...new Set(
-    Object.values(listsOf(recordings().get('first-visit')!))
-      .flat()
-      .map(({ id }) => id),
-  ),
-]
+// The 1990s on the page, as a first visit records them, and the decade's mood pool (REC-2).
+const NINETIES = listsOf(recordings().get('first-visit')!).era.map(cardOf)
+const POOL = recordedPool('1990s').titles
 // Cowboy Bebop and Neon Genesis Evangelion, both in the 1990s.
 const SAVED = [1, 30]
 
 /**
  * Loads Discover, on a first visit, with nothing saved but `ids` on My List, Saved: written on the
- * site's own page, before the load that reads it. Reduced motion opens each capsule at once.
+ * site's own page, before the load that reads it. Reduced motion opens each capsule at once. Gives
+ * what that load asks AniList for from then on (see askedFor).
  */
 async function loadWithList(ids: number[]) {
   await browser.rewriteAniList(null)
@@ -123,12 +148,24 @@ async function loadWithList(ids: number[]) {
     localStorage.setItem('anibeam:list:v1', JSON.stringify(Object.fromEntries(${JSON.stringify(ids)}.map((id, i) => [id, { status: 'SAVED', favorite: false, updatedAt: now - i }]))))
     return true
   })()`)
+  // Away first: the page the list was written on sees it too, and could ask for a pool of its own.
+  await browser.send('Page.navigate', { url: 'about:blank' })
+  await browser.waitFor(`location.href === 'about:blank'`)
+  const asked: string[] = []
+  await browser.rewriteAniList(({ request }) => {
+    asked.push(askedFor(request))
+    return null
+  })
   await browser.load({ reduceMotion: true, url: BASE_URL })
   assert.ok(await browser.titlesShown(), 'no titles on the page')
+  return asked
 }
 
-test('pulls skip My List, and no pull repeats one of the last 30, kept across a visit to My List', async () => {
-  await loadWithList(SAVED)
+/** Of what a load asked AniList for, the mood pools, alone or with their decade's page. */
+const pools = (asked: string[]) => asked.filter((what) => what.includes('pool'))
+
+test('pulls skip My List, and no pull repeats one of the last 30, kept across a visit to My List; the pool is asked for once, as fewer than 10 titles are left', async () => {
+  const asked = await loadWithList(SAVED)
   // Both are in the decade row, so the machine holds them.
   assert.deepEqual(
     await browser.evaluate(
@@ -137,11 +174,30 @@ test('pulls skip My List, and no pull repeats one of the last 30, kept across a 
     [],
     'saved titles missing from the page',
   )
+  // The machine holds the 1990s' titles on the page, until fewer than 10 of them are left to come
+  // up: then the pull wants the decade's pool, which holds more. Until then, no pull asks AniList
+  // for anything.
+  // A pull wants it when fewer than NEED_MORE are left before it picks: the pulls before leave
+  // NEED_MORE or more.
+  const left = pullable(NINETIES).filter(({ id }) => !SAVED.includes(id)).length
+  const early = left - NEED_MORE + 1
+  const before = await pulls(early)
+  const quiet = [...pools(asked)]
+  const last = await pulls(1)
+  assert.ok(
+    await poll(async () => pools(asked).length > 0, 10_000),
+    'the pull that left fewer than 10 asked for no pool',
+  )
+  assert.ok(await browser.waitFor(poolSaved), 'the pool never arrived')
   // With Math.random fixed at 0, each pull takes the first title it may: the page's own order,
-  // trending then the 1990s, where both saved titles come within the first 30. A saved title let
-  // through would come out, and a pull that forgot the last ones would give the same two over and
-  // over.
-  const pulled = await pulls(30)
+  // then the pool's, where both saved titles come within the first 30. A saved title let through
+  // would come out, and a pull that forgot the last ones would give the same two over and over.
+  const pulled = [...before, ...last, ...(await pulls(30 - early - 1))]
+  assert.deepEqual(
+    { quiet, after: pools(asked) },
+    { quiet: [], after: ['pool 1990s'] },
+    `the pools asked for in ${early} pulls, then after one more`,
+  )
   assert.deepEqual(
     pulled.flatMap((href, i) => (href ? [] : [i + 1])),
     [],
@@ -190,9 +246,10 @@ test('pulls skip My List, and no pull repeats one of the last 30, kept across a 
     'after a trip to My List, pulls that gave one of the 30 before, a saved title, or none',
   )
   // And the ring holds 30, no more. Pull 31 pushes pull 1's title out of it, and as that title
-  // comes first in the page's order of those left, pull 32 gives it again. A ring that never let
+  // comes first in the pool's order of those left, pull 32 gives it again. A ring that never let
   // go within the visit would give a title not pulled yet.
   assert.equal(all[31], all[0], 'pull 32 is not pull 1’s title, back once 30 others came up')
+  assert.deepEqual(pools(asked), ['pool 1990s'], 'the pools asked for, in all')
 })
 
 /**
@@ -222,51 +279,70 @@ function pulls(times: number) {
   })()`)
 }
 
-// The first visit's machine in the page's order, trending then the 1990s, each title once, and
-// none that may not come out of it.
-const MACHINE = (() => {
-  const { trending, era } = listsOf(recordings().get('first-visit')!)
-  const all = [...trending, ...era]
-  return pullable(all.filter((media, i) => all.findIndex(({ id }) => id === media.id) === i))
-})()
+/** The machine's mood slider named `label` set to `stop`, as a key or a drag sets it. */
+function setSlider(label: string, stop: number) {
+  return browser.evaluate(`(() => {
+    const input = [...document.querySelectorAll('.ab-pull input[type="range"]')].find((input) => input.labels[0].textContent === '${label}')
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '${stop}')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    return true
+  })()`)
+}
 
-test('a pull gives a title with one of the chosen vibe’s genres', async () => {
-  await loadWithList([])
-  // With Math.random fixed at 0, a pull takes the first title in the page's order that has one
-  // of the vibe's genres and isn't among the pulls before it. Each vibe in turn, from a fresh
-  // visit.
-  const vibes: Mood[] = ['cozy', 'hype', 'cerebral', 'tears']
+test('with a slider set, a pull gives the best match of the decade’s pool not pulled yet, by the mood scoring', async () => {
+  const asked = await loadWithList([])
+  // The mood scoring is a file of its own, which the page loads once it is idle (loadScoring.ts).
+  assert.ok(
+    await browser.waitFor(
+      `performance.getEntriesByType('resource').some((entry) => entry.name.includes('/features/mood/scoring'))`,
+      10_000,
+    ),
+    'the mood scoring never loaded',
+  )
+  // With Math.random fixed at 0, a pull takes the first of the 12 best matches that isn't among
+  // the pulls before it: two at Very cozy, then two at Very high-octane.
+  // The first slider set asks for the decade's pool, which the pulls then rank, once it is in.
+  const steps: [number, Sliders][] = [
+    [2, { energy: -2, tone: 0, complexity: 0 }],
+    [2, { energy: 2, tone: 0, complexity: 0 }],
+  ]
   const expected: number[] = []
-  for (const vibe of vibes) {
-    const { genres } = MOODS[vibe]
-    const match = MACHINE.find(
-      (media) => !expected.includes(media.id) && media.genres.some((g) => genres.includes(g)),
-    )
-    assert.ok(match, `no title in the first visit's machine is ${MOODS[vibe].label}`)
-    expected.push(match.id)
-  }
-  // A machine that read every pull as Any vibe would give the page's first titles, in order.
+  for (const [times, sliders] of steps)
+    for (let i = 0; i < times; i++)
+      expected.push(rankMatches(POOL, sliders).find(({ id }) => !expected.includes(id))!.id)
+  // A machine that ignored the sliders would give the pool's first titles, in order.
   assert.notDeepEqual(
     expected,
-    MACHINE.slice(0, vibes.length).map(({ id }) => id),
-    'the vibes pick what Any vibe would, so this check would show nothing',
+    POOL.slice(0, expected.length).map(({ id }) => id),
+    'the sliders pick what no preference would, so this check would show nothing',
   )
   const pulled: (string | null)[] = []
-  for (const vibe of vibes) {
+  for (const [times, sliders] of steps) {
+    await setSlider('Energy', sliders.energy)
+    assert.ok(await browser.waitFor(poolSaved), 'the pool never arrived')
     await browser.evaluate(
-      `document.querySelector('.ab-moods input[value="${vibe}"]').click(); true`,
+      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
     )
-    pulled.push(...(await pulls(1)))
+    pulled.push(...(await pulls(times)))
   }
   assert.deepEqual(
     pulled,
     expected.map((id) => `/anime/${id}`),
-    `pulls with the vibes ${vibes.join(', ')}`,
+    'pulls at Very cozy, then at Very high-octane',
   )
+  assert.deepEqual(pools(asked), ['pool 1990s'], 'the pools asked for')
 })
 
-test('with every title in the machine on My List, the lever is off and the machine says so', async () => {
-  await loadWithList(FIRST_VISIT)
+test('with every title in the decade on My List, the machine asks once for its pool, then its lever is off and it says so', async () => {
+  // The page's 20 and the pool's titles: none of the page's can come up, so the pool is wanted with
+  // no press, and none of its can either.
+  const asked = await loadWithList([...new Set([...NINETIES, ...POOL].map(({ id }) => id))])
+  assert.ok(await poll(async () => pools(asked).length > 0, 10_000), 'the pool was never asked for')
+  assert.ok(await browser.waitFor(poolSaved), 'the pool never arrived')
+  await browser.evaluate(
+    'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+  )
+  assert.deepEqual(pools(asked), ['pool 1990s'], 'the pools asked for')
   const machine = await browser.evaluate<{ off: boolean; hint: string; capsules: number }>(`({
     off: document.querySelector('.ab-lever').disabled,
     hint: document.querySelector('.ab-hint')?.textContent ?? '',

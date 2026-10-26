@@ -7,10 +7,18 @@ import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { runtimeOf, titleOf } from '../src/features/anime/format.ts'
-import { eraQuery, FIRST_ERA, trendingQuery, type Media } from '../src/features/anime/queries.ts'
+import {
+  eraQuery,
+  ERAS,
+  FIRST_ERA,
+  trendingQuery,
+  type Media,
+} from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { parseSynopsis } from '../src/features/anime/synopsis.ts'
 import { tagsOf } from '../src/features/anime/tags.ts'
+import { pullable } from '../src/features/mood/roll.ts'
+import { rankMatches } from '../src/features/mood/score.ts'
 import { deriveAccent } from '../src/features/theming/deriveAccent.ts'
 import { Browser, poll } from './browser.ts'
 
@@ -52,6 +60,36 @@ const countRequests = `(() => {
     if (url === 'https://graphql.anilist.co') window.__asked++
     return fetch.apply(this, arguments)
   }
+})()`
+
+// Counts the page's requests for a decade's mood pool (its two pages, p1 and p2, alone or with the
+// decade's page) as they reach fetch, in window.__poolAsked from now on, and gives page script that
+// presses each mood slider, as a pointer and as keys do, pulls 3 times if it can, then picks the
+// 1980s with a slider set. While anilist() waits out its minute's pause after a failure, every
+// request it makes waits too: a count of 0 a second later shows only that nothing went around
+// that pause. That none of it asks for a pool once the minute is up is the clock-moved check, 'a
+// decade picked with a slider set during the minute ...', below.
+const pressEverything = `(async () => {
+  window.__poolAsked = 0
+  const fetch = window.fetch
+  window.fetch = function (url, init) {
+    if (String(init?.body ?? '').includes(' p1: ')) window.__poolAsked++
+    return fetch.apply(this, arguments)
+  }
+  const frame = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  for (const input of document.querySelectorAll('.ab-pull input[type="range"]')) {
+    input.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))
+    input.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch' }))
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '-2')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await frame()
+  }
+  for (let i = 0; i < 3; i++) {
+    document.querySelector('.ab-lever').click()
+    await frame()
+  }
+  document.querySelector('.ab-eras input[value="1980s"]').click()
+  return true
 })()`
 
 // Where the headline sits inside the intro: it must not move when the covers arrive.
@@ -150,7 +188,15 @@ test('covers that can’t load show no broken-image icon, and each panel shows i
     await browser.press('Escape')
     assert.deepEqual(
       covers.failed,
-      ['ab-band', 'ab-img', 'ab-intro-cover', 'ab-result-panel', 'ab-sheet-art', 'ab-strip-panel'],
+      [
+        'ab-band',
+        'ab-img',
+        'ab-intro-cover',
+        'ab-match-cover',
+        'ab-result-panel',
+        'ab-sheet-art',
+        'ab-strip-panel',
+      ],
       'places where no cover or banner failed to load, so they went unchecked',
     )
     assert.deepEqual(covers.shown, [], 'covers that failed to load still show, as broken images')
@@ -606,6 +652,15 @@ describe('AniList down on a first visit', () => {
       // With no titles on the page, the machine says why its lever is off.
       assert.match(state.hint, /fills up with titles once AniList answers/)
       assert.equal(state.off, true, 'the lever is on with nothing to pull')
+      // And nothing pressed on it sends a pool request around anilist()'s pause (see
+      // pressEverything): past the decade's 300 ms wait, nothing has reached fetch.
+      await browser.evaluate(pressEverything)
+      await sleep(1_000)
+      assert.equal(
+        await browser.evaluate('window.__poolAsked'),
+        0,
+        'a pool request went around the minute’s pause',
+      )
     } finally {
       await browser.send('Network.setBlockedURLs', { urls: [] })
       await browser.send('Network.disable')
@@ -660,7 +715,7 @@ describe('AniList down on a first visit', () => {
     }
   })
 
-  test('while it retries, each section shows sample titles, says what they are and that it is not the visitor', async () => {
+  test('while it retries, each section shows sample titles, says what they are and that it is not the visitor, and the machine ranks them, saying so', async () => {
     await browser.load() // still a first visit: an outage saves nothing
     // The samples load once the first try has failed.
     await browser.waitFor(
@@ -680,6 +735,38 @@ describe('AniList down on a first visit', () => {
       covers: 3,
       off: false,
     })
+    // A slider set ranks the samples, and the machine's line says what it pulls from.
+    const sliders = { energy: -2, tone: 0, complexity: 0 } as const
+    const matches = rankMatches(pullable(nineties), sliders)
+      .slice(0, 3)
+      .map((media) => `/anime/${media.id}`)
+    await browser.evaluate(`(() => {
+      const input = document.querySelector('.ab-pull input[type="range"]')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '-2')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      return true
+    })()`)
+    const ranked = `[...document.querySelectorAll('.ab-pull .ab-match[href]')].map((link) => link.getAttribute('href'))`
+    await browser.waitFor(`${ranked}.join() === ${JSON.stringify(matches.join())}`, 5_000)
+    assert.deepEqual(
+      await browser.evaluate(
+        `({ line: document.querySelector('.ab-pull .ab-set').textContent, matches: ${ranked} })`,
+      ),
+      {
+        line: `AniList can’t be reached. Pulling from ${pullable(nineties).length} sample titles.`,
+        matches,
+      },
+      'the machine with a slider set over the samples',
+    )
+    // Nothing pressed on the machine sends a pool request around anilist()'s pause (see
+    // pressEverything): past the decade's 300 ms wait, nothing has reached fetch.
+    await browser.evaluate(pressEverything)
+    await sleep(1_000)
+    assert.equal(
+      await browser.evaluate('window.__poolAsked'),
+      0,
+      'a pool request went around the minute’s pause',
+    )
   })
 
   // They are swapped in as the page renders, never put in the query cache: that is saved for a
@@ -698,16 +785,25 @@ describe('AniList down on a first visit', () => {
   // can't start again, so they share a browser of their own: a first visit again, with AniList
   // blocked. The page's every request to AniList is noted in window.__asked as it goes, with when
   // it went and when its answer or failure came, by Date.now(), which anilist() times its pauses
-  // by, and which the stopped clock moves only as the check ticks it on.
+  // by, and which the stopped clock moves only as the check ticks it on, and with the decade it
+  // asks for (its variables' from, if any) and whether it asks for a mood pool too.
   describe('on a clock the check moves', () => {
     let own: Browser
-    type Asked = { sent: number; settled?: number; status?: number | 'failed' }
+    type Asked = {
+      sent: number
+      settled?: number
+      status?: number | 'failed'
+      from?: number
+      pool: boolean
+    }
     const noteAsked = `(() => {
       const fetch = window.fetch
       window.__asked = []
-      window.fetch = function (url) {
+      window.fetch = function (url, init) {
         if (url !== 'https://graphql.anilist.co') return fetch.apply(this, arguments)
-        const asked = { sent: Date.now() }
+        const body = String(init?.body ?? '')
+        const from = JSON.parse(body || '{}').variables?.from
+        const asked = { sent: Date.now(), from, pool: body.includes(' p1: ') }
         window.__asked.push(asked)
         return fetch.apply(this, arguments).then(
           (response) => Object.assign(asked, { settled: Date.now(), status: response.status }) && response,
@@ -715,14 +811,19 @@ describe('AniList down on a first visit', () => {
         )
       }
     })()`
-    const asked = () => own.evaluate<Asked[]>('window.__asked')
+    const asked = (page = own) => page.evaluate<Asked[]>('window.__asked')
+    // The first try has failed, the samples show, and the page waits out the minute.
+    const retrying = `${notes}.every((note) => note.endsWith('Trying again in a minute.')) && document.querySelectorAll('.ab-grid .ab-link').length && document.querySelectorAll('.ab-intro-art img').length`
 
-    /** Moves the stopped clock on to `ms` past `from`, a moment by the page's Date.now(). */
-    const tickTo = async (from: number, ms: number) => {
-      const now = await own.evaluate<number>('Date.now()')
+    /**
+     * Moves the stopped clock (`page`'s, this group's browser's if not given) on to `ms` past
+     * `from`, a moment by the page's Date.now().
+     */
+    const tickTo = async (from: number, ms: number, page = own) => {
+      const now = await page.evaluate<number>('Date.now()')
       if (from + ms <= now)
         throw new Error(`The page's clock is ${now - from - ms} ms past where the check moves it`)
-      await own.tick(from + ms - now)
+      await page.tick(from + ms - now)
     }
 
     /**
@@ -730,10 +831,10 @@ describe('AniList down on a first visit', () => {
      * on the page's clock). An answer or a failure comes on Node's clock, and the page takes it
      * in only during a tick (see Browser.stopClock).
      */
-    const settles = (expression: string) =>
+    const settles = (expression: string, page = own) =>
       poll(async () => {
-        await own.tick(10)
-        return own.evaluate<boolean>(`Boolean(${expression})`)
+        await page.tick(10)
+        return page.evaluate<boolean>(`Boolean(${expression})`)
       }, 5_000)
 
     // Each of the two that wait a minute must take seconds, the minute being the page's alone.
@@ -747,20 +848,32 @@ describe('AniList down on a first visit', () => {
       await own.blockAniList()
       await own.send('Page.addScriptToEvaluateOnNewDocument', { source: noteAsked })
       await own.load()
-      assert.ok(
-        await own.waitFor(
-          `${notes}.every((note) => note.endsWith('Trying again in a minute.')) && document.querySelectorAll('.ab-grid .ab-link').length && document.querySelectorAll('.ab-intro-art img').length`,
-          15_000,
-        ),
-        'the samples never showed, retrying',
-      )
+      assert.ok(await own.waitFor(retrying, 15_000), 'the samples never showed, retrying')
       await own.animationsDone()
       await own.stopClock()
     })
     after(() => own?.close())
 
-    test('once retrying fails, each section offers Try again over its samples, with no loading panels', async () => {
+    test('once retrying fails, each section offers Try again over its samples, with no loading panels, and nothing pressed on the machine meanwhile asks for a mood pool', async () => {
       const started = performance.now()
+      // Each mood slider pressed and set, as a pointer and a key do, and 3 pulls, while the page
+      // waits out anilist()'s minute: a pool asked for now would wait for the minute too, and go
+      // with the retry, a third request.
+      await own.evaluate(`(() => {
+        for (const input of document.querySelectorAll('.ab-pull input[type="range"]')) {
+          input.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '-2')
+          input.dispatchEvent(new Event('input', { bubbles: true }))
+        }
+        for (let i = 0; i < 3; i++) document.querySelector('.ab-lever').click()
+        return true
+      })()`)
+      assert.ok(
+        await settles(
+          `document.querySelector('.ab-pull .ab-slider-value').textContent === 'Very cozy'`,
+        ),
+        'the sliders did not move',
+      )
       const [failed] = await asked()
       // A second short of a minute after the first try failed, the page still waits.
       await tickTo(failed.settled!, 59_000)
@@ -904,6 +1017,59 @@ describe('AniList down on a first visit', () => {
         'the samples stayed on screen once AniList answered',
       )
       quick(started)
+    })
+
+    // A decade picked with a slider set while anilist() waits out its minute asks for its titles,
+    // and that request waits for the minute too: it must go for the decade's page alone, never with
+    // its mood pool (PullMachine's outage guard). Its request goes only once the minute is up, so
+    // this check moves a stopped clock past it, in a browser of its own: this group's is past its
+    // outage by now.
+    test('a decade picked with a slider set during the minute asks AniList for its titles alone once the minute is up, not its mood pool', async () => {
+      const eighties = ERAS.find((era) => era.id === '1980s')!
+      const apart = await Browser.open()
+      try {
+        await apart.blockAniList()
+        await apart.send('Page.addScriptToEvaluateOnNewDocument', { source: noteAsked })
+        await apart.load()
+        assert.ok(await apart.waitFor(retrying, 15_000), 'the samples never showed, retrying')
+        await apart.animationsDone()
+        await apart.stopClock()
+        const started = performance.now()
+        // Energy pressed and set, as a pointer does, then the 1980s picked.
+        await apart.evaluate(`(() => {
+          const input = document.querySelector('.ab-pull input[type="range"]')
+          input.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '-2')
+          input.dispatchEvent(new Event('input', { bubbles: true }))
+          document.querySelector('.ab-eras input[value="1980s"]').click()
+          return true
+        })()`)
+        assert.ok(
+          await settles(
+            `document.querySelector('.ab-eras input[value="1980s"]').checked && document.querySelector('.ab-pull input[type="range"]').value === '-2'`,
+            apart,
+          ),
+          'the slider did not move, or the 1980s were not picked',
+        )
+        const [failed] = await asked(apart)
+        await tickTo(failed.settled!, 61_000, apart)
+        assert.ok(
+          await settles(
+            `window.__asked.some((asked) => asked.from === ${eighties.variables.from} && asked.settled)`,
+            apart,
+          ),
+          'the page never asked AniList for the 1980s once the minute was up',
+        )
+        const tries = await asked(apart)
+        assert.deepEqual(
+          tries.filter((asked) => asked.pool).map((asked) => asked.from),
+          [],
+          'with AniList down, the page asked it for a decade’s mood pool (by its from)',
+        )
+        quick(started)
+      } finally {
+        await apart.close()
+      }
     })
   })
 })

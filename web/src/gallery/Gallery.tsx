@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useLayoutEffect, useState, type ComponentProps, type ReactNode } from 'react'
 import { cardNote, noteFor, sampleNote, searchStatus, statusText } from '../app/status.ts'
 import { IntroHero } from '../components/IntroHero.tsx'
 import { MangaPage, PANELS } from '../components/MangaPage.tsx'
@@ -12,6 +12,7 @@ import { SAMPLES } from '../features/anime/samples.ts'
 import { AXES, type Axis, type Stop } from '../features/mood/moods.ts'
 import { MoodSlider } from '../features/mood/MoodSlider.tsx'
 import { PullMachine } from '../features/mood/PullMachine.tsx'
+import { FRESH, setSession } from '../features/mood/session.ts'
 import { accentVars, deriveAccent, DOTTED_PAPER, INK } from '../features/theming/deriveAccent.ts'
 import { contrast } from '../lib/color.ts'
 import {
@@ -229,6 +230,16 @@ function OneAtATime<S extends string>({
   )
 }
 
+/**
+ * The pull machine as a visit starts it, with no slider set and nothing pulled: it keeps those for
+ * the visit (see session.ts), so a pull in one state would otherwise show in the next. It holds
+ * `titles` alone, and asks AniList for no decade's pool.
+ */
+function FreshMachine(props: Pick<ComponentProps<typeof PullMachine>, 'titles' | 'onOpen'>) {
+  useLayoutEffect(() => setSession(FRESH), [])
+  return <PullMachine era={null} settled={false} {...props} />
+}
+
 /** Opens a title's card with its status line saying `status`, and Try again if `retry`. */
 type OpenHeld = (media: Media, from: HTMLElement, status: string | null, retry: boolean) => void
 
@@ -358,16 +369,16 @@ function SectionStates({ onOpen, onOpenHeld }: { onOpen: OpenTitle; onOpenHeld: 
     ]),
   )
   const pull: Record<State<'pull'>, ReactNode> = {
-    'Nothing to pull yet': <PullMachine pool={[]} onOpen={onOpen} />,
-    'Nothing it may hand out (all Ecchi)': <PullMachine pool={ECCHI_POOL} onOpen={onOpen} />,
-    'The samples': <PullMachine pool={SAMPLES} onOpen={onOpen} />,
-    'The title cases': <PullMachine pool={CASES} onOpen={onOpen} />,
+    'Nothing to pull yet': <FreshMachine titles={[]} onOpen={onOpen} />,
+    'Nothing it may hand out (all Ecchi)': <FreshMachine titles={ECCHI_POOL} onOpen={onOpen} />,
+    'The samples': <FreshMachine titles={SAMPLES} onOpen={onOpen} />,
+    'The title cases': <FreshMachine titles={CASES} onOpen={onOpen} />,
   }
   return (
     <Part
       id="gal-states"
       heading="Section states"
-      note="The intro and the pull machine can be on a page only once (their ids, and the machine’s vibe buttons), so they show one state at a time. Last come the states of a title card’s status line, which says why AniList holds up a newer answer for the title the card keeps: open its card for each."
+      note="The intro and the pull machine can be on a page only once (their ids, and the machine’s sliders), so they show one state at a time. Last come the states of a title card’s status line, which says why AniList holds up a newer answer for the title the card keeps: open its card for each."
     >
       <Each group="page" states={STATES.page} render={page} />
       <Each group="strip" states={STATES.strip} render={strip} />

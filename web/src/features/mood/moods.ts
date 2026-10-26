@@ -1,13 +1,4 @@
-/** The pull machine's vibes, each a set of AniList genres. A title matches if it has any of them. */
-export const MOODS = {
-  any: { label: 'Any vibe', genres: [] as string[] },
-  cozy: { label: 'Cozy', genres: ['Slice of Life', 'Comedy'] },
-  hype: { label: 'Hype', genres: ['Action', 'Sports', 'Mecha'] },
-  cerebral: { label: 'Mind-bending', genres: ['Mystery', 'Psychological', 'Sci-Fi'] },
-  tears: { label: 'Tearjerker', genres: ['Drama', 'Romance'] },
-}
-
-export type Mood = keyof typeof MOODS
+import type { Era } from '../anime/queries.ts'
 
 /**
  * The mood sliders' axes (spec §3C), each a native range from -2 to 2. Each stop has a word, which
@@ -39,3 +30,21 @@ export type Stop = -2 | -1 | 0 | 1 | 2
 
 /** The word for a stop on an axis, such as "Very cozy" for energy at -2. */
 export const wordOf = (axis: Axis, stop: Stop) => AXES[axis].words[stop + 2]
+
+/**
+ * The machine's matches' heading while every slider is at no preference (the user's pick, D3), for
+ * the decade its titles come from, such as "Most popular in the 1990s"; with none, "Most popular".
+ */
+export const popularHeading = (era: Era | null) =>
+  !era
+    ? 'Most popular'
+    : era.id === 'upcoming'
+      ? 'Most popular upcoming titles'
+      : `Most popular ${era.id === 'pre-1970' ? 'before 1970' : `in the ${era.label}`}`
+
+/**
+ * The machine's line while AniList can't be reached, over `count` sample titles that can come out:
+ * one is one title, and with none the line says only that (the hint says the rest).
+ */
+export const samplesLine = (count: number) =>
+  `AniList can’t be reached.${count ? ` Pulling from ${count} sample ${count === 1 ? 'title' : 'titles'}.` : ''}`

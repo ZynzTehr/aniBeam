@@ -7,7 +7,6 @@ import {
   FEW,
   NEED_MORE,
   pullable,
-  pullNext,
   remember,
   RING,
   type Rollable,
@@ -278,7 +277,8 @@ test('the count left and the need for more are the same at every slider setting'
   }
 })
 
-// Discover's pull (pullNext): a vibe's genres pick which titles a roll is from.
+// Discover's pull with every slider at no preference: a roll from the page's titles, in their
+// order, with no window (see PullMachine).
 const POOL = [
   title(1, ['Action']),
   title(2, ['Comedy', 'Slice of Life']),
@@ -286,58 +286,40 @@ const POOL = [
   title(4, ['Romance']),
   title(5, ['Sports']),
 ]
-/** Discover's pull from `pool` for a vibe, with what has come up lately and a fixed draw. */
-const pull = (
-  genres: string[],
-  {
-    ring = [] as number[],
-    listed = NOTHING,
-    draw = 0,
-    shown = undefined as number | undefined,
-    pool = POOL,
-  } = {},
-) => pullNext({ titles: pool, genres, listed, ring, random: () => draw, shown })?.id ?? null
+/** Discover's pull from `pool`, with what has come up lately and a fixed draw. */
+const pull = ({
+  ring = [] as number[],
+  listed = NOTHING,
+  draw = 0,
+  shown = undefined as number | undefined,
+  pool = POOL,
+} = {}) => rollNext({ ranked: pool, listed, ring, random: () => draw, shown }).media?.id ?? null
 
-test('a pull gives a title with one of the vibe’s genres, any one of them', () => {
-  for (const draw of [0, 0.5, 0.99]) assert.ok([1, 3].includes(pull(['Action'], { draw })!))
-  // Title 2 has Comedy but not Sports, and title 5 Sports but not Comedy: the vibe's only
-  // matches. Draw 0 takes the first and 0.99 the last.
-  assert.deepEqual([pull(['Comedy', 'Sports']), pull(['Comedy', 'Sports'], { draw: 0.99 })], [2, 5])
+test('a pull at no preference may give any title, the first to the last', () => {
+  assert.deepEqual([pull(), pull({ draw: 0.99 })], [1, 5])
 })
 
-test('a pull skips the titles on My List, and once all the vibe’s are, gives another', () => {
-  assert.equal(pull(['Action'], { listed: new Set([1]) }), 3)
-  assert.equal(pull(['Action'], { listed: new Set([1, 3]), draw: 0.99 }), 5)
-  assert.equal(pull([], { listed: new Set([1, 2, 3, 4, 5]) }), null)
+test('a pull skips the titles on My List, and with all of them there gives nothing', () => {
+  assert.equal(pull({ listed: new Set([1]) }), 2)
+  assert.equal(pull({ listed: new Set([1, 2, 3, 4, 5]) }), null)
 })
 
-test('after every match has come up, pulls repeat matches instead of leaving the vibe', () => {
-  for (const draw of [0, 0.5, 0.99])
-    assert.ok([1, 3].includes(pull(['Action'], { ring: [1, 3], draw })!), `draw ${draw}`)
+test('once every title has come up, a pull skips the title on screen', () => {
+  // Draw 0 would take title 1, the one showing; the oldest of the rest comes back otherwise.
+  assert.equal(pull({ ring: [1, 2, 3, 4, 5], shown: 1 }), 2)
+  assert.equal(pull({ ring: [5, 1, 2, 3, 4], shown: 4, draw: 0.99 }), 5)
 })
 
-test('a vibe with no matches pulls from every title', () => {
-  assert.equal(pull(['Mecha'], { draw: 0.99 }), 5)
-})
-
-test('once every match has come up, a pull skips the title on screen', () => {
-  // Draw 0 would take title 1, the one showing; the oldest of the two comes back otherwise.
-  assert.equal(pull(['Action'], { ring: [3, 1], shown: 1 }), 3)
-  assert.equal(pull(['Action'], { ring: [1, 3], shown: 3, draw: 0.99 }), 1)
-})
-
-test('a vibe with a single match pulls it again, even while it is on screen', () => {
-  assert.equal(pull(['Romance'], { ring: [4], shown: 4 }), 4)
+test('a machine with a single title pulls it again, even while it is on screen', () => {
+  assert.equal(pull({ pool: [title(4)], ring: [4], shown: 4 }), 4)
 })
 
 test('a pull skips the title on screen even if it hasn’t come up lately', () => {
-  for (const draw of [0, 0.99])
-    assert.notEqual(pull([], { draw, shown: draw ? 5 : 1 }), draw ? 5 : 1)
-  assert.equal(pull(['Mecha'], { shown: 1 }), 2)
+  for (const draw of [0, 0.99]) assert.notEqual(pull({ draw, shown: draw ? 5 : 1 }), draw ? 5 : 1)
 })
 
 test('an empty pool gives nothing to pull', () => {
-  assert.equal(pull(['Action'], { pool: [] }), null)
+  assert.equal(pull({ pool: [] }), null)
 })
 
 // Spec §3G: Ecchi stays out of the gacha (browsing and search still show it). Ecchi titles sit at
@@ -347,17 +329,14 @@ const WITH_ECCHI = [
   title(2, ['Comedy']),
   title(9, ['Comedy', 'Ecchi']),
 ]
-for (const [when, genres, ring] of [
-  ['for a vibe it matches', ['Comedy'], []],
-  ['for any vibe', [], []],
-  ['when nothing matches the vibe', ['Mecha'], []],
-  ['once every match has come up', ['Comedy'], [2]],
-] as [string, string[], number[]][])
+for (const [when, ring] of [
+  ['while titles are left', []],
+  ['once every title has come up', [2]],
+] as [string, number[]][])
   test(`a pull never hands out an Ecchi title ${when}`, () => {
-    for (const draw of [0, 0.99])
-      assert.equal(pull(genres, { pool: WITH_ECCHI, ring, draw }), 2, `draw ${draw}`)
+    for (const draw of [0, 0.99]) assert.equal(pull({ pool: WITH_ECCHI, ring, draw }), 2)
   })
 
 test('with only Ecchi titles, there is nothing to pull', () => {
-  assert.equal(pull([], { pool: [title(9, ['Ecchi'])] }), null)
+  assert.equal(pull({ pool: [title(9, ['Ecchi'])] }), null)
 })
