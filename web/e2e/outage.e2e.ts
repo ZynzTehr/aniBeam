@@ -7,7 +7,13 @@ import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { runtimeOf, titleOf } from '../src/features/anime/format.ts'
-import { eraQuery, FIRST_ERA, trendingQuery, type Media } from '../src/features/anime/queries.ts'
+import {
+  eraQuery,
+  ERAS,
+  FIRST_ERA,
+  trendingQuery,
+  type Media,
+} from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { parseSynopsis } from '../src/features/anime/synopsis.ts'
 import { tagsOf } from '../src/features/anime/tags.ts'
@@ -733,16 +739,25 @@ describe('AniList down on a first visit', () => {
   // can't start again, so they share a browser of their own: a first visit again, with AniList
   // blocked. The page's every request to AniList is noted in window.__asked as it goes, with when
   // it went and when its answer or failure came, by Date.now(), which anilist() times its pauses
-  // by, and which the stopped clock moves only as the check ticks it on.
+  // by, and which the stopped clock moves only as the check ticks it on, and with the decade it
+  // asks for (its variables' from, if any) and whether it asks for a mood pool too.
   describe('on a clock the check moves', () => {
     let own: Browser
-    type Asked = { sent: number; settled?: number; status?: number | 'failed' }
+    type Asked = {
+      sent: number
+      settled?: number
+      status?: number | 'failed'
+      from?: number
+      pool: boolean
+    }
     const noteAsked = `(() => {
       const fetch = window.fetch
       window.__asked = []
-      window.fetch = function (url) {
+      window.fetch = function (url, init) {
         if (url !== 'https://graphql.anilist.co') return fetch.apply(this, arguments)
-        const asked = { sent: Date.now() }
+        const body = String(init?.body ?? '')
+        const from = JSON.parse(body || '{}').variables?.from
+        const asked = { sent: Date.now(), from, pool: body.includes(' p1: ') }
         window.__asked.push(asked)
         return fetch.apply(this, arguments).then(
           (response) => Object.assign(asked, { settled: Date.now(), status: response.status }) && response,
@@ -750,14 +765,19 @@ describe('AniList down on a first visit', () => {
         )
       }
     })()`
-    const asked = () => own.evaluate<Asked[]>('window.__asked')
+    const asked = (page = own) => page.evaluate<Asked[]>('window.__asked')
+    // The first try has failed, the samples show, and the page waits out the minute.
+    const retrying = `${notes}.every((note) => note.endsWith('Trying again in a minute.')) && document.querySelectorAll('.ab-grid .ab-link').length && document.querySelectorAll('.ab-intro-art img').length`
 
-    /** Moves the stopped clock on to `ms` past `from`, a moment by the page's Date.now(). */
-    const tickTo = async (from: number, ms: number) => {
-      const now = await own.evaluate<number>('Date.now()')
+    /**
+     * Moves the stopped clock (`page`'s, this group's browser's if not given) on to `ms` past
+     * `from`, a moment by the page's Date.now().
+     */
+    const tickTo = async (from: number, ms: number, page = own) => {
+      const now = await page.evaluate<number>('Date.now()')
       if (from + ms <= now)
         throw new Error(`The page's clock is ${now - from - ms} ms past where the check moves it`)
-      await own.tick(from + ms - now)
+      await page.tick(from + ms - now)
     }
 
     /**
@@ -765,10 +785,10 @@ describe('AniList down on a first visit', () => {
      * on the page's clock). An answer or a failure comes on Node's clock, and the page takes it
      * in only during a tick (see Browser.stopClock).
      */
-    const settles = (expression: string) =>
+    const settles = (expression: string, page = own) =>
       poll(async () => {
-        await own.tick(10)
-        return own.evaluate<boolean>(`Boolean(${expression})`)
+        await page.tick(10)
+        return page.evaluate<boolean>(`Boolean(${expression})`)
       }, 5_000)
 
     // Each of the two that wait a minute must take seconds, the minute being the page's alone.
@@ -782,13 +802,7 @@ describe('AniList down on a first visit', () => {
       await own.blockAniList()
       await own.send('Page.addScriptToEvaluateOnNewDocument', { source: noteAsked })
       await own.load()
-      assert.ok(
-        await own.waitFor(
-          `${notes}.every((note) => note.endsWith('Trying again in a minute.')) && document.querySelectorAll('.ab-grid .ab-link').length && document.querySelectorAll('.ab-intro-art img').length`,
-          15_000,
-        ),
-        'the samples never showed, retrying',
-      )
+      assert.ok(await own.waitFor(retrying, 15_000), 'the samples never showed, retrying')
       await own.animationsDone()
       await own.stopClock()
     })
@@ -957,6 +971,59 @@ describe('AniList down on a first visit', () => {
         'the samples stayed on screen once AniList answered',
       )
       quick(started)
+    })
+
+    // A decade picked with a slider set while anilist() waits out its minute asks for its titles,
+    // and that request waits for the minute too: it must go for the decade's page alone, never with
+    // its mood pool (PullMachine's outage guard). Its request goes only once the minute is up, so
+    // this check moves a stopped clock past it, in a browser of its own: this group's is past its
+    // outage by now.
+    test('a decade picked with a slider set during the minute asks AniList for its titles alone once the minute is up, not its mood pool', async () => {
+      const eighties = ERAS.find((era) => era.id === '1980s')!
+      const apart = await Browser.open()
+      try {
+        await apart.blockAniList()
+        await apart.send('Page.addScriptToEvaluateOnNewDocument', { source: noteAsked })
+        await apart.load()
+        assert.ok(await apart.waitFor(retrying, 15_000), 'the samples never showed, retrying')
+        await apart.animationsDone()
+        await apart.stopClock()
+        const started = performance.now()
+        // Energy pressed and set, as a pointer does, then the 1980s picked.
+        await apart.evaluate(`(() => {
+          const input = document.querySelector('.ab-pull input[type="range"]')
+          input.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '-2')
+          input.dispatchEvent(new Event('input', { bubbles: true }))
+          document.querySelector('.ab-eras input[value="1980s"]').click()
+          return true
+        })()`)
+        assert.ok(
+          await settles(
+            `document.querySelector('.ab-eras input[value="1980s"]').checked && document.querySelector('.ab-pull input[type="range"]').value === '-2'`,
+            apart,
+          ),
+          'the slider did not move, or the 1980s were not picked',
+        )
+        const [failed] = await asked(apart)
+        await tickTo(failed.settled!, 61_000, apart)
+        assert.ok(
+          await settles(
+            `window.__asked.some((asked) => asked.from === ${eighties.variables.from} && asked.settled)`,
+            apart,
+          ),
+          'the page never asked AniList for the 1980s once the minute was up',
+        )
+        const tries = await asked(apart)
+        assert.deepEqual(
+          tries.filter((asked) => asked.pool).map((asked) => asked.from),
+          [],
+          'with AniList down, the page asked it for a decade’s mood pool (by its from)',
+        )
+        quick(started)
+      } finally {
+        await apart.close()
+      }
     })
   })
 })
