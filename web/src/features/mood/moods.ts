@@ -1,3 +1,5 @@
+import type { Era } from '../anime/queries.ts'
+
 /**
  * The mood sliders' axes (spec §3C), each a native range from -2 to 2. Each stop has a word, which
  * the slider shows and a screen reader hears; the middle one, 0, is no preference. `ends` label
@@ -28,3 +30,14 @@ export type Stop = -2 | -1 | 0 | 1 | 2
 
 /** The word for a stop on an axis, such as "Very cozy" for energy at -2. */
 export const wordOf = (axis: Axis, stop: Stop) => AXES[axis].words[stop + 2]
+
+/**
+ * The machine's matches' heading while every slider is at no preference (the user's pick, D3), for
+ * the decade its titles come from, such as "Most popular in the 1990s"; with none, "Most popular".
+ */
+export const popularHeading = (era: Era | null) =>
+  !era
+    ? 'Most popular'
+    : era.id === 'upcoming'
+      ? 'Most popular upcoming titles'
+      : `Most popular ${era.id === 'pre-1970' ? 'before 1970' : `in the ${era.label}`}`

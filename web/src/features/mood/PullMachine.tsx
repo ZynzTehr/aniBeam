@@ -23,7 +23,7 @@ import { useHeldPool } from './heldPool.ts'
 import { moodScoring } from './loadScoring.ts'
 import { Matches } from './Matches.tsx'
 import { MoodSlider } from './MoodSlider.tsx'
-import { AXES, wordOf, type Axis, type Stop } from './moods.ts'
+import { AXES, popularHeading, wordOf, type Axis, type Stop } from './moods.ts'
 import { rarityOf } from './rarity.ts'
 import { pullable, remember, rollNext } from './roll.ts'
 import type { Sliders } from './score.ts'
@@ -49,14 +49,6 @@ const HINTS = {
   ),
 }
 type Hint = keyof typeof HINTS
-
-// The matches' heading while every slider is at no preference (the user's pick, D3).
-const popular = (era: Era | null) =>
-  !era
-    ? 'Most popular'
-    : era.id === 'upcoming'
-      ? 'Most popular upcoming titles'
-      : `Most popular ${era.id === 'pre-1970' ? 'before 1970' : `in the ${era.label}`}`
 
 // The sliders in the order the machine shows them.
 const AXIS_ORDER = Object.keys(AXES) as Axis[]
@@ -102,6 +94,7 @@ export function PullMachine({
   titles: page,
   settled,
   loading = false,
+  standIn = false,
   outage = false,
   onOpen,
 }: {
@@ -113,6 +106,8 @@ export function PullMachine({
   settled: boolean
   /** Whether AniList is being asked for the decade's titles: a first ask, a refresh or a retry. */
   loading?: boolean
+  /** Whether `titles` are the last decade's, standing in while the open decade's load. */
+  standIn?: boolean
   /** Whether the decade shows the samples, as AniList can't be reached. */
   outage?: boolean
   onOpen: OpenTitle
@@ -142,12 +137,18 @@ export function PullMachine({
   // them, nor once their own request has failed (a refresh, its saved titles kept), as the pool
   // waits for them to land; then nothing says "Filling the machine…".
   const coming = want && (settled || loading) && online && !outage && !pool.data && !pool.isError
+  // The last decade's pool stays only while its page stands in for the open decade's titles: once
+  // they are in, they stand in for their own pool, so a pull never gives a title of another decade.
   const [held, matchesRef] = useHeldPool(
     era?.id ?? null,
     era ? pool.data?.titles : undefined,
-    coming,
+    coming && !settled,
   )
   const titles = held?.length ? held : onPage
+  // The decade the titles come from, which heads the matches: the last one while its titles stand
+  // in, so the heading never names a decade they are not from. Set as the component renders.
+  const [from, setFrom] = useState(era)
+  if (!standIn && from !== era) setFrom(era)
   // What can come out, the titles not on My List: with none, the lever is off.
   const out = useMemo(() => titles.filter((media) => !listed.has(media.id)), [titles, listed])
 
@@ -399,7 +400,7 @@ export function PullMachine({
             </div>
           )}
           <Matches
-            heading={set ? 'Top matches' : popular(era)}
+            heading={set ? 'Top matches' : popularHeading(from)}
             line={
               line ||
               AXIS_ORDER.filter((axis) => sliders[axis])

@@ -489,6 +489,7 @@ export default function App() {
               titles={decadeShown}
               settled={!listsWait && decade.isSuccess && !decade.isPlaceholderData}
               loading={decade.isFetching}
+              standIn={decade.isPlaceholderData}
               outage={decadeOutage}
               onOpen={open}
             />

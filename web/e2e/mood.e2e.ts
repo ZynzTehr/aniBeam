@@ -638,7 +638,9 @@ describe('a cold first visit, counted', () => {
 describe('a 1990s pool saved 7 hours ago', () => {
   // The cold visit's pools, saved, the 1990s' made 7 hours old, past its 6 hours' freshness. Its
   // refresh comes back in reverse order, held 2 seconds, so the check can look while it runs. The
-  // 1980s' titles are left out of the saved copy, so a later check can ask for them alone.
+  // 1980s' titles and pool are left out of the saved copy, so a later check can ask for the titles
+  // alone, and see that a pool wanted for the 1990s is not asked for with them; the 1980s' pool
+  // alone, which has no recording of its own, is answered with its half of their request's.
   const old = recordedPool('1990s').titles.map(({ id }) => `/anime/${id}`)
   let fresh: string[] = []
   const asked: string[] = []
@@ -651,13 +653,17 @@ describe('a 1990s pool saved 7 hours ago', () => {
       for (const query of cache.clientState.queries)
         if (query.queryKey[1] === ${JSON.stringify(QUERIES.pool)} && query.queryKey[2].from === ${FIRST_POOL_FROM})
           query.state.dataUpdatedAt -= 7 * 60 * 60 * 1000
-      cache.clientState.queries = cache.clientState.queries.filter((query) => !(query.queryKey[1] === ${JSON.stringify(QUERIES.era)} && query.queryKey[2].from === ${EIGHTIES_FROM}))
+      cache.clientState.queries = cache.clientState.queries.filter((query) => !([${JSON.stringify(QUERIES.era)}, ${JSON.stringify(QUERIES.pool)}].includes(query.queryKey[1]) && query.queryKey[2].from === ${EIGHTIES_FROM}))
       localStorage.setItem('anibeam:cache', JSON.stringify(cache))
       return true
     })()`)
     await browser.rewriteAniList(({ request, body }) => {
       asked.push(askedFor(request))
       if (request.query !== QUERIES.pool) return null
+      if (request.variables.from === EIGHTIES_FROM) {
+        const { p1, p2 } = recordings().get('era-pool-1980s')!.body.data
+        return { status: 200, body: { data: { p1, p2 } } }
+      }
       const { p1, p2 } = body.data
       const reversed = {
         p1: { ...p1, media: p2.media.toReversed() },
@@ -675,6 +681,15 @@ describe('a 1990s pool saved 7 hours ago', () => {
     await browser.holdAniList(0)
     await browser.rewriteAniList(null)
   })
+  // Picks the 1990s, and waits out the decade's 300 ms for its titles, from the cache.
+  const backToThe1990s = async () => {
+    const first = listsOf(recordings().get('first-visit')!).era[0].id
+    await browser.evaluate(`document.querySelector('.ab-eras input[value="1990s"]').click(); true`)
+    return browser.waitFor(
+      `document.querySelector('.ab-strip-row .ab-strip-panel[href="/anime/${first}"]')`,
+      10_000,
+    )
+  }
 
   test('the first press on a slider sends exactly 1 refresh, the matches stay put while it runs and once it lands on screen, and every move after it sends nothing', async () => {
     const matched = () =>
@@ -731,9 +746,13 @@ describe('a 1990s pool saved 7 hours ago', () => {
     )
   })
 
-  test('with every slider at No preference, picking the 1980s costs 1 request, its titles alone', async () => {
+  test('with every slider at No preference, picking the 1980s costs 1 request, its titles alone, and the matches stay headed by the 1990s while their titles stand in', async () => {
     const before = asked.length
+    const heading = `document.querySelector('.ab-pull .ab-matches h3').textContent`
     await browser.evaluate(`document.querySelector('.ab-eras input[value="1980s"]').click(); true`)
+    // Past the decade's 300 ms wait, its answer still held.
+    await sleep(1_000)
+    const loading = await browser.evaluate<string>(heading)
     assert.ok(
       await browser.waitFor(
         `document.querySelector('.ab-strip-row .ab-strip-panel[href="/anime/${EIGHTIES_FIRST}"]')`,
@@ -742,8 +761,69 @@ describe('a 1990s pool saved 7 hours ago', () => {
       'the 1980s never came to the strip',
     )
     await sleep(QUIET_MS)
-    assert.deepEqual(asked.slice(before), ['decade 1980s'])
-    await browser.evaluate(`document.querySelector('.ab-eras input[value="1990s"]').click(); true`)
+    const landed = await browser.evaluate<string>(heading)
+    // Back to the 1990s, from the cache, before the check, as the next check starts there.
+    assert.ok(await backToThe1990s(), 'the 1990s never came back to the strip')
+    assert.deepEqual(
+      { asked: asked.slice(before), loading, landed },
+      {
+        asked: ['decade 1980s'],
+        loading: 'Most popular in the 1990s',
+        landed: 'Most popular in the 1980s',
+      },
+    )
+  })
+
+  test('with a slider set and the 1980s’ titles in, picking the 1980s ranks and pulls their titles while their pool loads, never the 1990s’ pool', async () => {
+    const before = asked.length
+    const eighties = listsOf(recordings().get('era-1980s')!).Page.map(({ id }) => `/anime/${id}`)
+    const matched = () =>
+      browser.evaluate<string[]>(
+        `[...document.querySelectorAll('.ab-pull .ab-match[href]')].map((link) => link.getAttribute('href'))`,
+      )
+    await setSlider('Energy', -2)
+    await browser.evaluate(
+      `document.querySelector('.ab-pull .ab-matches').scrollIntoView({ block: 'center' }); true`,
+    )
+    await browser.evaluate(NEXT_FRAME)
+    await browser.evaluate(`document.querySelector('.ab-eras input[value="1980s"]').click(); true`)
+    // The pool's answer is held 2 seconds: the machine and a pull meanwhile.
+    assert.ok(
+      await poll(async () => asked.length > before, 10_000),
+      'picking the 1980s asked nothing',
+    )
+    await browser.evaluate(NEXT_FRAME)
+    const during = {
+      matches: await matched(),
+      line: await browser.evaluate<string>(
+        `document.querySelector('.ab-pull .ab-set').textContent`,
+      ),
+    }
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    const [pulled] = await pulls(1)
+    const pending = !(await browser.evaluate<boolean>(poolSaved('1980s')))
+    const arrived = await browser.waitFor(poolSaved('1980s'), 10_000)
+    await sleep(QUIET_MS)
+    await browser.evaluate(`document.querySelector('.ab-reset').click(); true`)
+    assert.ok(await backToThe1990s(), 'the 1990s never came back to the strip')
+    assert.ok(arrived, 'the 1980s’ pool never arrived')
+    assert.deepEqual(
+      {
+        asked: asked.slice(before),
+        pending,
+        matchedFromThe1980s:
+          during.matches.length === 3 && during.matches.every((href) => eighties.includes(href)),
+        line: during.line,
+        pulledFromThe1980s: eighties.includes(pulled!),
+      },
+      {
+        asked: ['pool 1980s'],
+        pending: true,
+        matchedFromThe1980s: true,
+        line: 'Filling the machine…',
+        pulledFromThe1980s: true,
+      },
+    )
   })
 })
 
