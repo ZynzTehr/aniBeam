@@ -11,6 +11,7 @@ import { MOOD_TAGS } from '../src/features/mood/moodMap.ts'
 import { AXES, samplesLine, type Axis, type Stop } from '../src/features/mood/moods.ts'
 import { pullable } from '../src/features/mood/roll.ts'
 import { rankMatches, whyOf } from '../src/features/mood/score.ts'
+import { accentVars } from '../src/features/theming/deriveAccent.ts'
 import { BASE_URL, Browser, poll } from './browser.ts'
 import { askedFor, listsOf, recordedPool, recordings } from './recordings.ts'
 
@@ -44,14 +45,14 @@ const readSliders = () =>
   )
 
 /**
- * Pulls `times` in page script with Math.random fixed at 0, each once the last has opened (at
- * once, under reduced motion), and gives each pulled title's address, or null for a pull that
- * never opened.
+ * Pulls `times` in page script with Math.random fixed at `random`, 0 unless given, each once the
+ * last has opened (at once, under reduced motion), and gives each pulled title's address, or null
+ * for a pull that never opened.
  */
-function pulls(times: number) {
+function pulls(times: number, random = 0) {
   return browser.evaluate<(string | null)[]>(`(async () => {
     const random = Math.random
-    Math.random = () => 0
+    Math.random = () => ${random}
     const pulled = []
     try {
       for (let i = 0; i < ${times}; i++) {
@@ -280,14 +281,28 @@ describe('the journey load', () => {
     assert.ok(await browser.waitFor(poolSaved('1990s')), 'the pool never arrived')
     await browser.evaluate(NEXT_FRAME)
     const read = () =>
-      browser.evaluate<{ heading: string; words: string; matches: string[] }>(`(() => {
+      browser.evaluate<{
+        heading: string
+        words: string
+        matches: string[]
+        dome: string[]
+      }>(`(() => {
         const words = document.querySelector('.ab-pull .ab-set')
         return {
           heading: document.querySelector('.ab-pull .ab-matches h3').textContent,
           words: getComputedStyle(words).visibility === 'visible' ? words.textContent : '',
           matches: ${MATCHES},
+          dome: [...document.querySelectorAll('.ab-pull .ab-capsule')].map((capsule) => capsule.style.getPropertyValue('--anime-accent')),
         }
       })()`)
+    // The dome's 9 capsules in the colors of the 9 best matches, in their order.
+    const dome = (titles: readonly Media[]) =>
+      titles
+        .slice(0, 9)
+        .map(
+          (media) =>
+            (accentVars(media.coverImage.color) as Record<string, string>)['--anime-accent'],
+        )
     const rest = await read()
     await setSlider('Energy', -2)
     await browser.evaluate(NEXT_FRAME)
@@ -302,6 +317,7 @@ describe('the journey load', () => {
           heading: 'Most popular in the 1990s',
           words: '',
           matches: pool.slice(0, 3).map(({ id }) => `/anime/${id} `),
+          dome: dome(pool),
         },
         cozy: {
           heading: 'Top matches',
@@ -309,6 +325,7 @@ describe('the journey load', () => {
           matches: top.map(
             (media) => `/anime/${media.id} Why: ${whyOf(media, sliders).join(' · ')}`,
           ),
+          dome: dome(rankMatches(pool, sliders)),
         },
         first: 'Only Yesterday',
       },
@@ -529,13 +546,22 @@ describe('the journey load', () => {
     // With Math.random at 0, each pull takes the best match not pulled lately: a machine that
     // forgot the 3 would give the first of them again.
     const next = await pulls(6)
+    // With it at 0.99, a pull takes the last of the 12 best matches not pulled lately (A12): an
+    // unwindowed pull would reach far past them.
+    const [far] = await pulls(1, 0.99)
+    const sliders = { energy: -2, tone: 0, complexity: 0 } as const
+    const lately = new Set([...first, ...next])
+    const best = pullable(rankMatches(recordedPool('1990s').titles, sliders))
+      .filter(({ id }) => !lately.has(`/anime/${id}`))
+      .slice(0, 12)
     assert.deepEqual(
-      { ...back, again: next.filter((href) => first.includes(href)) },
+      { ...back, again: next.filter((href) => first.includes(href)), far },
       {
         energy: 'Energy: Very cozy (heard as Very cozy)',
         count: '3 pulls this visit',
         shown: first[2],
         again: [],
+        far: `/anime/${best[11].id}`,
       },
     )
     await browser.evaluate(`document.querySelector('.ab-reset').click(); true`)

@@ -63,9 +63,12 @@ const countRequests = `(() => {
 })()`
 
 // Counts the page's requests for a decade's mood pool (its two pages, p1 and p2, alone or with the
-// decade's page) in window.__poolAsked from now on, and gives page script that presses each mood
-// slider, as a pointer and as keys do, pulls 3 times if it can, then picks the 1980s with a slider
-// set: during an outage, none of it may ask for a pool.
+// decade's page) as they reach fetch, in window.__poolAsked from now on, and gives page script that
+// presses each mood slider, as a pointer and as keys do, pulls 3 times if it can, then picks the
+// 1980s with a slider set. While anilist() waits out its minute's pause after a failure, every
+// request it makes waits too: a count of 0 a second later shows only that nothing went around
+// that pause. That none of it asks for a pool once the minute is up is the clock-moved check, 'a
+// decade picked with a slider set during the minute ...', below.
 const pressEverything = `(async () => {
   window.__poolAsked = 0
   const fetch = window.fetch
@@ -649,10 +652,15 @@ describe('AniList down on a first visit', () => {
       // With no titles on the page, the machine says why its lever is off.
       assert.match(state.hint, /fills up with titles once AniList answers/)
       assert.equal(state.off, true, 'the lever is on with nothing to pull')
-      // And nothing pressed on it asks for a decade's mood pool.
+      // And nothing pressed on it sends a pool request around anilist()'s pause (see
+      // pressEverything): past the decade's 300 ms wait, nothing has reached fetch.
       await browser.evaluate(pressEverything)
-      await sleep(1_000) // the decade's 300 ms pause, and a request after it
-      assert.equal(await browser.evaluate('window.__poolAsked'), 0, 'pool requests sent')
+      await sleep(1_000)
+      assert.equal(
+        await browser.evaluate('window.__poolAsked'),
+        0,
+        'a pool request went around the minute’s pause',
+      )
     } finally {
       await browser.send('Network.setBlockedURLs', { urls: [] })
       await browser.send('Network.disable')
@@ -750,10 +758,15 @@ describe('AniList down on a first visit', () => {
       },
       'the machine with a slider set over the samples',
     )
-    // Nothing pressed on the machine asks for a decade's mood pool.
+    // Nothing pressed on the machine sends a pool request around anilist()'s pause (see
+    // pressEverything): past the decade's 300 ms wait, nothing has reached fetch.
     await browser.evaluate(pressEverything)
-    await sleep(1_000) // the decade's 300 ms pause, and a request after it
-    assert.equal(await browser.evaluate('window.__poolAsked'), 0, 'pool requests sent')
+    await sleep(1_000)
+    assert.equal(
+      await browser.evaluate('window.__poolAsked'),
+      0,
+      'a pool request went around the minute’s pause',
+    )
   })
 
   // They are swapped in as the page renders, never put in the query cache: that is saved for a
