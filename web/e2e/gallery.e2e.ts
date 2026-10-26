@@ -241,9 +241,9 @@ test(
         'pull: Nothing it may hand out (all Ecchi)':
           'Nothing it may hand out (all Ecchi), lever off, 0 capsules, Energy Tone Complexity sliders, None of the titles on this page can come out of the machine',
         'pull: The samples':
-          'The samples, lever on, 9 capsules, Energy Tone Complexity sliders, Pick a vibe, then pull',
+          'The samples, lever on, 9 capsules, Energy Tone Complexity sliders, Set a mood, or leave them all at No preference, then pull',
         'pull: The title cases':
-          'The title cases, lever on, 9 capsules, Energy Tone Complexity sliders, Pick a vibe, then pull',
+          'The title cases, lever on, 9 capsules, Energy Tone Complexity sliders, Set a mood, or leave them all at No preference, then pull',
       },
       "the intro's and the pull machine's states",
     )

@@ -40,10 +40,11 @@ const HINTS = {
     <>None of the titles on this page can come out of the machine. Try another decade below.</>
   ),
   listed: <>Everything in the machine is on your list. Try another decade below.</>,
+  // The user's words (D4): no decade named, so the box never changes height with its name.
   ready: (
     <>
-      Pick a vibe, then pull. Every capsule holds a real anime from what&rsquo;s on this page.
-      Coming soon: mood sliders for finer picks.
+      Set a mood, or leave them all at No preference, then pull. Every capsule holds a real anime
+      from the decade below.
     </>
   ),
 }

@@ -750,7 +750,7 @@ describe('desktop (1440x900)', () => {
     assert.deepEqual(state.notes, ['', ''])
   })
 
-  test('later features show as coming soon and cannot be used; My List, in the header and the intro, is a link to its page', async () => {
+  test('chat shows as coming soon, the machine’s hint says the sliders are ready, and My List, in the header and the intro, is a link to its page', async () => {
     const soon = await browser.evaluate<{
       header: string
       intro: string
@@ -767,7 +767,10 @@ describe('desktop (1440x900)', () => {
     assert.equal(soon.header, 'My List')
     assert.equal(soon.intro, 'My List')
     assert.equal(soon.tags, 0, 'a Soon tag left in the header or the intro')
-    assert.match(soon.hint, /Coming soon: mood sliders/)
+    assert.equal(
+      soon.hint,
+      'Set a mood, or leave them all at No preference, then pull. Every capsule holds a real anime from the decade below.',
+    )
     assert.match(soon.lede, /Coming soon: chat with other fans/)
   })
 
@@ -6067,6 +6070,86 @@ describe('Windows contrast themes (forced colors)', () => {
       [],
       'chosen chips that a contrast theme hides, washes out or rings in the wrong color',
     )
+  })
+
+  test('each top match keeps its frame, its rarity and its Why line readable, with the theme’s focus ring', async () => {
+    // The theme drops the matches' cover colors and the stickers' yellow, and colors a link, and
+    // what it holds, in its own link color. Each cover's frame must still show at 3:1 or better on
+    // the theme's page, its sticker's label and its Why line read at 4.5:1 or better as the screen
+    // shows them, and a match reached by Tab show its ring at 3:1 or better.
+    const problems: string[] = []
+    await setSlider('Energy', -2)
+    assert.ok(
+      await browser.waitFor(
+        `[...document.querySelectorAll('.ab-pull .ab-match-why')].every((why) => why.textContent)`,
+        10_000,
+      ),
+      'the matches’ Why lines never showed',
+    )
+    for (const scheme of ['light', 'dark']) {
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [
+          { name: 'prefers-reduced-motion', value: 'reduce' },
+          { name: 'forced-colors', value: 'active' },
+          { name: 'prefers-color-scheme', value: scheme },
+        ],
+      })
+      // From the lever, Tab reaches the first match.
+      await browser.evaluate(
+        `document.querySelector('.ab-pull .ab-matches').scrollIntoView({ block: 'center' }); document.querySelector('.ab-lever').focus(); true`,
+      )
+      await browser.press('Tab')
+      const match = await browser.evaluate<{
+        focused: boolean
+        ring: number
+        frame: number
+        sticker: { x: number; y: number; width: number; height: number }
+        why: { x: number; y: number; width: number; height: number }
+      }>(`(async () => {
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        const probe = document.body.appendChild(document.createElement('i'))
+        probe.style.color = 'Canvas'
+        const page = getComputedStyle(probe).color.match(/[\\d.]+/g).map(Number)
+        probe.remove()
+        // A color laid over the page's, then WCAG's contrast between them.
+        const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+        const lum = ([x, y, z]) => 0.2126 * channel(x) + 0.7152 * channel(y) + 0.0722 * channel(z)
+        const against = (color) => {
+          const [red, green, blue, alpha = 1] = color.match(/[\\d.]+/g).map(Number)
+          const shown = [red, green, blue].map((v, i) => v * alpha + page[i] * (1 - alpha))
+          const [hi, lo] = [lum(shown), lum(page)].sort((x, y) => y - x)
+          return Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100
+        }
+        const link = document.activeElement
+        // A text's box, in whole pixels from the top left of the page, rounded inward.
+        const box = (el) => {
+          const range = document.createRange()
+          range.selectNodeContents(el)
+          const r = range.getBoundingClientRect()
+          const x = Math.ceil(r.left + scrollX), y = Math.ceil(r.top + scrollY)
+          return { x, y, width: Math.floor(r.right + scrollX) - x, height: Math.floor(r.bottom + scrollY) - y }
+        }
+        const style = getComputedStyle(link)
+        return {
+          focused: link.matches('.ab-match:focus-visible'),
+          ring: style.outlineStyle === 'none' ? 0 : against(style.outlineColor),
+          frame: (({ borderTopWidth, borderTopColor }) => (parseFloat(borderTopWidth) ? against(borderTopColor) : 0))(getComputedStyle(link.querySelector('.ab-match-cover'))),
+          sticker: box(link.querySelector('.ab-tier')),
+          why: box(link.querySelector('.ab-match-why')),
+        }
+      })()`)
+      const where = `${scheme}, the first match`
+      if (!match.focused) problems.push(`${where}: Tab did not reach it`)
+      if (match.ring < 3) problems.push(`${where}: its focus ring shows at ${match.ring}:1`)
+      if (match.frame < 3) problems.push(`${where}: its cover’s frame shows at ${match.frame}:1`)
+      for (const part of ['sticker', 'why'] as const) {
+        const contrast = await pixelContrast(match[part])
+        if (contrast < 4.5) problems.push(`${where}: its ${part} reads ${contrast}:1`)
+      }
+    }
+    await setSlider('Energy', 0)
+    await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
+    assert.deepEqual(problems, [], 'top matches a contrast theme hides or washes out')
   })
 
   test('the Reduce motion switch shows off, on and locked apart, with its knob in view', async () => {
