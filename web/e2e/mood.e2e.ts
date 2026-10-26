@@ -11,7 +11,7 @@ import { MOOD_TAGS } from '../src/features/mood/moodMap.ts'
 import { AXES, type Axis, type Stop } from '../src/features/mood/moods.ts'
 import { pullable } from '../src/features/mood/roll.ts'
 import { rankMatches, whyOf } from '../src/features/mood/score.ts'
-import { Browser, poll } from './browser.ts'
+import { BASE_URL, Browser, poll } from './browser.ts'
 import { askedFor, listsOf, recordedPool, recordings } from './recordings.ts'
 
 let browser: Browser
@@ -787,6 +787,141 @@ describe('a page whose every title is on My List', () => {
     } finally {
       await browser.rewriteAniList(null)
     }
+  })
+})
+
+describe('the decade’s titles not in yet, held for a title, or their refresh failed', () => {
+  // The pool waits for the decade's titles (the plan's section 2): it is never asked for while
+  // they are on their way, nor while a title opened at its address holds them (a shared link costs
+  // one request), nor once their request has failed, and the machine never says "Filling the
+  // machine…" while nothing can come.
+  const asked: string[] = []
+  const line = `document.querySelector('.ab-pull .ab-set').textContent`
+  /** A press on Energy and a move to Very cozy, as a finger's would. */
+  const pressEnergy = () =>
+    browser
+      .evaluate(
+        `(() => {
+      ${slider('Energy')}.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+      return true
+    })()`,
+      )
+      .then(() => setSlider('Energy', -2))
+  /** Changes the page's saved copy with `change`, page script given its queries. */
+  const changeSaved = (change: string) =>
+    browser.evaluate(`(() => {
+      const cache = JSON.parse(localStorage.getItem('anibeam:cache'))
+      cache.clientState.queries = (${change})(cache.clientState.queries)
+      localStorage.setItem('anibeam:cache', JSON.stringify(cache))
+      return true
+    })()`)
+  const isPool = `(query) => query.queryKey[1] === ${JSON.stringify(QUERIES.pool)}`
+  const isEra = `(query) => query.queryKey[1] === ${JSON.stringify(QUERIES.era)} || query.queryKey[1] === ${JSON.stringify(QUERIES.firstVisit)}`
+  before(async () => {
+    await browser.forget()
+    await browser.rewriteAniList(({ request }) => {
+      asked.push(askedFor(request))
+      return null
+    })
+  })
+  after(async () => {
+    await browser.holdAniList(0)
+    await browser.rewriteAniList(null)
+  })
+
+  test('a slider pressed before a first visit’s titles land sends nothing until they do, saying “Filling the machine…”, and then the pool', async () => {
+    await browser.holdAniList(2_000)
+    await browser.load({ reduceMotion: true })
+    assert.ok(await browser.waitFor(slider('Energy'), 5_000), 'no slider')
+    await pressEnergy()
+    await sleep(QUIET_MS)
+    const pending = {
+      asked: [...asked],
+      titles: await browser.evaluate<number>(
+        `document.querySelectorAll('.ab-strip-row .ab-strip-panel[href]').length`,
+      ),
+      line: await browser.evaluate<string>(line),
+    }
+    await browser.holdAniList(0)
+    assert.ok(await browser.titlesShown(), 'no titles on the page')
+    assert.ok(await browser.waitFor(poolSaved('1990s')), 'the pool never arrived')
+    await sleep(QUIET_MS)
+    assert.deepEqual(
+      { pending, asked },
+      {
+        pending: { asked: ['first visit'], titles: 0, line: 'Filling the machine…' },
+        asked: ['first visit', 'pool 1990s'],
+      },
+    )
+  })
+
+  test('opened at a title’s address with every title of the page on My List, the page asks for the title alone until its card closes, and then for the pool', async () => {
+    const page = listsOf(recordings().get('first-visit')!).era.map(({ id }) => id)
+    // The saved copy updates within a second of the page's last change.
+    await sleep(1_500)
+    await browser.evaluate(`(() => {
+      const now = Date.now()
+      localStorage.setItem('anibeam:list:v1', JSON.stringify(Object.fromEntries(${JSON.stringify(page)}.map((id, i) => [id, { status: 'SAVED', favorite: false, updatedAt: now - i }]))))
+      return true
+    })()`)
+    await changeSaved(
+      `(queries) => queries.filter((query) => !(${isPool})(query) && query.queryKey[1] !== ${JSON.stringify(QUERIES.title)})`,
+    )
+    asked.length = 0
+    await browser.load({ reduceMotion: true, url: new URL('/anime/154587', BASE_URL).href })
+    assert.ok(
+      await browser.waitFor(
+        `document.querySelector('dialog.ab-card[open] #ab-card-title')`,
+        10_000,
+      ),
+      'no title card',
+    )
+    await sleep(QUIET_MS)
+    const open = [...asked]
+    await browser.press('Escape')
+    assert.ok(await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000), 'open')
+    assert.ok(await browser.waitFor(poolSaved('1990s')), 'the pool never arrived')
+    await sleep(QUIET_MS)
+    assert.deepEqual({ open, closed: asked }, { open: ['title'], closed: ['title', 'pool 1990s'] })
+  })
+
+  test('with the decade’s saved titles out of date and their refresh failing, a slider set asks for no pool and never says “Filling the machine…”', async () => {
+    await sleep(1_500)
+    await browser.evaluate(`localStorage.removeItem('anibeam:list:v1'), true`)
+    await changeSaved(
+      `(queries) => queries.filter((query) => !(${isPool})(query)).map((query) => ((${isEra})(query) ? { ...query, state: { ...query.state, dataUpdatedAt: query.state.dataUpdatedAt - 7 * 60 * 60 * 1000 } } : query))`,
+    )
+    asked.length = 0
+    await browser.rewriteAniList(({ request }) => {
+      asked.push(askedFor(request))
+      return request.query === QUERIES.era
+        ? { status: 500, body: { data: null, errors: [{ message: 'Internal Server Error.' }] } }
+        : null
+    })
+    await browser.load({ reduceMotion: true })
+    // The strip offers Try again once its last retry has failed.
+    assert.ok(
+      await browser.waitFor(
+        `document.querySelector('.ab-strip[aria-labelledby="decades"] .ab-retry')`,
+        20_000,
+      ),
+      'the refresh never failed for good',
+    )
+    await pressEnergy()
+    await sleep(QUIET_MS)
+    const soon = await browser.evaluate<string>(line)
+    await sleep(2_000)
+    assert.deepEqual(
+      {
+        soon,
+        later: await browser.evaluate<string>(line),
+        titles: await browser.evaluate<boolean>(
+          `document.querySelectorAll('.ab-strip-row .ab-strip-panel[href]').length > 3`,
+        ),
+        pools: asked.filter((what) => what.includes('pool')),
+      },
+      { soon: 'Very cozy', later: 'Very cozy', titles: true, pools: [] },
+    )
   })
 })
 

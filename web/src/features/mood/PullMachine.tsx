@@ -94,12 +94,14 @@ const THUMB = 40
  * titles none of which can come up. So a visitor who only looks, or pulls a few times, costs
  * AniList nothing more. Once wanted, a decade's pool stays wanted for the visit, but it is asked
  * for only while the page's titles are `settled` (AniList's answer for the decade, not still on
- * its way, nor the last decade's standing in, nor the samples) and the browser is online.
+ * its way, nor the last decade's standing in, nor the samples, nor held for a title opened at its
+ * address) and the browser is online.
  */
 export function PullMachine({
   era,
   titles: page,
   settled,
+  loading = false,
   outage = false,
   onOpen,
 }: {
@@ -109,6 +111,8 @@ export function PullMachine({
   titles: Media[]
   /** Whether `titles` are AniList's answer for `era` (see above). */
   settled: boolean
+  /** Whether AniList is being asked for the decade's titles: a first ask, a refresh or a retry. */
+  loading?: boolean
   /** Whether the decade shows the samples, as AniList can't be reached. */
   outage?: boolean
   onOpen: OpenTitle
@@ -133,8 +137,11 @@ export function PullMachine({
   // pool is used whenever its decade is open, wanted or not.
   const pool = useQuery({ ...poolQuery(era ?? FIRST_ERA), enabled: want && settled && online })
   // A refresh of the pool waits while the matches are on screen, and a decade's pool on its way
-  // leaves the last one's matches in place meanwhile (see useHeldPool).
-  const coming = want && online && !outage && !pool.data && !pool.isError
+  // leaves the last one's matches in place meanwhile (see useHeldPool). It is on its way only
+  // while the page's titles are in, or on theirs: not while a title opened at its address holds
+  // them, nor once their own request has failed (a refresh, its saved titles kept), as the pool
+  // waits for them to land; then nothing says "Filling the machine…".
+  const coming = want && (settled || loading) && online && !outage && !pool.data && !pool.isError
   const [held, matchesRef] = useHeldPool(
     era?.id ?? null,
     era ? pool.data?.titles : undefined,

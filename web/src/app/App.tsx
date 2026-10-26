@@ -482,11 +482,13 @@ export default function App() {
               onOpen={open}
             />
             {/* The machine holds the decade open below, its titles on the page, then its mood
-                pool once wanted: AniList's answer for it, settled, asks for that. */}
+                pool once wanted: AniList's answer for it, settled, asks for that. Not while a
+                title opened at its address holds the lists: a shared link costs one request. */}
             <PullMachine
               era={era}
               titles={decadeShown}
-              settled={decade.isSuccess && !decade.isPlaceholderData}
+              settled={!listsWait && decade.isSuccess && !decade.isPlaceholderData}
+              loading={decade.isFetching}
               outage={decadeOutage}
               onOpen={open}
             />
