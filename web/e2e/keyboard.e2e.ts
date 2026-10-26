@@ -935,8 +935,8 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
   const chosen = async () =>
     `${await focus()}${(await browser.evaluate<boolean>(`document.activeElement.checked`)) ? '' : ' (not chosen)'}`
 
-  // Space pulls, and focus stays on the lever. With motion the capsule opens 900 ms later, and its
-  // title takes focus only then (it is inert until it shows).
+  // Space pulls, and focus stays on the lever. With motion the card shows its title 700 ms later
+  // (ROLL_MS), and its title takes focus only then (it is inert until it shows).
   journey.lever = [await next(), await next(), await next()]
   await browser.press('Space')
   if (!(await browser.waitFor(`document.querySelector('.ab-result.is-open')`, 5_000))) {

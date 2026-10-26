@@ -585,7 +585,8 @@ test('press() presses Space as a keyboard does: on the focused lever, it pulls o
       'the lever, before Space',
     )
     await browser.press('Space')
-    // The capsule opens 0.9 s after a pull, and a second pull would have come by then.
+    // The card shows its title 0.7 s after a roll (ROLL_MS), and a second roll would have come by
+    // then.
     const opened = await browser.waitFor(`document.querySelector('.ab-result.is-open')`, 5_000)
     assert.deepEqual(
       { opened, count: await browser.evaluate(count) },

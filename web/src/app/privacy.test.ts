@@ -452,11 +452,14 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // with the gacha's rolls (PR 4): the machine's words turned to "roll" (93,691 B), then a roll that
 // skips another season of a show rolled in the last 30, the show found through the pool's seasons
 // one to the next, and the line "Every match has come up once. Repeats start now." once only the
-// last rolls are left: 93,892 B, 201 B more.
+// last rolls are left: 93,892 B, 201 B more. Then the CSS 12,700 B for the roll's flip (F1, the
+// user's pick): the card's two faces, its back in AniBeam's screentone with a ? stamp, turning in
+// 3D after the capsule drops and pops open, timed from flip.ts: 12,697 B, 167 B more (the JS
+// 93,810 B, within its budget).
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
   'the JS every visit loads': 93_900,
-  'the CSS': 12_550,
+  'the CSS': 12_700,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,
   'the mood scoring': 1_500,

@@ -402,9 +402,10 @@ test('a slow first load, seen at the decades, jumps under 0.1, on a phone and on
 })
 
 test('a pull on a phone jumps under 0.1, and the next one too, its title laid out at the press', async () => {
-  // With motion allowed, the capsule drops for 900 ms before it opens on the title, more than the
-  // half second after a press that doesn't count. So the title's box is laid out at the press,
-  // invisible and out of reach (inert) until the capsule opens, and the opening moves nothing.
+  // With motion allowed, the capsule drops and the card turns for ROLL_MS (700 ms) before it shows
+  // the title, more than the half second after a press that doesn't count. So the card is laid out
+  // at the press: its faces unseen until the capsule pops open, its text invisible and both out of
+  // reach (inert) until it shows, and showing it moves nothing.
   await browser.forget()
   await browser.load(PHONE)
   assert.ok(await browser.titlesShown())
@@ -412,10 +413,12 @@ test('a pull on a phone jumps under 0.1, and the next one too, its title laid ou
   const result = `(() => {
     const result = document.querySelector('.ab-result:not([data-old])')
     if (!result) return 'no result'
-    const parts = [result.querySelector('.ab-result-panel'), result.querySelector('.ab-result-copy')]
-    if (parts.some((part) => !part)) return 'no title laid out'
-    const hidden = parts.every((part) => getComputedStyle(part).visibility === 'hidden' && part.inert)
-    const shown = parts.every((part) => getComputedStyle(part).visibility === 'visible' && !part.inert)
+    const poster = result.querySelector('.ab-result-panel'), copy = result.querySelector('.ab-result-copy')
+    if (!poster || !copy) return 'no title laid out'
+    const seen = (part) => part.checkVisibility({ opacityProperty: true, visibilityProperty: true })
+    const faces = [...result.querySelectorAll('.ab-face')]
+    const hidden = poster.inert && copy.inert && !seen(copy) && faces.length === 2 && !faces.some(seen)
+    const shown = !poster.inert && !copy.inert && seen(copy) && seen(poster)
     // The burst of speed lines in the title's color comes with the opening, not before.
     const burst = result.querySelector('.ab-burst') ? ' with its burst' : ''
     return (hidden ? 'hidden and inert' : shown ? 'shown' : 'half shown') + burst + ', ' + Math.round(result.getBoundingClientRect().height) + 'px'
@@ -441,9 +444,9 @@ test('a pull on a phone jumps under 0.1, and the next one too, its title laid ou
       await browser.waitFor(`document.querySelector('.ab-result.is-open:not([data-old])')`, 5000),
       `the ${pull} pull never opened`,
     )
-    // The title's entrance and its burst play as the capsule opens, not at the press, unseen.
+    // The title's entrance and its burst play as the card shows, not at the press, unseen.
     const entering =
-      await browser.evaluate<boolean>(`['.ab-result-panel', '.ab-result-copy', '.ab-sfx-tier', '.ab-burst'].every((part) =>
+      await browser.evaluate<boolean>(`['.ab-result-copy', '.ab-sfx-tier', '.ab-burst'].every((part) =>
       document.querySelector('.ab-result.is-open:not([data-old]) ' + part)?.getAnimations().some((animation) => animation.playState === 'running'))`)
     // What the opening animates: only what moves nothing else, transform and opacity.
     const animating =

@@ -1724,21 +1724,70 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   mask-image: radial-gradient(circle, transparent 18%, #000 42%, transparent 74%);
 }
 
-/* The pulled title is laid out at the press, so that the capsule opening on it moves nothing on the
-   page; until it opens, the title is invisible (and inert, see PullMachine). */
-.ab-result:not(.is-open) > .ab-result-panel,
+/* The rolled card is laid out at the press, so that showing its title moves nothing on the page;
+   until it shows, the text is invisible (and inert, see PullMachine). */
 .ab-result:not(.is-open) > .ab-result-copy {
   visibility: hidden;
 }
 
-.ab-result-panel {
+/* The poster, its two faces turning in it as a roll lands (see the motion block). */
+.ab-flip {
   position: relative;
   z-index: 1;
-  display: block;
+  perspective: 1100px;
+}
+
+.ab-flipper {
+  position: relative;
   aspect-ratio: 2 / 3;
+  transform-style: preserve-3d;
+}
+
+/* Overflow, filter and opacity go on the faces, never on the part that turns: they would flatten
+   it, and Safari flickers. */
+.ab-face {
+  position: absolute;
+  overflow: hidden;
   border: var(--border) solid var(--ink);
+  backface-visibility: hidden;
+  inset: 0;
+}
+
+.ab-result-panel {
   background: var(--ink);
   box-shadow: 9px 9px 0 var(--anime-accent);
+}
+
+/* The card's back: AniBeam's screentone and a big ? stamp. */
+.ab-back {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  background: var(--hot) radial-gradient(rgb(0 0 0 / 0.22) 1.6px, transparent 2px) 0 0 / 8px 8px;
+  box-shadow: 9px 9px 0 var(--ink);
+  color: #fff;
+  transform: rotateY(180deg);
+}
+
+.ab-back b {
+  display: grid;
+  width: 46%;
+  aspect-ratio: 1;
+  place-items: center;
+  border: var(--border) solid var(--ink);
+  border-radius: 50%;
+  background: var(--sun);
+  box-shadow: 5px 5px 0 var(--ink);
+  color: var(--ink);
+  font: 400 clamp(48px, 7vw, 84px) / 1 var(--display);
+}
+
+.ab-back i {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--ink);
+  font: 400 15px var(--display);
 }
 
 .ab-result-panel img {
@@ -2692,7 +2741,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     text-align: center;
   }
 
-  .ab-result-panel {
+  .ab-flip {
     width: min(64vw, 240px);
   }
 
@@ -2792,7 +2841,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     text-align: center;
   }
 
-  .ab-result-panel {
+  .ab-flip {
     width: min(64vw, 240px);
   }
 
@@ -2978,35 +3027,42 @@ body:has(.ab-card[open], .ab-drawer[open]) {
       }
     }
 
-    /* The capsule shows only here, where it moves (see .ab-drop above). */
+    /* A roll (F1, timed by PullMachine from flip.ts): the capsule, shown only here, where it moves
+       (see .ab-drop above), drops for --drop, then pops open for --open as the card's faces fade
+       in behind it, and the card turns for --flip, from its back to the title's cover. */
     .ab-drop {
       display: block;
-      animation: ab-drop 0.75s cubic-bezier(0.3, 1.6, 0.4, 1) both;
+      animation: ab-drop var(--drop) cubic-bezier(0.3, 1.6, 0.4, 1) both;
     }
 
-    .ab-result.is-open .ab-top-half {
-      animation: ab-split-top 0.5s cubic-bezier(0.3, 0, 0.2, 1) forwards;
+    .ab-top-half {
+      animation: ab-split-top var(--open) ease-in var(--drop) forwards;
     }
 
-    .ab-result.is-open .ab-bottom-half {
-      animation: ab-split-bottom 0.5s cubic-bezier(0.3, 0, 0.2, 1) forwards;
+    .ab-bottom-half {
+      animation: ab-split-bottom var(--open) ease-in var(--drop) forwards;
     }
 
+    .ab-result:not(.is-open) .ab-face {
+      animation: ab-fade var(--open) linear var(--drop) backwards;
+    }
+
+    .ab-result:not(.is-open) .ab-flipper {
+      animation: ab-turn var(--flip) cubic-bezier(0.3, 0.7, 0.3, 1) calc(var(--drop) + var(--open))
+        both;
+    }
+
+    /* As the card shows its title, not at the press, when it is laid out unseen. */
     .ab-burst {
       animation: ab-burst 0.9s ease-out both;
     }
 
-    /* As the capsule opens, not at the press, when the title is laid out unseen. */
-    .ab-result.is-open .ab-result-panel {
-      animation: ab-art 0.8s var(--spring) both 0.1s;
-    }
-
-    .ab-result.is-open .ab-sfx-tier {
-      animation: ab-tier-boom 0.7s var(--spring) both 0.35s;
+    .ab-sfx-tier {
+      animation: ab-tier-boom 0.5s var(--spring) both;
     }
 
     .ab-result.is-open .ab-result-copy {
-      animation: ab-rise 0.6s var(--spring) both 0.3s;
+      animation: ab-rise 0.35s var(--spring) both;
     }
 
     .ab-machine:has(.ab-lever:active) .ab-capsule {
@@ -3119,6 +3175,12 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   from {
     opacity: 0;
     transform: translateY(-240px) rotate(-220deg);
+  }
+}
+
+@keyframes ab-turn {
+  from {
+    transform: rotateY(180deg);
   }
 }
 

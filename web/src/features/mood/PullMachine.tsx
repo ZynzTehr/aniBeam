@@ -32,6 +32,7 @@ import {
   type Axis,
   type Stop,
 } from './moods.ts'
+import { DROP_MS, FLIP_MS, OPEN_MS, ROLL_MS } from './flip.ts'
 import { rarityOf } from './rarity.ts'
 import { pullable, remember, rollNext } from './roll.ts'
 import type { Sliders } from './score.ts'
@@ -82,9 +83,17 @@ const TAP_MS = 500
 // MoodSlider.css's thumb, whose middle travels from half its width in to half its width in.
 const THUMB = 40
 
+// The flip's timings, for the motion block's rules to read (see flip.ts).
+const TIMES = cssVars({
+  '--drop': `${DROP_MS}ms`,
+  '--open': `${OPEN_MS}ms`,
+  '--flip': `${FLIP_MS}ms`,
+})
+
 /**
- * The gacha machine, drawn in ink: set the mood sliders, pull the lever, and a capsule drops with
- * a random title of the decade open below it (`era`), so a pull costs no API request: from its
+ * The gacha machine, drawn in ink: set the mood sliders, pull the lever, and a capsule drops and a
+ * card turns over on a random title of the decade open below it (`era`), so a pull costs no API
+ * request (none of it moves under reduced motion, where the card shows at once): from its
  * mood pool, about 100 titles, once that is in the cache, and until then from the decade's titles
  * on the page (`titles`). With a slider set, a pull gives one of the 12 titles that best match the
  * sliders (rankMatches, from the mood scoring's own file); with none, any title. Never one on My
@@ -126,10 +135,15 @@ export function PullMachine({
   onOpen: OpenTitle
 }) {
   const { sliders, ring, pulls, pulled, wanted } = useSession()
-  // Shown at once when the machine is drawn again with a pull already made (back from My List).
+  // Whether the rolled card shows its title: not while it turns (see flip.ts). Shown at once when
+  // the machine is drawn again with a roll already made (back from My List).
   const [revealed, setRevealed] = useState(true)
   const timer = useRef<number | undefined>(undefined)
   useEffect(() => () => clearTimeout(timer.current), [])
+  const reveal = () => {
+    clearTimeout(timer.current)
+    setRevealed(true)
+  }
   const lever = useRef<HTMLButtonElement>(null)
   const listedIds = useListIds()
   const listed = useMemo(() => new Set(listedIds), [listedIds])
@@ -221,6 +235,9 @@ export function PullMachine({
   )
 
   function pull() {
+    // A press while the card turns ends the turn at once and rolls nothing (the user's pick, A9),
+    // so a quick second press never skips a title unseen: the next press rolls.
+    if (!revealed) return reveal()
     const { media, needMore } = rollNext({
       ranked,
       listed,
@@ -235,8 +252,10 @@ export function PullMachine({
     clearTimeout(timer.current)
     setSession({ ring: remember(ring, media.id), pulls: pulls + 1, pulled: media, wanted: more })
     setNews((now) => ({ ...now, of: 'pull' }))
-    setRevealed(false)
-    timer.current = window.setTimeout(() => setRevealed(true), reducedMotion() ? 0 : 900)
+    // With reduced motion, no flip: the card shows at once.
+    const still = reducedMotion()
+    setRevealed(still)
+    if (!still) timer.current = window.setTimeout(reveal, ROLL_MS)
   }
 
   const move = (axis: Axis, stop: Stop) => setSession({ sliders: { ...sliders, [axis]: stop } })
@@ -308,7 +327,7 @@ export function PullMachine({
             : repeats
               ? REPEATS
               : ''
-  // What the status line says, as it happens: each roll as its capsule opens, and what keeps the
+  // What the status line says, as it happens: each roll as its card shows, and what keeps the
   // machine from its best as that begins (the line, but "Filling the machine…", which comes and
   // goes with a first press, and the repeats' line, which comes with a roll and is said with it),
   // whichever came last. Never the sliders' words: each slider says its own. Set as the component
@@ -382,33 +401,48 @@ export function PullMachine({
             <div
               key={pulls}
               className={`ab-result ab-${rarity.key} ${revealed ? 'is-open' : ''}`}
-              style={accentVars(pulled.coverImage.color)}
+              style={{ ...accentVars(pulled.coverImage.color), ...TIMES }}
             >
-              <span className="ab-drop" aria-hidden="true">
-                <span className="ab-half ab-top-half" />
-                <span className="ab-half ab-bottom-half" />
-              </span>
-              {revealed && <span className="ab-burst" aria-hidden="true" />}
-              {/* The title is laid out at the press, so that opening the capsule 900 ms later
-                  moves nothing on the page; until then it is invisible (see .ab-result) and out
-                  of reach, inert. */}
-              <a
-                className="ab-result-panel"
-                href={titlePath(pulled.id)}
-                onClick={opener(pulled, onOpen)}
-                inert={!revealed}
-              >
-                <img
-                  src={pulled.coverImage.extraLarge}
-                  alt=""
-                  onLoad={markLoaded}
-                  onError={markBroken}
-                />
-                <span className="ab-sfx-tier" aria-hidden="true">
-                  {rarity.sfx}
+              {/* The capsule drops and pops open as the card turns: only then, so none is left
+                  over the title, nor shown under reduced motion, which shows the card at once. */}
+              {!revealed && (
+                <span className="ab-drop" aria-hidden="true">
+                  <span className="ab-half ab-top-half" />
+                  <span className="ab-half ab-bottom-half" />
                 </span>
-                <span className="sr-only">Open the title card for {titleOf(pulled)}</span>
-              </a>
+              )}
+              {revealed && <span className="ab-burst" aria-hidden="true" />}
+              {/* The card is laid out at the press, so that showing its title moves nothing on the
+                  page: its back, then its cover as it turns (F1, see flip.ts), and its text,
+                  invisible until it shows (see .ab-result) and out of reach, inert. */}
+              <div className="ab-flip">
+                <div className="ab-flipper">
+                  <span className="ab-face ab-back" aria-hidden="true">
+                    <b>?</b>
+                    <i>AniBeam</i>
+                  </span>
+                  <a
+                    className="ab-result-panel ab-face"
+                    href={titlePath(pulled.id)}
+                    onClick={opener(pulled, onOpen)}
+                    inert={!revealed}
+                  >
+                    <img
+                      src={pulled.coverImage.extraLarge}
+                      alt=""
+                      onLoad={markLoaded}
+                      onError={markBroken}
+                    />
+                    <span className="sr-only">Open the title card for {titleOf(pulled)}</span>
+                  </a>
+                </div>
+                {/* Beside the faces, whose edges would cut it off; it booms in as the card shows. */}
+                {revealed && (
+                  <span className="ab-sfx-tier" aria-hidden="true">
+                    {rarity.sfx}
+                  </span>
+                )}
+              </div>
               <div className="ab-result-copy" inert={!revealed}>
                 <p className="ab-tier">
                   {rarity.label} <span aria-hidden="true">{rarity.stars}</span>
@@ -463,7 +497,7 @@ export function PullMachine({
           />
         </div>
       </div>
-      {/* Screen readers hear each pull from this one line as its capsule opens, and what keeps
+      {/* Screen readers hear each pull from this one line as its card shows, and what keeps
           the machine from its best (see news). It is always on the page because a live region is
           read only when its text changes. The number keeps a repeated title (a machine with one
           title left) from reading as no change. */}

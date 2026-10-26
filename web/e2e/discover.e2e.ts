@@ -5,6 +5,7 @@ import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { QUERIES } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
+import { DROP_MS, FLIP_MS, OPEN_MS, ROLL_MS } from '../src/features/mood/flip.ts'
 import { Browser, poll, type Answer } from './browser.ts'
 import { askedFor, listsOf, recordings } from './recordings.ts'
 
@@ -3025,7 +3026,7 @@ describe('desktop (1440x900)', () => {
         `document.querySelector('.ab-result')?.setAttribute('data-old', ''); true`,
       )
       await browser.press('Enter')
-      // Silent until the capsule opens 0.9s later, so the pull is heard as it is seen.
+      // Silent until the card shows its title ROLL_MS later, so the roll is heard as it is seen.
       const pressed = await browser.evaluate<{ line: string; shown: string | null }>(heard)
       assert.ok(
         pressed.shown || pressed.line === '',
@@ -3068,12 +3069,12 @@ describe('desktop (1440x900)', () => {
     )
   })
 
-  test('with the site set to reduce motion, a pull opens at once, and otherwise its capsule drops for 0.9 s', async () => {
+  test('with the site set to reduce motion, a roll shows at once, and otherwise its card turns for 0.7 s', async () => {
     // Visitors can ask for reduced motion on the site itself, not only on their device: that sets
     // data-motion="reduce" on <html> (see lib/motion.ts). This device allows motion, so with the
-    // site's setting on a pull must open at once, as it does when the device asks (see the reduced
-    // motion group), and with it off the capsule must still drop first. How long each pull took to
-    // open, by the page's clock:
+    // site's setting on a roll must show at once, as it does when the device asks (see the reduced
+    // motion group), and with it off the capsule must still drop and the card turn first (ROLL_MS,
+    // see flip.ts). How long each roll took to show, by the page's clock:
     const ms = await browser.evaluate<{ on: number; off: number }>(`(async () => {
       const root = document.documentElement, ms = {}
       try {
@@ -3092,22 +3093,95 @@ describe('desktop (1440x900)', () => {
       }
       return ms
     })()`)
-    assert.ok(ms.on < 450, `with the site set to reduce motion, the pull took ${ms.on} ms to open`)
+    assert.ok(ms.on < 450, `with the site set to reduce motion, the roll took ${ms.on} ms to show`)
     assert.ok(
-      ms.off >= 850,
-      `with motion allowed, the pull opened after ${ms.off} ms, before its capsule's 0.9 s drop`,
+      ms.off >= ROLL_MS - 50,
+      `with motion allowed, the roll showed after ${ms.off} ms, before its ${ROLL_MS} ms flip ended`,
     )
   })
 
-  test('with motion allowed, the capsule shows as it splits open', async () => {
+  test('a roll’s card turns over mid-roll, and a second press then shows it at once and rolls nothing, a third rolling the next', async () => {
+    // F1, the user's pick (see flip.ts): the capsule drops, pops open, then the card turns from its
+    // back to the title's cover, from DROP_MS + OPEN_MS to ROLL_MS. A press while it turns ends the
+    // turn at once and rolls nothing (A9): the status line says the same roll, the count stays,
+    // and the next press rolls. Each moment is read on the page's own clock, stopped and moved on
+    // by the check (see Browser.stopClock), so a busy machine can't move it. A stopped clock can't
+    // start again, so the check opens a browser of its own.
+    const own = await Browser.open()
+    try {
+      await own.load()
+      assert.ok(await own.titlesShown())
+      await own.animationsDone()
+      await own.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+      await own.stopClock()
+      // The card as the visitor sees it: how far it has turned, 0° when its cover faces them and
+      // 180° when its back does (null with no card to turn); whether it shows its title; the
+      // status line, the count, and the sentence that the title it holds would be said in.
+      type Card = {
+        turned: number | null
+        shown: boolean
+        said: string
+        count: string
+        title: string
+      }
+      const card = () =>
+        own.evaluate<Card>(`(() => {
+          const result = document.querySelector('.ab-result')
+          const flipper = result.querySelector('.ab-flipper')
+          const turn = flipper && new DOMMatrix(getComputedStyle(flipper).transform)
+          const tier = result.querySelector('.ab-tier').textContent.split(' ')[0]
+          return {
+            turned: turn && Math.round(Math.abs(Math.atan2(turn.m13, turn.m11)) * 180 / Math.PI),
+            shown: result.classList.contains('is-open'),
+            said: document.querySelector('.ab-pull > [role="status"]').textContent,
+            count: document.querySelector('.ab-count').textContent,
+            title: result.querySelector('h3').textContent + ', ' + tier + '.',
+          }
+        })()`)
+      // A press, then two frames: an animation starts on the frame after it is made, and the
+      // clock that times it doesn't move on until then.
+      const press = () =>
+        own.evaluate(
+          `document.querySelector('.ab-lever').click(); new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
+        )
+      await press()
+      await own.tick(DROP_MS + OPEN_MS + FLIP_MS / 2)
+      const mid = await card()
+      await press()
+      const second = await card()
+      await press()
+      const third = await card()
+      await own.tick(ROLL_MS + 50)
+      const landed = await card()
+      const midTurn = mid.turned !== null && mid.turned > 0 && mid.turned < 180
+      assert.deepEqual(
+        {
+          mid: { midTurn, shown: mid.shown, said: mid.said, count: mid.count },
+          second,
+          third: { shown: third.shown, said: third.said, count: third.count },
+          landed: { shown: landed.shown, said: landed.said, count: landed.count },
+        },
+        {
+          mid: { midTurn: true, shown: false, said: '', count: '1 roll this visit' },
+          second: { ...mid, turned: 0, shown: true, said: `Roll 1: ${mid.title}` },
+          third: { shown: false, said: '', count: '2 rolls this visit' },
+          landed: { shown: true, said: `Roll 2: ${landed.title}`, count: '2 rolls this visit' },
+        },
+        `the card ${DROP_MS + OPEN_MS + FLIP_MS / 2} ms after a press (mid-turn: turned ${mid.turned}°), at a second press, at a third, and once the third's had landed`,
+      )
+    } finally {
+      await own.close()
+    }
+  })
+
+  test('with motion allowed, the capsule shows as the card turns, and is gone once it shows', async () => {
     // The capsule is hidden unless motion is allowed (see the reduced motion group), so here both
-    // halves must show as the title comes out between them.
-    const { opened } = await capsuleHalves()
-    assert.notEqual(opened, undefined, 'the capsule never opened')
-    assert.equal(
-      opened,
-      2,
-      `with motion allowed, the capsule showed ${opened} of its 2 halves as it opened`,
+    // halves must show as it drops and pops open, and none once the card shows its title.
+    const halves = await capsuleHalves()
+    assert.deepEqual(
+      halves,
+      { pulled: 2, opened: 0 },
+      'with motion allowed, the capsule halves shown as the card turned, and once it showed',
     )
   })
 
@@ -3369,10 +3443,10 @@ function setSlider(label: string, stop: number) {
 
 /**
  * Pulls the lever and counts the capsule halves on show, drawn and not see-through: the most at
- * any change to the new result before it opens (`pulled`), and from when it opens until two
- * frames later (`opened`). Each change is read as React makes it, before the browser draws
- * anything, so a state counts even if it lasts a frame or less. A moment never reached has no
- * count.
+ * any change to the new result or any frame before it shows its title (`pulled`), and from when
+ * it shows until two frames later (`opened`). Each change is read as React makes it, before the
+ * browser draws anything, so a state counts even if it lasts a frame or less. A moment never
+ * reached has no count: under reduced motion a roll shows at once, with no moment before.
  */
 async function capsuleHalves() {
   return browser.evaluate<{ pulled?: number; opened?: number }>(`(async () => {
@@ -3389,12 +3463,19 @@ async function capsuleHalves() {
     document.querySelector('#pull').scrollIntoView()
     const watch = new MutationObserver(count)
     watch.observe(document.querySelector('.ab-reveal'), { childList: true, attributes: true, subtree: true })
+    let watching = true
+    const frame = () => {
+      count()
+      if (watching) requestAnimationFrame(frame)
+    }
+    requestAnimationFrame(frame)
     const start = performance.now()
     document.querySelector('.ab-lever').click()
     while (!result()?.classList.contains('is-open') && performance.now() - start < 10000)
       await new Promise((resolve) => setTimeout(resolve, 5))
     await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
     count()
+    watching = false
     watch.disconnect()
     return shown
   })()`)
@@ -3513,8 +3594,9 @@ async function motionBackOn(turnOff: () => Promise<unknown>) {
 }
 
 // What motionBackOn() must read: motion back on with nothing left playing and no capsule over the
-// open title, the knob sliding off, the drift following the scroll, and a new pull playing each of
-// its animations: the capsule's drop and split, the burst, the art, the tier's boom, the text.
+// open title, the knob sliding off, the drift following the scroll, and a new roll playing each of
+// its animations: the capsule's drop and split, the card's faces fading in and its turn, the
+// burst, the tier's boom, the text.
 const BACK_ON = {
   motion: 'back on',
   replayed: [],
@@ -3522,13 +3604,14 @@ const BACK_ON = {
   knob: 'slid',
   splash: { aboutToLeave: 'still', halfOut: 'drifting' },
   nextPull: [
-    'ab-art: played',
     'ab-burst: played',
     'ab-drop: played',
+    'ab-fade: played',
     'ab-rise: played',
     'ab-split-bottom: played',
     'ab-split-top: played',
     'ab-tier-boom: played',
+    'ab-turn: played',
   ],
 }
 
@@ -4638,14 +4721,14 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     assert.equal(halfOut, 'none', 'the splash cover drifted with half its panel scrolled away')
   })
 
-  test('a pull shows no capsule halves', async () => {
-    // With motion allowed, a capsule drops in and splits open on the title (see the desktop
-    // group). Here the title comes out at once, with no capsule: not even a still one for the
-    // frame or so before it opens.
+  test('a roll shows no capsule halves', async () => {
+    // With motion allowed, a capsule drops in and splits open as the card turns (see the desktop
+    // group). Here the card shows its title at once, at the press, with no capsule: not even a
+    // still one for a frame, and no moment before it shows.
     assert.deepEqual(
       await capsuleHalves(),
-      { pulled: 0, opened: 0 },
-      'capsule halves shown as the pull began, and once it opened',
+      { opened: 0 },
+      'capsule halves shown before the roll showed, and once it showed',
     )
   })
 
