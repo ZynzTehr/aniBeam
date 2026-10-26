@@ -939,6 +939,51 @@ test('a pool tried again over 6 hours after its scoring failed asks alone, takin
   assert.equal(pool.getCurrentResult().status, 'success')
 })
 
+// Tried again sooner, within those 6 hours, the pool takes the half, and is dated from when its
+// request was sent, not from when it was cut: it stays fresh only for what is left of the 6 hours.
+test('a pool that takes a half kept 5 hours is dated from when its request was sent', async (t) => {
+  const start = Date.UTC(2000, 0, 3)
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: start })
+  const sent = answering(t)
+  const { current, load } = moodScoring
+  moodScoring.current = undefined
+  t.after(() => (moodScoring.current = current))
+  let loads = 0
+  t.mock.method(moodScoring, 'load', () =>
+    ++loads === 1
+      ? Promise.reject(new TypeError('Failed to fetch dynamically imported module'))
+      : load(),
+  )
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  t.after(() => client.clear())
+  const [eighties] = decades('1980s')
+  wantPool(client, eighties)
+  const page = new QueryObserver(client, eraQuery(eighties))
+  const pool = new QueryObserver(client, poolQuery(eighties))
+  const stops = [page, pool].map((observer) => observer.subscribe(() => {}))
+  t.after(() => stops.forEach((stop) => stop()))
+  const steps = async () => {
+    for (let step = 0; step < 40; step++) {
+      await new Promise((resolve) => setImmediate(resolve))
+      t.mock.timers.tick(100)
+    }
+  }
+  await steps()
+  assert.equal(pool.getCurrentResult().status, 'error', 'the pool didn’t fail with its scoring')
+  t.mock.timers.setTime(start + 5 * 60 * 60 * 1000)
+  void pool.refetch()
+  await steps()
+  const { dataUpdatedAt } = client.getQueryState(poolQuery(eighties).queryKey)!
+  assert.deepEqual(
+    {
+      sent: sent.map(({ query }) => (query === QUERIES.decadeWithPool ? 'both' : query)),
+      status: pool.getCurrentResult().status,
+      dated: `${(dataUpdatedAt - start) / 1000} s after the request went`,
+    },
+    { sent: ['both'], status: 'success', dated: '0 s after the request went' },
+  )
+})
+
 test('switching lists keeps a request that was already sent, so its result is cached', async (t) => {
   t.mock.method(globalThis, 'fetch', async () => {
     return new Response(JSON.stringify({ data: { Page: { media: [{ id: 1, tags: [] }] } } }))

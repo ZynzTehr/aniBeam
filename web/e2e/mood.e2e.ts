@@ -868,6 +868,59 @@ describe('a page whose every title is on My List', () => {
       await browser.rewriteAniList(null)
     }
   })
+
+  test('with the mood scoring’s file blocked, its pool fails unseen, and a slider set once the file loads asks for it again', async () => {
+    const pool = recordedPool('1990s').titles
+    const asked: string[] = []
+    // The saved copy updates within a second of the page's last change.
+    await sleep(1_500)
+    await browser.evaluate(`(() => {
+      const cache = JSON.parse(localStorage.getItem('anibeam:cache'))
+      cache.clientState.queries = cache.clientState.queries.filter((query) => query.queryKey[1] !== ${JSON.stringify(QUERIES.pool)})
+      localStorage.setItem('anibeam:cache', JSON.stringify(cache))
+      return true
+    })()`)
+    await browser.send('Network.enable')
+    await browser.send('Network.setBlockedURLs', { urls: ['*/features/mood/scoring.ts*'] })
+    await browser.rewriteAniList(({ request }) => {
+      asked.push(askedFor(request))
+      return null
+    })
+    try {
+      await browser.load({ reduceMotion: true })
+      assert.ok(await browser.titlesShown(), 'no titles on the page')
+      // The pool tries twice, a second apart, failing each time with the file.
+      await sleep(2_500)
+      const blocked = [...asked]
+      await browser.send('Network.setBlockedURLs', { urls: [] })
+      await setSlider('Energy', -2)
+      assert.ok(await browser.waitFor(poolSaved('1990s'), 5_000), 'the pool was not asked again')
+      await browser.evaluate(NEXT_FRAME)
+      const sliders = { energy: -2, tone: 0, complexity: 0 } as const
+      assert.deepEqual(
+        {
+          blocked,
+          asked,
+          matches: await browser.evaluate<string[]>(MATCHES),
+          line: await browser.evaluate<string>(
+            `document.querySelector('.ab-pull .ab-set').textContent`,
+          ),
+        },
+        {
+          blocked: [],
+          asked: ['pool 1990s'],
+          matches: rankMatches(pool, sliders)
+            .slice(0, 3)
+            .map((media) => `/anime/${media.id} Why: ${whyOf(media, sliders).join(' · ')}`),
+          line: 'Very cozy',
+        },
+      )
+      await setSlider('Energy', 0)
+    } finally {
+      await browser.send('Network.setBlockedURLs', { urls: [] })
+      await browser.rewriteAniList(null)
+    }
+  })
 })
 
 describe('the decade’s titles not in yet, held for a title, or their refresh failed', () => {

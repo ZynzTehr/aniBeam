@@ -165,13 +165,26 @@ export function PullMachine({
   // The mood scoring is a file of its own (see loadScoring.ts), most often loaded by the time a
   // slider moves; if not, it loads then, and the titles keep the page's order meanwhile. Should it
   // fail (offline, or an old tab after a deploy renamed it), the line says so, with Try again,
-  // which loads it again, and the pool, which failed with it, asking AniList nothing.
+  // which loads it again, and the pool, which failed with it, asking AniList nothing. A pool wanted
+  // with no slider set fails with it too, unseen, and an errored query isn't asked for again on
+  // its own: once the scoring loads here, a pool that failed is asked for again, if still wanted.
   const [scoring, setScoring] = useState(moodScoring.current)
   const [failed, setFailed] = useState(false)
   const scored = scoring ?? moodScoring.current
   useEffect(() => {
-    if (set && !scored && !failed) moodScoring.load().then(setScoring, () => setFailed(true))
-  }, [set, scored, failed])
+    if (!set || scored || failed) return
+    moodScoring.load().then(
+      (loaded) => {
+        setScoring(loaded)
+        void client.refetchQueries({
+          queryKey: poolQuery(era ?? FIRST_ERA).queryKey,
+          type: 'active',
+          predicate: (query) => query.state.status === 'error',
+        })
+      },
+      () => setFailed(true),
+    )
+  }, [set, scored, failed, client, era])
   const retry = () => {
     setFailed(false)
     if (pool.isError) void pool.refetch()

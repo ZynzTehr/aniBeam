@@ -383,10 +383,9 @@ export const poolQuery = (era: Era) =>
       const pools = context.client && poolsOf(context.client)
       if (pools) {
         pools.wanted.add(era.id)
-        // TanStack dates the pool from when it is cut, not from when AniList sent the request it
-        // came in, so a pool taking a half kept for hours (its scoring failed, and Try again came
-        // much later) would count an old answer fresh for 6 more hours. Past the pool's freshness,
-        // the half is let go, and the pool asks again: alone, or with a page about to ask.
+        // A half kept for hours (its scoring failed, and Try again came much later) is dated from
+        // when its request was sent (see below): past the pool's freshness, the half is let go,
+        // and the pool asks again, alone or with a page about to ask.
         const kept = pools.shared.get(era.id)
         if (kept && Date.now() - kept.at >= POOL_FRESH) pools.shared.delete(era.id)
         // A page with no titles yet, or out of date, asks within the page's next task, as the page
@@ -402,6 +401,15 @@ export const poolQuery = (era: Era) =>
           const answer = await shared.sent
           const { MOOD_TAGS } = moodScoring.current ?? (await moodScoring.load())
           if (pools.shared.get(era.id) === shared) pools.shared.delete(era.id)
+          // And once TanStack has stored the pool, it is dated from when that request was sent,
+          // so a half kept a while (its scoring failed, or the machine was left meanwhile) stays
+          // fresh for what is left of its 6 hours, not 6 more.
+          const cut = Date.now()
+          const { client } = context
+          setTimeout(() => {
+            if ((client.getQueryState(poolKey(era))?.dataUpdatedAt ?? 0) >= cut)
+              client.setQueryData(poolKey(era), (pool) => pool, { updatedAt: shared.at })
+          })
           return poolOf(answer, MOOD_TAGS)
         }
         pools.alone.add(era.id)
