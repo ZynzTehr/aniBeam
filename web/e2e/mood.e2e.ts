@@ -122,6 +122,68 @@ function eachSetting<T>(settings: Record<Axis, Stop>[], read: string) {
   })()`)
 }
 
+/**
+ * Every request the page asks AniList's API for from now on, by Chrome's own log of the page's
+ * requests (Network.requestWillBeSent), whatever answers it: its method, POST. Chrome's CORS
+ * preflight before a POST is left out, a question about the POST, not one of its own.
+ */
+async function watchAniList() {
+  const asked: string[] = []
+  browser.onEvent('Network.requestWillBeSent', ({ request }) => {
+    if (request.url.startsWith('https://graphql.anilist.co') && request.method !== 'OPTIONS')
+      asked.push(request.method)
+  })
+  await browser.send('Network.enable')
+  return asked
+}
+
+/**
+ * Walks each slider by keyboard from the machine's heading: Tab to it, Home, then the right arrow
+ * to each stop, End and Home again. Gives what a screen reader heard at each stop.
+ */
+async function everyStopByKeyboard() {
+  await browser.evaluate(`document.getElementById('pull').focus(); true`)
+  const heard: string[] = []
+  const hear = () =>
+    browser.evaluate<string>(
+      `document.activeElement.labels[0].textContent + ': ' + document.activeElement.getAttribute('aria-valuetext')`,
+    )
+  for (let slider = 0; slider < 3; slider++) {
+    await browser.press('Tab')
+    for (const key of [
+      'Home',
+      'ArrowRight',
+      'ArrowRight',
+      'ArrowRight',
+      'ArrowRight',
+      'End',
+      'Home',
+    ] as const) {
+      await browser.press(key)
+      heard.push(await hear())
+    }
+  }
+  return heard
+}
+
+/** What everyStopByKeyboard() hears: each slider's words, its ends twice. */
+const EVERY_STOP = Object.values(AXES).flatMap(({ label, words }) =>
+  [...words, words[4], words[0]].map((word) => `${label}: ${word}`),
+)
+
+/** Leaves the tab and comes back, as the page hears it: hidden, then shown and focused again. */
+const awayAndBack = `(() => {
+  Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' })
+  document.dispatchEvent(new Event('visibilitychange', { bubbles: true }))
+  delete document.visibilityState
+  document.dispatchEvent(new Event('visibilitychange', { bubbles: true }))
+  window.dispatchEvent(new Event('focus'))
+  return document.visibilityState
+})()`
+
+// The 1990s' first day, as their requests ask from it.
+const FIRST_POOL_FROM = ERAS.find((era) => era.id === '1990s')!.variables.from
+
 // How long a check waits to see that nothing more is asked for: a request any step made would
 // have gone within a few frames.
 const QUIET_MS = 500
@@ -160,6 +222,53 @@ describe('the journey load', () => {
         ),
       },
     )
+  })
+
+  test('once the pool is in, every stop of every slider by keyboard, Reset moods, a match’s card opened and closed, and leaving the tab and coming back send AniList nothing, by Chrome’s own log', async () => {
+    // The spec's goal: a mood slider moved makes 0 requests once the pool is cached (done-when 1).
+    assert.ok(await browser.waitFor(poolSaved('1990s')), 'the pool never arrived')
+    const requests = await watchAniList()
+    const heard = await everyStopByKeyboard()
+    // Reset moods, by keyboard: it hands focus on to the lever, and Tab then reaches the first
+    // match, whose card Enter opens and Escape closes.
+    await browser.press('Tab')
+    const reset = await browser.evaluate<string>('document.activeElement.textContent')
+    await browser.press('Enter')
+    await browser.press('Tab')
+    const match = await browser.evaluate<string>(
+      `document.activeElement.matches('.ab-match') ? 'a match' : document.activeElement.textContent`,
+    )
+    await browser.press('Enter')
+    const opened = await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 5_000)
+    await browser.press('Escape')
+    const closed = await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5_000)
+    const back = await browser.evaluate<string>(awayAndBack)
+    await sleep(QUIET_MS)
+    assert.deepEqual(
+      {
+        heard,
+        reset,
+        sliders: await browser.evaluate(
+          `[...document.querySelectorAll('.ab-pull input[type="range"]')].map((input) => input.value).join(' ')`,
+        ),
+        match,
+        opened,
+        closed,
+        back,
+        asked: requests,
+      },
+      {
+        heard: EVERY_STOP,
+        reset: 'Reset moods',
+        sliders: '0 0 0',
+        match: 'a match',
+        opened: true,
+        closed: true,
+        back: 'visible',
+        asked: [],
+      },
+    )
+    await browser.evaluate('document.activeElement.blur(); true')
   })
 
   test('at No preference the top 3 are the 1990s’ most popular, under “Most popular in the 1990s”, and at Very cozy Only Yesterday comes first, why named', async () => {
@@ -503,6 +612,101 @@ describe('a cold first visit, counted', () => {
       },
     )
     await browser.evaluate(`document.querySelector('.ab-reset').click(); true`)
+  })
+})
+
+describe('a 1990s pool saved 7 hours ago', () => {
+  // The cold visit's pools, saved, the 1990s' made 7 hours old, past its 6 hours' freshness. Its
+  // refresh comes back in reverse order, held 2 seconds, so the check can look while it runs.
+  const old = recordedPool('1990s').titles.map(({ id }) => `/anime/${id}`)
+  let fresh: string[] = []
+  const asked: string[] = []
+  let requests: string[] = []
+  before(async () => {
+    // The saved copy updates within a second of the page's last change.
+    await sleep(1_500)
+    await browser.evaluate(`(() => {
+      const cache = JSON.parse(localStorage.getItem('anibeam:cache'))
+      for (const query of cache.clientState.queries)
+        if (query.queryKey[1] === ${JSON.stringify(QUERIES.pool)} && query.queryKey[2].from === ${FIRST_POOL_FROM})
+          query.state.dataUpdatedAt -= 7 * 60 * 60 * 1000
+      localStorage.setItem('anibeam:cache', JSON.stringify(cache))
+      return true
+    })()`)
+    await browser.rewriteAniList(({ request, body }) => {
+      asked.push(askedFor(request))
+      if (request.query !== QUERIES.pool) return null
+      const { p1, p2 } = body.data
+      const reversed = {
+        p1: { ...p1, media: p2.media.toReversed() },
+        p2: { ...p2, media: p1.media.toReversed() },
+      }
+      fresh = poolOf(reversed, MOOD_TAGS).titles.map(({ id }) => `/anime/${id}`)
+      return { status: 200, body: { data: reversed } }
+    })
+    await browser.holdAniList(2_000)
+    requests = await watchAniList()
+    await browser.load({ reduceMotion: true })
+    assert.ok(await browser.titlesShown(), 'no titles on the page')
+  })
+  after(async () => {
+    await browser.holdAniList(0)
+    await browser.rewriteAniList(null)
+  })
+
+  test('the first press on a slider sends exactly 1 refresh, the matches stay put while it runs and once it lands on screen, and every move after it sends nothing', async () => {
+    const matched = () =>
+      browser.evaluate<string[]>(
+        `[...document.querySelectorAll('.ab-pull .ab-match[href]')].map((link) => link.getAttribute('href'))`,
+      )
+    await browser.evaluate(
+      `document.querySelector('.ab-pull .ab-matches').scrollIntoView({ block: 'center' }); true`,
+    )
+    await browser.evaluate(NEXT_FRAME)
+    const before = { matches: await matched(), asked: requests.length }
+    // A mouse press on Energy's thumb, at no preference, which moves nothing.
+    const at = await browser.evaluate<{ x: number; y: number }>(`(() => {
+      const r = ${slider('Energy')}.getBoundingClientRect()
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+    })()`)
+    const mouse = { ...at, button: 'left', clickCount: 1 } as const
+    await browser.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...mouse })
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...mouse })
+    assert.ok(await poll(async () => asked.length > 0, 10_000), 'the press asked for nothing')
+    const during = await matched()
+    // Once the refresh has landed and been saved, the matches still show the old pool's order.
+    assert.ok(
+      await browser.waitFor(
+        `(JSON.parse(localStorage.getItem('anibeam:cache'))?.clientState.queries ?? []).some((query) => query.queryKey[1] === ${JSON.stringify(QUERIES.pool)} && query.queryKey[2].from === ${FIRST_POOL_FROM} && Date.now() - query.state.dataUpdatedAt < 60_000)`,
+        10_000,
+      ),
+      'the refresh never landed',
+    )
+    await browser.evaluate(NEXT_FRAME)
+    const landed = await matched()
+    const heard = await everyStopByKeyboard()
+    await browser.evaluate(`document.querySelector('.ab-reset').click(); true`)
+    await sleep(QUIET_MS)
+    // Off screen, the refresh's order shows.
+    await browser.evaluate(`scrollTo({ top: 0, behavior: 'instant' }); true`)
+    await browser.evaluate(NEXT_FRAME)
+    await browser.evaluate(
+      `document.querySelector('.ab-pull .ab-matches').scrollIntoView({ block: 'center' }); true`,
+    )
+    await browser.evaluate(NEXT_FRAME)
+    const after = await matched()
+    assert.deepEqual(
+      { before, during, landed, heard, asked, requests, after },
+      {
+        before: { matches: old.slice(0, 3), asked: 0 },
+        during: old.slice(0, 3),
+        landed: old.slice(0, 3),
+        heard: EVERY_STOP,
+        asked: ['pool 1990s'],
+        requests: ['POST'],
+        after: fresh.slice(0, 3),
+      },
+    )
   })
 })
 
