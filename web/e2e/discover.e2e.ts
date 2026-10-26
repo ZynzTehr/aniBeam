@@ -699,18 +699,20 @@ describe('desktop (1440x900)', () => {
     assert.deepEqual(lists, [['trending', '1990s']], 'the lists each request asked AniList for')
   })
 
-  test('renders the header, intro, nine trending panels, the pull with its three mood sliders and the decades', async () => {
+  test('renders the header, intro, nine trending panels, the pull with its three mood sliders and its top 3, and the decades', async () => {
     const page = await browser.evaluate<{
       h1: string
       links: string[]
       panels: number
       sliders: string[]
+      matches: string
       chips: string[]
     }>(`({
       h1: document.querySelector('h1').textContent.replace('キラーン', '').replace(/\\s+/g, ' ').trim(),
       links: [...document.querySelectorAll('.ab-nav a')].map((a) => a.textContent.trim()),
       panels: document.querySelectorAll('.ab-grid .ab-link').length,
       sliders: [...document.querySelectorAll('.ab-pull .ab-body input[type="range"]')].map((input) => input.labels[0].textContent + ' ' + input.min + ' to ' + input.max + ', at ' + input.value + ', ' + input.getAttribute('aria-valuetext')),
+      matches: document.querySelector('.ab-pull .ab-matches h3').textContent + ': ' + [...document.querySelectorAll('.ab-pull .ab-match-row > li')].map((slot) => slot.querySelector('a.ab-match[href^="/anime/"] img') ? 'a title' : 'empty').join(', '),
       chips: [...document.querySelectorAll('.ab-eras input')].map((input) => input.value),
     })`)
     assert.equal(page.h1, 'What’s hot. What’s new. Talk about it.')
@@ -721,6 +723,7 @@ describe('desktop (1440x900)', () => {
       'Tone -2 to 2, at 0, No preference',
       'Complexity -2 to 2, at 0, No preference',
     ])
+    assert.equal(page.matches, 'Most popular in the 1990s: a title, a title, a title')
     assert.deepEqual(page.chips, [
       'pre-1970',
       '1970s',
@@ -1934,7 +1937,7 @@ describe('desktop (1440x900)', () => {
     assert.deepEqual(off, [], 'widths where the intro does not end at the fold')
   })
 
-  test('every label on the pull machine reads at 4.5:1 or better', async () => {
+  test('every label on the pull machine and its top matches reads at 4.5:1 or better', async () => {
     // WCAG contrast of every piece of text on the machine, text a ::before or ::after adds
     // included, so a label added later is measured too. Each is measured as the screen shows
     // it: from the text out to the page, every box lays its background color under what it
@@ -1944,14 +1947,18 @@ describe('desktop (1440x900)', () => {
     // is laid over the same way, and the worst case counts. Text in a box 1px or smaller is for
     // screen readers only. Every label must reach 4.5:1, even the lever's large one (WCAG asks
     // 3:1). The machine is measured at rest, so colors only hover or a press brings are not,
-    // and neither is the text beside it (the hint bubble, the pulled title). Landed, as a visitor
-    // sees it: below the first screen, it waits see-through until scrolled to. A slider is set,
-    // so Reset moods shows and is measured too.
+    // and neither is the text beside it (the hint bubble, the pulled title), but its top matches
+    // are. Landed, as a visitor sees it: below the first screen, it waits see-through until
+    // scrolled to. A slider is set, so Reset moods, the set slider's word and the Why lines show
+    // and are measured too.
     await browser.landAll('.ab-machine')
     await setSlider('Energy', -2)
     assert.ok(
-      await browser.waitFor(`!document.querySelector('.ab-reset').matches('.is-off')`, 5000),
-      'Reset moods never showed',
+      await browser.waitFor(
+        `!document.querySelector('.ab-reset').matches('.is-off') && [...document.querySelectorAll('.ab-match-why')].every((why) => why.textContent)`,
+        10_000,
+      ),
+      'Reset moods or the matches’ Why lines never showed',
     )
     const ratios = await browser.evaluate<{ text: string; ratio: number }[]>(`(() => {
       // Chrome gives colors written in hex, by name, or with rgb() or hsl() as rgb() or rgba().
@@ -2003,16 +2010,18 @@ describe('desktop (1440x900)', () => {
         const shown = pairs.map((pair) => pair.map((color) => over(color, [255, 255, 255, 1])))
         return Math.min(...shown.map(([letter, beside]) => ratio(letter, beside)))
       }
-      const labels = [], machine = document.querySelector('.ab-machine')
+      const labels = [], roots = [document.querySelector('.ab-machine'), document.querySelector('.ab-matches')]
       const measure = (text, el, pseudo) => {
         const box = el.getBoundingClientRect()
         if (!text || box.width <= 1 || box.height <= 1) return
         labels.push({ text, ratio: Math.round(worst(el, pseudo) * 100) / 100 })
       }
-      const walker = document.createTreeWalker(machine, NodeFilter.SHOW_TEXT)
-      for (let node; (node = walker.nextNode()); ) measure(node.textContent.trim(), node.parentElement)
+      for (const root of roots) {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+        for (let node; (node = walker.nextNode()); ) measure(node.textContent.trim(), node.parentElement)
+      }
       // The text a ::before or ::after adds: the strings in its content, which Chrome quotes.
-      for (const el of [machine, ...machine.querySelectorAll('*')])
+      for (const el of roots.flatMap((root) => [root, ...root.querySelectorAll('*')]))
         for (const pseudo of ['::before', '::after']) {
           const style = getComputedStyle(el, pseudo)
           const text = (style.content.match(/"[^"]*"/g) ?? []).map((s) => s.slice(1, -1)).join('').trim()
@@ -2034,9 +2043,15 @@ describe('desktop (1440x900)', () => {
         'Dark & tragic',
         'Reset moods',
         'Pull!',
+        'Top matches',
       ].filter((text) => !texts.includes(text)),
       [],
       `labels left out of the measure, of ${texts.join(', ')}`,
+    )
+    assert.equal(
+      texts.filter((text) => text.startsWith('Why: ')).length,
+      3,
+      `the matches’ Why lines left out of the measure, of ${texts.join(', ')}`,
     )
     const faint = ratios.filter((label) => label.ratio < 4.5)
     assert.deepEqual(

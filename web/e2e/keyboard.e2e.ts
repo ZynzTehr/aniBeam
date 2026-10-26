@@ -285,7 +285,8 @@ test("each of the header's section links hands focus to its section's heading, a
 })
 
 // Each Tab stop of the page, in order: a run of stops alike is one entry, with its count. Title
-// panels go by their section, as their titles come from AniList.
+// panels go by their section, as their titles come from AniList, and the machine's top matches by
+// their heading.
 const STOPS = [
   'Skip to content',
   'Skip to Reduce motion',
@@ -304,6 +305,7 @@ const STOPS = [
   'Tone',
   'Complexity',
   'Pull!',
+  'a title in Most popular in the 1990s ×3',
   'Decade: 1990s',
   'a title in Browse by decade ×20',
   'Reduce motion',
@@ -328,6 +330,7 @@ const BACK_WIDE = [
   'Reduce motion',
   'a title in Browse by decade ×20',
   'Decade: 1990s',
+  'a title in Most popular in the 1990s ×3',
   'Pull!',
   'Complexity',
   'Tone',
@@ -360,8 +363,8 @@ const STOP = `(() => {
   // A title card taller than the screen, which scrolls, is a stop of its own: its ring is a frame
   // inside the screen's edge, which its own check looks at (a title card taller than the screen).
   if (focused.matches('dialog')) return { name: focused.matches('.ab-trailer') ? 'the trailer' : 'the card', problems: [] }
-  const name = focused.matches('.ab-grid .ab-link, .ab-strip-panel')
-    ? 'a title in ' + text(focused.closest('section').querySelector('h1, h2'))
+  const name = focused.matches('.ab-grid .ab-link, .ab-strip-panel, .ab-match')
+    ? 'a title in ' + text((focused.closest('.ab-matches') ?? focused.closest('section')).querySelector('h1, h2, h3'))
     : focused.matches('input[type="range"]')
       ? text(focused.labels[0])
       : focused.matches('fieldset input')

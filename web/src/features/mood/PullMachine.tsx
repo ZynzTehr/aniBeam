@@ -18,9 +18,12 @@ import { formatOf, seasonOf, studioOf, titleOf } from '../anime/format.ts'
 import { FIRST_ERA, poolQuery, wantPool, type Era, type Media } from '../anime/queries.ts'
 import { useListIds } from '../list/store.ts'
 import { accentVars } from '../theming/deriveAccent.ts'
+import { useHeldPool } from './heldPool.ts'
 import { moodScoring } from './loadScoring.ts'
+import { Matches } from './Matches.tsx'
 import { MoodSlider } from './MoodSlider.tsx'
-import { AXES, type Axis, type Stop } from './moods.ts'
+import { AXES, wordOf, type Axis, type Stop } from './moods.ts'
+import { rarityOf } from './rarity.ts'
 import { pullable, remember, rollNext } from './roll.ts'
 import type { Sliders } from './score.ts'
 import { setSession, useSession } from './session.ts'
@@ -45,12 +48,13 @@ const HINTS = {
 }
 type Hint = keyof typeof HINTS
 
-function rarityOf(score: number | null) {
-  if (score === null) return { key: 'mystery', label: 'Mystery', stars: '?', sfx: '!?' }
-  if (score >= 85) return { key: 'ssr', label: 'SSR', stars: '★★★', sfx: 'SSR!!' }
-  if (score >= 75) return { key: 'sr', label: 'SR', stars: '★★', sfx: 'SR!' }
-  return { key: 'r', label: 'R', stars: '★', sfx: 'R' }
-}
+// The matches' heading while every slider is at no preference (the user's pick, D3).
+const popular = (era: Era | null) =>
+  !era
+    ? 'Most popular'
+    : era.id === 'upcoming'
+      ? 'Most popular upcoming titles'
+      : `Most popular ${era.id === 'pre-1970' ? 'before 1970' : `in the ${era.label}`}`
 
 // The sliders in the order the machine shows them.
 const AXIS_ORDER = Object.keys(AXES) as Axis[]
@@ -79,8 +83,9 @@ const THUMB = 40
  * mood pool, about 100 titles, once that is in the cache, and until then from the decade's titles
  * on the page (`titles`). With a slider set, a pull gives one of the 12 titles that best match the
  * sliders (rankMatches, from the mood scoring's own file); with none, any title. Never one on My
- * List, nor any of the last 30 pulled while another can come up (see rollNext). The sliders, the
- * last pulls and the pulled title are kept for the visit (see session.ts).
+ * List, nor any of the last 30 pulled while another can come up (see rollNext). Under the pulled
+ * title, the top 3 matches, which a slider re-sorts at once (see Matches). The sliders, the last
+ * pulls and the pulled title are kept for the visit (see session.ts).
  *
  * The pool is asked for only once it is wanted (the plan's section 2, D1): a slider pressed, the
  * decade changed with one set, a pull with fewer than 10 titles left to come up, or a page of
@@ -125,9 +130,10 @@ export function PullMachine({
   // Keyed by the decade alone, so no slider's value asks for anything. Once in the cache, the
   // pool is used whenever its decade is open, wanted or not.
   const pool = useQuery({ ...poolQuery(era ?? FIRST_ERA), enabled: want && settled && online })
-  const titles = (era && pool.data?.titles) || onPage
-  // What can come out, the titles not on My List: the dome shows these, and with none the lever
-  // is off.
+  // A refresh of the pool waits while the matches are on screen (see useHeldPool).
+  const [held, matchesRef] = useHeldPool(era?.id ?? null, era ? pool.data?.titles : undefined)
+  const titles = held?.length ? held : onPage
+  // What can come out, the titles not on My List: with none, the lever is off.
   const out = useMemo(() => titles.filter((media) => !listed.has(media.id)), [titles, listed])
 
   // A wanted pool is said so before the page asks for the decade's titles (App's effects run after
@@ -150,6 +156,12 @@ export function PullMachine({
   const ranked = useMemo(
     () => (set && scored ? scored.rankMatches(titles, sliders) : titles),
     [set, scored, titles, sliders],
+  )
+  // The dome shows the colors of the best matches that can come out, each capsule in its place
+  // (keyed by it, not its title), so a new order moves none.
+  const dome = useMemo(
+    () => ranked.filter((media) => !listed.has(media.id)).slice(0, 9),
+    [ranked, listed],
   )
 
   function pull() {
@@ -229,9 +241,9 @@ export function PullMachine({
       <div className="ab-pull-row">
         <div className="ab-machine">
           <div className="ab-dome" aria-hidden="true">
-            {out.slice(0, 9).map((media, i) => (
+            {dome.map((media, i) => (
               <span
-                key={media.id}
+                key={i}
                 className="ab-capsule"
                 style={{ ...accentVars(media.coverImage.color), ...cssVars({ '--i': i }) }}
               />
@@ -342,6 +354,16 @@ export function PullMachine({
                 ))}
             </div>
           )}
+          <Matches
+            heading={set ? 'Top matches' : popular(era)}
+            words={AXIS_ORDER.filter((axis) => sliders[axis])
+              .map((axis) => wordOf(axis, sliders[axis]))
+              .join(' · ')}
+            titles={ranked}
+            why={(media) => (set && scored ? scored.whyOf(media, sliders) : [])}
+            rowRef={matchesRef}
+            onOpen={onOpen}
+          />
         </div>
       </div>
       {/* Screen readers hear each pull from this one line as its capsule opens. It is always on

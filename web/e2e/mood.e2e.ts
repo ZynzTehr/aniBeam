@@ -5,9 +5,11 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { titleOf } from '../src/features/anime/format.ts'
 import { cardOf, ERAS, poolOf, QUERIES } from '../src/features/anime/queries.ts'
 import { MOOD_TAGS } from '../src/features/mood/moodMap.ts'
-import { AXES, type Axis } from '../src/features/mood/moods.ts'
+import { AXES, type Axis, type Stop } from '../src/features/mood/moods.ts'
+import { rankMatches, whyOf } from '../src/features/mood/score.ts'
 import { Browser, poll } from './browser.ts'
 import { askedFor, listsOf, recordedPool, recordings } from './recordings.ts'
 
@@ -84,6 +86,42 @@ const FOCUS_SPY = `(() => {
 const poolSaved = (id: string) =>
   `(JSON.parse(localStorage.getItem('anibeam:cache'))?.clientState.queries ?? []).some((query) => query.queryKey[1] === ${JSON.stringify(QUERIES.pool)} && JSON.stringify(query.queryKey[2]) === ${JSON.stringify(JSON.stringify(ERAS.find((era) => era.id === id)!.variables))} && query.state.data)`
 
+/** The machine's top matches: each one's address and its Why line, in order. */
+const MATCHES = `[...document.querySelectorAll('.ab-pull .ab-match[href]')].map((link) => link.getAttribute('href') + ' ' + link.querySelector('.ab-match-why').textContent)`
+
+/** Each stop of the three sliders together, Energy's first: 125 settings. */
+const STOPS: Stop[] = [-2, -1, 0, 1, 2]
+const SETTINGS = STOPS.flatMap((energy) =>
+  STOPS.flatMap((tone) => STOPS.map((complexity) => ({ energy, tone, complexity }))),
+)
+
+/**
+ * Moves the three sliders through each of `settings` in page script, as keys or drags would,
+ * each once the last has been drawn, calling `read` (page script, given the setting) after each
+ * draw, and puts them back at no preference. Gives what each read gave.
+ */
+function eachSetting<T>(settings: Record<Axis, Stop>[], read: string) {
+  return browser.evaluate<T[]>(`(async () => {
+    const value = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set
+    const inputs = [...document.querySelectorAll('.ab-pull input[type="range"]')]
+    const set = (stops) => stops.forEach((stop, i) => {
+      if (inputs[i].value === String(stop)) return
+      value.call(inputs[i], String(stop))
+      inputs[i].dispatchEvent(new Event('input', { bubbles: true }))
+    })
+    const read = ${read}
+    const seen = []
+    for (const setting of ${JSON.stringify(settings)}) {
+      set([setting.energy, setting.tone, setting.complexity])
+      await ${NEXT_FRAME}
+      seen.push(read(setting))
+    }
+    set([0, 0, 0])
+    await ${NEXT_FRAME}
+    return seen
+  })()`)
+}
+
 // How long a check waits to see that nothing more is asked for: a request any step made would
 // have gone within a few frames.
 const QUIET_MS = 500
@@ -122,6 +160,125 @@ describe('the journey load', () => {
         ),
       },
     )
+  })
+
+  test('at No preference the top 3 are the 1990s’ most popular, under “Most popular in the 1990s”, and at Very cozy Only Yesterday comes first, why named', async () => {
+    const pool = recordedPool('1990s').titles
+    assert.ok(await browser.waitFor(poolSaved('1990s')), 'the pool never arrived')
+    await browser.evaluate(NEXT_FRAME)
+    const read = () =>
+      browser.evaluate<{ heading: string; words: string; matches: string[] }>(`(() => {
+        const words = document.querySelector('.ab-pull .ab-set')
+        return {
+          heading: document.querySelector('.ab-pull .ab-matches h3').textContent,
+          words: getComputedStyle(words).visibility === 'visible' ? words.textContent : '',
+          matches: ${MATCHES},
+        }
+      })()`)
+    const rest = await read()
+    await setSlider('Energy', -2)
+    await browser.evaluate(NEXT_FRAME)
+    const cozy = await read()
+    await setSlider('Energy', 0)
+    const sliders = { energy: -2, tone: 0, complexity: 0 } as const
+    const top = rankMatches(pool, sliders).slice(0, 3)
+    assert.deepEqual(
+      { rest, cozy, first: titleOf(top[0]) },
+      {
+        rest: {
+          heading: 'Most popular in the 1990s',
+          words: '',
+          matches: pool.slice(0, 3).map(({ id }) => `/anime/${id} `),
+        },
+        cozy: {
+          heading: 'Top matches',
+          words: 'Very cozy',
+          matches: top.map(
+            (media) => `/anime/${media.id} Why: ${whyOf(media, sliders).join(' · ')}`,
+          ),
+        },
+        first: 'Only Yesterday',
+      },
+    )
+  })
+
+  test('at every setting of the three sliders, the top 3 are the pool’s best matches, and no Why line names a spoiler tag', async () => {
+    const pool = recordedPool('1990s').titles
+    const byId = new Map(pool.map((media) => [media.id, media]))
+    const seen = await eachSetting<string[]>(SETTINGS, `() => ${MATCHES}`)
+    const spoilers = seen.flatMap((matches, i) =>
+      matches.flatMap((match) => {
+        const space = match.indexOf(' ')
+        const media = byId.get(Number(match.slice(0, space).split('/').pop()))!
+        const names = match
+          .slice(space + 1)
+          .replace(/^Why: /, '')
+          .split(' · ')
+        return media.tags
+          .filter((tag) => (tag.isGeneralSpoiler || tag.isMediaSpoiler) && names.includes(tag.name))
+          .map((tag) => `${JSON.stringify(SETTINGS[i])}: ${titleOf(media)}, ${tag.name}`)
+      }),
+    )
+    const expected = SETTINGS.map((sliders) =>
+      rankMatches(pool, sliders)
+        .slice(0, 3)
+        .map((media) => {
+          const names = whyOf(media, sliders)
+          return `/anime/${media.id} ${names.length ? `Why: ${names.join(' · ')}` : ''}`
+        }),
+    )
+    assert.deepEqual(spoilers, [], 'a Why line named a spoiler tag')
+    assert.deepEqual(seen, expected)
+  })
+
+  test('moving the sliders moves nothing on the page, at 1440 and at 390', async () => {
+    // Every 7th setting of the three sliders, so the heading, the set words, the matches and their
+    // Why lines all change. A shift a script's change makes counts, as no visitor's input came
+    // before it.
+    const settings = SETTINGS.filter((_, i) => i % 7 === 0)
+    const moved: Record<string, string[]> = {}
+    for (const [width, height, phone] of [
+      [1440, 900, false],
+      [390, 844, true],
+    ] as const) {
+      await browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height,
+        deviceScaleFactor: phone ? 2 : 1,
+        mobile: phone,
+      })
+      await browser.evaluate(
+        `document.querySelector('.ab-pull .ab-matches').scrollIntoView({ block: 'center' }), true`,
+      )
+      await browser.evaluate(NEXT_FRAME)
+      // Each shift's parts, named as it is seen, but a slider's own word, which follows the
+      // visitor's key or finger: a shift so soon after their input is not counted.
+      await browser.evaluate(`(() => {
+        window.__shifts = []
+        const name = (source) => {
+          const node = source.node?.nodeType === 3 ? source.node.parentElement : source.node
+          if (node?.closest('.ab-slider')) return []
+          return [(node ? node.className || node.nodeName : 'a part gone') + ' by ' + Math.round(source.currentRect.left - source.previousRect.left) + ', ' + Math.round(source.currentRect.top - source.previousRect.top) + 'px']
+        }
+        window.__note = (entries) => entries.forEach((shift) => window.__shifts.push(...shift.sources.flatMap(name)))
+        window.__shiftWatch = new PerformanceObserver((list) => window.__note(list.getEntries()))
+        window.__shiftWatch.observe({ type: 'layout-shift' })
+        return true
+      })()`)
+      await eachSetting(settings, '() => 0')
+      moved[width] = await browser.evaluate<string[]>(`(() => {
+        window.__note(window.__shiftWatch.takeRecords())
+        window.__shiftWatch.disconnect()
+        return window.__shifts
+      })()`)
+    }
+    await browser.send('Emulation.setDeviceMetricsOverride', {
+      width: 1440,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: false,
+    })
+    assert.deepEqual(moved, { 1440: [], 390: [] })
   })
 
   test('a quick tap on a slider’s track sets the stop under the finger, even where the browser would not', async () => {
@@ -244,14 +401,14 @@ describe('a cold first visit, counted', () => {
       await browser.evaluate(`document.getElementById('${section}').scrollIntoView(); true`)
       await browser.evaluate(NEXT_FRAME)
     }
-    // From the machine's heading: the three sliders, the lever, then the decades.
+    // From the machine's heading: the three sliders, the lever, its top 3, then the decades.
     await browser.evaluate(`document.getElementById('pull').focus(); true`)
     const walked: string[] = []
-    for (let stop = 0; stop < 5; stop++) {
+    for (let stop = 0; stop < 8; stop++) {
       await browser.press('Tab')
       walked.push(
         await browser.evaluate<string>(
-          `document.activeElement.labels?.[0]?.textContent ?? document.activeElement.textContent`,
+          `document.activeElement.matches('.ab-match') ? 'a match' : document.activeElement.labels?.[0]?.textContent ?? document.activeElement.textContent`,
         ),
       )
     }
@@ -260,7 +417,7 @@ describe('a cold first visit, counted', () => {
     assert.deepEqual(
       { walked, pulled: pulled.filter(Boolean).length, asked },
       {
-        walked: ['Energy', 'Tone', 'Complexity', 'Pull!', '1990s'],
+        walked: ['Energy', 'Tone', 'Complexity', 'Pull!', 'a match', 'a match', 'a match', '1990s'],
         pulled: 5,
         asked: ['first visit'],
       },
@@ -293,17 +450,32 @@ describe('a cold first visit, counted', () => {
     )
   })
 
-  test('with a slider set, picking the 1980s costs exactly 1 request, its titles and its pool together, the machine then pulls a title of the 1980s, and going back to the 1990s costs none', async () => {
+  test('with a slider set, picking the 1980s with the machine on screen costs exactly 1 request, its titles and its pool together, the machine then shows and pulls titles of the 1980s, and going back to the 1990s costs none and shows theirs', async () => {
     const eighties = poolOf(recordings().get('era-pool-1980s')!.body.data, MOOD_TAGS).titles.map(
       ({ id }) => `/anime/${id}`,
     )
+    const ninetiesPool = recordedPool('1990s').titles.map(({ id }) => `/anime/${id}`)
+    const matched = () =>
+      browser.evaluate<string[]>(
+        `[...document.querySelectorAll('.ab-pull .ab-match[href]')].map((link) => link.getAttribute('href'))`,
+      )
     await setSlider('Energy', -2)
+    // The matches on screen as the decade changes: a pool held there would keep the 1990s'.
+    await browser.evaluate(
+      `document.querySelector('.ab-pull .ab-matches').scrollIntoView({ block: 'center' }); true`,
+    )
+    await browser.evaluate(NEXT_FRAME)
     await browser.evaluate(`document.querySelector('.ab-eras input[value="1980s"]').click(); true`)
     assert.ok(await poll(async () => asked.length > 2, 10_000), 'picking the 1980s asked nothing')
     assert.ok(await browser.waitFor(poolSaved('1980s')), 'the 1980s’ pool never arrived')
     await browser.evaluate(NEXT_FRAME)
+    const shown = await matched()
     await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
     const [pulled] = await pulls(1)
+    await browser.evaluate(
+      `document.querySelector('.ab-pull .ab-matches').scrollIntoView({ block: 'center' }); true`,
+    )
+    await browser.evaluate(NEXT_FRAME)
     await browser.evaluate(`document.querySelector('.ab-eras input[value="1990s"]').click(); true`)
     // The 1990s' titles back in the strip, from the cache.
     const nineties = listsOf(recordings().get('first-visit')!).era.map(cardOf)
@@ -315,11 +487,19 @@ describe('a cold first visit, counted', () => {
       'the 1990s never came back to the strip',
     )
     await sleep(QUIET_MS)
+    const back = await matched()
     assert.deepEqual(
-      { asked, pulledFromThe1980s: eighties.includes(pulled!) },
+      {
+        asked,
+        matchedFromThe1980s: shown.length === 3 && shown.every((href) => eighties.includes(href)),
+        pulledFromThe1980s: eighties.includes(pulled!),
+        matchedFromThe1990s: back.length === 3 && back.every((href) => ninetiesPool.includes(href)),
+      },
       {
         asked: ['first visit', 'pool 1990s', 'decade and pool 1980s'],
+        matchedFromThe1980s: true,
         pulledFromThe1980s: true,
+        matchedFromThe1990s: true,
       },
     )
     await browser.evaluate(`document.querySelector('.ab-reset').click(); true`)

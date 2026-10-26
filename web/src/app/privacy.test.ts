@@ -430,11 +430,16 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // in measured steps. Then 92,900 B with the machine following the decade below it and asking for
 // its mood pool only once wanted (the pool's query and its cut, poolOf, now in the code every
 // visit loads, the wanted rule kept per decade for the visit, and the decade's page told to ask
-// for the pool with it: 92,789 B, 586 B more).
+// for the pool with it: 92,789 B, 586 B more). Then 93,400 B with the machine's top 3 under the
+// pulled title, each with its cover, rarity sticker and Why line (features/mood/Matches.tsx), the
+// "Most popular in the 1990s" heading, the dome in the best matches' colors, and a refresh of the
+// pool held while the matches are on screen (features/mood/heldPool.ts): 93,284 B, 495 B more;
+// and the CSS 12,500 B for the matches' fixed slots (12,481 B, 157 B more). Raises the plan's D5
+// lets come in measured steps.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 92_900,
-  'the CSS': 12_400,
+  'the JS every visit loads': 93_400,
+  'the CSS': 12_500,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,
   'the mood scoring': 1_500,

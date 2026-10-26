@@ -278,7 +278,7 @@
 
 /* Any cover that can't load (see cover.ts) keeps its place but hides Chrome's broken-image icon.
    What's behind it shows instead: a dark shade of the title's color on a panel, the color itself
-   in the intro's fan, grey on a strip card, ink in a pull, paper in a title card. */
+   in the intro's fan and a top match, grey on a strip card, ink in a pull, paper in a title card. */
 img[data-broken] {
   visibility: hidden;
 }
@@ -1514,10 +1514,101 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   font-weight: 800;
 }
 
+/* The hint or the pulled title in a row of its own, the top matches under it, where a pull or
+   the hint's words don't move them (the pulled title fits the row's height). */
 .ab-reveal {
   display: grid;
-  min-height: 440px;
+  grid-template-rows: minmax(440px, auto) auto;
   place-items: center;
+}
+
+/* Top matches: each part keeps its size whatever it holds, so a new order moves nothing. */
+.ab-matches {
+  width: 100%;
+  max-width: 480px;
+}
+
+/* On one line from a 360px screen, "Most popular upcoming titles" too, so a slider's first move,
+   which makes it "Top matches", moves nothing. */
+.ab-matches h3 {
+  margin: 0;
+  font: 400 clamp(20px, 5.4vw, 26px) / 1.15 var(--display);
+}
+
+.ab-set {
+  margin: 2px 0 12px;
+  font-weight: 800;
+}
+
+.ab-set.is-off {
+  visibility: hidden;
+}
+
+.ab-match-row {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ab-match {
+  display: grid;
+  gap: 6px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.ab-match:focus-visible {
+  outline: 4px solid var(--hot);
+  outline-offset: 3px;
+}
+
+.ab-match-cover {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border: 3px solid var(--ink);
+  background: var(--anime-accent);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+.ab-match-cover img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ab-match .ab-tier {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  padding: 0 7px;
+  font-size: 13px;
+}
+
+.ab-match-title,
+.ab-match-why {
+  display: -webkit-box;
+  height: 2.6em;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.3;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ab-match-why {
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.ab-match.is-empty .ab-match-cover {
+  border-style: dashed;
+  background: none;
+  box-shadow: none;
 }
 
 .ab-hint {
@@ -2577,7 +2668,12 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   }
 
   .ab-reveal {
-    min-height: 0;
+    grid-template-rows: none;
+  }
+
+  /* Clear of the hint bubble's tail. */
+  .ab-matches {
+    margin-top: 44px;
   }
 
   .ab-result {

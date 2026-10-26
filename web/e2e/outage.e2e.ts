@@ -183,7 +183,15 @@ test('covers that can’t load show no broken-image icon, and each panel shows i
     await browser.press('Escape')
     assert.deepEqual(
       covers.failed,
-      ['ab-band', 'ab-img', 'ab-intro-cover', 'ab-result-panel', 'ab-sheet-art', 'ab-strip-panel'],
+      [
+        'ab-band',
+        'ab-img',
+        'ab-intro-cover',
+        'ab-match-cover',
+        'ab-result-panel',
+        'ab-sheet-art',
+        'ab-strip-panel',
+      ],
       'places where no cover or banner failed to load, so they went unchecked',
     )
     assert.deepEqual(covers.shown, [], 'covers that failed to load still show, as broken images')
