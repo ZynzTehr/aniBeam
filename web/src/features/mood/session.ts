@@ -12,7 +12,7 @@ export type Session = {
   sliders: Sliders
   /** The last rolls' ids, the oldest first, which a roll skips while it can (see rollNext). */
   ring: readonly number[]
-  /** How many pulls this visit. */
+  /** How many rolls this visit. */
   pulls: number
   /** The title the last pull gave. */
   pulled: Media | null

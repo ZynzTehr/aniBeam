@@ -47,4 +47,4 @@ export const popularHeading = (era: Era | null) =>
  * one is one title, and with none the line says only that (the hint says the rest).
  */
 export const samplesLine = (count: number) =>
-  `AniList can’t be reached.${count ? ` Pulling from ${count} sample ${count === 1 ? 'title' : 'titles'}.` : ''}`
+  `AniList can’t be reached.${count ? ` Rolling from ${count} sample ${count === 1 ? 'title' : 'titles'}.` : ''}`

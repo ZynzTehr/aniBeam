@@ -304,7 +304,7 @@ const STOPS = [
   'Energy',
   'Tone',
   'Complexity',
-  'Pull!',
+  'Roll a random anime',
   'a title in Most popular in the 1990s ×3',
   'Decade: 1990s',
   'a title in Browse by decade ×20',
@@ -331,7 +331,7 @@ const BACK_WIDE = [
   'a title in Browse by decade ×20',
   'Decade: 1990s',
   'a title in Most popular in the 1990s ×3',
-  'Pull!',
+  'Roll a random anime',
   'Complexity',
   'Tone',
   'Energy',
@@ -846,10 +846,10 @@ test('by keyboard alone, Esc empties the search box, arrow keys, Home and End mo
       'Energy: Cozy',
       'Energy: No preference',
     ],
-    lever: ['Tone', 'Complexity', 'Pull!'],
+    lever: ['Tone', 'Complexity', 'Roll a random anime'],
     pull: {
-      focus: 'Again!',
-      count: '1 pull this visit',
+      focus: 'Roll a random anime',
+      count: '1 roll this visit',
       heard: true,
       then: ['Open the title card for the pulled title', 'Open title card'],
     },
@@ -953,7 +953,7 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
       await browser.evaluate<string>(
         `document.querySelector('.ab-pull [role="status"]').textContent`,
       )
-    ).startsWith(`Pull 1: ${pulled},`),
+    ).startsWith(`Roll 1: ${pulled},`),
     then: [(await next()).replace(pulled, 'the pulled title'), await next()],
   }
 

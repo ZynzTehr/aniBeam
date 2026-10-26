@@ -769,7 +769,7 @@ describe('desktop (1440x900)', () => {
     assert.equal(soon.tags, 0, 'a Soon tag left in the header or the intro')
     assert.equal(
       soon.hint,
-      'Set a mood, or leave them all at No preference, then pull. Every capsule holds a real anime from the decade below.',
+      'Set a mood, or leave them all at No preference, then roll. Every capsule holds a real anime from the decade below.',
     )
     assert.match(soon.lede, /Coming soon: chat with other fans/)
   })
@@ -2045,7 +2045,7 @@ describe('desktop (1440x900)', () => {
         'Cozy',
         'Dark & tragic',
         'Reset moods',
-        'Pull!',
+        'Roll!',
         'Top matches',
       ].filter((text) => !texts.includes(text)),
       [],
@@ -2979,24 +2979,33 @@ describe('desktop (1440x900)', () => {
     )
   })
 
-  test('screen readers hear each pull in one sentence, and the machine says nothing on its own', async () => {
+  test('screen readers hear each roll in one sentence, from a lever whose name never changes, and the machine says nothing on its own', async () => {
     // A live region speaks every change to its text. The whole reveal used to be one: it spoke
     // its hint when titles arrived, and each pull read the title twice, every star ("black
     // star") and the button's label. Now one status line, there from the start, says each pull.
     const line = `document.querySelector('.ab-pull > [role="status"]')`
     const live = `[...document.querySelectorAll('.ab-pull [aria-live], .ab-pull [role="status"], .ab-pull [role="alert"]')].map((el) => el.className)`
+    // The lever's name, which a screen reader says and a voice command finds it by, its words on
+    // screen, and the count under it.
+    const lever = `(({ lever }) => ({ name: lever.getAttribute('aria-label'), shows: lever.textContent, count: document.querySelector('.ab-count').textContent }))({ lever: document.querySelector('.ab-lever') })`
     assert.deepEqual(
-      await browser.evaluate(`({ line: ${line}?.textContent ?? null, live: ${live} })`),
-      { line: '', live: ['sr-only'] },
-      'before any pull, the only live region in the pull section should be its empty status line',
+      await browser.evaluate(
+        `({ line: ${line}?.textContent ?? null, live: ${live}, lever: ${lever} })`,
+      ),
+      {
+        line: '',
+        live: ['sr-only'],
+        lever: { name: 'Roll a random anime', shows: 'Roll!', count: 'No rolls yet' },
+      },
+      'before any roll, the only live region in the pull section should be its empty status line',
     )
-    // What the line says, and the sentence for the capsule once it has opened: the pull's
+    // What the line says, and the sentence for the capsule once it has opened: the roll's
     // number from the counter, the title and its tier.
     const heard = `(() => {
       const result = document.querySelector('.ab-result.is-open:not([data-old])')
       const count = parseInt(document.querySelector('.ab-count').textContent)
       const tier = result?.querySelector('.ab-tier').textContent.split(' ')[0]
-      const shown = result && 'Pull ' + count + ': ' + result.querySelector('h3').textContent + ', ' + tier + '.'
+      const shown = result && 'Roll ' + count + ': ' + result.querySelector('h3').textContent + ', ' + tier + '.'
       return { line: ${line}?.textContent ?? null, count, shown }
     })()`
     // Text with a star in it that a screen reader would read out.
@@ -3010,6 +3019,7 @@ describe('desktop (1440x900)', () => {
       `document.querySelector('#pull').scrollIntoView(); document.querySelector('.ab-lever').focus(); true`,
     )
     const counts: number[] = []
+    const levers: unknown[] = []
     for (let i = 0; i < 2; i++) {
       await browser.evaluate(
         `document.querySelector('.ab-result')?.setAttribute('data-old', ''); true`,
@@ -3026,12 +3036,20 @@ describe('desktop (1440x900)', () => {
         heard,
       )
       assert.ok(opened.shown, 'the capsule never opened')
-      assert.equal(opened.line, opened.shown, 'the line does not say the pull on screen')
-      assert.match(opened.line, /^Pull \d+: .+, (SSR|SR|R|Mystery)\.$/)
+      assert.equal(opened.line, opened.shown, 'the line does not say the roll on screen')
+      assert.match(opened.line, /^Roll \d+: .+, (SSR|SR|R|Mystery)\.$/)
       assert.deepEqual(await browser.evaluate(starsRead), [], 'stars a screen reader would read')
       counts.push(opened.count)
+      levers.push(await browser.evaluate(lever))
     }
-    assert.equal(counts[1], counts[0] + 1, 'the second pull’s number did not go up by one')
+    assert.equal(counts[1], counts[0] + 1, 'the second roll’s number did not go up by one')
+    // The same name after each roll; the words on screen say it can roll again.
+    const counted = (n: number) => `${n} ${n === 1 ? 'roll' : 'rolls'} this visit`
+    assert.deepEqual(
+      levers,
+      counts.map((n) => ({ name: 'Roll a random anime', shows: 'Roll again!', count: counted(n) })),
+      'the lever and its count after each roll',
+    )
     // The result itself must not speak either, or it reads the title a second time.
     assert.deepEqual(
       await browser.evaluate(live),
@@ -5085,7 +5103,7 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
         `document.querySelector('.ab-lever').scrollIntoView({ block: 'center' }); true`,
       )
       await frames()
-      await step('Pull!: the capsule, and the title it holds', async () => {
+      await step('Roll!: the capsule, and the title it holds', async () => {
         await clickMiddle(`document.querySelector('.ab-lever')`)
         assert.ok(
           await browser.waitFor(

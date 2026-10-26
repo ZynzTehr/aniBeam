@@ -43,7 +43,7 @@ const HINTS = {
   // The user's words (D4): no decade named, so the box never changes height with its name.
   ready: (
     <>
-      Set a mood, or leave them all at No preference, then pull. Every capsule holds a real anime
+      Set a mood, or leave them all at No preference, then roll. Every capsule holds a real anime
       from the decade below.
     </>
   ),
@@ -275,7 +275,7 @@ export function PullMachine({
   // Offline with no titles at all, nothing can be moved or pulled (spec §3I).
   const off = !page.length && !online
   // The line over the matches: what keeps the machine from its best, if anything (the approved
-  // words, "pull" until the machine's words change all together), else the set sliders' words.
+  // words), else the set sliders' words.
   // A set slider with no scoring comes first, as only Try again can mend it.
   const scoringFailed = set && failed
   const line = scoringFailed
@@ -336,19 +336,23 @@ export function PullMachine({
             >
               Reset moods
             </button>
+            {/* Its name never changes, so a screen reader hears the same button after a roll; the
+                words it shows, "Roll!" and then "Roll again!", start as its name does (the
+                user's pick, A10). */}
             <button
               ref={lever}
               type="button"
               className="ab-lever"
+              aria-label="Roll a random anime"
               onClick={pull}
               disabled={!out.length}
             >
-              <span>{pulls ? 'Again!' : 'Pull!'}</span>
+              <span>{pulls ? 'Roll again!' : 'Roll!'}</span>
             </button>
             <p className="ab-count">
               {pulls === 0
-                ? 'No pulls yet'
-                : `${pulls} ${pulls === 1 ? 'pull' : 'pulls'} this visit`}
+                ? 'No rolls yet'
+                : `${pulls} ${pulls === 1 ? 'roll' : 'rolls'} this visit`}
             </p>
           </div>
         </div>
@@ -447,7 +451,7 @@ export function PullMachine({
         {news.of === 'notice'
           ? notice
           : pulled && rarity && revealed
-            ? `Pull ${pulls}: ${titleOf(pulled)}, ${rarity.label}.`
+            ? `Roll ${pulls}: ${titleOf(pulled)}, ${rarity.label}.`
             : ''}
       </p>
     </section>

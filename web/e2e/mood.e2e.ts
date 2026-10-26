@@ -558,7 +558,7 @@ describe('the journey load', () => {
       { ...back, again: next.filter((href) => first.includes(href)), far },
       {
         energy: 'Energy: Very cozy (heard as Very cozy)',
-        count: '3 pulls this visit',
+        count: '3 rolls this visit',
         shown: first[2],
         again: [],
         far: `/anime/${best[11].id}`,
@@ -667,7 +667,7 @@ describe('a cold first visit, counted', () => {
     assert.deepEqual(
       { walked, pulled: pulled.filter(Boolean).length, asked },
       {
-        walked: ['Energy', 'Tone', 'Complexity', 'Pull!', 'a match', 'a match', 'a match', '1990s'],
+        walked: ['Energy', 'Tone', 'Complexity', 'Roll!', 'a match', 'a match', 'a match', '1990s'],
         pulled: 5,
         asked: ['first visit'],
       },

@@ -753,7 +753,7 @@ describe('AniList down on a first visit', () => {
         `({ line: document.querySelector('.ab-pull .ab-set').textContent, matches: ${ranked} })`,
       ),
       {
-        line: `AniList can’t be reached. Pulling from ${pullable(nineties).length} sample titles.`,
+        line: `AniList can’t be reached. Rolling from ${pullable(nineties).length} sample titles.`,
         matches,
       },
       'the machine with a slider set over the samples',

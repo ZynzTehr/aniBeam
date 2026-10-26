@@ -51,8 +51,8 @@ test('the outage line counts the sample titles that can come out, one as one, an
   assert.deepEqual(
     [5, 1, 0].map((count) => samplesLine(count)),
     [
-      'AniList can’t be reached. Pulling from 5 sample titles.',
-      'AniList can’t be reached. Pulling from 1 sample title.',
+      'AniList can’t be reached. Rolling from 5 sample titles.',
+      'AniList can’t be reached. Rolling from 1 sample title.',
       'AniList can’t be reached.',
     ],
   )
