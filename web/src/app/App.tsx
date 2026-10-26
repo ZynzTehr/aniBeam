@@ -335,12 +335,6 @@ export default function App() {
   const [decadeList, setDecadeList] = useState(pickedList)
   if (!decade.isPlaceholderData && decadeList !== pickedList) setDecadeList(pickedList)
 
-  // Pulls draw from titles already on the page, so a pull costs no request.
-  const pool = useMemo(() => {
-    const all = [...trendingShown, ...decadeShown]
-    return all.filter((media, i) => all.findIndex((other) => other.id === media.id) === i)
-  }, [trendingShown, decadeShown])
-
   // The intro's buttons, for the section links: none while searching, as results take its place,
   // nor on My List, which has no intro.
   useLayoutEffect(() => {
@@ -487,7 +481,15 @@ export default function App() {
               onRetry={retryFor(trending, retryFailed)}
               onOpen={open}
             />
-            <PullMachine pool={pool} onOpen={open} />
+            {/* The machine holds the decade open below, its titles on the page, then its mood
+                pool once wanted: AniList's answer for it, settled, asks for that. */}
+            <PullMachine
+              era={era}
+              titles={decadeShown}
+              settled={decade.isSuccess && !decade.isPlaceholderData}
+              outage={decadeOutage}
+              onOpen={open}
+            />
             <Strip
               id="decades"
               heading="Browse by decade"

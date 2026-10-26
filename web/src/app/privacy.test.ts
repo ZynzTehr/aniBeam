@@ -427,10 +427,13 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // and the pulled title kept for the visit in features/mood/session.ts, less the vibes and pullNext:
 // 92,203 B, 661 B more), and the CSS 12,400 B, as MoodSlider.css now ships with every visit (the
 // slider's look, less the vibe chips' rules: 12,324 B, 468 B more); raises the plan's D5 lets come
-// in measured steps.
+// in measured steps. Then 92,900 B with the machine following the decade below it and asking for
+// its mood pool only once wanted (the pool's query and its cut, poolOf, now in the code every
+// visit loads, the wanted rule kept per decade for the visit, and the decade's page told to ask
+// for the pool with it: 92,789 B, 586 B more).
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 92_300,
+  'the JS every visit loads': 92_900,
   'the CSS': 12_400,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,

@@ -1,4 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type PointerEvent,
+} from 'react'
 import { markBroken, markLoaded } from '../../components/cover.ts'
 import { cssVars } from '../../components/cssVars.ts'
 import { opener } from '../../components/opener.ts'
@@ -6,7 +15,7 @@ import { SfxHeading } from '../../components/SfxHeading.tsx'
 import type { OpenTitle } from '../../components/TitleCard.tsx'
 import { reducedMotion } from '../../lib/motion.ts'
 import { formatOf, seasonOf, studioOf, titleOf } from '../anime/format.ts'
-import type { Media } from '../anime/queries.ts'
+import { FIRST_ERA, poolQuery, wantPool, type Era, type Media } from '../anime/queries.ts'
 import { useListIds } from '../list/store.ts'
 import { accentVars } from '../theming/deriveAccent.ts'
 import { moodScoring } from './loadScoring.ts'
@@ -47,6 +56,17 @@ function rarityOf(score: number | null) {
 const AXIS_ORDER = Object.keys(AXES) as Axis[]
 const NONE: Sliders = { energy: 0, tone: 0, complexity: 0 }
 
+// Whether the browser says it is online, drawn again as that changes.
+const isOnline = () => navigator.onLine
+const watchOnline = (change: () => void) => {
+  addEventListener('online', change)
+  addEventListener('offline', change)
+  return () => {
+    removeEventListener('online', change)
+    removeEventListener('offline', change)
+  }
+}
+
 // A tap that moved less than this, in CSS pixels, over less than this long, is a tap, not a drag.
 const TAP_PX = 10
 const TAP_MS = 500
@@ -55,14 +75,38 @@ const THUMB = 40
 
 /**
  * The gacha machine, drawn in ink: set the mood sliders, pull the lever, and a capsule drops with
- * a random title from `pool` (titles already loaded, so a pull costs no API request). With a
- * slider set, a pull gives one of the 12 titles that best match the sliders (rankMatches, from the
- * mood scoring's own file); with none, any title. Never one on My List, nor any of the last 30
- * pulled while another can come up (see rollNext). The sliders, the last pulls and the pulled
- * title are kept for the visit (see session.ts).
+ * a random title of the decade open below it (`era`), so a pull costs no API request: from its
+ * mood pool, about 100 titles, once that is in the cache, and until then from the decade's titles
+ * on the page (`titles`). With a slider set, a pull gives one of the 12 titles that best match the
+ * sliders (rankMatches, from the mood scoring's own file); with none, any title. Never one on My
+ * List, nor any of the last 30 pulled while another can come up (see rollNext). The sliders, the
+ * last pulls and the pulled title are kept for the visit (see session.ts).
+ *
+ * The pool is asked for only once it is wanted (the plan's section 2, D1): a slider pressed, the
+ * decade changed with one set, a pull with fewer than 10 titles left to come up, or a page of
+ * titles none of which can come up. So a visitor who only looks, or pulls a few times, costs
+ * AniList nothing more. Once wanted, a decade's pool stays wanted for the visit, but it is asked
+ * for only while the page's titles are `settled` (AniList's answer for the decade, not still on
+ * its way, nor the last decade's standing in, nor the samples) and the browser is online.
  */
-export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle }) {
-  const { sliders, ring, pulls, pulled } = useSession()
+export function PullMachine({
+  era,
+  titles: page,
+  settled,
+  outage = false,
+  onOpen,
+}: {
+  /** The decade open below, whose pool the machine asks for; null asks for none (the gallery). */
+  era: Era | null
+  /** The decade's titles on the page: AniList's, the last decade's while it loads, or samples. */
+  titles: Media[]
+  /** Whether `titles` are AniList's answer for `era` (see above). */
+  settled: boolean
+  /** Whether the decade shows the samples, as AniList can't be reached. */
+  outage?: boolean
+  onOpen: OpenTitle
+}) {
+  const { sliders, ring, pulls, pulled, wanted } = useSession()
   // Shown at once when the machine is drawn again with a pull already made (back from My List).
   const [revealed, setRevealed] = useState(true)
   const timer = useRef<number | undefined>(undefined)
@@ -70,11 +114,31 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
   const lever = useRef<HTMLButtonElement>(null)
   const listedIds = useListIds()
   const listed = useMemo(() => new Set(listedIds), [listedIds])
-  const titles = useMemo(() => pullable(pool), [pool])
+  const set = AXIS_ORDER.some((axis) => sliders[axis] !== 0)
+  const onPage = useMemo(() => pullable(page), [page])
+  // A page none of whose titles can come up, all on My List or among the last pulls (or none may
+  // come out at all): the decade's pool may have others.
+  const spent =
+    page.length > 0 && onPage.every((media) => listed.has(media.id) || ring.includes(media.id))
+  const want = era !== null && (set || wanted.includes(era.id) || (settled && spent))
+  const online = useSyncExternalStore(watchOnline, isOnline)
+  // Keyed by the decade alone, so no slider's value asks for anything. Once in the cache, the
+  // pool is used whenever its decade is open, wanted or not.
+  const pool = useQuery({ ...poolQuery(era ?? FIRST_ERA), enabled: want && settled && online })
+  const titles = (era && pool.data?.titles) || onPage
   // What can come out, the titles not on My List: the dome shows these, and with none the lever
   // is off.
   const out = useMemo(() => titles.filter((media) => !listed.has(media.id)), [titles, listed])
-  const set = AXIS_ORDER.some((axis) => sliders[axis] !== 0)
+
+  // A wanted pool is said so before the page asks for the decade's titles (App's effects run after
+  // its children's), so a decade picked with a slider set asks for its titles and its pool in one
+  // request (see wantPool), never during an outage. And it stays wanted for the visit.
+  const client = useQueryClient()
+  useLayoutEffect(() => {
+    if (!era || !want) return
+    if (online && !outage) wantPool(client, era)
+    if (!wanted.includes(era.id)) setSession({ wanted: [...wanted, era.id] })
+  }, [era, want, online, outage, client, wanted])
 
   // The mood scoring is a file of its own (see loadScoring.ts), most often loaded by the time a
   // slider moves; if not, it loads then, and the titles keep the page's order meanwhile.
@@ -89,7 +153,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
   )
 
   function pull() {
-    const { media } = rollNext({
+    const { media, needMore } = rollNext({
       ranked,
       listed,
       ring,
@@ -97,14 +161,22 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
       random: Math.random,
       shown: pulled?.id,
     })
-    if (!media) return
+    // Fewer than 10 left to come up: the decade's pool is wanted.
+    const more = needMore && era && !wanted.includes(era.id) ? [...wanted, era.id] : wanted
+    if (!media) return setSession({ wanted: more })
     clearTimeout(timer.current)
-    setSession({ ring: remember(ring, media.id), pulls: pulls + 1, pulled: media })
+    setSession({ ring: remember(ring, media.id), pulls: pulls + 1, pulled: media, wanted: more })
     setRevealed(false)
     timer.current = window.setTimeout(() => setRevealed(true), reducedMotion() ? 0 : 900)
   }
 
   const move = (axis: Axis, stop: Stop) => setSession({ sliders: { ...sliders, [axis]: stop } })
+
+  // A slider pressed, by a pointer or a key that moves it, wants the decade's pool (focus alone
+  // never does): a pointer's press asks before the finger lifts.
+  const press = () => {
+    if (era && !wanted.includes(era.id)) setSession({ wanted: [...wanted, era.id] })
+  }
 
   // A tap on a slider's track, not a drag, sets the stop under the finger (the user's pick, A5):
   // Safari on an iPhone only focuses a slider on a tap, which feels broken. The slider is never
@@ -113,6 +185,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
   const isRange = (target: EventTarget): target is HTMLInputElement =>
     target instanceof HTMLInputElement && target.type === 'range'
   const down = (event: PointerEvent<HTMLDivElement>) => {
+    if (isRange(event.target) && !event.target.disabled) press()
     tap.current =
       event.pointerType !== 'mouse' && isRange(event.target)
         ? { x: event.clientX, y: event.clientY, at: event.timeStamp }
@@ -140,7 +213,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
   }
 
   const rarity = pulled ? rarityOf(pulled.averageScore) : null
-  const hint: Hint = !pool.length
+  const hint: Hint = !page.length
     ? 'empty'
     : !titles.length
       ? 'unpullable'

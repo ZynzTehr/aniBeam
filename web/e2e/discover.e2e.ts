@@ -5,8 +5,8 @@ import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { QUERIES } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
-import { Browser, type Answer } from './browser.ts'
-import { listsOf, recordings } from './recordings.ts'
+import { Browser, poll, type Answer } from './browser.ts'
+import { askedFor, listsOf, recordings } from './recordings.ts'
 
 let browser: Browser
 
@@ -4617,7 +4617,13 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     // A pull that lands on the title already showing looks like the lever did nothing. With
     // Math.random fixed, each pull draws the same place in its list: once every title has come
     // up, that is the same title every time, unless the one showing is skipped. Reduced motion
-    // opens each capsule at once, so 100 pulls take about a second.
+    // opens each capsule at once, so 100 pulls take about a second. With fewer than 10 of the
+    // decade's titles left to come up, a pull asks for its mood pool, once.
+    const asked: string[] = []
+    await browser.rewriteAniList(({ request }) => {
+      asked.push(askedFor(request))
+      return null
+    })
     const shown = await browser.evaluate<(string | null)[]>(`(async () => {
       const random = Math.random
       Math.random = () => 0.5
@@ -4636,12 +4642,16 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
       }
       return shown
     })()`)
+    await poll(async () => asked.length > 0, 5_000)
+    await sleep(500)
+    await browser.rewriteAniList(null)
     const unopened = shown.flatMap((href, i) => (href ? [] : [i + 1]))
     const repeats = shown.flatMap((href, i) =>
       i > 0 && href === shown[i - 1] ? [`pull ${i + 1}: ${href}`] : [],
     )
     assert.deepEqual(unopened, [], 'pulls that never opened')
     assert.deepEqual(repeats, [], 'pulls that showed the title already on screen')
+    assert.deepEqual(asked, ['pool 1990s'], 'what the pulls asked AniList for')
   })
 
   test('picking another decade opens it at Ch.1, wherever the last one was scrolled', async () => {

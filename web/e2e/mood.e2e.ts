@@ -1,10 +1,15 @@
 // The mood sliders on Discover's pull machine (Phase 5): what they say to a screen reader, a tap on
-// a track, and what the machine keeps for the visit. Its own file, so its loads and the page
-// script it plants stay in a profile of their own.
+// a track, what the machine keeps for the visit, and what it asks AniList for: its decade's mood
+// pool, only once wanted (the plan's section 2). Its own file, so its loads and the page script it
+// plants stay in a profile of their own.
 import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
+import { setTimeout as sleep } from 'node:timers/promises'
+import { cardOf, ERAS, poolOf, QUERIES } from '../src/features/anime/queries.ts'
+import { MOOD_TAGS } from '../src/features/mood/moodMap.ts'
 import { AXES, type Axis } from '../src/features/mood/moods.ts'
-import { Browser } from './browser.ts'
+import { Browser, poll } from './browser.ts'
+import { askedFor, listsOf, recordedPool, recordings } from './recordings.ts'
 
 let browser: Browser
 before(async () => {
@@ -71,6 +76,17 @@ const FOCUS_SPY = `(() => {
     return focus.apply(this, args)
   }
 })()`
+
+/**
+ * Whether the page's saved copy holds the mood pool of the decade `id`: it is saved within a
+ * second of arriving, after the machine has it.
+ */
+const poolSaved = (id: string) =>
+  `(JSON.parse(localStorage.getItem('anibeam:cache'))?.clientState.queries ?? []).some((query) => query.queryKey[1] === ${JSON.stringify(QUERIES.pool)} && JSON.stringify(query.queryKey[2]) === ${JSON.stringify(JSON.stringify(ERAS.find((era) => era.id === id)!.variables))} && query.state.data)`
+
+// How long a check waits to see that nothing more is asked for: a request any step made would
+// have gone within a few frames.
+const QUIET_MS = 500
 
 describe('the journey load', () => {
   before(async () => {
@@ -206,5 +222,149 @@ describe('the journey load', () => {
 
   test('the page’s code never focuses a slider', async () => {
     assert.deepEqual(await browser.evaluate('window.__focusedByCode'), [])
+  })
+})
+
+describe('a cold first visit, counted', () => {
+  // Every request the page makes from its navigation on, by what it asks for (see askedFor).
+  const asked: string[] = []
+  before(async () => {
+    await browser.forget()
+    await browser.rewriteAniList(({ request }) => {
+      asked.push(askedFor(request))
+      return null
+    })
+    await browser.load({ reduceMotion: true })
+    assert.ok(await browser.titlesShown(), 'no titles on the page')
+  })
+  after(() => browser.rewriteAniList(null))
+
+  test('sends exactly 1 request, and scrolling through the machine, a Tab walk through it and 5 pulls with no slider set send none', async () => {
+    for (const section of ['pull', 'decades', 'pull']) {
+      await browser.evaluate(`document.getElementById('${section}').scrollIntoView(); true`)
+      await browser.evaluate(NEXT_FRAME)
+    }
+    // From the machine's heading: the three sliders, the lever, then the decades.
+    await browser.evaluate(`document.getElementById('pull').focus(); true`)
+    const walked: string[] = []
+    for (let stop = 0; stop < 5; stop++) {
+      await browser.press('Tab')
+      walked.push(
+        await browser.evaluate<string>(
+          `document.activeElement.labels?.[0]?.textContent ?? document.activeElement.textContent`,
+        ),
+      )
+    }
+    const pulled = await pulls(5)
+    await sleep(QUIET_MS)
+    assert.deepEqual(
+      { walked, pulled: pulled.filter(Boolean).length, asked },
+      {
+        walked: ['Energy', 'Tone', 'Complexity', 'Pull!', '1990s'],
+        pulled: 5,
+        asked: ['first visit'],
+      },
+    )
+    await browser.evaluate('document.activeElement.blur(); true')
+  })
+
+  test('a press on a slider then sends exactly 1 more, the 1990s pool, before the press ends', async () => {
+    // A mouse press on Energy's thumb, at no preference, which moves nothing.
+    const at = await browser.evaluate<{ x: number; y: number }>(`(() => {
+      const input = ${slider('Energy')}
+      input.scrollIntoView({ block: 'center' })
+      const r = input.getBoundingClientRect()
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+    })()`)
+    await browser.evaluate(NEXT_FRAME)
+    const mouse = { ...at, button: 'left', clickCount: 1 } as const
+    await browser.send('Input.dispatchMouseEvent', { type: 'mousePressed', ...mouse })
+    const during = await poll(async () => asked.length > 1, 10_000)
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseReleased', ...mouse })
+    assert.ok(during, 'no request while the press lasted')
+    assert.ok(await browser.waitFor(poolSaved('1990s')), 'the pool never arrived')
+    await sleep(QUIET_MS)
+    assert.deepEqual(
+      { energy: (await readSliders())[0], asked },
+      {
+        energy: 'Energy: No preference (heard as No preference)',
+        asked: ['first visit', 'pool 1990s'],
+      },
+    )
+  })
+
+  test('with a slider set, picking the 1980s costs exactly 1 request, its titles and its pool together, the machine then pulls a title of the 1980s, and going back to the 1990s costs none', async () => {
+    const eighties = poolOf(recordings().get('era-pool-1980s')!.body.data, MOOD_TAGS).titles.map(
+      ({ id }) => `/anime/${id}`,
+    )
+    await setSlider('Energy', -2)
+    await browser.evaluate(`document.querySelector('.ab-eras input[value="1980s"]').click(); true`)
+    assert.ok(await poll(async () => asked.length > 2, 10_000), 'picking the 1980s asked nothing')
+    assert.ok(await browser.waitFor(poolSaved('1980s')), 'the 1980s’ pool never arrived')
+    await browser.evaluate(NEXT_FRAME)
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    const [pulled] = await pulls(1)
+    await browser.evaluate(`document.querySelector('.ab-eras input[value="1990s"]').click(); true`)
+    // The 1990s' titles back in the strip, from the cache.
+    const nineties = listsOf(recordings().get('first-visit')!).era.map(cardOf)
+    assert.ok(
+      await browser.waitFor(
+        `document.querySelector('.ab-strip-row .ab-strip-panel[href="/anime/${nineties[0].id}"]')`,
+        10_000,
+      ),
+      'the 1990s never came back to the strip',
+    )
+    await sleep(QUIET_MS)
+    assert.deepEqual(
+      { asked, pulledFromThe1980s: eighties.includes(pulled!) },
+      {
+        asked: ['first visit', 'pool 1990s', 'decade and pool 1980s'],
+        pulledFromThe1980s: true,
+      },
+    )
+    await browser.evaluate(`document.querySelector('.ab-reset').click(); true`)
+  })
+})
+
+describe('a page whose every title is on My List', () => {
+  test('asks for the decade’s pool once, with no press, and the lever then pulls a title of the pool', async () => {
+    const page = listsOf(recordings().get('first-visit')!).era.map(({ id }) => id)
+    const pool = recordedPool('1990s').titles.map(({ id }) => id)
+    // Written on the site's own page, before the load that reads it.
+    await browser.forget()
+    await browser.load({ reduceMotion: true })
+    await browser.evaluate(`(() => {
+      const now = Date.now()
+      localStorage.setItem('anibeam:list:v1', JSON.stringify(Object.fromEntries(${JSON.stringify(page)}.map((id, i) => [id, { status: 'SAVED', favorite: false, updatedAt: now - i }]))))
+      return true
+    })()`)
+    // Away first: the page the list was written on sees it too, and asks for the pool itself.
+    await browser.send('Page.navigate', { url: 'about:blank' })
+    await browser.waitFor(`location.href === 'about:blank'`)
+    const asked: string[] = []
+    await browser.rewriteAniList(({ request }) => {
+      asked.push(askedFor(request))
+      return null
+    })
+    try {
+      await browser.load({ reduceMotion: true })
+      assert.ok(await browser.titlesShown(), 'no titles on the page')
+      assert.ok(await browser.waitFor(poolSaved('1990s')), 'the pool never arrived')
+      await browser.evaluate(NEXT_FRAME)
+      await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+      const [pulled] = await pulls(1)
+      await sleep(QUIET_MS)
+      const id = Number(pulled?.split('/').pop())
+      assert.deepEqual(
+        {
+          pools: asked.filter((what) => what.includes('pool')),
+          inPool: pool.includes(id),
+          onPage: page.includes(id),
+        },
+        { pools: ['pool 1990s'], inPool: true, onPage: false },
+      )
+    } finally {
+      await browser.rewriteAniList(null)
+    }
   })
 })

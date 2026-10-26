@@ -232,11 +232,12 @@ function OneAtATime<S extends string>({
 
 /**
  * The pull machine as a visit starts it, with no slider set and nothing pulled: it keeps those for
- * the visit (see session.ts), so a pull in one state would otherwise show in the next.
+ * the visit (see session.ts), so a pull in one state would otherwise show in the next. It holds
+ * `titles` alone, and asks AniList for no decade's pool.
  */
-function FreshMachine(props: ComponentProps<typeof PullMachine>) {
+function FreshMachine(props: Pick<ComponentProps<typeof PullMachine>, 'titles' | 'onOpen'>) {
   useLayoutEffect(() => setSession(FRESH), [])
-  return <PullMachine {...props} />
+  return <PullMachine era={null} settled={false} {...props} />
 }
 
 /** Opens a title's card with its status line saying `status`, and Try again if `retry`. */
@@ -368,10 +369,10 @@ function SectionStates({ onOpen, onOpenHeld }: { onOpen: OpenTitle; onOpenHeld: 
     ]),
   )
   const pull: Record<State<'pull'>, ReactNode> = {
-    'Nothing to pull yet': <FreshMachine pool={[]} onOpen={onOpen} />,
-    'Nothing it may hand out (all Ecchi)': <FreshMachine pool={ECCHI_POOL} onOpen={onOpen} />,
-    'The samples': <FreshMachine pool={SAMPLES} onOpen={onOpen} />,
-    'The title cases': <FreshMachine pool={CASES} onOpen={onOpen} />,
+    'Nothing to pull yet': <FreshMachine titles={[]} onOpen={onOpen} />,
+    'Nothing it may hand out (all Ecchi)': <FreshMachine titles={ECCHI_POOL} onOpen={onOpen} />,
+    'The samples': <FreshMachine titles={SAMPLES} onOpen={onOpen} />,
+    'The title cases': <FreshMachine titles={CASES} onOpen={onOpen} />,
   }
   return (
     <Part

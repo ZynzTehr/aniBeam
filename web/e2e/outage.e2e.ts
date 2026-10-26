@@ -54,6 +54,33 @@ const countRequests = `(() => {
   }
 })()`
 
+// Counts the page's requests for a decade's mood pool (its two pages, p1 and p2, alone or with the
+// decade's page) in window.__poolAsked from now on, and gives page script that presses each mood
+// slider, as a pointer and as keys do, pulls 3 times if it can, then picks the 1980s with a slider
+// set: during an outage, none of it may ask for a pool.
+const pressEverything = `(async () => {
+  window.__poolAsked = 0
+  const fetch = window.fetch
+  window.fetch = function (url, init) {
+    if (String(init?.body ?? '').includes(' p1: ')) window.__poolAsked++
+    return fetch.apply(this, arguments)
+  }
+  const frame = () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+  for (const input of document.querySelectorAll('.ab-pull input[type="range"]')) {
+    input.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))
+    input.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerType: 'touch' }))
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '-2')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await frame()
+  }
+  for (let i = 0; i < 3; i++) {
+    document.querySelector('.ab-lever').click()
+    await frame()
+  }
+  document.querySelector('.ab-eras input[value="1980s"]').click()
+  return true
+})()`
+
 // Where the headline sits inside the intro: it must not move when the covers arrive.
 const headline = `document.querySelector('.ab-intro-title').getBoundingClientRect().top - document.querySelector('.ab-intro').getBoundingClientRect().top`
 
@@ -606,6 +633,10 @@ describe('AniList down on a first visit', () => {
       // With no titles on the page, the machine says why its lever is off.
       assert.match(state.hint, /fills up with titles once AniList answers/)
       assert.equal(state.off, true, 'the lever is on with nothing to pull')
+      // And nothing pressed on it asks for a decade's mood pool.
+      await browser.evaluate(pressEverything)
+      await sleep(1_000) // the decade's 300 ms pause, and a request after it
+      assert.equal(await browser.evaluate('window.__poolAsked'), 0, 'pool requests sent')
     } finally {
       await browser.send('Network.setBlockedURLs', { urls: [] })
       await browser.send('Network.disable')
@@ -680,6 +711,10 @@ describe('AniList down on a first visit', () => {
       covers: 3,
       off: false,
     })
+    // Nothing pressed on the machine asks for a decade's mood pool.
+    await browser.evaluate(pressEverything)
+    await sleep(1_000) // the decade's 300 ms pause, and a request after it
+    assert.equal(await browser.evaluate('window.__poolAsked'), 0, 'pool requests sent')
   })
 
   // They are swapped in as the page renders, never put in the query cache: that is saved for a
@@ -759,8 +794,26 @@ describe('AniList down on a first visit', () => {
     })
     after(() => own?.close())
 
-    test('once retrying fails, each section offers Try again over its samples, with no loading panels', async () => {
+    test('once retrying fails, each section offers Try again over its samples, with no loading panels, and nothing pressed on the machine meanwhile asks for a mood pool', async () => {
       const started = performance.now()
+      // Each mood slider pressed and set, as a pointer and a key do, and 3 pulls, while the page
+      // waits out anilist()'s minute: a pool asked for now would wait for the minute too, and go
+      // with the retry, a third request.
+      await own.evaluate(`(() => {
+        for (const input of document.querySelectorAll('.ab-pull input[type="range"]')) {
+          input.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'touch' }))
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '-2')
+          input.dispatchEvent(new Event('input', { bubbles: true }))
+        }
+        for (let i = 0; i < 3; i++) document.querySelector('.ab-lever').click()
+        return true
+      })()`)
+      assert.ok(
+        await settles(
+          `document.querySelector('.ab-pull .ab-slider-value').textContent === 'Very cozy'`,
+        ),
+        'the sliders did not move',
+      )
       const [failed] = await asked()
       // A second short of a minute after the first try failed, the page still waits.
       await tickTo(failed.settled!, 59_000)

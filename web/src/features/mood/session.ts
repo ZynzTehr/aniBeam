@@ -16,6 +16,11 @@ export type Session = {
   pulls: number
   /** The title the last pull gave. */
   pulled: Media | null
+  /**
+   * The decades whose mood pool is wanted, by id: once a decade's is, it stays so for the visit
+   * (see PullMachine).
+   */
+  wanted: readonly string[]
 }
 
 /** No slider set, nothing pulled: how a visit starts. */
@@ -24,6 +29,7 @@ export const FRESH: Session = {
   ring: [],
   pulls: 0,
   pulled: null,
+  wanted: [],
 }
 
 let session = FRESH
