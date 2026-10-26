@@ -66,15 +66,27 @@ export function finishEntrances() {
  * does, before that frame is drawn, until the function it returns is called. `sentinel` is an
  * element the motion gates widen, as they do .ab-motion-sentinel (see components.css).
  */
-export function watchMotionBackOn(sentinel: Element, onBackOn: () => void) {
+export const watchMotionBackOn = (sentinel: Element, onBackOn: () => void) =>
+  watchMotion(sentinel, false, onBackOn)
+
+/**
+ * Calls `onOff` each time motion turns off, by the switch or on the device, in the frame it does,
+ * before that frame is drawn, until the function it returns is called: as Discover's machine ends
+ * a roll's flip at its last frame (see PullMachine). `sentinel` is as for watchMotionBackOn.
+ */
+export const watchMotionOff = (sentinel: Element, onOff: () => void) =>
+  watchMotion(sentinel, true, onOff)
+
+/** Calls `call` each time motion becomes reduced (`reduce`) or not, as the two above say. */
+function watchMotion(sentinel: Element, reduce: boolean, call: () => void) {
   // The observer calls back as it starts watching too, with nothing changed: on a page that loads
   // with motion allowed, the entrances have only just begun then. And it calls back as the gates
-  // close again. So each call asks whether motion was reduced before and isn't now.
+  // change either way. So each call asks whether motion was reduced before, and whether it is now.
   let reduced = reducedMotion()
   const watch = new ResizeObserver(() => {
     const was = reduced
     reduced = reducedMotion()
-    if (was && !reduced) onBackOn()
+    if (was !== reduced && reduced === reduce) call()
   })
   watch.observe(sentinel)
   return () => watch.disconnect()

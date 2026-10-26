@@ -505,8 +505,9 @@ img[data-broken] {
 
 /* A box no one sees, which the motion gates widen from 1px to 2px (see the first gate below).
    MotionSwitch watches its width, so it hears motion come back on in the very frame it does,
-   before that frame is drawn (see watchMotionBackOn() in lib/motion.ts). Fixed in the screen's
-   corner, it takes no room in the footer. */
+   before that frame is drawn (see watchMotionBackOn() in lib/motion.ts), and Discover's machine
+   watches one of its own as a roll's card turns, to hear motion turn off. Fixed in the screen's
+   corner, it takes no room in the footer or the card. */
 .ab-motion-sentinel {
   position: fixed;
   top: 0;
@@ -1669,6 +1670,14 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   align-items: center;
   gap: 28px;
   grid-template-columns: minmax(170px, 250px) minmax(0, 1fr);
+}
+
+/* A roll's card fades in over 150 ms (spec §3J): under reduced motion it shows at once, with no
+   flip, and in a single frame it switched a large part of the screen to the title's colors. With
+   motion allowed, it plays under the capsule's drop, before the card's faces show (see the motion
+   block). It is the same rule either way, so motion turning off or on never plays it again. */
+.ab-result {
+  animation: ab-fade 0.15s linear;
 }
 
 /* The capsule is only there to move: it drops in, then splits open on the title (see the motion

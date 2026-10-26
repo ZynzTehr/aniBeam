@@ -8,13 +8,14 @@ import {
   useSyncExternalStore,
   type PointerEvent,
 } from 'react'
+import { flushSync } from 'react-dom'
 import { markBroken, markLoaded } from '../../components/cover.ts'
 import { cssVars } from '../../components/cssVars.ts'
 import { opener } from '../../components/opener.ts'
 import { SfxHeading } from '../../components/SfxHeading.tsx'
 import type { OpenTitle } from '../../components/TitleCard.tsx'
 import type { AniListError } from '../../lib/anilist.ts'
-import { reducedMotion } from '../../lib/motion.ts'
+import { reducedMotion, watchMotionOff } from '../../lib/motion.ts'
 import { formatOf, seasonOf, studioOf, titleOf } from '../anime/format.ts'
 import { FIRST_ERA, poolQuery, wantPool, type Era, type Media } from '../anime/queries.ts'
 import { useListIds } from '../list/store.ts'
@@ -144,6 +145,19 @@ export function PullMachine({
     clearTimeout(timer.current)
     setRevealed(true)
   }
+  // Motion turned off as the card turns, by the site's switch or on the device, ends the turn at
+  // its last frame: the motion block's flip stops with it, and the title shows in that same frame,
+  // before it is drawn (see watchMotionOff), never a frame of the cover without its text. It
+  // starts watching as the card is put on the page, with motion allowed, before anything else
+  // runs: watching from a later moment, it would take motion turned off in between for how
+  // things stood, and never hear it.
+  const sentinel = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const element = sentinel.current
+    if (!element || revealed) return
+    return watchMotionOff(element, () => flushSync(reveal))
+    // Each roll draws a card, and its sentinel, of its own.
+  }, [revealed, pulls])
   const lever = useRef<HTMLButtonElement>(null)
   const listedIds = useListIds()
   const listed = useMemo(() => new Set(listedIds), [listedIds])
@@ -412,6 +426,9 @@ export function PullMachine({
                 </span>
               )}
               {revealed && <span className="ab-burst" aria-hidden="true" />}
+              {/* As MotionSwitch's: the motion gates widen it, so the machine hears motion turn
+                  off in the very frame it does (see above). */}
+              <span ref={sentinel} className="ab-motion-sentinel" aria-hidden="true" />
               {/* The card is laid out at the press, so that showing its title moves nothing on the
                   page: its back, then its cover as it turns (F1, see flip.ts), and its text,
                   invisible until it shows (see .ab-result) and out of reach, inert. */}

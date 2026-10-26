@@ -3117,17 +3117,43 @@ describe('desktop (1440x900)', () => {
     after(() => own?.close())
 
     const press = () => own.evaluate(`document.querySelector('.ab-lever').click(); true`)
-    // Holds every animation in the card at `ms` after the press, as the stylesheet times them.
-    // On a stopped clock Chrome starts a new animation only at the next frame it draws, from
-    // whatever time that frame finds, which may be long after the press: so the checks move the
-    // clock on for the page's timers, and set the animations' moment themselves.
+    // Holds every animation in the card at `ms` after the press, as the stylesheet times them,
+    // and finishes those over by then. On a stopped clock Chrome starts a new animation only at
+    // the next frame it draws, from whatever time that frame finds, which may be long after the
+    // press: so the checks move the clock on for the page's timers, and set the animations'
+    // moment themselves.
     const holdAt = (ms: number) =>
       own.evaluate(`(() => {
-        for (const a of document.querySelector('.ab-result').getAnimations({ subtree: true })) {
-          a.pause()
-          a.currentTime = ${ms}
-        }
+        for (const a of document.querySelector('.ab-result').getAnimations({ subtree: true }))
+          if (${ms} < a.effect.getComputedTiming().endTime) {
+            a.pause()
+            a.currentTime = ${ms}
+          } else a.finish()
         return true
+      })()`)
+    // The card as the visitor sees it: how far it has turned, 0° when its cover faces them and
+    // 180° when its back does (null with no card to turn); whether it shows its title; the status
+    // line, the count, and the sentence that the title it holds would be said in.
+    type Card = {
+      turned: number | null
+      shown: boolean
+      said: string
+      count: string
+      title: string
+    }
+    const card = () =>
+      own.evaluate<Card>(`(() => {
+        const result = document.querySelector('.ab-result')
+        const flipper = result.querySelector('.ab-flipper')
+        const turn = flipper && new DOMMatrix(getComputedStyle(flipper).transform)
+        const tier = result.querySelector('.ab-tier').textContent.split(' ')[0]
+        return {
+          turned: turn && Math.round(Math.abs(Math.atan2(turn.m13, turn.m11)) * 180 / Math.PI),
+          shown: result.classList.contains('is-open'),
+          said: document.querySelector('.ab-pull > [role="status"]').textContent,
+          count: document.querySelector('.ab-count').textContent,
+          title: result.querySelector('h3').textContent + ', ' + tier + '.',
+        }
       })()`)
 
     test('a roll’s card turns over mid-roll, and a second press then shows it at once and rolls nothing, a third rolling the next', async () => {
@@ -3135,30 +3161,6 @@ describe('desktop (1440x900)', () => {
       // its back to the title's cover, from DROP_MS + OPEN_MS to ROLL_MS. A press while it turns
       // ends the turn at once and rolls nothing (A9): the status line says the same roll, the
       // count stays, and the next press rolls.
-      // The card as the visitor sees it: how far it has turned, 0° when its cover faces them and
-      // 180° when its back does (null with no card to turn); whether it shows its title; the
-      // status line, the count, and the sentence that the title it holds would be said in.
-      type Card = {
-        turned: number | null
-        shown: boolean
-        said: string
-        count: string
-        title: string
-      }
-      const card = () =>
-        own.evaluate<Card>(`(() => {
-          const result = document.querySelector('.ab-result')
-          const flipper = result.querySelector('.ab-flipper')
-          const turn = flipper && new DOMMatrix(getComputedStyle(flipper).transform)
-          const tier = result.querySelector('.ab-tier').textContent.split(' ')[0]
-          return {
-            turned: turn && Math.round(Math.abs(Math.atan2(turn.m13, turn.m11)) * 180 / Math.PI),
-            shown: result.classList.contains('is-open'),
-            said: document.querySelector('.ab-pull > [role="status"]').textContent,
-            count: document.querySelector('.ab-count').textContent,
-            title: result.querySelector('h3').textContent + ', ' + tier + '.',
-          }
-        })()`)
       await press()
       await own.tick(DROP_MS + OPEN_MS + FLIP_MS / 2)
       await holdAt(DROP_MS + OPEN_MS + FLIP_MS / 2)
@@ -3227,6 +3229,72 @@ describe('desktop (1440x900)', () => {
         },
         { glows: true, steady: true, apart: true },
         `the glow on the card's back ${early} and ${late} ms after the press, for an SSR (${SSR.early}, then ${SSR.late}) and an R (${R.early}, then ${R.late}): there, each in one color, and the two unlike`,
+      )
+    })
+
+    // Last of the group: the page's motion ends reduced.
+    test('motion turned off mid-flip, on the device or by the Reduce motion switch, ends the flip at its last frame', async () => {
+      // Reduced motion has no flip: the card shows at once. So motion turned off while a card
+      // turns ends the turn where it would end, as motion turns off: the cover facing
+      // the visitor, the title shown and said, nothing in the card still playing, and the count
+      // as it was. The clock doesn't move meanwhile, so it isn't the roll's own end. First the
+      // switch turns on, then, the switch off again, the device starts asking: Chrome applies an
+      // emulated device setting a little later, so the device goes last, and the card is read
+      // once it shows, or 2 s on.
+      const ended = `(() => {
+        const result = document.querySelector('.ab-result')
+        return result.getAnimations({ subtree: true }).filter((a) => a.playState !== 'finished').map((a) => a.animationName + ' on .' + a.effect.target.classList[0])
+      })()`
+      const seen: Record<string, { before: Card; after: Card; playing: string[] }> = {}
+      const turnOff = {
+        'the switch': () => own.evaluate(`${motionSwitch}.click(); true`),
+        'the device': () =>
+          own.send('Emulation.setEmulatedMedia', {
+            features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+          }),
+      }
+      for (const [by, off] of Object.entries(turnOff)) {
+        await press()
+        await own.tick(DROP_MS + OPEN_MS + FLIP_MS / 2)
+        await holdAt(DROP_MS + OPEN_MS + FLIP_MS / 2)
+        const before = await card()
+        await off()
+        await own.waitFor(
+          `document.querySelector('.ab-result').classList.contains('is-open')`,
+          2_000,
+        )
+        seen[by] = { before, after: await card(), playing: await own.evaluate<string[]>(ended) }
+        // The switch off again for the device's turn, and the turn's timer, cleared, gone by.
+        // Two frames first: in the first, motion back on finishes every animation on the page
+        // (see watchMotionBackOn), which would finish the next card's turn too.
+        if (by === 'the switch') {
+          await own.evaluate(
+            `${motionSwitch}.click(); new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
+          )
+          await own.tick(ROLL_MS)
+        }
+      }
+      const told = ({ before, after, playing }: (typeof seen)[string]) => ({
+        midTurn: before.turned !== null && before.turned > 0 && before.turned < 180,
+        before: { shown: before.shown, said: before.said },
+        after: { turned: after.turned, shown: after.shown, said: after.said, count: after.count },
+        playing,
+      })
+      const ending = ({ before }: (typeof seen)[string]) => ({
+        midTurn: true,
+        before: { shown: false, said: '' },
+        after: {
+          turned: 0,
+          shown: true,
+          said: `Roll ${parseInt(before.count)}: ${before.title}`,
+          count: before.count,
+        },
+        playing: [],
+      })
+      assert.deepEqual(
+        Object.fromEntries(Object.entries(seen).map(([by, it]) => [by, told(it)])),
+        Object.fromEntries(Object.entries(seen).map(([by, it]) => [by, ending(it)])),
+        `the card mid-turn (${DROP_MS + OPEN_MS + FLIP_MS / 2} ms after the press), then once motion turned off, by the switch and on the device, with the clock stopped: how far it had turned, whether it showed and said its title, the count, and what in it still played`,
       )
     })
   })
@@ -4817,6 +4885,42 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
       return [...seen]
     })()`)
     assert.deepEqual(glowed, [], 'what glowed on the card in the second after the press')
+  })
+
+  test('a roll’s card only fades in, in 150 ms, and the lever stays still', async () => {
+    // With motion allowed, the capsule drops, the card turns and its sticker booms in (see the
+    // desktop group). Here the card fades in over 150 ms, the whole of it at once, and nothing
+    // else plays on it or on the lever: each animation started by the press, read as it is drawn,
+    // as what it is, where, and how long it runs. The pointer waits in the screen's corner, and
+    // whatever it left playing ends first, so that no hover comes or goes on the lever as the page
+    // scrolls under it.
+    await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 5, y: 5 })
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    await browser.animationsDone()
+    const played = await browser.evaluate<{ card: string[]; lever: string[] }>(`(async () => {
+      document.querySelector('.ab-result')?.setAttribute('data-old', '')
+      const lever = document.querySelector('.ab-lever')
+      const card = new Set(), levers = new Set()
+      const say = (a) => (a.animationName ?? 'a transition of ' + a.transitionProperty) + ' on .' + a.effect.target.classList[0] + ', ' + Math.round(a.effect.getTiming().duration) + ' ms'
+      const look = () => {
+        const result = document.querySelector('.ab-result:not([data-old])')
+        for (const a of result?.getAnimations({ subtree: true }) ?? []) card.add(say(a))
+        for (const a of lever.getAnimations()) levers.add(say(a))
+      }
+      const start = performance.now()
+      lever.click()
+      look()
+      while (performance.now() - start < 1000) {
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+        look()
+      }
+      return { card: [...card], lever: [...levers] }
+    })()`)
+    assert.deepEqual(
+      played,
+      { card: ['ab-fade on .ab-result, 150 ms'], lever: [] },
+      'the animations a roll played on its card and on the lever, in the second after the press',
+    )
   })
 
   test('a pull never shows the title already on screen, even once every title has come up', async () => {
