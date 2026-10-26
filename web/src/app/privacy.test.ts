@@ -446,9 +446,12 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // failed with the mood scoring asked for again once it loads, and a pool cut from a shared answer
 // dated from when that request was sent: 93,643 B, 175 B more; the CSS still within 12,550 B with
 // the line's room of three lines on a phone and Reset moods' border for contrast themes (12,506 B).
+// Then 93,800 B with the same code: the top matches moved 1rem down, clear of the pulled title's
+// rays, renamed the CSS file and so My List's page, whose new name in the import alone took the
+// JS from 93,643 B to 93,711 B (its bytes uncompressed the same); the CSS 12,530 B.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 93_700,
+  'the JS every visit loads': 93_800,
   'the CSS': 12_550,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,

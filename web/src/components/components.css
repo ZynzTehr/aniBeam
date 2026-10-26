@@ -1524,10 +1524,13 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   place-items: center;
 }
 
-/* Top matches: each part keeps its size whatever it holds, so a new order moves nothing. */
+/* Top matches: each part keeps its size whatever it holds, so a new order moves nothing. 1rem
+   down beside the machine (phones set their own, below), clear of the pulled title's rays, which
+   reached 13px over the heading at 1440px. */
 .ab-matches {
   width: 100%;
   max-width: 480px;
+  margin-top: 1rem;
 }
 
 /* On one line from a 360px screen, "Most popular upcoming titles" too, so a slider's first move,

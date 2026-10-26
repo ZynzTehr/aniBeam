@@ -567,6 +567,66 @@ describe('the journey load', () => {
     await browser.evaluate(`document.querySelector('.ab-reset').click(); true`)
   })
 
+  test('the pulled title’s rays leave the matches’ heading clear, on laptops, tablets and a phone', async () => {
+    // The user's ask: the rays behind the pulled title reached over "Most popular in the 1990s" on
+    // laptops and tablets, where the matches sit beside the machine. The heading's box is shot
+    // with the rays and with them hidden: a pixel that differs is a ray over the heading.
+    const over: string[] = []
+    for (const [width, height, scale] of [
+      [1440, 900, 1],
+      [1280, 800, 1],
+      [1024, 768, 1],
+      [834, 1112, 2],
+      [768, 1024, 2],
+      [390, 844, 2],
+    ] as const) {
+      await browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height,
+        deviceScaleFactor: scale,
+        mobile: scale > 1,
+      })
+      const [pulled] = await pulls(1)
+      assert.ok(pulled, `at ${width}px the pull never opened`)
+      await browser.evaluate(
+        `document.querySelector('.ab-pull .ab-matches').scrollIntoView({ block: 'center' }), true`,
+      )
+      await browser.evaluate(NEXT_FRAME)
+      const clip = await browser.evaluate<{ x: number; y: number; width: number; height: number }>(
+        `(() => { const box = document.querySelector('.ab-pull .ab-matches h3').getBoundingClientRect(); return { x: box.left + scrollX, y: box.top + scrollY, width: box.width, height: box.height } })()`,
+      )
+      const rays = `document.querySelector('.ab-result.is-open .ab-burst').style.visibility`
+      const shown = await browser.screenshot(clip)
+      await browser.evaluate(`${rays} = 'hidden'; true`)
+      const hidden = await browser.screenshot(clip)
+      await browser.evaluate(`${rays} = ''; true`)
+      // Compared in the page, as the pixels are many.
+      const changed = await browser.evaluate<number>(`(async () => {
+        const pixels = async (png) => {
+          const bytes = Uint8Array.from(atob(png), (c) => c.charCodeAt(0))
+          const image = await createImageBitmap(new Blob([bytes], { type: 'image/png' }))
+          const canvas = new OffscreenCanvas(image.width, image.height), context = canvas.getContext('2d')
+          context.drawImage(image, 0, 0)
+          return context.getImageData(0, 0, image.width, image.height).data
+        }
+        const [a, b] = await Promise.all([pixels(${JSON.stringify(shown)}), pixels(${JSON.stringify(hidden)})])
+        let changed = 0
+        for (let i = 0; i < a.length; i += 4)
+          if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) changed++
+        return changed
+      })()`)
+      if (changed)
+        over.push(`${width}px: the rays change ${changed / scale ** 2} px of the heading’s box`)
+    }
+    await browser.send('Emulation.setDeviceMetricsOverride', {
+      width: 1440,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: false,
+    })
+    assert.deepEqual(over, [])
+  })
+
   test('the page’s code never focuses a slider', async () => {
     assert.deepEqual(await browser.evaluate('window.__focusedByCode'), [])
   })
