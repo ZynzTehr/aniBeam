@@ -1770,6 +1770,24 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   transform: rotateY(180deg);
 }
 
+/* The color its back glows in before it turns, the rolled title's rarity's (the user's pick, A9):
+   only with motion allowed (see the motion block). */
+.ab-ssr {
+  --glow: var(--hot);
+}
+
+.ab-sr {
+  --glow: var(--sun);
+}
+
+.ab-r {
+  --glow: #8fc3ff;
+}
+
+.ab-mystery {
+  --glow: #fff;
+}
+
 .ab-back b {
   display: grid;
   width: 46%;
@@ -3047,6 +3065,13 @@ body:has(.ab-card[open], .ab-drawer[open]) {
       animation: ab-fade var(--open) linear var(--drop) backwards;
     }
 
+    /* And as it pops open, the card's back glows in its rarity's color, before it turns. */
+    .ab-result:not(.is-open) .ab-back {
+      animation:
+        ab-fade var(--open) linear var(--drop) backwards,
+        ab-glow var(--open) ease-out var(--drop) both;
+    }
+
     .ab-result:not(.is-open) .ab-flipper {
       animation: ab-turn var(--flip) cubic-bezier(0.3, 0.7, 0.3, 1) calc(var(--drop) + var(--open))
         both;
@@ -3175,6 +3200,15 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   from {
     opacity: 0;
     transform: translateY(-240px) rotate(-220deg);
+  }
+}
+
+@keyframes ab-glow {
+  to {
+    box-shadow:
+      9px 9px 0 var(--ink),
+      0 0 0 6px var(--glow),
+      0 0 28px 10px var(--glow);
   }
 }
 

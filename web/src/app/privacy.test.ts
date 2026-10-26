@@ -455,11 +455,15 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // last rolls are left: 93,892 B, 201 B more. Then the CSS 12,700 B for the roll's flip (F1, the
 // user's pick): the card's two faces, its back in AniBeam's screentone with a ? stamp, turning in
 // 3D after the capsule drops and pops open, timed from flip.ts: 12,697 B, 167 B more (the JS
-// 93,810 B, within its budget).
+// 93,810 B, within its budget). Then the CSS 12,800 B for the glow on the card's back before it
+// turns, in the rarity's color, with motion allowed only: 12,776 B, 79 B more; and the JS 94,050
+// B with no change to its code: the CSS file's new name renamed My List's page (ListPage-*.js),
+// and that name in the import alone took the JS from 93,810 B to 94,014 B, its bytes uncompressed
+// the same.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 93_900,
-  'the CSS': 12_700,
+  'the JS every visit loads': 94_050,
+  'the CSS': 12_800,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,
   'the mood scoring': 1_500,

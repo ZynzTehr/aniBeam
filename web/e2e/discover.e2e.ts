@@ -3100,20 +3100,41 @@ describe('desktop (1440x900)', () => {
     )
   })
 
-  test('a roll’s card turns over mid-roll, and a second press then shows it at once and rolls nothing, a third rolling the next', async () => {
-    // F1, the user's pick (see flip.ts): the capsule drops, pops open, then the card turns from its
-    // back to the title's cover, from DROP_MS + OPEN_MS to ROLL_MS. A press while it turns ends the
-    // turn at once and rolls nothing (A9): the status line says the same roll, the count stays,
-    // and the next press rolls. Each moment is read on the page's own clock, stopped and moved on
-    // by the check (see Browser.stopClock), so a busy machine can't move it. A stopped clock can't
-    // start again, so the check opens a browser of its own.
-    const own = await Browser.open()
-    try {
+  // The roll's moments, each read with the page's own clock stopped and moved on by the checks
+  // (see Browser.stopClock), so a busy machine can't move them: its timers, as the one that ends
+  // the turn, run only as a check moves the clock on. A stopped clock can't start again, so these
+  // checks share a browser of their own.
+  describe('a roll, on the page’s own clock', () => {
+    let own: Browser
+    before(async () => {
+      own = await Browser.open()
       await own.load()
       assert.ok(await own.titlesShown())
       await own.animationsDone()
       await own.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
       await own.stopClock()
+    })
+    after(() => own?.close())
+
+    const press = () => own.evaluate(`document.querySelector('.ab-lever').click(); true`)
+    // Holds every animation in the card at `ms` after the press, as the stylesheet times them.
+    // On a stopped clock Chrome starts a new animation only at the next frame it draws, from
+    // whatever time that frame finds, which may be long after the press: so the checks move the
+    // clock on for the page's timers, and set the animations' moment themselves.
+    const holdAt = (ms: number) =>
+      own.evaluate(`(() => {
+        for (const a of document.querySelector('.ab-result').getAnimations({ subtree: true })) {
+          a.pause()
+          a.currentTime = ${ms}
+        }
+        return true
+      })()`)
+
+    test('a roll’s card turns over mid-roll, and a second press then shows it at once and rolls nothing, a third rolling the next', async () => {
+      // F1, the user's pick (see flip.ts): the capsule drops, pops open, then the card turns from
+      // its back to the title's cover, from DROP_MS + OPEN_MS to ROLL_MS. A press while it turns
+      // ends the turn at once and rolls nothing (A9): the status line says the same roll, the
+      // count stays, and the next press rolls.
       // The card as the visitor sees it: how far it has turned, 0° when its cover faces them and
       // 180° when its back does (null with no card to turn); whether it shows its title; the
       // status line, the count, and the sentence that the title it holds would be said in.
@@ -3138,14 +3159,9 @@ describe('desktop (1440x900)', () => {
             title: result.querySelector('h3').textContent + ', ' + tier + '.',
           }
         })()`)
-      // A press, then two frames: an animation starts on the frame after it is made, and the
-      // clock that times it doesn't move on until then.
-      const press = () =>
-        own.evaluate(
-          `document.querySelector('.ab-lever').click(); new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))`,
-        )
       await press()
       await own.tick(DROP_MS + OPEN_MS + FLIP_MS / 2)
+      await holdAt(DROP_MS + OPEN_MS + FLIP_MS / 2)
       const mid = await card()
       await press()
       const second = await card()
@@ -3169,9 +3185,50 @@ describe('desktop (1440x900)', () => {
         },
         `the card ${DROP_MS + OPEN_MS + FLIP_MS / 2} ms after a press (mid-turn: turned ${mid.turned}°), at a second press, at a third, and once the third's had landed`,
       )
-    } finally {
-      await own.close()
-    }
+    })
+
+    test('as the capsule pops open, before the card turns, its back glows in its rarity’s color, an SSR’s unlike an R’s', async () => {
+      // The user's pick (A9 edge on): from DROP_MS, as the capsule pops open, to DROP_MS + OPEN_MS,
+      // when the card starts to turn, its back takes on a glow in the rolled title's rarity's
+      // color. It is read a third of the way in and just before the turn, on rolls until an SSR
+      // and an R have each come up (the 1990s hold both: no title comes up twice before every one
+      // has), each roll from a different place in the machine's list. The
+      // glow is the back's shadows past its ink drop shadow, by color, without how see-through
+      // each is (it grows in), or none.
+      const glow = `(() => {
+        const shadows = getComputedStyle(document.querySelector('.ab-result .ab-back')).boxShadow
+        const colors = (shadows.match(/rgba?\\([^)]*\\)/g) ?? []).map((color) => color.replace(/^rgba?\\(([^,]+),([^,]+),([^,)]+).*$/, 'rgb($1,$2,$3)'))
+        const glows = [...new Set(colors.filter((color) => color !== 'rgb(20, 20, 20)'))]
+        return glows.length ? glows.join(' and ') : 'none'
+      })()`
+      const tier = `document.querySelector('.ab-result .ab-tier').textContent.split(' ')[0]`
+      const seen: Record<string, { early: string; late: string }> = {}
+      const early = DROP_MS + OPEN_MS / 3
+      const late = DROP_MS + OPEN_MS - 10
+      for (let i = 0; i < 40 && !(seen.SSR && seen.R); i++) {
+        await own.evaluate(`Math.random = () => ${(i * 7) % 20} / 20; true`)
+        await press()
+        await own.tick(early)
+        await holdAt(early)
+        const atEarly = await own.evaluate<string>(glow)
+        await own.tick(late - early)
+        await holdAt(late)
+        const atLate = await own.evaluate<string>(glow)
+        seen[await own.evaluate<string>(tier)] ??= { early: atEarly, late: atLate }
+        await own.tick(ROLL_MS - late + 50)
+      }
+      assert.ok(seen.SSR && seen.R, `no SSR and R came up in 40 rolls: ${Object.keys(seen)}`)
+      const { SSR, R } = seen
+      assert.deepEqual(
+        {
+          glows: [SSR.early, SSR.late, R.early, R.late].every((color) => color !== 'none'),
+          steady: SSR.early === SSR.late && R.early === R.late,
+          apart: SSR.early !== R.early,
+        },
+        { glows: true, steady: true, apart: true },
+        `the glow on the card's back ${early} and ${late} ms after the press, for an SSR (${SSR.early}, then ${SSR.late}) and an R (${R.early}, then ${R.late}): there, each in one color, and the two unlike`,
+      )
+    })
   })
 
   test('with motion allowed, the capsule shows as the card turns, and is gone once it shows', async () => {
@@ -3595,8 +3652,8 @@ async function motionBackOn(turnOff: () => Promise<unknown>) {
 
 // What motionBackOn() must read: motion back on with nothing left playing and no capsule over the
 // open title, the knob sliding off, the drift following the scroll, and a new roll playing each of
-// its animations: the capsule's drop and split, the card's faces fading in and its turn, the
-// burst, the tier's boom, the text.
+// its animations: the capsule's drop and split, the card's faces fading in, its back's glow and its
+// turn, the burst, the tier's boom, the text.
 const BACK_ON = {
   motion: 'back on',
   replayed: [],
@@ -3607,6 +3664,7 @@ const BACK_ON = {
     'ab-burst: played',
     'ab-drop: played',
     'ab-fade: played',
+    'ab-glow: played',
     'ab-rise: played',
     'ab-split-bottom: played',
     'ab-split-top: played',
@@ -4730,6 +4788,35 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
       { opened: 0 },
       'capsule halves shown before the roll showed, and once it showed',
     )
+  })
+
+  test('a roll’s card never glows', async () => {
+    // With motion allowed, the card's back glows in its rarity's color before it turns (see the
+    // desktop group). Here the card shows its title at once, with no glow: read every frame from
+    // the press until a second on, by any animation of the glow and by the back's shadows (its ink
+    // drop shadow alone, or a glow with it).
+    const glowed = await browser.evaluate<string[]>(`(async () => {
+      document.querySelector('.ab-result')?.setAttribute('data-old', '')
+      document.querySelector('#pull').scrollIntoView()
+      const seen = new Set()
+      const look = () => {
+        const result = document.querySelector('.ab-result:not([data-old])')
+        if (!result) return
+        for (const a of result.getAnimations({ subtree: true }))
+          if (a.animationName === 'ab-glow') seen.add('ab-glow on .' + a.effect.target.classList[0])
+        const back = result.querySelector('.ab-back')
+        const shadows = back ? getComputedStyle(back).boxShadow : 'none'
+        if (shadows.split(/,(?![^(]*\\))/).length > 1) seen.add('the back’s shadows: ' + shadows)
+      }
+      const start = performance.now()
+      document.querySelector('.ab-lever').click()
+      while (performance.now() - start < 1000) {
+        look()
+        await new Promise((resolve) => requestAnimationFrame(resolve))
+      }
+      return [...seen]
+    })()`)
+    assert.deepEqual(glowed, [], 'what glowed on the card in the second after the press')
   })
 
   test('a pull never shows the title already on screen, even once every title has come up', async () => {
