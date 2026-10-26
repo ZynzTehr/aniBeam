@@ -8,7 +8,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { titleOf } from '../src/features/anime/format.ts'
 import { cardOf, ERAS, poolOf, QUERIES, type Media } from '../src/features/anime/queries.ts'
 import { MOOD_TAGS } from '../src/features/mood/moodMap.ts'
-import { AXES, type Axis, type Stop } from '../src/features/mood/moods.ts'
+import { AXES, samplesLine, type Axis, type Stop } from '../src/features/mood/moods.ts'
 import { pullable } from '../src/features/mood/roll.ts'
 import { rankMatches, whyOf } from '../src/features/mood/score.ts'
 import { BASE_URL, Browser, poll } from './browser.ts'
@@ -392,6 +392,57 @@ describe('the journey load', () => {
       mobile: false,
     })
     assert.deepEqual(moved, { 1440: [], 390: [] })
+  })
+
+  test('every line the machine can say fits the room kept for it at 390 and at 320, so none moves the matches', async () => {
+    // The room is kept whichever line shows, and none may outgrow it: AniList's busy line, which
+    // comes and goes with no input of the visitor's, took a third line on a phone.
+    const longest = Object.values(AXES).map(({ words }) =>
+      words.reduce((one, other) => (other.length > one.length ? other : one)),
+    )
+    const lines = [
+      'The mood scoring didn’t load.',
+      'Offline: waiting for a connection.',
+      samplesLine(5),
+      'AniList is busy right now. It’s not something you did. Trying again within a minute.',
+      'Filling the machine…',
+      longest.join(' · '),
+    ]
+    const over: string[] = []
+    for (const [width, height] of [
+      [390, 844],
+      [320, 568],
+    ] as const) {
+      await browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height,
+        deviceScaleFactor: 2,
+        mobile: true,
+      })
+      // Each line in a copy of the line's box, beside it: the room an empty line keeps, first.
+      const heights = await browser.evaluate<number[]>(`(() => {
+        const line = document.querySelector('.ab-pull .ab-set')
+        return ['', ...${JSON.stringify(lines)}].map((text) => {
+          const copy = line.cloneNode()
+          copy.textContent = text
+          line.after(copy)
+          const height = copy.getBoundingClientRect().height
+          copy.remove()
+          return height
+        })
+      })()`)
+      lines.forEach((line, i) => {
+        if (heights[i + 1] > heights[0])
+          over.push(`${width}: “${line}” takes ${heights[i + 1]}px, its room ${heights[0]}px`)
+      })
+    }
+    await browser.send('Emulation.setDeviceMetricsOverride', {
+      width: 1440,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: false,
+    })
+    assert.deepEqual(over, [])
   })
 
   test('a quick tap on a slider’s track sets the stop under the finger, even where the browser would not', async () => {
@@ -1074,6 +1125,7 @@ describe('a first visit offline, with the mood scoring blocked, then AniList bus
     })
   const machine = `({
     line: document.querySelector('.ab-pull .ab-set').textContent,
+    heard: document.querySelector('.ab-pull > [role="status"]').textContent,
     retry: document.querySelector('.ab-pull .ab-matches .ab-retry')?.textContent ?? 'none',
     matches: ${MATCHES},
   })`
@@ -1113,6 +1165,7 @@ describe('a first visit offline, with the mood scoring blocked, then AniList bus
       reset: document.querySelector('.ab-reset').disabled,
       lever: document.querySelector('.ab-lever').disabled,
       line: document.querySelector('.ab-pull .ab-set').textContent,
+      heard: document.querySelector('.ab-pull > [role="status"]').textContent,
     })`)
     await goOffline(false)
     await browser.holdAniList(0)
@@ -1126,6 +1179,7 @@ describe('a first visit offline, with the mood scoring blocked, then AniList bus
           reset: true,
           lever: true,
           line: 'Offline: waiting for a connection.',
+          heard: 'Offline: waiting for a connection.',
         },
       },
     )
@@ -1171,6 +1225,7 @@ describe('a first visit offline, with the mood scoring blocked, then AniList bus
         // The page's titles in their own order, unranked, with no Why.
         blocked: {
           line: 'The mood scoring didn’t load.',
+          heard: 'The mood scoring didn’t load.',
           retry: 'Try again',
           matches: pullable(page)
             .slice(0, 3)
@@ -1179,12 +1234,16 @@ describe('a first visit offline, with the mood scoring blocked, then AniList bus
         },
         busy: {
           line: 'AniList is busy right now. It’s not something you did. Trying again within a minute.',
+          heard:
+            'AniList is busy right now. It’s not something you did. Trying again within a minute.',
           retry: 'none',
           matches: top(pullable(page.map(cardOf))),
           asked: ['first visit', 'pool 1990s'],
         },
         ranked: {
           line: 'Very cozy',
+          // Neither the sliders' words nor "Filling the machine…" are said.
+          heard: '',
           retry: 'none',
           matches: top(pool),
           asked: ['first visit', 'pool 1990s', 'pool 1990s'],

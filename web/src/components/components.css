@@ -1406,10 +1406,12 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 /* Reset moods: an ink pill on the red, as the machine's labels are (white on red is 3.65:1). With
    every slider at no preference it hides, keeping its room, so nothing moves as it comes and goes,
    and a hidden button takes no focus. */
+/* Its border is unseen but in a contrast theme, which paints it as the ink fill drops out there,
+   so the pill still reads as a button. */
 .ab-reset {
   min-height: 36px;
-  padding: 0 14px;
-  border: 0;
+  padding: 0 12px;
+  border: 2px solid transparent;
   border-radius: 999px;
   background: var(--ink);
   color: #fff;
@@ -1535,12 +1537,19 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   font: 400 clamp(20px, 5.4vw, 26px) / 1.15 var(--display);
 }
 
-/* The machine's line, or the set sliders' words: room for two lines, whichever shows. */
+/* The machine's line, or the set sliders' words: room for two lines, whichever shows; three below
+   414px, where AniList's busy line takes three. */
 .ab-set {
   min-height: 2.6em;
   margin: 2px 0 10px;
   font-weight: 800;
   line-height: 1.3;
+}
+
+@media (max-width: 413px) {
+  .ab-set {
+    min-height: 3.9em;
+  }
 }
 
 .ab-match-row {

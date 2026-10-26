@@ -439,10 +439,16 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // the machine…", the outage's samples, offline with no titles, AniList busy, and the mood scoring
 // that didn't load, with Try again), the last decade's matches kept while a new one's pool is on
 // its way, and the sliders off offline: 93,459 B, 175 B more; and the CSS 12,550 B for the line's
-// room of two lines (12,501 B, 20 B more).
+// room of two lines (12,501 B, 20 B more). Then 93,700 B with the review's fixes: the status line
+// that says each pull also saying what holds the machine up (never the sliders' words), one sample
+// title said as one, the line no longer "Filling the machine…" while nothing can come, the matches
+// ranked, pulled and headed by the decade their titles come from (popularHeading), a pool that
+// failed with the mood scoring asked for again once it loads, and a pool cut from a shared answer
+// dated from when that request was sent: 93,643 B, 175 B more; the CSS still within 12,550 B with
+// the line's room of three lines on a phone and Reset moods' border for contrast themes (12,506 B).
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 93_550,
+  'the JS every visit loads': 93_700,
   'the CSS': 12_550,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,

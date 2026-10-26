@@ -23,7 +23,7 @@ import { useHeldPool } from './heldPool.ts'
 import { moodScoring } from './loadScoring.ts'
 import { Matches } from './Matches.tsx'
 import { MoodSlider } from './MoodSlider.tsx'
-import { AXES, popularHeading, wordOf, type Axis, type Stop } from './moods.ts'
+import { AXES, popularHeading, samplesLine, wordOf, type Axis, type Stop } from './moods.ts'
 import { rarityOf } from './rarity.ts'
 import { pullable, remember, rollNext } from './roll.ts'
 import type { Sliders } from './score.ts'
@@ -49,6 +49,9 @@ const HINTS = {
   ),
 }
 type Hint = keyof typeof HINTS
+
+// The line while the pool is on its way, which a screen reader is not told (see the status line).
+const FILLING = 'Filling the machine…'
 
 // The sliders in the order the machine shows them.
 const AXIS_ORDER = Object.keys(AXES) as Axis[]
@@ -214,6 +217,7 @@ export function PullMachine({
     if (!media) return setSession({ wanted: more })
     clearTimeout(timer.current)
     setSession({ ring: remember(ring, media.id), pulls: pulls + 1, pulled: media, wanted: more })
+    setNews((now) => ({ ...now, of: 'pull' }))
     setRevealed(false)
     timer.current = window.setTimeout(() => setRevealed(true), reducedMotion() ? 0 : 900)
   }
@@ -279,12 +283,19 @@ export function PullMachine({
     : off
       ? 'Offline: waiting for a connection.'
       : outage && titles === onPage
-        ? `AniList can’t be reached. Pulling from ${out.length} sample titles.`
+        ? samplesLine(out.length)
         : pool.isFetching && (pool.failureReason as AniListError | null)?.status === 429
           ? 'AniList is busy right now. It’s not something you did. Trying again within a minute.'
           : (set && !scored) || coming
-            ? 'Filling the machine…'
+            ? FILLING
             : ''
+  // What the status line says, as it happens: each pull as its capsule opens, and what keeps the
+  // machine from its best as that begins (the line, but "Filling the machine…", which comes and
+  // goes with a first press), whichever came last. Never the sliders' words: each slider says its
+  // own. Set as the component renders.
+  const notice = line === FILLING ? '' : line
+  const [news, setNews] = useState({ notice, of: 'pull' })
+  if (news.notice !== notice) setNews({ notice, of: notice ? 'notice' : news.of })
   return (
     // The links to #pull land on the heading, which takes their focus, as the other sections' do.
     <section className="ab-pull" aria-labelledby="pull">
@@ -428,11 +439,16 @@ export function PullMachine({
           />
         </div>
       </div>
-      {/* Screen readers hear each pull from this one line as its capsule opens. It is always on
-          the page because a live region is read only when its text changes. The number keeps a
-          repeated title (a machine with one title left) from reading as no change. */}
+      {/* Screen readers hear each pull from this one line as its capsule opens, and what keeps
+          the machine from its best (see news). It is always on the page because a live region is
+          read only when its text changes. The number keeps a repeated title (a machine with one
+          title left) from reading as no change. */}
       <p role="status" className="sr-only">
-        {pulled && rarity && revealed ? `Pull ${pulls}: ${titleOf(pulled)}, ${rarity.label}.` : ''}
+        {news.of === 'notice'
+          ? notice
+          : pulled && rarity && revealed
+            ? `Pull ${pulls}: ${titleOf(pulled)}, ${rarity.label}.`
+            : ''}
       </p>
     </section>
   )

@@ -6105,6 +6105,7 @@ describe('Windows contrast themes (forced colors)', () => {
         frame: number
         sticker: { x: number; y: number; width: number; height: number }
         why: { x: number; y: number; width: number; height: number }
+        reset: number
       }>(`(async () => {
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
         const probe = document.body.appendChild(document.createElement('i'))
@@ -6136,8 +6137,12 @@ describe('Windows contrast themes (forced colors)', () => {
           frame: (({ borderTopWidth, borderTopColor }) => (parseFloat(borderTopWidth) ? against(borderTopColor) : 0))(getComputedStyle(link.querySelector('.ab-match-cover'))),
           sticker: box(link.querySelector('.ab-tier')),
           why: box(link.querySelector('.ab-match-why')),
+          reset: (({ borderTopWidth, borderTopColor }) => (parseFloat(borderTopWidth) ? against(borderTopColor) : 0))(getComputedStyle(document.querySelector('.ab-reset'))),
         }
       })()`)
+      // Reset moods, an ink pill whose fill the theme drops, keeps an edge as a button does.
+      if (match.reset < 3)
+        problems.push(`${scheme}, Reset moods: its edge shows at ${match.reset}:1`)
       const where = `${scheme}, the first match`
       if (!match.focused) problems.push(`${where}: Tab did not reach it`)
       if (match.ring < 3) problems.push(`${where}: its focus ring shows at ${match.ring}:1`)

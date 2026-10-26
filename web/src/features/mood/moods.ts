@@ -41,3 +41,10 @@ export const popularHeading = (era: Era | null) =>
     : era.id === 'upcoming'
       ? 'Most popular upcoming titles'
       : `Most popular ${era.id === 'pre-1970' ? 'before 1970' : `in the ${era.label}`}`
+
+/**
+ * The machine's line while AniList can't be reached, over `count` sample titles that can come out:
+ * one is one title, and with none the line says only that (the hint says the rest).
+ */
+export const samplesLine = (count: number) =>
+  `AniList can’t be reached.${count ? ` Pulling from ${count} sample ${count === 1 ? 'title' : 'titles'}.` : ''}`
