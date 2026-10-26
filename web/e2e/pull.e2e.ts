@@ -5,9 +5,9 @@
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { QUERIES } from '../src/features/anime/queries.ts'
-import { MOODS, type Mood } from '../src/features/mood/moods.ts'
+import { cardOf, QUERIES } from '../src/features/anime/queries.ts'
 import { pullable } from '../src/features/mood/roll.ts'
+import { rankMatches, type Sliders } from '../src/features/mood/score.ts'
 import { BASE_URL, Browser } from './browser.ts'
 import { listsOf, recordings } from './recordings.ts'
 
@@ -44,7 +44,11 @@ test('the off lever looks off, and never tilts or swings', async () => {
   // The off lever used to look like a working one, and with motion allowed (as here) it tilted
   // on hover and swung on a press that pulls nothing. A working copy of it, put next to it for
   // a moment, shows what it must not look like, whatever the off look is.
-  await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+  // In the middle of the screen: below the sliders, the lever can be past its foot, where the
+  // mouse would hover nothing and the check would show nothing.
+  await browser.evaluate(
+    `document.querySelector('.ab-lever').scrollIntoView({ block: 'center' }); true`,
+  )
   const at = await browser.evaluate<{ x: number; y: number }>(
     `(() => { const r = document.querySelector('.ab-lever').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
   )
@@ -222,46 +226,62 @@ function pulls(times: number) {
   })()`)
 }
 
-// The first visit's machine in the page's order, trending then the 1990s, each title once, and
-// none that may not come out of it.
+// The first visit's machine in the page's order, trending then the 1990s, each title once, as the
+// page keeps them (cardOf), and none that may not come out of it.
 const MACHINE = (() => {
   const { trending, era } = listsOf(recordings().get('first-visit')!)
-  const all = [...trending, ...era]
+  const all = [...trending, ...era].map(cardOf)
   return pullable(all.filter((media, i) => all.findIndex(({ id }) => id === media.id) === i))
 })()
 
-test('a pull gives a title with one of the chosen vibe’s genres', async () => {
+/** The machine's mood slider named `label` set to `stop`, as a key or a drag sets it. */
+function setSlider(label: string, stop: number) {
+  return browser.evaluate(`(() => {
+    const input = [...document.querySelectorAll('.ab-pull input[type="range"]')].find((input) => input.labels[0].textContent === '${label}')
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '${stop}')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    return true
+  })()`)
+}
+
+test('with a slider set, a pull gives the best match not pulled yet, by the mood scoring', async () => {
   await loadWithList([])
-  // With Math.random fixed at 0, a pull takes the first title in the page's order that has one
-  // of the vibe's genres and isn't among the pulls before it. Each vibe in turn, from a fresh
-  // visit.
-  const vibes: Mood[] = ['cozy', 'hype', 'cerebral', 'tears']
+  // The mood scoring is a file of its own, which the page loads once it is idle (loadScoring.ts).
+  assert.ok(
+    await browser.waitFor(
+      `performance.getEntriesByType('resource').some((entry) => entry.name.includes('/features/mood/scoring'))`,
+      10_000,
+    ),
+    'the mood scoring never loaded',
+  )
+  // With Math.random fixed at 0, a pull takes the first of the 12 best matches that isn't among
+  // the pulls before it: two at Very cozy, then two at Very high-octane.
+  const steps: [number, Sliders][] = [
+    [2, { energy: -2, tone: 0, complexity: 0 }],
+    [2, { energy: 2, tone: 0, complexity: 0 }],
+  ]
   const expected: number[] = []
-  for (const vibe of vibes) {
-    const { genres } = MOODS[vibe]
-    const match = MACHINE.find(
-      (media) => !expected.includes(media.id) && media.genres.some((g) => genres.includes(g)),
-    )
-    assert.ok(match, `no title in the first visit's machine is ${MOODS[vibe].label}`)
-    expected.push(match.id)
-  }
-  // A machine that read every pull as Any vibe would give the page's first titles, in order.
+  for (const [times, sliders] of steps)
+    for (let i = 0; i < times; i++)
+      expected.push(rankMatches(MACHINE, sliders).find(({ id }) => !expected.includes(id))!.id)
+  // A machine that ignored the sliders would give the page's first titles, in order.
   assert.notDeepEqual(
     expected,
-    MACHINE.slice(0, vibes.length).map(({ id }) => id),
-    'the vibes pick what Any vibe would, so this check would show nothing',
+    MACHINE.slice(0, expected.length).map(({ id }) => id),
+    'the sliders pick what no preference would, so this check would show nothing',
   )
   const pulled: (string | null)[] = []
-  for (const vibe of vibes) {
+  for (const [times, sliders] of steps) {
+    await setSlider('Energy', sliders.energy)
     await browser.evaluate(
-      `document.querySelector('.ab-moods input[value="${vibe}"]').click(); true`,
+      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
     )
-    pulled.push(...(await pulls(1)))
+    pulled.push(...(await pulls(times)))
   }
   assert.deepEqual(
     pulled,
     expected.map((id) => `/anime/${id}`),
-    `pulls with the vibes ${vibes.join(', ')}`,
+    'pulls at Very cozy, then at Very high-octane',
   )
 })
 

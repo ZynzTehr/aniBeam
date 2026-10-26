@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from 'react'
 import { markBroken, markLoaded } from '../../components/cover.ts'
 import { cssVars } from '../../components/cssVars.ts'
 import { opener } from '../../components/opener.ts'
@@ -9,8 +9,12 @@ import { formatOf, seasonOf, studioOf, titleOf } from '../anime/format.ts'
 import type { Media } from '../anime/queries.ts'
 import { useListIds } from '../list/store.ts'
 import { accentVars } from '../theming/deriveAccent.ts'
-import { MOODS, type Mood } from './moods.ts'
-import { pullable, pullNext, remember } from './roll.ts'
+import { moodScoring } from './loadScoring.ts'
+import { MoodSlider } from './MoodSlider.tsx'
+import { AXES, type Axis, type Stop } from './moods.ts'
+import { pullable, remember, rollNext } from './roll.ts'
+import type { Sliders } from './score.ts'
+import { setSession, useSession } from './session.ts'
 import { titlePath } from '../../lib/route.ts'
 
 // What the machine says before a pull: with no titles yet, with none it may hand out, with all it
@@ -39,48 +43,100 @@ function rarityOf(score: number | null) {
   return { key: 'r', label: 'R', stars: '★', sfx: 'R' }
 }
 
-// The visit's last pulls, the oldest first, which a pull skips while it can (see rollNext). Kept
-// while the visitor moves around the site, which draws the machine again on the way back to
-// Discover, and gone on a reload.
-let ring: number[] = []
+// The sliders in the order the machine shows them.
+const AXIS_ORDER = Object.keys(AXES) as Axis[]
+const NONE: Sliders = { energy: 0, tone: 0, complexity: 0 }
+
+// A tap that moved less than this, in CSS pixels, over less than this long, is a tap, not a drag.
+const TAP_PX = 10
+const TAP_MS = 500
+// MoodSlider.css's thumb, whose middle travels from half its width in to half its width in.
+const THUMB = 40
 
 /**
- * The gacha machine, drawn in ink: pick a vibe, pull the lever, and a capsule drops with a
- * random title from `pool` (titles already loaded, so a pull costs no API request). A pull
- * gives a title with one of the vibe's genres, never one on My List, nor any of the last 30
- * pulled while another can come up (see pullable and pullNext).
+ * The gacha machine, drawn in ink: set the mood sliders, pull the lever, and a capsule drops with
+ * a random title from `pool` (titles already loaded, so a pull costs no API request). With a
+ * slider set, a pull gives one of the 12 titles that best match the sliders (rankMatches, from the
+ * mood scoring's own file); with none, any title. Never one on My List, nor any of the last 30
+ * pulled while another can come up (see rollNext). The sliders, the last pulls and the pulled
+ * title are kept for the visit (see session.ts).
  */
 export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle }) {
-  const [mood, setMood] = useState<Mood>('any')
-  const [pulled, setPulled] = useState<Media | null>(null)
-  const [pulls, setPulls] = useState(0)
-  const [revealed, setRevealed] = useState(false)
+  const { sliders, ring, pulls, pulled } = useSession()
+  // Shown at once when the machine is drawn again with a pull already made (back from My List).
+  const [revealed, setRevealed] = useState(true)
   const timer = useRef<number | undefined>(undefined)
   useEffect(() => () => clearTimeout(timer.current), [])
+  const lever = useRef<HTMLButtonElement>(null)
   const listedIds = useListIds()
   const listed = useMemo(() => new Set(listedIds), [listedIds])
   const titles = useMemo(() => pullable(pool), [pool])
   // What can come out, the titles not on My List: the dome shows these, and with none the lever
   // is off.
   const out = useMemo(() => titles.filter((media) => !listed.has(media.id)), [titles, listed])
+  const set = AXIS_ORDER.some((axis) => sliders[axis] !== 0)
+
+  // The mood scoring is a file of its own (see loadScoring.ts), most often loaded by the time a
+  // slider moves; if not, it loads then, and the titles keep the page's order meanwhile.
+  const [scoring, setScoring] = useState(moodScoring.current)
+  const scored = scoring ?? moodScoring.current
+  useEffect(() => {
+    if (set && !scored) moodScoring.load().then(setScoring, () => {})
+  }, [set, scored])
+  const ranked = useMemo(
+    () => (set && scored ? scored.rankMatches(titles, sliders) : titles),
+    [set, scored, titles, sliders],
+  )
 
   function pull() {
-    const { genres } = MOODS[mood]
-    const choice = pullNext({
-      titles,
-      genres,
+    const { media } = rollNext({
+      ranked,
       listed,
       ring,
+      windowed: set,
       random: Math.random,
       shown: pulled?.id,
     })
-    if (!choice) return
-    ring = remember(ring, choice.id)
+    if (!media) return
     clearTimeout(timer.current)
-    setPulled(choice)
-    setPulls((n) => n + 1)
+    setSession({ ring: remember(ring, media.id), pulls: pulls + 1, pulled: media })
     setRevealed(false)
     timer.current = window.setTimeout(() => setRevealed(true), reducedMotion() ? 0 : 900)
+  }
+
+  const move = (axis: Axis, stop: Stop) => setSession({ sliders: { ...sliders, [axis]: stop } })
+
+  // A tap on a slider's track, not a drag, sets the stop under the finger (the user's pick, A5):
+  // Safari on an iPhone only focuses a slider on a tap, which feels broken. The slider is never
+  // focused from code (WebKit bug 266283). A mouse's click jumps there by itself.
+  const tap = useRef<{ x: number; y: number; at: number } | null>(null)
+  const isRange = (target: EventTarget): target is HTMLInputElement =>
+    target instanceof HTMLInputElement && target.type === 'range'
+  const down = (event: PointerEvent<HTMLDivElement>) => {
+    tap.current =
+      event.pointerType !== 'mouse' && isRange(event.target)
+        ? { x: event.clientX, y: event.clientY, at: event.timeStamp }
+        : null
+  }
+  const up = (event: PointerEvent<HTMLDivElement>) => {
+    const start = tap.current
+    tap.current = null
+    const input = event.target
+    if (!start || !isRange(input) || input.disabled) return
+    const moved = Math.hypot(event.clientX - start.x, event.clientY - start.y)
+    if (moved > TAP_PX || event.timeStamp - start.at > TAP_MS) return
+    const box = input.getBoundingClientRect()
+    const along = (event.clientX - box.left - THUMB / 2) / Math.max(1, box.width - THUMB)
+    const stop = Math.max(-2, Math.min(2, Math.round(along * 4) - 2)) as Stop
+    const axis = AXIS_ORDER[[...event.currentTarget.querySelectorAll('input')].indexOf(input)]
+    if (axis && stop !== sliders[axis]) move(axis, stop)
+  }
+
+  // Reset moods hides once every slider is back at no preference: focus, on it, goes on to the
+  // lever, rather than off the page.
+  const reset = (event: { currentTarget: HTMLButtonElement }) => {
+    if (document.activeElement === event.currentTarget) lever.current?.focus()
+    setSession({ sliders: NONE })
   }
 
   const rarity = pulled ? rarityOf(pulled.averageScore) : null
@@ -110,21 +166,29 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
           </div>
           <div className="ab-body">
             <fieldset className="ab-moods">
-              <legend>Pick a vibe</legend>
-              {(Object.keys(MOODS) as Mood[]).map((key) => (
-                <label key={key} className="ab-chip">
-                  <input
-                    type="radio"
-                    name="ab-mood"
-                    value={key}
-                    checked={mood === key}
-                    onChange={() => setMood(key)}
+              <legend className="sr-only">Your mood</legend>
+              <div className="ab-sliders" onPointerDown={down} onPointerUp={up}>
+                {AXIS_ORDER.map((axis) => (
+                  <MoodSlider
+                    key={axis}
+                    axis={axis}
+                    value={sliders[axis]}
+                    onChange={(stop) => move(axis, stop)}
                   />
-                  <span>{MOODS[key].label}</span>
-                </label>
-              ))}
+                ))}
+              </div>
             </fieldset>
-            <button type="button" className="ab-lever" onClick={pull} disabled={!out.length}>
+            {/* Its room is kept while it is hidden, so nothing moves as it comes and goes. */}
+            <button type="button" className={set ? 'ab-reset' : 'ab-reset is-off'} onClick={reset}>
+              Reset moods
+            </button>
+            <button
+              ref={lever}
+              type="button"
+              className="ab-lever"
+              onClick={pull}
+              disabled={!out.length}
+            >
               <span>{pulls ? 'Again!' : 'Pull!'}</span>
             </button>
             <p className="ab-count">
@@ -209,7 +273,7 @@ export function PullMachine({ pool, onOpen }: { pool: Media[]; onOpen: OpenTitle
       </div>
       {/* Screen readers hear each pull from this one line as its capsule opens. It is always on
           the page because a live region is read only when its text changes. The number keeps a
-          repeated title (a vibe with one match) from reading as no change. */}
+          repeated title (a machine with one title left) from reading as no change. */}
       <p role="status" className="sr-only">
         {pulled && rarity && revealed ? `Pull ${pulls}: ${titleOf(pulled)}, ${rarity.label}.` : ''}
       </p>

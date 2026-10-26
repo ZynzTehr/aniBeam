@@ -421,11 +421,17 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // PR 3a, as the plan's D5 lets the budget rise in measured steps); then 91,700 B with the saved
 // copy keeping only the 3 newest decades' mood pools (newestPools, in queryClient.ts: 91,641 B).
 // The page deciding that by itself, from a pool said to be wanted (wantPool, in place of together),
-// took it back to 91,542 B.
+// took it back to 91,542 B. Then 92,300 B with the three mood sliders in place of the vibe chips
+// on Discover's machine (PullMachine with MoodSlider, a tap on a track setting its stop, Reset
+// moods, the sliders ranking the titles through the mood scoring, and the sliders, the last pulls
+// and the pulled title kept for the visit in features/mood/session.ts, less the vibes and pullNext:
+// 92,203 B, 661 B more), and the CSS 12,400 B, as MoodSlider.css now ships with every visit (the
+// slider's look, less the vibe chips' rules: 12,324 B, 468 B more); raises the plan's D5 lets come
+// in measured steps.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 91_700,
-  'the CSS': 12_000,
+  'the JS every visit loads': 92_300,
+  'the CSS': 12_400,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,
   'the mood scoring': 1_500,

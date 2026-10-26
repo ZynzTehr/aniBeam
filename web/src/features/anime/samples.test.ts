@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { MOODS } from '../mood/moods.ts'
+import { pullable } from '../mood/roll.ts'
 import { samplesFor } from './fallback.ts'
 import { hasSmallCover, titleOf } from './format.ts'
 import { cardOf, ERAS } from './queries.ts'
@@ -79,14 +79,9 @@ test('every era but Upcoming has at least 3 samples, and Upcoming has none', () 
   }
 })
 
-test('every vibe has at least 3 titles to pull among the 9 that fill the trending page', () => {
+test('at least 3 of the 9 samples that fill the trending page can come out of the pull machine', () => {
   // With AniList out of reach, the pull draws from the samples on the page: these 9, plus the
-  // decade's, of which Upcoming has none. A title matches a vibe with any one of its genres.
+  // decade's, of which Upcoming has none. Ecchi titles never come out of it (spec §3G).
   const page = SAMPLES.slice(0, 9)
-  for (const { label, genres } of Object.values(MOODS)) {
-    const matches = page.filter(
-      (media) => genres.length === 0 || media.genres.some((genre) => genres.includes(genre)),
-    )
-    assert.ok(matches.length >= 3, `${label} has only ${matches.length} titles to pull`)
-  }
+  assert.ok(pullable(page).length >= 3, `only ${pullable(page).length} samples can be pulled`)
 })

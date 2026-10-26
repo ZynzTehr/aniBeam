@@ -1,7 +1,7 @@
 /*
- * The mood slider (see MoodSlider.tsx). Its own stylesheet, which ships only once the app shows a
- * slider (Phase 5 puts them on the pull machine): until then only the development-only gallery
- * does. In the components layer, as components.css is, so utilities can still override it.
+ * The mood slider (see MoodSlider.tsx). Its own stylesheet, which ships with every visit, as
+ * Discover's pull machine shows three sliders. In the components layer, as components.css is, so
+ * utilities can still override it.
  */
 @layer components {
   .ab-slider {

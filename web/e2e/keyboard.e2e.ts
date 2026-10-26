@@ -214,7 +214,7 @@ test('a chip Tab reaches at the foot of the screen shows its whole pill and focu
   ]) {
     await browser.load({ ...screen, reduceMotion: true })
     assert.ok(await browser.titlesShown())
-    for (const group of ['.ab-moods', '.ab-eras']) {
+    for (const group of ['.ab-eras']) {
       const chip = `document.querySelector('${group} input:checked')`
       await browser.evaluate(`${chip}.focus({ preventScroll: true }); true`)
       await browser.press('Tab', true)
@@ -300,7 +300,9 @@ const STOPS = [
   'Browse by decade',
   'My List',
   'a title in Trending now ×9',
-  'Pick a vibe: Any vibe',
+  'Energy',
+  'Tone',
+  'Complexity',
   'Pull!',
   'Decade: 1990s',
   'a title in Browse by decade ×20',
@@ -327,7 +329,9 @@ const BACK_WIDE = [
   'a title in Browse by decade ×20',
   'Decade: 1990s',
   'Pull!',
-  'Pick a vibe: Any vibe',
+  'Complexity',
+  'Tone',
+  'Energy',
   'a title in Trending now ×9',
   'Search titles',
   'My List',
@@ -358,7 +362,9 @@ const STOP = `(() => {
   if (focused.matches('dialog')) return { name: focused.matches('.ab-trailer') ? 'the trailer' : 'the card', problems: [] }
   const name = focused.matches('.ab-grid .ab-link, .ab-strip-panel')
     ? 'a title in ' + text(focused.closest('section').querySelector('h1, h2'))
-    : focused.matches('fieldset input')
+    : focused.matches('input[type="range"]')
+      ? text(focused.labels[0])
+      : focused.matches('fieldset input')
       ? text(focused.closest('fieldset').querySelector('legend')) + ': ' + text(focused.parentElement)
       : focused.getAttribute('aria-label') || (focused.matches('label > input') ? text(focused.parentElement) : text(focused) || focused.placeholder || focused.tagName.toLowerCase())
   const shown = focused.matches('label > input') ? focused.nextElementSibling : focused.closest('.ab-bubble-field') ?? focused
@@ -818,7 +824,7 @@ test("Tab walks a title's card round from its Close and Shift+Tab walks it back,
   assert.deepEqual(seen, { '1440px': expected, '390px': expected })
 })
 
-test('by keyboard alone, Esc empties the search box, arrow keys choose a vibe and a decade, and Space pulls, opens a title card on its Close button and closes it', async () => {
+test('by keyboard alone, Esc empties the search box, arrow keys, Home and End move a mood slider, arrow keys choose a decade, and Space pulls, opens a title card on its Close button and closes it', async () => {
   // On a desktop with motion and on a phone with reduced motion (see keyboardJourney).
   const seen: Record<string, unknown> = {}
   for (const screen of [
@@ -828,13 +834,16 @@ test('by keyboard alone, Esc empties the search box, arrow keys choose a vibe an
     seen[`${screen.width}px`] = await keyboardJourney(screen)
   const expected = {
     search: { box: '', results: false, focus: 'Search titles', then: 'See what’s trending' },
-    vibes: [
-      'Pick a vibe: Cozy',
-      'Pick a vibe: Any vibe',
-      'Pick a vibe: Tearjerker',
-      'Pick a vibe: Any vibe',
+    energy: [
+      'Energy: Cozy',
+      'Energy: Very cozy',
+      'Energy: Very cozy',
+      'Energy: Very high-octane',
+      'Energy: Very cozy',
+      'Energy: Cozy',
+      'Energy: No preference',
     ],
-    lever: 'Pull!',
+    lever: ['Tone', 'Complexity', 'Pull!'],
     pull: {
       focus: 'Again!',
       count: '1 pull this visit',
@@ -899,20 +908,33 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
     then: await next(),
   }
 
-  // The arrows move the choice with focus, round the group: the vibe chosen is the one focused.
+  // The arrows move a mood slider a stop at a time, stopping at its ends, and Home and End take
+  // it to them: the word a screen reader hears, aria-valuetext, follows. Back at no preference,
+  // Reset moods hides, so Tab goes on from the last slider to the lever.
+  if (!(await tabTo('Energy'))) return journey
+  const energy: string[] = []
+  for (const key of [
+    'ArrowLeft',
+    'ArrowLeft',
+    'ArrowLeft',
+    'End',
+    'Home',
+    'ArrowRight',
+    'ArrowRight',
+  ] as const) {
+    await browser.press(key)
+    energy.push(
+      `${await focus()}: ${await browser.evaluate<string>(`document.activeElement.getAttribute('aria-valuetext')`)}`,
+    )
+  }
+  journey.energy = energy
+  // The arrows on a decade chip move the choice with focus: the decade chosen is the one focused.
   const chosen = async () =>
     `${await focus()}${(await browser.evaluate<boolean>(`document.activeElement.checked`)) ? '' : ' (not chosen)'}`
-  if (!(await tabTo('Pick a vibe: Any vibe'))) return journey
-  const vibes: string[] = []
-  for (const key of ['ArrowRight', 'ArrowLeft', 'ArrowLeft', 'ArrowRight'] as const) {
-    await browser.press(key)
-    vibes.push(await chosen())
-  }
-  journey.vibes = vibes
 
   // Space pulls, and focus stays on the lever. With motion the capsule opens 900 ms later, and its
   // title takes focus only then (it is inert until it shows).
-  journey.lever = await next()
+  journey.lever = [await next(), await next(), await next()]
   await browser.press('Space')
   if (!(await browser.waitFor(`document.querySelector('.ab-result.is-open')`, 5_000))) {
     journey.stopped = `Space on "${await focus()}" pulled nothing`

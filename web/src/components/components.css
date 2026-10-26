@@ -1389,30 +1389,36 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   color: #fff;
 }
 
+/* The three mood sliders (MoodSlider, its look in MoodSlider.css) fill the body's width. */
 .ab-moods {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 6px;
+  width: 100%;
+  min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
 }
 
-/* The machine's two labels sit on ink pills: white straight on hot pink is only 3.65:1. */
-.ab-moods legend {
-  width: fit-content;
-  /* A checked chip lifts 2px and a focused one's ring reaches 7px more: 12px keeps 3px clear. */
-  margin: 0 auto 12px;
-  /* Chrome adds the letter spacing after the last letter too; less padding there evens it out. */
-  padding: 3px calc(10px - 0.14em) 3px 10px;
+.ab-sliders {
+  display: grid;
+  gap: 12px;
+}
+
+/* Reset moods: an ink pill on the red, as the machine's labels are (white on red is 3.65:1). With
+   every slider at no preference it hides, keeping its room, so nothing moves as it comes and goes,
+   and a hidden button takes no focus. */
+.ab-reset {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
   border-radius: 999px;
   background: var(--ink);
-  font-size: 13px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-align: center;
-  text-transform: uppercase;
+  color: #fff;
+  font: 800 13px var(--body);
+  cursor: pointer;
+}
+
+.ab-reset.is-off {
+  visibility: hidden;
 }
 
 /* A chip's radio button is see-through, and covers its whole pill: Tab scrolls only if what takes
@@ -1457,6 +1463,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 }
 
 .ab-chip input:focus-visible + span,
+.ab-reset:focus-visible,
 .ab-lever:focus-visible {
   outline: 4px solid #fff;
   outline-offset: 3px;

@@ -222,7 +222,7 @@ test(
         return [state.dataset.case, ${
           group === 'intro'
             ? `state.querySelectorAll('.ab-intro-cover').length + ' covers', state.querySelectorAll('.ab-intro-cover img[data-broken]').length + ' broken', state.querySelector('.ab-intro-art.is-loading') ? 'loading' : 'not loading'`
-            : `state.querySelector('.ab-lever').disabled ? 'lever off' : 'lever on', state.querySelectorAll('.ab-capsule').length + ' capsules', state.querySelector('.ab-hint')?.textContent.split('.')[0] ?? ''`
+            : `state.querySelector('.ab-lever').disabled ? 'lever off' : 'lever on', state.querySelectorAll('.ab-capsule').length + ' capsules', [...state.querySelectorAll('.ab-body input[type="range"]')].map((input) => input.labels[0].textContent).join(' ') + ' sliders', state.querySelector('.ab-hint')?.textContent.split('.')[0] ?? ''`
         }].join(', ')
       })()`)
         // A pull here must not carry over to the next state, which starts afresh.
@@ -237,11 +237,13 @@ test(
         'intro: Loading': 'Loading, 0 covers, 0 broken, loading',
         'intro: No covers': 'No covers, 0 covers, 0 broken, not loading',
         'pull: Nothing to pull yet':
-          'Nothing to pull yet, lever off, 0 capsules, The machine fills up with titles once AniList answers',
+          'Nothing to pull yet, lever off, 0 capsules, Energy Tone Complexity sliders, The machine fills up with titles once AniList answers',
         'pull: Nothing it may hand out (all Ecchi)':
-          'Nothing it may hand out (all Ecchi), lever off, 0 capsules, None of the titles on this page can come out of the machine',
-        'pull: The samples': 'The samples, lever on, 9 capsules, Pick a vibe, then pull',
-        'pull: The title cases': 'The title cases, lever on, 9 capsules, Pick a vibe, then pull',
+          'Nothing it may hand out (all Ecchi), lever off, 0 capsules, Energy Tone Complexity sliders, None of the titles on this page can come out of the machine',
+        'pull: The samples':
+          'The samples, lever on, 9 capsules, Energy Tone Complexity sliders, Pick a vibe, then pull',
+        'pull: The title cases':
+          'The title cases, lever on, 9 capsules, Energy Tone Complexity sliders, Pick a vibe, then pull',
       },
       "the intro's and the pull machine's states",
     )

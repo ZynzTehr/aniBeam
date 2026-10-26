@@ -699,21 +699,28 @@ describe('desktop (1440x900)', () => {
     assert.deepEqual(lists, [['trending', '1990s']], 'the lists each request asked AniList for')
   })
 
-  test('renders the header, intro, nine trending panels, the pull and the decades', async () => {
+  test('renders the header, intro, nine trending panels, the pull with its three mood sliders and the decades', async () => {
     const page = await browser.evaluate<{
       h1: string
       links: string[]
       panels: number
+      sliders: string[]
       chips: string[]
     }>(`({
       h1: document.querySelector('h1').textContent.replace('キラーン', '').replace(/\\s+/g, ' ').trim(),
       links: [...document.querySelectorAll('.ab-nav a')].map((a) => a.textContent.trim()),
       panels: document.querySelectorAll('.ab-grid .ab-link').length,
+      sliders: [...document.querySelectorAll('.ab-pull .ab-body input[type="range"]')].map((input) => input.labels[0].textContent + ' ' + input.min + ' to ' + input.max + ', at ' + input.value + ', ' + input.getAttribute('aria-valuetext')),
       chips: [...document.querySelectorAll('.ab-eras input')].map((input) => input.value),
     })`)
     assert.equal(page.h1, 'What’s hot. What’s new. Talk about it.')
     assert.deepEqual(page.links, ['Trending', 'Pull', 'Decades', 'My List'])
     assert.equal(page.panels, 9)
+    assert.deepEqual(page.sliders, [
+      'Energy -2 to 2, at 0, No preference',
+      'Tone -2 to 2, at 0, No preference',
+      'Complexity -2 to 2, at 0, No preference',
+    ])
     assert.deepEqual(page.chips, [
       'pre-1970',
       '1970s',
@@ -1938,8 +1945,14 @@ describe('desktop (1440x900)', () => {
     // screen readers only. Every label must reach 4.5:1, even the lever's large one (WCAG asks
     // 3:1). The machine is measured at rest, so colors only hover or a press brings are not,
     // and neither is the text beside it (the hint bubble, the pulled title). Landed, as a visitor
-    // sees it: below the first screen, it waits see-through until scrolled to.
+    // sees it: below the first screen, it waits see-through until scrolled to. A slider is set,
+    // so Reset moods shows and is measured too.
     await browser.landAll('.ab-machine')
+    await setSlider('Energy', -2)
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('.ab-reset').matches('.is-off')`, 5000),
+      'Reset moods never showed',
+    )
     const ratios = await browser.evaluate<{ text: string; ratio: number }[]>(`(() => {
       // Chrome gives colors written in hex, by name, or with rgb() or hsl() as rgb() or rgba().
       // Others, such as the oklch() of Tailwind's palette, would be misread: they stop the check.
@@ -2007,7 +2020,24 @@ describe('desktop (1440x900)', () => {
         }
       return labels
     })()`)
+    await browser.evaluate(`document.querySelector('.ab-reset').click(); true`)
     assert.ok(ratios.length >= 8, `found only ${ratios.length} labels`)
+    // The sliders' names, a stop's word, the ends' labels and Reset moods among them.
+    const texts = ratios.map((label) => label.text)
+    assert.deepEqual(
+      [
+        'Energy',
+        'Tone',
+        'Complexity',
+        'Very cozy',
+        'Cozy',
+        'Dark & tragic',
+        'Reset moods',
+        'Pull!',
+      ].filter((text) => !texts.includes(text)),
+      [],
+      `labels left out of the measure, of ${texts.join(', ')}`,
+    )
     const faint = ratios.filter((label) => label.ratio < 4.5)
     assert.deepEqual(
       faint,
@@ -2016,26 +2046,64 @@ describe('desktop (1440x900)', () => {
     )
   })
 
-  test('the vibe pill is centered on its text and clear of the chips’ focus rings', async () => {
-    const pill = await browser.evaluate<{ left: number; right: number; ringGap: number }>(`(() => {
-      const legend = document.querySelector('.ab-moods legend'), box = legend.getBoundingClientRect()
-      const range = document.createRange()
-      range.selectNodeContents(legend)
-      const text = range.getBoundingClientRect()
-      // Chrome adds letter spacing after the last letter too, where it shows as space.
-      const trailing = parseFloat(getComputedStyle(legend).letterSpacing)
-      // A checked chip lifts 2px, and a focused one's ring reaches 7px further (4px, 3px out).
-      const ringTops = [...document.querySelectorAll('.ab-moods .ab-chip span')]
-        .map((chip) => ({ r: chip.getBoundingClientRect(), lifted: chip.previousElementSibling.checked }))
-        .filter(({ r }) => r.left - 7 < box.right && r.right + 7 > box.left)
-        .map(({ r, lifted }) => r.top - (lifted ? 0 : 2) - 7)
-      return { left: text.left - box.left, right: box.right - (text.right - trailing), ringGap: Math.min(...ringTops) - box.bottom }
-    })()`)
-    assert.ok(
-      Math.abs(pill.left - pill.right) <= 0.5,
-      `the text sits ${(pill.right - pill.left).toFixed(1)}px left of center`,
-    )
-    assert.ok(pill.ringGap >= 2, `a focused chip's ring comes within ${pill.ringGap}px of the pill`)
+  test('each mood slider’s focus ring shows whole inside the machine’s red body, at 1440 and 390', async () => {
+    // The ring is white on the red body, 4px wide and 3px out: it must not reach past the body's
+    // inner edge, nor over the next slider's name. Each slider takes focus from the keyboard, so
+    // it shows its ring (:focus-visible): Shift+Tab out of it, then Tab back.
+    const seen: Record<string, string[]> = {}
+    const resize = (width: number, height: number) =>
+      browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+    try {
+      for (const [width, height] of [
+        [1440, 900],
+        [390, 844],
+      ]) {
+        await resize(width, height)
+        await browser.landAll('.ab-machine')
+        const problems: string[] = []
+        for (const i of [0, 1, 2]) {
+          await browser.evaluate(
+            `document.querySelectorAll('.ab-pull input[type="range"]')[${i}].focus(); true`,
+          )
+          await browser.press('Tab', true)
+          await browser.press('Tab')
+          await browser.evaluate(
+            'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+          )
+          problems.push(
+            ...(await browser.evaluate<string[]>(`(() => {
+              const body = document.querySelector('.ab-pull .ab-body'), edge = body.getBoundingClientRect()
+              const inner = { top: edge.top + body.clientTop, left: edge.left + body.clientLeft, right: edge.left + body.clientLeft + body.clientWidth, bottom: edge.top + body.clientTop + body.clientHeight }
+              const inputs = [...body.querySelectorAll('input[type="range"]')], input = inputs[${i}]
+              const name = input.labels[0].textContent
+              if (document.activeElement !== input) return [name + ': Tab did not come back to it']
+              const style = getComputedStyle(input)
+              if (style.outlineStyle === 'none') return [name + ' shows no ring']
+              const reach = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset)
+              const r = input.getBoundingClientRect()
+              const ring = { top: r.top - reach, left: r.left - reach, right: r.right + reach, bottom: r.bottom + reach }
+              const problems = []
+              const out = ['top', 'left'].filter((side) => ring[side] < inner[side] - 0.5).concat(['right', 'bottom'].filter((side) => ring[side] > inner[side] + 0.5))
+              if (out.length) problems.push(name + ': ring past the body at the ' + out.join(' and '))
+              const next = inputs[${i} + 1]?.closest('.ab-slider').querySelector('.ab-slider-name').getBoundingClientRect()
+              if (next && ring.bottom > next.top + 0.5) problems.push(name + ': ring over the next slider’s name by ' + Math.round(ring.bottom - next.top) + 'px')
+              if (style.outlineColor !== 'rgb(255, 255, 255)') problems.push(name + ': ring ' + style.outlineColor + ', not white')
+              return problems
+            })()`)),
+          )
+        }
+        seen[`${width}px`] = problems
+      }
+    } finally {
+      await browser.evaluate('document.activeElement.blur(); true')
+      await resize(1440, 900)
+    }
+    assert.deepEqual(seen, { '1440px': [], '390px': [] })
   })
 
   test('with motion allowed, hovering a panel eases its cover into a zoom and its caption up', async () => {
@@ -3009,8 +3077,12 @@ describe('desktop (1440x900)', () => {
 
   test('with motion allowed, hovering the lever still tilts it', async () => {
     // The other half of pull.e2e.ts's check that the off lever stays still: a working one still
-    // tilts. It only hovers, so it pulls nothing.
-    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    // tilts. It only hovers, so it pulls nothing. The lever is brought to the middle of the
+    // screen: below the sliders, it can be past the screen's foot with the section's top at its
+    // top, where a mouse can't reach it.
+    await browser.evaluate(
+      `document.querySelector('.ab-lever').scrollIntoView({ block: 'center' }); true`,
+    )
     const at = await browser.evaluate<{ x: number; y: number }>(
       `(() => { const r = document.querySelector('.ab-lever').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
     )
@@ -3240,6 +3312,23 @@ async function pull() {
     ),
     'nothing was pulled',
   )
+}
+
+/** The machine's mood slider named `label`, such as Energy, in page script. */
+const slider = (label: string) =>
+  `[...document.querySelectorAll('.ab-pull input[type="range"]')].find((input) => input.labels[0].textContent === '${label}')`
+
+/**
+ * Sets the machine's mood slider named `label` to `stop` (-2 to 2), as the browser does when a
+ * key or a drag moves it: its value, then an input event.
+ */
+function setSlider(label: string, stop: number) {
+  return browser.evaluate(`(() => {
+    const input = ${slider(label)}
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '${stop}')
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    return true
+  })()`)
 }
 
 /**
@@ -4452,7 +4541,10 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
     const cover = await browser.evaluate<string>(
       `getComputedStyle(document.querySelector('.ab-grid .ab-link .ab-img img')).transform`,
     )
-    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    // In the middle of the screen: below the sliders, the lever can be past its foot.
+    await browser.evaluate(
+      `document.querySelector('.ab-lever').scrollIntoView({ block: 'center' }); true`,
+    )
     at = await centerOf('.ab-lever')
     await browser.send('Input.dispatchMouseEvent', { type: 'mouseMoved', ...at })
     await browser.send('Input.dispatchMouseEvent', {
@@ -4479,7 +4571,10 @@ function reducedMotionChecks(askedOn: 'device' | 'site') {
   })
 
   test('hovering the lever still shows it can be pulled, without moving it', async () => {
-    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    // In the middle of the screen: below the sliders, the lever can be past its foot.
+    await browser.evaluate(
+      `document.querySelector('.ab-lever').scrollIntoView({ block: 'center' }); true`,
+    )
     const at = await browser.evaluate<{ x: number; y: number }>(
       `(() => { const r = document.querySelector('.ab-lever').getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 } })()`,
     )
@@ -5830,11 +5925,14 @@ describe('Windows contrast themes (forced colors)', () => {
     )
   })
 
-  test('the chosen decade and vibe stand out, with a readable label and the theme’s focus ring', async () => {
+  test('the chosen decade and a mood slider’s word stand out, with a readable label and the theme’s focus ring', async () => {
     // The theme drops a chosen chip's yellow fill and its shadow, which left it looking like the
     // rest. It must still differ from an unchosen chip, its label must read at 4.5:1 or better
-    // as the screen shows it, and its focus ring must take the theme's text color.
+    // as the screen shows it, and its focus ring must take the theme's text color. A mood
+    // slider's word for its stop, in its pill, set to Very cozy, must read at 4.5:1 too, and its
+    // focus ring, which Chrome colors itself in a theme, must show at 3:1 on the theme's page.
     const problems: string[] = []
+    await setSlider('Energy', -2)
     for (const scheme of ['light', 'dark']) {
       // This list replaces the one load() set, so reduced motion goes in again.
       await browser.send('Emulation.setEmulatedMedia', {
@@ -5844,10 +5942,7 @@ describe('Windows contrast themes (forced colors)', () => {
           { name: 'prefers-color-scheme', value: scheme },
         ],
       })
-      for (const [group, name] of [
-        ['.ab-eras', 'decades'],
-        ['.ab-moods', 'vibes'],
-      ]) {
+      for (const [group, name] of [['.ab-eras', 'decades']]) {
         // Focuses the chosen chip from the keyboard, so it shows its ring (:focus-visible): Tab
         // out of its group, then Shift+Tab back in.
         await browser.evaluate(
@@ -5897,7 +5992,50 @@ describe('Windows contrast themes (forced colors)', () => {
           )
         if (contrast < 4.5) problems.push(`${where}: its label reads ${contrast}:1`)
       }
+      // The Energy slider, focused from the keyboard as the chips are.
+      await browser.evaluate(
+        `${slider('Energy')}.scrollIntoView({ block: 'center' }); ${slider('Energy')}.focus(); true`,
+      )
+      await browser.press('Tab')
+      await browser.press('Tab', true)
+      const energy = await browser.evaluate<{
+        focused: boolean
+        ring: number
+        word: string
+        label: { x: number; y: number; width: number; height: number }
+      }>(`(async () => {
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        const probe = document.body.appendChild(document.createElement('i'))
+        probe.style.color = 'Canvas'
+        const page = getComputedStyle(probe).color.match(/[\\d.]+/g).map(Number)
+        probe.remove()
+        const input = ${slider('Energy')}, style = getComputedStyle(input)
+        // The ring's color laid over the page's, then WCAG's contrast between them.
+        const [red, green, blue, alpha = 1] = style.outlineColor.match(/[\\d.]+/g).map(Number)
+        const shown = [red, green, blue].map((v, i) => v * alpha + page[i] * (1 - alpha))
+        const channel = (v) => { v /= 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4 }
+        const lum = ([x, y, z]) => 0.2126 * channel(x) + 0.7152 * channel(y) + 0.0722 * channel(z)
+        const [hi, lo] = [lum(shown), lum(page)].sort((x, y) => y - x)
+        const word = input.closest('.ab-slider').querySelector('.ab-slider-value')
+        const range = document.createRange()
+        range.selectNodeContents(word)
+        const r = range.getBoundingClientRect()
+        const x = Math.ceil(r.left + scrollX), y = Math.ceil(r.top + scrollY)
+        return {
+          focused: input.matches(':focus-visible'),
+          ring: style.outlineStyle === 'none' ? 0 : Math.round(((hi + 0.05) / (lo + 0.05)) * 100) / 100,
+          word: word.textContent,
+          label: { x, y, width: Math.floor(r.right + scrollX) - x, height: Math.floor(r.bottom + scrollY) - y },
+        }
+      })()`)
+      const where = `${scheme} Energy slider`
+      if (!energy.focused) problems.push(`${where}: it did not take keyboard focus`)
+      if (energy.ring < 3) problems.push(`${where}: its focus ring shows at ${energy.ring}:1`)
+      if (energy.word !== 'Very cozy') problems.push(`${where}: its word reads ${energy.word}`)
+      const contrast = await pixelContrast(energy.label)
+      if (contrast < 4.5) problems.push(`${where}: its word reads ${contrast}:1`)
     }
+    await setSlider('Energy', 0)
     await browser.evaluate('document.activeElement.blur(); scrollTo(0, 0); true')
     assert.deepEqual(
       problems,

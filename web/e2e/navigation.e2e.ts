@@ -2519,7 +2519,7 @@ async function pointOn(selector: string, bare = false) {
 
 const STRIP_ROW = '.ab-strip-row:not(.ab-strip-grid)'
 
-test('on a phone a clearly sideways swipe to the right anywhere on the page opens the menu: on a trending panel, the pull machine, the decades’ heading or the intro’s empty paper, far and slow or short and quick, and no title card opens', async () => {
+test('on a phone a clearly sideways swipe to the right anywhere on the page opens the menu: on a trending panel, the pull machine, the decades’ heading or the intro’s empty paper, far and slow or short and quick, and no title card opens; on a mood slider it moves the slider instead', async () => {
   await browser.load({ ...PHONE, reduceMotion: true })
   assert.ok(await browser.titlesShown())
   await browser.landAll()
@@ -2555,10 +2555,28 @@ test('on a phone a clearly sideways swipe to the right anywhere on the page open
       // Past the 500 ms in which a click is taken for the swipe's own.
       await sleep(550)
     }
+    // A drag along a mood slider, from its middle stop (no preference), moves the slider a stop
+    // or more, and the menu stays shut: lib/swipe.ts leaves range inputs to the browser.
+    const energy = `document.querySelector('.ab-pull input[type="range"]')`
+    const at = await browser.evaluate<{ x: number; y: number }>(`(() => {
+      const input = ${energy}
+      input.scrollIntoView({ block: 'center' })
+      const r = input.getBoundingClientRect()
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+    })()`)
+    await frames()
+    await swipe(line(at.x, at.y, 100, 0, 400, 8))
+    await sleep(550)
+    seen['100px along a mood slider'] = {
+      open: await browser.evaluate(MENU_OPEN),
+      moved: await browser.evaluate(`Number(${energy}.value) > 0`),
+    }
+    await browser.evaluate(`document.querySelector('.ab-reset').click(); true`)
   })
   // Opened by a finger, so with no ring.
   const opened = { open: true, expanded: 'true', ring: false, card: false }
   assert.deepEqual(seen, {
+    '100px along a mood slider': { open: false, moved: true },
     '100px on a trending panel, slowly': opened,
     'a quick 30px flick on a trending panel': opened,
     '100px on the pull machine': opened,
