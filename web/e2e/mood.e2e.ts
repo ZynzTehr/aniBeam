@@ -8,7 +8,7 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { titleOf } from '../src/features/anime/format.ts'
 import { cardOf, ERAS, poolOf, QUERIES, type Media } from '../src/features/anime/queries.ts'
 import { MOOD_TAGS } from '../src/features/mood/moodMap.ts'
-import { AXES, samplesLine, type Axis, type Stop } from '../src/features/mood/moods.ts'
+import { AXES, REPEATS, samplesLine, type Axis, type Stop } from '../src/features/mood/moods.ts'
 import { pullable } from '../src/features/mood/roll.ts'
 import { rankMatches, whyOf } from '../src/features/mood/score.ts'
 import { accentVars } from '../src/features/theming/deriveAccent.ts'
@@ -192,6 +192,77 @@ const EIGHTIES_FIRST = listsOf(recordings().get('era-1980s')!).Page[0].id
 // How long a check waits to see that nothing more is asked for: a request any step made would
 // have gone within a few frames.
 const QUIET_MS = 500
+
+/**
+ * Puts the titles `ids` on My List, or takes them off with `on` false, as a write from another tab
+ * reaches the page: saved, then the storage event.
+ */
+function setList(ids: number[], on = true) {
+  return browser.evaluate(`(() => {
+    const now = Date.now()
+    const json = JSON.stringify(Object.fromEntries(${JSON.stringify(ids)}.map((id) => [id, { status: 'SAVED', favorite: false, updatedAt: now${on ? '' : ', deleted: true'} }])))
+    localStorage.setItem('anibeam:list:v1', json)
+    dispatchEvent(new StorageEvent('storage', { key: 'anibeam:list:v1', newValue: json }))
+    return true
+  })()`)
+}
+
+/**
+ * Rolls `times` in page script with Math.random at 0, each once the status line has said the last
+ * (waiting on the line, never on a time), and gives what it said and the rolled title's address.
+ */
+function rollsSaid(times: number) {
+  return browser.evaluate<{ said: string; href: string | null }[]>(`(async () => {
+    const random = Math.random
+    Math.random = () => 0
+    const line = document.querySelector('.ab-pull > [role="status"]')
+    const rolled = []
+    try {
+      for (let i = 0; i < ${times}; i++) {
+        const before = line.textContent
+        const said = new Promise((resolve) => {
+          const watch = new MutationObserver(() => {
+            if (line.textContent && line.textContent !== before) resolve(watch.disconnect())
+          })
+          watch.observe(line, { childList: true, characterData: true, subtree: true })
+          setTimeout(() => resolve(watch.disconnect()), 5000)
+        })
+        document.querySelector('.ab-lever').click()
+        await said
+        rolled.push({ said: line.textContent, href: document.querySelector('.ab-result.is-open .ab-result-panel')?.getAttribute('href') ?? null })
+      }
+    } finally {
+      Math.random = random
+    }
+    return rolled
+  })()`)
+}
+
+/**
+ * Which show each title of `pool` belongs to: titles linked by their seasons, one to the next,
+ * even through a title outside the pool, are one show. Gives a title's show by its id.
+ */
+function showsOf(pool: { id: number; seasons: number[] }[]) {
+  const links = new Map<number, number[]>()
+  for (const { id, seasons } of pool)
+    for (const other of seasons) {
+      links.set(id, [...(links.get(id) ?? []), other])
+      links.set(other, [...(links.get(other) ?? []), id])
+    }
+  const show = new Map<number, number>()
+  for (const { id } of pool) {
+    if (show.has(id)) continue
+    const linked = [id]
+    show.set(id, id)
+    for (const one of linked)
+      for (const other of links.get(one) ?? [])
+        if (!show.has(other)) {
+          show.set(other, id)
+          linked.push(other)
+        }
+  }
+  return (id: number) => show.get(id) ?? id
+}
 
 describe('the journey load', () => {
   before(async () => {
@@ -423,6 +494,7 @@ describe('the journey load', () => {
       samplesLine(5),
       'AniList is busy right now. It’s not something you did. Trying again within a minute.',
       'Filling the machine…',
+      REPEATS,
       longest.join(' · '),
     ]
     const over: string[] = []
@@ -629,6 +701,91 @@ describe('the journey load', () => {
 
   test('the page’s code never focuses a slider', async () => {
     assert.deepEqual(await browser.evaluate('window.__focusedByCode'), [])
+  })
+
+  test('20 rolls at Very cozy give 20 different titles, none of the 2 on My List, no two seasons of one show, each said as it lands, asking AniList nothing', async () => {
+    // Done-when (2). Math.random is at 0, so each roll takes the best match left, the same every
+    // run: a roll that skipped no season would give Digimon's movie (12th at Very cozy) and its
+    // series (15th) both. The two titles put on My List are the next two best.
+    const pool = recordedPool('1990s').titles
+    const best = rankMatches(pool, { energy: -2, tone: 0, complexity: 0 })
+    const listed = [best[9].id, best[10].id]
+    await setList(listed)
+    await setSlider('Energy', -2)
+    assert.ok(await browser.waitFor(poolSaved('1990s')), 'the pool never arrived')
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    const requests = await watchAniList()
+    const rolled = await rollsSaid(20)
+    await sleep(QUIET_MS)
+    await setList(listed, false)
+    await setSlider('Energy', 0)
+    const ids = rolled.map(({ href }) => Number(href?.split('/').pop()))
+    const show = showsOf(pool)
+    const first = Number(/^Roll (\d+):/.exec(rolled[0].said)?.[1])
+    assert.deepEqual(
+      {
+        different: new Set(ids).size,
+        listed: ids.filter((id) => listed.includes(id)),
+        sameShow: ids.filter((id, i) => ids.slice(0, i).some((other) => show(other) === show(id))),
+        said: rolled.map(({ said }) => said.replace(/, (SSR|SR|R|Mystery)\.$/, '.')),
+        asked: requests,
+      },
+      {
+        different: 20,
+        listed: [],
+        sameShow: [],
+        said: ids.map((id, i) => {
+          const media = pool.find((other) => other.id === id)
+          return `Roll ${first + i}: ${media ? titleOf(media) : `a title not in the pool, ${id}`}.`
+        }),
+        asked: [],
+      },
+    )
+    assert.ok(first > 0, `the first roll said “${rolled[0].said}”`)
+  })
+
+  test('with every title left rolled lately, the line says repeats start now, and they come back the oldest first', async () => {
+    // Three titles no roll has come near (the least popular, far from Very cozy's best) are all
+    // that is left off My List: three rolls, then the repeats, the first rolled first.
+    const pool = recordedPool('1990s').titles
+    const cozy = new Set(
+      rankMatches(pool, { energy: -2, tone: 0, complexity: 0 })
+        .slice(0, 45)
+        .map(({ id }) => id),
+    )
+    const left = pool.filter(({ id }) => !cozy.has(id)).slice(-3)
+    const listed = pool.filter((media) => !left.includes(media)).map(({ id }) => id)
+    await setList(listed)
+    await browser.evaluate(NEXT_FRAME)
+    const line = `document.querySelector('.ab-pull .ab-set').textContent`
+    const before = await browser.evaluate<string>(line)
+    const rolled = []
+    for (let i = 0; i < 5; i++) {
+      const [roll] = await rollsSaid(1)
+      rolled.push({ ...roll, line: await browser.evaluate<string>(line) })
+    }
+    await setList(listed, false)
+    const titleAt = (href: string | null) =>
+      titleOf(pool.find(({ id }) => `/anime/${id}` === href) ?? left[0])
+    const three = rolled.slice(0, 3).map(({ href }) => href)
+    assert.deepEqual(
+      {
+        before,
+        three: [...three].sort(),
+        hrefs: rolled.map(({ href }) => href),
+        lines: rolled.map(({ line }) => line),
+        said: rolled.map(({ said }) =>
+          said.replace(/^Roll \d+: /, '').replace(/, (SSR|SR|R|Mystery)\./, ','),
+        ),
+      },
+      {
+        before: '',
+        three: left.map(({ id }) => `/anime/${id}`).sort(),
+        hrefs: [...three, three[0], three[1]],
+        lines: ['', '', REPEATS, REPEATS, REPEATS],
+        said: rolled.map(({ href }, i) => `${titleAt(href)},${i < 2 ? '' : ` ${REPEATS}`}`),
+      },
+    )
   })
 })
 

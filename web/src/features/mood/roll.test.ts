@@ -340,3 +340,124 @@ for (const [when, ring] of [
 test('with only Ecchi titles, there is nothing to pull', () => {
   assert.equal(pull({ pool: [title(9, ['Ecchi'])] }), null)
 })
+
+// Another season of a show rolled lately waits (the user's choice, B2 b). A pool's title names the
+// anime just before and just after it, its seasons; a show is every title linked that way, even
+// through a season outside the pool. Here 1, 2 and 3 are one show (1 and 3 linked through 2), 4
+// and 6 another, linked through 50, which the pool doesn't hold, and 5 a show of its own.
+const season = (id: number, seasons: number[]): Rollable => ({ id, genres: ['Drama'], seasons })
+const SHOWS = [
+  season(1, [2]),
+  season(2, [1, 3]),
+  season(3, [2]),
+  season(4, [50]),
+  season(5, []),
+  season(6, [50]),
+]
+/** Every title a roll from SHOWS can give, at draws across the whole range. */
+const canGive = (ring: number[], pool = SHOWS, windowed = false) =>
+  [
+    ...new Set(
+      Array.from(
+        { length: 20 },
+        (_, i) =>
+          rollNext({ ranked: pool, listed: NOTHING, ring, windowed, random: () => i / 20 }).media
+            ?.id,
+      ),
+    ),
+  ].sort()
+
+test('a roll skips every other season of a show rolled lately, linked season to season', () => {
+  assert.deepEqual(canGive([1]), [4, 5, 6])
+  assert.deepEqual(canGive([3]), [4, 5, 6], 'from the last season, through the one between')
+  assert.deepEqual(canGive([2]), [4, 5, 6], 'from the middle, both ways')
+})
+
+test('a roll skips another season linked through a title outside the pool, or rolled in another decade', () => {
+  assert.deepEqual(canGive([4]), [1, 2, 3, 5])
+  // 50 itself was rolled from another decade's pool: its seasons here wait too.
+  assert.deepEqual(canGive([50]), [1, 2, 3, 5])
+})
+
+test('with the window on, the 12 best are counted after the seasons that wait', () => {
+  // 1 rolled lately: its 13 seasons come first, then 13 titles of other shows.
+  const pool = [
+    season(1, [100]),
+    ...Array.from({ length: 13 }, (_, i) => season(100 + i, [i ? 99 + i : 1])),
+    ...Array.from({ length: 13 }, (_, i) => season(200 + i, [])),
+  ]
+  assert.deepEqual(canGive([1], pool, true), ids(pool.slice(14, 26)))
+})
+
+test('with only other seasons of shows rolled lately left, they come up, as new titles', () => {
+  const roll = rollNext({ ranked: SHOWS.slice(0, 3), listed: NOTHING, ring: [1], random: () => 0 })
+  assert.deepEqual(
+    { id: roll.media?.id, reason: roll.reason, left: roll.left },
+    {
+      id: 2,
+      reason: 'few',
+      left: 2,
+    },
+  )
+})
+
+test('the count left and the need for more count the seasons that wait, which can still come up', () => {
+  const at = (ring: number[]) => {
+    const { left, needMore } = rollNext({ ranked: SHOWS, listed: NOTHING, ring, random: () => 0 })
+    return { left, needMore }
+  }
+  assert.deepEqual(at([1]), { left: 5, needMore: true })
+  assert.deepEqual(at([5]), at([1]))
+})
+
+test('once a season’s roll leaves the last 30, the show’s other seasons can come up again', () => {
+  const others = Array.from({ length: RING }, (_, i) => 1000 + i)
+  const pool = [...SHOWS, ...others.map((id) => season(id, []))]
+  // 1, then 30 other rolls, which push it out of the ring.
+  const rolled = others.reduce(remember, remember([], 1))
+  assert.ok(!rolled.includes(1), 'the ring still holds 1')
+  assert.ok(canGive(rolled, pool).includes(2), '2 still waits')
+  assert.ok(!canGive([1], pool).includes(2), '2 comes up with 1 in the ring')
+})
+
+test('in seeded runs of 30 rolls over shows of 1 to 5 seasons, no roll gives a season of a show rolled in the last 30 while another show can come up', () => {
+  let skips = 0
+  for (let seed = 1; seed <= 200; seed++) {
+    const random = seeded(seed)
+    const pool: Rollable[] = []
+    const showOf = new Map<number, number>()
+    for (let show = 0; pool.length < 40 + Math.floor(random() * 60); show++) {
+      const size = 1 + Math.floor(random() * 5)
+      for (let i = 0; i < size; i++) {
+        const id = show * 10 + i
+        showOf.set(id, show)
+        pool.push(season(id, i ? [id - 1] : []))
+      }
+    }
+    // In AniList's order, most popular first, which keeps no show's seasons together.
+    pool.sort(() => random() - 0.5)
+    const windowed = seed % 2 === 0
+    let ring: number[] = []
+    const rolled: number[] = []
+    for (let i = 0; i < 30; i++) {
+      const id = rollNext({ ranked: pool, listed: NOTHING, ring, windowed, random }).media!.id
+      const lately = new Set(ring.map((other) => showOf.get(other)))
+      const elsewhere = pool.some(
+        (media) => !ring.includes(media.id) && !lately.has(showOf.get(media.id)),
+      )
+      if (elsewhere) {
+        assert.ok(
+          !lately.has(showOf.get(id)),
+          `seed ${seed}, roll ${i + 1}: ${id}, a show rolled lately`,
+        )
+        skips += pool.filter(
+          (media) => lately.has(showOf.get(media.id)) && !ring.includes(media.id),
+        ).length
+      }
+      assert.ok(!rolled.includes(id), `seed ${seed}, roll ${i + 1}: ${id} again`)
+      rolled.push(id)
+      ring = remember(ring, id)
+    }
+  }
+  assert.ok(skips > 1000, `only ${skips} seasons waited`)
+})

@@ -42,6 +42,9 @@ export const popularHeading = (era: Era | null) =>
       ? 'Most popular upcoming titles'
       : `Most popular ${era.id === 'pre-1970' ? 'before 1970' : `in the ${era.label}`}`
 
+/** The machine's line once every title it can roll has come up lately, so the next is a repeat. */
+export const REPEATS = 'Every match has come up once. Repeats start now.'
+
 /**
  * The machine's line while AniList can't be reached, over `count` sample titles that can come out:
  * one is one title, and with none the line says only that (the hint says the rest).

@@ -19,8 +19,11 @@ export const FEW = 20
  */
 export const NEED_MORE = 10
 
-/** What a roll reads of a title. */
-export type Rollable = Pick<Media, 'id' | 'genres'>
+/**
+ * What a roll reads of a title: with a pool's title, its seasons, the ids of the anime just before
+ * and just after it (see PoolTitle), which a page's title doesn't have.
+ */
+export type Rollable = Pick<Media, 'id' | 'genres'> & { seasons?: readonly number[] }
 
 /**
  * The titles that may come out of a machine at all. Ecchi titles never do (spec §3G keeps them out
@@ -44,14 +47,38 @@ export type Roll<T> = {
 }
 
 /**
+ * The ids in `ring` and every season of theirs, and every season of those, and so on: the seasons
+ * of a show, linked by `ranked`'s titles' seasons, even through a title not in `ranked`.
+ */
+function showsOf(ranked: readonly Rollable[], ring: readonly number[]) {
+  const links = new Map<number, number[]>()
+  const link = (one: number, other: number) => links.set(one, [...(links.get(one) ?? []), other])
+  for (const { id, seasons = [] } of ranked)
+    for (const other of seasons) {
+      link(id, other)
+      link(other, id)
+    }
+  const found = new Set(ring)
+  const next = [...ring]
+  for (const id of next)
+    for (const other of links.get(id) ?? [])
+      if (!found.has(other)) {
+        found.add(other)
+        next.push(other)
+      }
+  return found
+}
+
+/**
  * The next roll from `ranked`. The titles that can come up are the pullable ones, minus My List
- * (`listed`), minus the last rolls (`ring`, the oldest first). While a slider is set (`windowed`) a
- * roll picks at random among the WINDOW best of them, otherwise among all of them, and never
- * `shown`, the title on screen, while another can come up. With only the last rolls left, the
- * oldest of them comes back. `random` is Math.random, or a stand-in in tests.
+ * (`listed`), minus the last rolls (`ring`, the oldest first). Of those, another season of a show
+ * rolled lately waits while one of another show can come up (the user's choice, B2 b). While a
+ * slider is set (`windowed`) a roll picks at random among the WINDOW best of them, otherwise among
+ * all of them, and never `shown`, the title on screen, while another can come up. With only the
+ * last rolls left, the oldest of them comes back. `random` is Math.random, or a stand-in in tests.
  *
- * `left` and `needMore` are counted before the window, so moving a slider, which only reorders
- * `ranked`, can never change them.
+ * `left` and `needMore` are counted before the window and the seasons, so moving a slider, which
+ * only reorders `ranked`, can never change them, and every title counted can come up.
  */
 export function rollNext<T extends Rollable>({
   ranked,
@@ -84,7 +111,10 @@ export function rollNext<T extends Rollable>({
     const byAge = ring.flatMap((id) => unlisted.filter((media) => media.id === id))
     return { media: notShown(byAge)[0], reason: 'repeat', left, needMore }
   }
-  const from = notShown(windowed ? fresh.slice(0, WINDOW) : fresh)
+  const shows = showsOf(ranked, ring)
+  const apart = fresh.filter((media) => !shows.has(media.id))
+  const best = apart.length ? apart : fresh
+  const from = notShown(windowed ? best.slice(0, WINDOW) : best)
   const media = from[Math.min(Math.floor(random() * from.length), from.length - 1)]
   return { media, reason: left < FEW ? 'few' : 'ok', left, needMore }
 }

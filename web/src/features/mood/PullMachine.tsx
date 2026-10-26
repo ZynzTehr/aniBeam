@@ -23,7 +23,15 @@ import { useHeldPool } from './heldPool.ts'
 import { moodScoring } from './loadScoring.ts'
 import { Matches } from './Matches.tsx'
 import { MoodSlider } from './MoodSlider.tsx'
-import { AXES, popularHeading, samplesLine, wordOf, type Axis, type Stop } from './moods.ts'
+import {
+  AXES,
+  popularHeading,
+  REPEATS,
+  samplesLine,
+  wordOf,
+  type Axis,
+  type Stop,
+} from './moods.ts'
 import { rarityOf } from './rarity.ts'
 import { pullable, remember, rollNext } from './roll.ts'
 import type { Sliders } from './score.ts'
@@ -80,9 +88,11 @@ const THUMB = 40
  * mood pool, about 100 titles, once that is in the cache, and until then from the decade's titles
  * on the page (`titles`). With a slider set, a pull gives one of the 12 titles that best match the
  * sliders (rankMatches, from the mood scoring's own file); with none, any title. Never one on My
- * List, nor any of the last 30 pulled while another can come up (see rollNext). Under the pulled
+ * List, nor any of the last 30 rolled while another can come up, and then the oldest of them
+ * first, under the line "Every match has come up once. Repeats start now."; nor another season of
+ * a show rolled lately while a title of another show can come up (see rollNext). Under the rolled
  * title, the top 3 matches, which a slider re-sorts at once (see Matches). The sliders, the last
- * pulls and the pulled title are kept for the visit (see session.ts).
+ * rolls and the rolled title are kept for the visit (see session.ts).
  *
  * The pool is asked for only once it is wanted (the plan's section 2, D1): a slider pressed, the
  * decade changed with one set, a pull with fewer than 10 titles left to come up, or a page of
@@ -203,6 +213,13 @@ export function PullMachine({
     [ranked, listed],
   )
 
+  // Whether the next roll is a repeat: every title that can come up has, lately, so the oldest of
+  // them comes back (see rollNext), and the line says so.
+  const repeats = useMemo(
+    () => rollNext({ ranked, listed, ring, random: () => 0 }).reason === 'repeat',
+    [ranked, listed, ring],
+  )
+
   function pull() {
     const { media, needMore } = rollNext({
       ranked,
@@ -288,12 +305,15 @@ export function PullMachine({
           ? 'AniList is busy right now. It’s not something you did. Trying again within a minute.'
           : (set && !scored) || coming
             ? FILLING
-            : ''
-  // What the status line says, as it happens: each pull as its capsule opens, and what keeps the
+            : repeats
+              ? REPEATS
+              : ''
+  // What the status line says, as it happens: each roll as its capsule opens, and what keeps the
   // machine from its best as that begins (the line, but "Filling the machine…", which comes and
-  // goes with a first press), whichever came last. Never the sliders' words: each slider says its
-  // own. Set as the component renders.
-  const notice = line === FILLING ? '' : line
+  // goes with a first press, and the repeats' line, which comes with a roll and is said with it),
+  // whichever came last. Never the sliders' words: each slider says its own. Set as the component
+  // renders.
+  const notice = line === FILLING || line === REPEATS ? '' : line
   const [news, setNews] = useState({ notice, of: 'pull' })
   if (news.notice !== notice) setNews({ notice, of: notice ? 'notice' : news.of })
   return (
@@ -451,7 +471,7 @@ export function PullMachine({
         {news.of === 'notice'
           ? notice
           : pulled && rarity && revealed
-            ? `Roll ${pulls}: ${titleOf(pulled)}, ${rarity.label}.`
+            ? `Roll ${pulls}: ${titleOf(pulled)}, ${rarity.label}.${line === REPEATS ? ` ${REPEATS}` : ''}`
             : ''}
       </p>
     </section>
