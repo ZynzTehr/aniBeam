@@ -13,6 +13,7 @@ import { cssVars } from '../../components/cssVars.ts'
 import { opener } from '../../components/opener.ts'
 import { SfxHeading } from '../../components/SfxHeading.tsx'
 import type { OpenTitle } from '../../components/TitleCard.tsx'
+import type { AniListError } from '../../lib/anilist.ts'
 import { reducedMotion } from '../../lib/motion.ts'
 import { formatOf, seasonOf, studioOf, titleOf } from '../anime/format.ts'
 import { FIRST_ERA, poolQuery, wantPool, type Era, type Media } from '../anime/queries.ts'
@@ -130,8 +131,14 @@ export function PullMachine({
   // Keyed by the decade alone, so no slider's value asks for anything. Once in the cache, the
   // pool is used whenever its decade is open, wanted or not.
   const pool = useQuery({ ...poolQuery(era ?? FIRST_ERA), enabled: want && settled && online })
-  // A refresh of the pool waits while the matches are on screen (see useHeldPool).
-  const [held, matchesRef] = useHeldPool(era?.id ?? null, era ? pool.data?.titles : undefined)
+  // A refresh of the pool waits while the matches are on screen, and a decade's pool on its way
+  // leaves the last one's matches in place meanwhile (see useHeldPool).
+  const coming = want && online && !outage && !pool.data && !pool.isError
+  const [held, matchesRef] = useHeldPool(
+    era?.id ?? null,
+    era ? pool.data?.titles : undefined,
+    coming,
+  )
   const titles = held?.length ? held : onPage
   // What can come out, the titles not on My List: with none, the lever is off.
   const out = useMemo(() => titles.filter((media) => !listed.has(media.id)), [titles, listed])
@@ -147,12 +154,19 @@ export function PullMachine({
   }, [era, want, online, outage, client, wanted])
 
   // The mood scoring is a file of its own (see loadScoring.ts), most often loaded by the time a
-  // slider moves; if not, it loads then, and the titles keep the page's order meanwhile.
+  // slider moves; if not, it loads then, and the titles keep the page's order meanwhile. Should it
+  // fail (offline, or an old tab after a deploy renamed it), the line says so, with Try again,
+  // which loads it again, and the pool, which failed with it, asking AniList nothing.
   const [scoring, setScoring] = useState(moodScoring.current)
+  const [failed, setFailed] = useState(false)
   const scored = scoring ?? moodScoring.current
   useEffect(() => {
-    if (set && !scored) moodScoring.load().then(setScoring, () => {})
-  }, [set, scored])
+    if (set && !scored && !failed) moodScoring.load().then(setScoring, () => setFailed(true))
+  }, [set, scored, failed])
+  const retry = () => {
+    setFailed(false)
+    if (pool.isError) void pool.refetch()
+  }
   const ranked = useMemo(
     () => (set && scored ? scored.rankMatches(titles, sliders) : titles),
     [set, scored, titles, sliders],
@@ -232,6 +246,23 @@ export function PullMachine({
       : !out.length
         ? 'listed'
         : 'ready'
+  // Offline with no titles at all, nothing can be moved or pulled (spec §3I).
+  const off = !page.length && !online
+  // The line over the matches: what keeps the machine from its best, if anything (the approved
+  // words, "pull" until the machine's words change all together), else the set sliders' words.
+  // A set slider with no scoring comes first, as only Try again can mend it.
+  const scoringFailed = set && failed
+  const line = scoringFailed
+    ? 'The mood scoring didn’t load.'
+    : off
+      ? 'Offline: waiting for a connection.'
+      : outage && titles === onPage
+        ? `AniList can’t be reached. Pulling from ${out.length} sample titles.`
+        : pool.isFetching && (pool.failureReason as AniListError | null)?.status === 429
+          ? 'AniList is busy right now. It’s not something you did. Trying again within a minute.'
+          : (set && !scored) || coming
+            ? 'Filling the machine…'
+            : ''
   return (
     // The links to #pull land on the heading, which takes their focus, as the other sections' do.
     <section className="ab-pull" aria-labelledby="pull">
@@ -250,7 +281,7 @@ export function PullMachine({
             ))}
           </div>
           <div className="ab-body">
-            <fieldset className="ab-moods">
+            <fieldset className="ab-moods" disabled={off}>
               <legend className="sr-only">Your mood</legend>
               <div className="ab-sliders" onPointerDown={down} onPointerUp={up}>
                 {AXIS_ORDER.map((axis) => (
@@ -264,7 +295,12 @@ export function PullMachine({
               </div>
             </fieldset>
             {/* Its room is kept while it is hidden, so nothing moves as it comes and goes. */}
-            <button type="button" className={set ? 'ab-reset' : 'ab-reset is-off'} onClick={reset}>
+            <button
+              type="button"
+              className={set ? 'ab-reset' : 'ab-reset is-off'}
+              onClick={reset}
+              disabled={off}
+            >
               Reset moods
             </button>
             <button
@@ -356,9 +392,13 @@ export function PullMachine({
           )}
           <Matches
             heading={set ? 'Top matches' : popular(era)}
-            words={AXIS_ORDER.filter((axis) => sliders[axis])
-              .map((axis) => wordOf(axis, sliders[axis]))
-              .join(' · ')}
+            line={
+              line ||
+              AXIS_ORDER.filter((axis) => sliders[axis])
+                .map((axis) => wordOf(axis, sliders[axis]))
+                .join(' · ')
+            }
+            onRetry={scoringFailed ? retry : undefined}
             titles={ranked}
             why={(media) => (set && scored ? scored.whyOf(media, sliders) : [])}
             rowRef={matchesRef}

@@ -1535,13 +1535,12 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   font: 400 clamp(20px, 5.4vw, 26px) / 1.15 var(--display);
 }
 
+/* The machine's line, or the set sliders' words: room for two lines, whichever shows. */
 .ab-set {
-  margin: 2px 0 12px;
+  min-height: 2.6em;
+  margin: 2px 0 10px;
   font-weight: 800;
-}
-
-.ab-set.is-off {
-  visibility: hidden;
+  line-height: 1.3;
 }
 
 .ab-match-row {

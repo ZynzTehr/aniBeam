@@ -17,6 +17,8 @@ import {
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { parseSynopsis } from '../src/features/anime/synopsis.ts'
 import { tagsOf } from '../src/features/anime/tags.ts'
+import { pullable } from '../src/features/mood/roll.ts'
+import { rankMatches } from '../src/features/mood/score.ts'
 import { deriveAccent } from '../src/features/theming/deriveAccent.ts'
 import { Browser, poll } from './browser.ts'
 
@@ -705,7 +707,7 @@ describe('AniList down on a first visit', () => {
     }
   })
 
-  test('while it retries, each section shows sample titles, says what they are and that it is not the visitor', async () => {
+  test('while it retries, each section shows sample titles, says what they are and that it is not the visitor, and the machine ranks them, saying so', async () => {
     await browser.load() // still a first visit: an outage saves nothing
     // The samples load once the first try has failed.
     await browser.waitFor(
@@ -725,6 +727,29 @@ describe('AniList down on a first visit', () => {
       covers: 3,
       off: false,
     })
+    // A slider set ranks the samples, and the machine's line says what it pulls from.
+    const sliders = { energy: -2, tone: 0, complexity: 0 } as const
+    const matches = rankMatches(pullable(nineties), sliders)
+      .slice(0, 3)
+      .map((media) => `/anime/${media.id}`)
+    await browser.evaluate(`(() => {
+      const input = document.querySelector('.ab-pull input[type="range"]')
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(input, '-2')
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      return true
+    })()`)
+    const ranked = `[...document.querySelectorAll('.ab-pull .ab-match[href]')].map((link) => link.getAttribute('href'))`
+    await browser.waitFor(`${ranked}.join() === ${JSON.stringify(matches.join())}`, 5_000)
+    assert.deepEqual(
+      await browser.evaluate(
+        `({ line: document.querySelector('.ab-pull .ab-set').textContent, matches: ${ranked} })`,
+      ),
+      {
+        line: `AniList can’t be reached. Pulling from ${pullable(nineties).length} sample titles.`,
+        matches,
+      },
+      'the machine with a slider set over the samples',
+    )
     // Nothing pressed on the machine asks for a decade's mood pool.
     await browser.evaluate(pressEverything)
     await sleep(1_000) // the decade's 300 ms pause, and a request after it

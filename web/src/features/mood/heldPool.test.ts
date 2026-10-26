@@ -63,3 +63,16 @@ test('nothing new keeps what is shown', () => {
   assert.equal(heldPool(shown, { ...shown }, true), shown)
   assert.equal(heldPool(shown, { ...shown }, false), shown)
 })
+
+test('while another decade’s pool is on its way, the last pool stays, on screen or not', () => {
+  const coming = { era: '1980s', titles: undefined }
+  assert.equal(heldPool(shown, coming, false, true), shown, 'the last matches went off screen')
+  assert.equal(heldPool(shown, coming, true, true), shown, 'the last matches went on screen')
+  // Once it lands it shows at once, and with no pool to keep, the page's titles stand in.
+  const eighties = pool('1980s', shown.titles!.toReversed())
+  assert.equal(heldPool(shown, eighties, true, true), eighties)
+  const none = { era: '1990s', titles: undefined }
+  assert.equal(heldPool(none, coming, true, true), coming)
+  // Not on its way (no slider set, say): the new decade's page titles stand in at once.
+  assert.equal(heldPool(shown, coming, true, false), coming)
+})

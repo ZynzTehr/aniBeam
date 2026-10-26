@@ -6,9 +6,10 @@ import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { titleOf } from '../src/features/anime/format.ts'
-import { cardOf, ERAS, poolOf, QUERIES } from '../src/features/anime/queries.ts'
+import { cardOf, ERAS, poolOf, QUERIES, type Media } from '../src/features/anime/queries.ts'
 import { MOOD_TAGS } from '../src/features/mood/moodMap.ts'
 import { AXES, type Axis, type Stop } from '../src/features/mood/moods.ts'
+import { pullable } from '../src/features/mood/roll.ts'
 import { rankMatches, whyOf } from '../src/features/mood/score.ts'
 import { Browser, poll } from './browser.ts'
 import { askedFor, listsOf, recordedPool, recordings } from './recordings.ts'
@@ -181,8 +182,11 @@ const awayAndBack = `(() => {
   return document.visibilityState
 })()`
 
-// The 1990s' first day, as their requests ask from it.
+// The 1990s' and the 1980s' first days, as their requests ask from them.
 const FIRST_POOL_FROM = ERAS.find((era) => era.id === '1990s')!.variables.from
+const EIGHTIES_FROM = ERAS.find((era) => era.id === '1980s')!.variables.from
+// The 1980s' most popular title, the first in their strip.
+const EIGHTIES_FIRST = listsOf(recordings().get('era-1980s')!).Page[0].id
 
 // How long a check waits to see that nothing more is asked for: a request any step made would
 // have gone within a few frames.
@@ -559,7 +563,7 @@ describe('a cold first visit, counted', () => {
     )
   })
 
-  test('with a slider set, picking the 1980s with the machine on screen costs exactly 1 request, its titles and its pool together, the machine then shows and pulls titles of the 1980s, and going back to the 1990s costs none and shows theirs', async () => {
+  test('with a slider set, picking the 1980s with the machine on screen costs exactly 1 request, its titles and its pool together, the 1990s’ matches staying under “Filling the machine…” meanwhile, the machine then shows and pulls titles of the 1980s, and going back to the 1990s and moving the sliders costs none and shows theirs', async () => {
     const eighties = poolOf(recordings().get('era-pool-1980s')!.body.data, MOOD_TAGS).titles.map(
       ({ id }) => `/anime/${id}`,
     )
@@ -574,8 +578,18 @@ describe('a cold first visit, counted', () => {
       `document.querySelector('.ab-pull .ab-matches').scrollIntoView({ block: 'center' }); true`,
     )
     await browser.evaluate(NEXT_FRAME)
+    const before = await matched()
+    // Its answer held a moment, to see the machine while it loads.
+    await browser.holdAniList(1_500)
     await browser.evaluate(`document.querySelector('.ab-eras input[value="1980s"]').click(); true`)
     assert.ok(await poll(async () => asked.length > 2, 10_000), 'picking the 1980s asked nothing')
+    const during = {
+      matches: await matched(),
+      line: await browser.evaluate<string>(
+        `document.querySelector('.ab-pull .ab-set').textContent`,
+      ),
+    }
+    await browser.holdAniList(0)
     assert.ok(await browser.waitFor(poolSaved('1980s')), 'the 1980s’ pool never arrived')
     await browser.evaluate(NEXT_FRAME)
     const shown = await matched()
@@ -595,17 +609,23 @@ describe('a cold first visit, counted', () => {
       ),
       'the 1990s never came back to the strip',
     )
+    // And the sliders moved again, from the cache.
+    await setSlider('Tone', 2)
+    await setSlider('Complexity', -1)
     await sleep(QUIET_MS)
     const back = await matched()
     assert.deepEqual(
       {
         asked,
+        // The 1990s' matches, as they were, while the 1980s' load.
+        during: { ...during, matches: during.matches.join() === before.join() },
         matchedFromThe1980s: shown.length === 3 && shown.every((href) => eighties.includes(href)),
         pulledFromThe1980s: eighties.includes(pulled!),
         matchedFromThe1990s: back.length === 3 && back.every((href) => ninetiesPool.includes(href)),
       },
       {
         asked: ['first visit', 'pool 1990s', 'decade and pool 1980s'],
+        during: { matches: true, line: 'Filling the machine…' },
         matchedFromThe1980s: true,
         pulledFromThe1980s: true,
         matchedFromThe1990s: true,
@@ -617,7 +637,8 @@ describe('a cold first visit, counted', () => {
 
 describe('a 1990s pool saved 7 hours ago', () => {
   // The cold visit's pools, saved, the 1990s' made 7 hours old, past its 6 hours' freshness. Its
-  // refresh comes back in reverse order, held 2 seconds, so the check can look while it runs.
+  // refresh comes back in reverse order, held 2 seconds, so the check can look while it runs. The
+  // 1980s' titles are left out of the saved copy, so a later check can ask for them alone.
   const old = recordedPool('1990s').titles.map(({ id }) => `/anime/${id}`)
   let fresh: string[] = []
   const asked: string[] = []
@@ -630,6 +651,7 @@ describe('a 1990s pool saved 7 hours ago', () => {
       for (const query of cache.clientState.queries)
         if (query.queryKey[1] === ${JSON.stringify(QUERIES.pool)} && query.queryKey[2].from === ${FIRST_POOL_FROM})
           query.state.dataUpdatedAt -= 7 * 60 * 60 * 1000
+      cache.clientState.queries = cache.clientState.queries.filter((query) => !(query.queryKey[1] === ${JSON.stringify(QUERIES.era)} && query.queryKey[2].from === ${EIGHTIES_FROM}))
       localStorage.setItem('anibeam:cache', JSON.stringify(cache))
       return true
     })()`)
@@ -708,6 +730,21 @@ describe('a 1990s pool saved 7 hours ago', () => {
       },
     )
   })
+
+  test('with every slider at No preference, picking the 1980s costs 1 request, its titles alone', async () => {
+    const before = asked.length
+    await browser.evaluate(`document.querySelector('.ab-eras input[value="1980s"]').click(); true`)
+    assert.ok(
+      await browser.waitFor(
+        `document.querySelector('.ab-strip-row .ab-strip-panel[href="/anime/${EIGHTIES_FIRST}"]')`,
+        10_000,
+      ),
+      'the 1980s never came to the strip',
+    )
+    await sleep(QUIET_MS)
+    assert.deepEqual(asked.slice(before), ['decade 1980s'])
+    await browser.evaluate(`document.querySelector('.ab-eras input[value="1990s"]').click(); true`)
+  })
 })
 
 describe('a page whose every title is on My List', () => {
@@ -750,5 +787,141 @@ describe('a page whose every title is on My List', () => {
     } finally {
       await browser.rewriteAniList(null)
     }
+  })
+})
+
+describe('a first visit offline, with the mood scoring blocked, then AniList busy', () => {
+  // The scoring's file can't load (offline on a first visit, or an old tab after a deploy renamed
+  // it), and the first visit's answer is held while the connection drops. Then the pool's first
+  // request gets AniList's 429, with its reset a second away.
+  const asked: string[] = []
+  const page = listsOf(recordings().get('first-visit')!).era
+  const pool = recordedPool('1990s').titles
+  const goOffline = (offline: boolean) =>
+    browser.send('Network.emulateNetworkConditions', {
+      offline,
+      latency: 0,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+    })
+  const machine = `({
+    line: document.querySelector('.ab-pull .ab-set').textContent,
+    retry: document.querySelector('.ab-pull .ab-matches .ab-retry')?.textContent ?? 'none',
+    matches: ${MATCHES},
+  })`
+  before(async () => {
+    await browser.forget()
+    await browser.send('Network.enable')
+    await browser.send('Network.setBlockedURLs', { urls: ['*/features/mood/scoring.ts*'] })
+    let busy = true
+    await browser.rewriteAniList(({ request }) => {
+      asked.push(askedFor(request))
+      if (request.query !== QUERIES.pool || !busy) return null
+      busy = false
+      return {
+        status: 429,
+        body: { data: null, errors: [{ message: 'Too Many Requests.', status: 429 }] },
+        headers: {
+          'X-RateLimit-Reset': String(Math.ceil(Date.now() / 1000) + 1),
+          'X-RateLimit-Remaining': '0',
+        },
+      }
+    })
+    await browser.holdAniList(10_000)
+    await browser.load({ reduceMotion: true })
+  })
+  after(async () => {
+    await goOffline(false)
+    await browser.holdAniList(0)
+    await browser.send('Network.setBlockedURLs', { urls: [] })
+    await browser.rewriteAniList(null)
+  })
+
+  test('offline with no titles yet, the sliders, Reset moods and the lever are off, and the line says so', async () => {
+    await goOffline(true)
+    const off = await browser.waitFor(`document.querySelector('.ab-pull fieldset').disabled`, 5_000)
+    const seen = await browser.evaluate(`({
+      sliders: [...document.querySelectorAll('.ab-pull input[type="range"]')].every((input) => input.matches(':disabled')),
+      reset: document.querySelector('.ab-reset').disabled,
+      lever: document.querySelector('.ab-lever').disabled,
+      line: document.querySelector('.ab-pull .ab-set').textContent,
+    })`)
+    await goOffline(false)
+    await browser.holdAniList(0)
+    assert.ok(await browser.titlesShown(), 'no titles on the page once back online')
+    assert.deepEqual(
+      { off, seen },
+      {
+        off: true,
+        seen: {
+          sliders: true,
+          reset: true,
+          lever: true,
+          line: 'Offline: waiting for a connection.',
+        },
+      },
+    )
+  })
+
+  test('with the scoring’s file blocked, a set slider says so with Try again, asking AniList nothing, and Try again, once it loads, ranks the matches through AniList’s busy wait', async () => {
+    await browser.evaluate(
+      `document.querySelector('.ab-pull .ab-matches').scrollIntoView({ block: 'center' }); true`,
+    )
+    await browser.evaluate(`(() => {
+      ${slider('Energy')}.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+      return true
+    })()`)
+    await setSlider('Energy', -2)
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-pull .ab-matches .ab-retry')`, 5_000),
+      'no Try again',
+    )
+    await sleep(QUIET_MS)
+    const blocked = { ...(await browser.evaluate<object>(machine)), asked: [...asked] }
+    await browser.send('Network.setBlockedURLs', { urls: [] })
+    await browser.evaluate(`document.querySelector('.ab-pull .ab-matches .ab-retry').click(); true`)
+    assert.ok(
+      await browser.waitFor(
+        `document.querySelector('.ab-pull .ab-set').textContent.startsWith('AniList is busy')`,
+        5_000,
+      ),
+      'the busy line never showed',
+    )
+    const busy = { ...(await browser.evaluate<object>(machine)), asked: [...asked] }
+    assert.ok(await browser.waitFor(poolSaved('1990s'), 10_000), 'the pool never arrived')
+    await browser.evaluate(NEXT_FRAME)
+    const ranked = { ...(await browser.evaluate<object>(machine)), asked: [...asked] }
+    await setSlider('Energy', 0)
+    const sliders = { energy: -2, tone: 0, complexity: 0 } as const
+    const top = (titles: readonly Media[]) =>
+      rankMatches(titles, sliders)
+        .slice(0, 3)
+        .map((media) => `/anime/${media.id} Why: ${whyOf(media, sliders).join(' · ')}`)
+    assert.deepEqual(
+      { blocked, busy, ranked },
+      {
+        // The page's titles in their own order, unranked, with no Why.
+        blocked: {
+          line: 'The mood scoring didn’t load.',
+          retry: 'Try again',
+          matches: pullable(page)
+            .slice(0, 3)
+            .map(({ id }) => `/anime/${id} `),
+          asked: ['first visit'],
+        },
+        busy: {
+          line: 'AniList is busy right now. It’s not something you did. Trying again within a minute.',
+          retry: 'none',
+          matches: top(pullable(page.map(cardOf))),
+          asked: ['first visit', 'pool 1990s'],
+        },
+        ranked: {
+          line: 'Very cozy',
+          retry: 'none',
+          matches: top(pool),
+          asked: ['first visit', 'pool 1990s', 'pool 1990s'],
+        },
+      },
+    )
   })
 })

@@ -435,11 +435,15 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // "Most popular in the 1990s" heading, the dome in the best matches' colors, and a refresh of the
 // pool held while the matches are on screen (features/mood/heldPool.ts): 93,284 B, 495 B more;
 // and the CSS 12,500 B for the matches' fixed slots (12,481 B, 157 B more). Raises the plan's D5
-// lets come in measured steps.
+// lets come in measured steps. Then 93,550 B with the machine's line over the matches ("Filling
+// the machine…", the outage's samples, offline with no titles, AniList busy, and the mood scoring
+// that didn't load, with Try again), the last decade's matches kept while a new one's pool is on
+// its way, and the sliders off offline: 93,459 B, 175 B more; and the CSS 12,550 B for the line's
+// room of two lines (12,501 B, 20 B more).
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 93_400,
-  'the CSS': 12_500,
+  'the JS every visit loads': 93_550,
+  'the CSS': 12_550,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,
   'the mood scoring': 1_500,

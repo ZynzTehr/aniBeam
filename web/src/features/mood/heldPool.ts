@@ -22,10 +22,13 @@ const whole = (titles: readonly Media[]) =>
  * matches depend on the whole pool, as a set slider can bring any title of it to the top, so the
  * whole pool is compared, not its first few: while the matches are on screen, a refresh that
  * changes any title's place, score, genres or tags' ranks waits, and shows once they have left it.
- * A pool of another decade always shows at once, on screen or not, as does the first pool, or none.
+ * A pool of another decade always shows at once, on screen or not, as does the first pool, or none;
+ * but while that decade's pool is on its way (`waiting`), the last pool stays, so its matches stay
+ * where they are until the new ones can take their place.
  */
-export function heldPool(shown: Held, latest: Held, onScreen: boolean): Held {
+export function heldPool(shown: Held, latest: Held, onScreen: boolean, waiting = false): Held {
   if (shown.era === latest.era && shown.titles === latest.titles) return shown
+  if (waiting && !latest.titles && shown.titles) return shown
   if (!onScreen || shown.era !== latest.era || !shown.titles || !latest.titles) return latest
   return whole(shown.titles) === whole(latest.titles) ? latest : shown
 }
@@ -33,12 +36,16 @@ export function heldPool(shown: Held, latest: Held, onScreen: boolean): Held {
 /**
  * The decade `era`'s pool `titles`, held by heldPool while the element given the returned ref is
  * on screen: give it to the matches' row, what a new pool's order changes. The sliders are never
- * held: they rank the held pool at once.
+ * held: they rank the held pool at once. `waiting`: the decade's pool is on its way.
  */
-export function useHeldPool(era: string | null, titles: readonly Media[] | undefined) {
+export function useHeldPool(
+  era: string | null,
+  titles: readonly Media[] | undefined,
+  waiting: boolean,
+) {
   const [onScreen, setOnScreen] = useState(false)
   const [shown, setShown] = useState<Held>({ era, titles })
-  const held = heldPool(shown, { era, titles }, onScreen)
+  const held = heldPool(shown, { era, titles }, onScreen, waiting)
   // React lets a component update its own state as it renders: it renders again at once.
   if (held !== shown) setShown(held)
   const ref = useCallback((element: Element | null) => {
