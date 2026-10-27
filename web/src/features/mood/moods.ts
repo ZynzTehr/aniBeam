@@ -46,6 +46,16 @@ export const popularHeading = (era: Era | null) =>
 export const REPEATS = 'Every match has come up once. Repeats start now.'
 
 /**
+ * The machine's line with fewer than 20 titles left to come up (FEW in roll.ts), `count` of them,
+ * once it holds every title of the decade it will (the pool, and its page 3 if there is one).
+ */
+export const fewLine = (count: number) =>
+  `Only ${count} ${count === 1 ? 'title' : 'titles'} left to roll in this decade.`
+
+/** What the machine says when every title it holds is on My List (the plan's D4). */
+export const LISTED = 'Everything in the machine is on your list. Try another decade below.'
+
+/**
  * The machine's line while AniList can't be reached, over `count` sample titles that can come out:
  * one is one title, and with none the line says only that (the hint says the rest).
  */

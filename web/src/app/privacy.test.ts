@@ -465,9 +465,15 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // and Roll again, whose focus a roll from it hands to the new card's, the Why line and the rarity's
 // rule: 94,141 B, 141 B more than 94,000 B; and the CSS 12,850 B for the card's text keeping one
 // size from roll to roll and its rays fitted to its poster beside the text: 12,836 B, 62 B more.
+// Then 94,500 B with page 3 and the end states (the plan's A12): the pool's page 3, its query's
+// text in QUERIES (about 150 B on its own), asked for once by a roll that leaves fewer than 10 of
+// the pool's titles to come up, its titles added to the pool's; the saved copy keeping a page 3
+// only with its pool; the line saying "Only N titles left to roll in this decade." and, with a
+// card rolled, that everything is on My List; and each roll saying the line as it left it, kept
+// with that roll: 94,439 B, 298 B more.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 94_200,
+  'the JS every visit loads': 94_500,
   'the CSS': 12_850,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,

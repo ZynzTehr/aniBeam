@@ -21,6 +21,11 @@ export type Session = {
    * (see PullMachine).
    */
   wanted: readonly string[]
+  /**
+   * The decades whose mood pool's page 3 is wanted, by id: once a roll leaves fewer than 10 of the
+   * pool's titles to come up, if page 2 said there is one (see PullMachine). Asked for once.
+   */
+  page3: readonly string[]
 }
 
 /** No slider set, nothing pulled: how a visit starts. */
@@ -30,6 +35,7 @@ export const FRESH: Session = {
   pulls: 0,
   pulled: null,
   wanted: [],
+  page3: [],
 }
 
 let session = FRESH

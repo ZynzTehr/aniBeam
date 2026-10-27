@@ -20,7 +20,9 @@ import {
   FIRST_ERA,
   listQuery,
   poolOf,
+  poolPage3Query,
   poolQuery,
+  poolTitleOf,
   QUERIES,
   searchQuery,
   titleQuery,
@@ -28,6 +30,7 @@ import {
   wantPool,
   type Era,
   type Media,
+  type PoolAnswer,
 } from '../src/features/anime/queries.ts'
 import { SAMPLES } from '../src/features/anime/samples.ts'
 import { MOOD_TAGS } from '../src/features/mood/moodMap.ts'
@@ -75,6 +78,12 @@ export const DECADES = ['1980s', '1990s']
 export const POOLS = ['1990s', 'pre-1970', 'upcoming']
 
 /**
+ * The decades whose mood pool's page 3 the checks ask for (poolPage3Query): the 1990s, whose page
+ * 2 says there is one, rolled until fewer than 10 of its pool's titles are left (the plan's REC-4).
+ */
+export const POOL_PAGES_3 = ['1990s']
+
+/**
  * The decades the checks pick with a slider set and nothing cached for them, so the page asks for
  * the decade's page and its mood pool in one request (decadeWithPool; see wantPool in queries.ts):
  * the 1980s (REC-3).
@@ -103,7 +112,7 @@ export const LISTS: Record<string, number[]> = {
 type Request = Recording['request']
 
 // What the stand-in for fetch answers: no titles, for whichever lists, or title, were asked for,
-// and a mood pool's two pages with none and no page after them.
+// and a mood pool's pages, its first two or its third, with none and no page after them.
 const NO_POOL_TITLES = { pageInfo: { hasNextPage: false }, media: [] }
 const NO_TITLES = {
   data: {
@@ -113,6 +122,7 @@ const NO_TITLES = {
     Media: null,
     p1: NO_POOL_TITLES,
     p2: NO_POOL_TITLES,
+    p3: NO_POOL_TITLES,
   },
 }
 
@@ -161,7 +171,8 @@ function searchName(search: string) {
 /**
  * What a request asks AniList for, in words, for a check that counts them: "first visit"
  * (trending and the 1990s), "decade 1980s", "pool 1990s" (a decade's mood pool), "decade and pool
- * 1980s" (the two in one request), "my list", "title", "search" or "samples".
+ * 1980s" (the two in one request), "pool page 3 1990s" (its pool's page 3), "my list", "title",
+ * "search" or "samples".
  */
 export function askedFor({ query, variables }: Request): string {
   const era = ERAS.find((era) => isDeepStrictEqual(era.variables, variables))?.id ?? '?'
@@ -171,6 +182,7 @@ export function askedFor({ query, variables }: Request): string {
     [QUERIES.era, `decade ${era}`],
     [QUERIES.pool, `pool ${era}`],
     [QUERIES.decadeWithPool, `decade and pool ${era}`],
+    [QUERIES.poolPage3, `pool page 3 ${era}`],
     [QUERIES.list, 'my list'],
     [QUERIES.title, 'title'],
     [QUERIES.search, 'search'],
@@ -183,22 +195,39 @@ export function askedFor({ query, variables }: Request): string {
 export const recordedPool = (id: string, saved = recordings()) =>
   poolOf(saved.get(poolName(id))!.body.data, MOOD_TAGS)
 
+/**
+ * A decade's mood pool's page 3 as the app keeps it (poolPage3Query), from its recording
+ * (POOL_PAGES_3): its titles cut as the pool's are, with no Ecchi title.
+ */
+export const recordedPage3 = (id: string, saved = recordings()) =>
+  pullable<PoolAnswer>(saved.get(page3Name(id))!.body.data.p3.media).map((media) =>
+    poolTitleOf(media, MOOD_TAGS),
+  )
+
 /** The name of a decade's mood pool's recording (POOLS). */
 const poolName = (id: string) => `pool-${id}`
 
 /** The name of the recording of a decade's page with its mood pool (DECADES_WITH_POOLS). */
 const eraPoolName = (id: string) => `era-pool-${id}`
 
-/**
- * The recordings that hold a mood pool (POOLS, DECADES_WITH_POOLS), whose copies of a title no card
- * opens. A pool's titles carry their relations, which no list's copy has. And a decade's page that
- * came with its pool is the same page as the decade's own recording (era-pool-1980s, era-1980s),
- * as AniList answered it at another moment, so its figures can differ: Saint Seiya's averageScore
- * is 74 there, 73 in the strip a check gets when it picks the 1980s with no slider set.
- */
-export const POOL_RECORDINGS = [...POOLS.map(poolName), ...DECADES_WITH_POOLS.map(eraPoolName)]
+/** The name of the recording of a decade's mood pool's page 3 (POOL_PAGES_3). */
+const page3Name = (id: string) => `pool-${id}-page-3`
 
-/** The era an id in DECADES, POOLS or DECADES_WITH_POOLS names. */
+/**
+ * The recordings that hold a mood pool (POOLS, DECADES_WITH_POOLS, POOL_PAGES_3), whose copies of
+ * a title no card opens. A pool's titles carry their relations, which no list's copy has. And a
+ * decade's page that came with its pool is the same page as the decade's own recording
+ * (era-pool-1980s, era-1980s), as AniList answered it at another moment, so its figures can
+ * differ: Saint Seiya's averageScore is 74 there, 73 in the strip a check gets when it picks the
+ * 1980s with no slider set.
+ */
+export const POOL_RECORDINGS = [
+  ...POOLS.map(poolName),
+  ...DECADES_WITH_POOLS.map(eraPoolName),
+  ...POOL_PAGES_3.map(page3Name),
+]
+
+/** The era an id in DECADES, POOLS, DECADES_WITH_POOLS or POOL_PAGES_3 names. */
 function eraOf(id: string): Era {
   const era = ERAS.find((era) => era.id === id)
   if (!era) throw new Error(`${id} isn't in ERAS.`)
@@ -245,6 +274,11 @@ export async function requests(): Promise<{ name: string; request: Request }[]> 
         return Promise.all([client.fetchQuery(eraQuery(era)), client.fetchQuery(poolQuery(era))])
       }),
     })
+  for (const id of POOL_PAGES_3)
+    wanted.push({
+      name: page3Name(id),
+      request: await sent((client) => client.fetchQuery(poolPage3Query(eraOf(id)))),
+    })
   for (const term of SEARCHES) {
     const request = await sent((client) => client.fetchQuery(searchQuery(term)))
     wanted.push({ name: searchName(String(request.variables.search)), request })
@@ -260,7 +294,7 @@ export async function requests(): Promise<{ name: string; request: Request }[]> 
   const twice = names.filter((name, i) => names.indexOf(name) !== i)
   if (twice.length)
     throw new Error(
-      `SEARCHES, DECADES, POOLS, DECADES_WITH_POOLS, TITLES or LISTS asks for one request twice: ${twice}`,
+      `SEARCHES, DECADES, POOLS, DECADES_WITH_POOLS, POOL_PAGES_3, TITLES or LISTS asks for one request twice: ${twice}`,
     )
   return wanted
 }

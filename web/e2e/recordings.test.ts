@@ -7,6 +7,7 @@ import {
   cardOf,
   ERAS,
   eraQuery,
+  poolPage3Query,
   poolQuery,
   wantPool,
   type Media,
@@ -428,6 +429,37 @@ for (const [id, count, titles, hasNextPage] of [
       'no title came with its seasons',
     )
   })
+
+// AniList's own page 3 of the 1990s' pool (the plan's REC-4), which a roll asks for once fewer than
+// 10 of the pool's titles are left to come up: 50 titles, 3 of them Ecchi, and one the pool's own
+// page 2 already had, as AniList's order moved between the two requests (the machine keeps the
+// pool's copy).
+test('the 1990s pool’s page 3, from AniList’s recorded answer, is 1 request and its 47 titles that aren’t Ecchi, cut as the pool’s are', async (t) => {
+  const { request, sent, data } = replay(t, 'pool-1990s-page-3')
+  const client = new QueryClient()
+  t.after(() => client.clear())
+  const asked = client.fetchQuery(poolPage3Query(eraOf('1990s')))
+  await asked.catch(() => {})
+  assert.deepEqual(sent, [request], 'not the one request recorded')
+  const titles = await asked
+  const answered: PoolAnswer[] = data.p3.media
+  assert.deepEqual(
+    titles.map((media) => media.id),
+    answered.filter((media) => !media.genres.includes('Ecchi')).map((media) => media.id),
+  )
+  assert.equal(titles.length, 47)
+  assert.ok(
+    titles.some((media) => media.seasons.length),
+    'no title came with its seasons',
+  )
+  const pool = new Set(
+    [
+      ...recorded('pool-1990s').body.data.p1.media,
+      ...recorded('pool-1990s').body.data.p2.media,
+    ].map((media: PoolAnswer) => media.id),
+  )
+  assert.equal(titles.filter((media) => pool.has(media.id)).length, 1, 'not one the pool has')
+})
 
 // A decade picked with a slider set and nothing of it cached (the plan's REC-3): its pool wanted,
 // the page asks for its page and the machine for its pool at the same moment, in either order, as

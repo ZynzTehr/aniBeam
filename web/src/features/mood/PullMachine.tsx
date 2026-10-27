@@ -18,7 +18,14 @@ import type { OpenTitle } from '../../components/TitleCard.tsx'
 import type { AniListError } from '../../lib/anilist.ts'
 import { reducedMotion, watchMotionOff } from '../../lib/motion.ts'
 import { formatOf, seasonOf, studioOf, titleOf } from '../anime/format.ts'
-import { FIRST_ERA, poolQuery, wantPool, type Era, type Media } from '../anime/queries.ts'
+import {
+  FIRST_ERA,
+  poolPage3Query,
+  poolQuery,
+  wantPool,
+  type Era,
+  type Media,
+} from '../anime/queries.ts'
 import { useListIds } from '../list/store.ts'
 import { accentVars } from '../theming/deriveAccent.ts'
 import { useHeldPool } from './heldPool.ts'
@@ -27,6 +34,8 @@ import { Matches } from './Matches.tsx'
 import { MoodSlider } from './MoodSlider.tsx'
 import {
   AXES,
+  fewLine,
+  LISTED,
   popularHeading,
   REPEATS,
   samplesLine,
@@ -36,7 +45,7 @@ import {
 } from './moods.ts'
 import { DROP_MS, FLIP_MS, OPEN_MS, ROLL_MS } from './flip.ts'
 import { rarityOf } from './rarity.ts'
-import { pullable, remember, rollNext } from './roll.ts'
+import { pullable, remember, rollNext, type Roll } from './roll.ts'
 import type { Sliders } from './score.ts'
 import { setSession, useSession } from './session.ts'
 import { titlePath } from '../../lib/route.ts'
@@ -50,7 +59,7 @@ const HINTS = {
   unpullable: (
     <>None of the titles on this page can come out of the machine. Try another decade below.</>
   ),
-  listed: <>Everything in the machine is on your list. Try another decade below.</>,
+  listed: <>{LISTED}</>,
   // The user's words (D4): no decade named, so the box never changes height with its name.
   ready: (
     <>
@@ -66,6 +75,14 @@ const FILLING = 'Filling the machine…'
 
 // Under the rolled card's text, what its rarity means (the user's pick, A11): never luck.
 const RULE = 'Rarity is just the AniList score. It never changes what you roll.'
+
+/**
+ * The line for what the next roll would find, `next`: a repeat, as every title that can come up
+ * has, lately, so the oldest of them comes back (see rollNext); or, once the machine holds the
+ * `whole` decade, fewer than 20 left to come up; else none.
+ */
+const ending = (next: Roll<Media>, whole: boolean) =>
+  next.reason === 'repeat' ? REPEATS : next.reason === 'few' && whole ? fewLine(next.left) : ''
 
 // The sliders in the order the machine shows them.
 const AXIS_ORDER = Object.keys(AXES) as Axis[]
@@ -104,11 +121,14 @@ const TIMES = cssVars({
  * sliders (rankMatches, from the mood scoring's own file); with none, any title. Never one on My
  * List, nor any of the last 30 rolled while another can come up, and then the oldest of them
  * first, under the line "Every match has come up once. Repeats start now."; nor another season of
- * a show rolled lately while a title of another show can come up (see rollNext). Under the rolled
- * title, the top 3 matches, which a slider re-sorts at once (see Matches). The rolled card shows the
- * title's rarity, name, season, format and studio, its Why line and what rarity means (A11), then
- * its My List row, Details, which opens its title card, and Roll again (A10). The sliders, the last
- * rolls and the rolled title are kept for the visit (see session.ts).
+ * a show rolled lately while a title of another show can come up (see rollNext). A roll that
+ * leaves fewer than 10 of the pool's titles to come up asks for its page 3, once, if page 2 said
+ * there is one (A12); once the machine holds all it will of the decade, under 20 titles left, the
+ * line says how many. Under the rolled title, the top 3 matches, which a slider re-sorts at once
+ * (see Matches). The rolled card shows the title's rarity, name, season, format and studio, its
+ * Why line and what rarity means (A11), then its My List row, Details, which opens its title card,
+ * and Roll again (A10). The sliders, the last rolls and the rolled title are kept for the visit
+ * (see session.ts).
  *
  * The pool is asked for only once it is wanted (the plan's section 2, D1): a slider pressed, the
  * decade changed with one set, a pull with fewer than 10 titles left to come up, or a page of
@@ -141,7 +161,7 @@ export function PullMachine({
   outage?: boolean
   onOpen: OpenTitle
 }) {
-  const { sliders, ring, pulls, pulled, wanted } = useSession()
+  const { sliders, ring, pulls, pulled, wanted, page3 } = useSession()
   // Whether the rolled card shows its title: not while it turns (see flip.ts). Shown at once when
   // the machine is drawn again with a roll already made (back from My List).
   const [revealed, setRevealed] = useState(true)
@@ -200,7 +220,24 @@ export function PullMachine({
     era ? pool.data?.titles : undefined,
     coming && !settled,
   )
-  const titles = held?.length ? held : onPage
+  // Page 3 of the decade's pool, once a roll has wanted it (see pull) and only if page 2 said there
+  // is one: asked for once, and kept, as the pool is, for whenever the decade is open again. Its
+  // titles follow the pool's, but those the pool already has (AniList's order shifts between
+  // requests), and wait for the pool: with the page's titles alone, page 3 would be all there is.
+  const deeper = !!era && !!pool.data?.hasNextPage
+  const third = useQuery({
+    ...poolPage3Query(era ?? FIRST_ERA),
+    enabled: !!era && deeper && page3.includes(era.id) && online && !outage,
+  })
+  const titles = useMemo(() => {
+    if (!held?.length) return onPage
+    const ids = new Set(held.map(({ id }) => id))
+    const more = deeper ? (third.data ?? []).filter(({ id }) => !ids.has(id)) : []
+    return more.length ? [...held, ...more] : held
+  }, [held, onPage, deeper, third.data])
+  // Whether the machine holds every title of the decade it will: the pool, and its page 3 if there
+  // is one. Only then can it say how few are left in the decade.
+  const whole = titles !== onPage && !!pool.data && (!deeper || !!third.data)
   // The decade the titles come from, which heads the matches: the last one while its titles stand
   // in, so the heading never names a decade they are not from. Set as the component renders.
   const [from, setFrom] = useState(era)
@@ -256,11 +293,10 @@ export function PullMachine({
     [ranked, listed],
   )
 
-  // Whether the next roll is a repeat: every title that can come up has, lately, so the oldest of
-  // them comes back (see rollNext), and the line says so.
-  const repeats = useMemo(
-    () => rollNext({ ranked, listed, ring, random: () => 0 }).reason === 'repeat',
-    [ranked, listed, ring],
+  // The line for what the next roll would find (see ending).
+  const ends = useMemo(
+    () => ending(rollNext({ ranked, listed, ring, random: () => 0 }), whole),
+    [ranked, listed, ring, whole],
   )
 
   // A roll, from the lever or from the rolled card's Roll again (`fromCard`), whose focus then goes
@@ -277,13 +313,26 @@ export function PullMachine({
       random: Math.random,
       shown: pulled?.id,
     })
-    // Fewer than 10 left to come up: the decade's pool is wanted.
+    // Fewer than 10 left to come up: the decade's pool is wanted, and once it is in, its page 3, if
+    // page 2 said there is one; never by a slider, as a slider's move changes neither.
     const more = needMore && era && !wanted.includes(era.id) ? [...wanted, era.id] : wanted
-    if (!media) return setSession({ wanted: more })
+    const deep =
+      needMore && era && deeper && titles !== onPage && !page3.includes(era.id)
+        ? [...page3, era.id]
+        : page3
+    if (!media) return setSession({ wanted: more, page3: deep })
     clearTimeout(timer.current)
     refocus.current = fromCard
-    setSession({ ring: remember(ring, media.id), pulls: pulls + 1, pulled: media, wanted: more })
-    setNews((now) => ({ ...now, of: 'pull' }))
+    const next = remember(ring, media.id)
+    setSession({ ring: next, pulls: pulls + 1, pulled: media, wanted: more, page3: deep })
+    // The line as this roll leaves it, said with the roll and kept with it: a change to My List or
+    // the decade after it changes the line, but never what was said of this roll. With page 3 on
+    // its way, the machine doesn't hold the whole decade yet.
+    const words = ending(
+      rollNext({ ranked, listed, ring: next, random: () => 0 }),
+      whole && deep === page3,
+    )
+    setNews((now) => ({ ...now, of: 'pull', words }))
     // With reduced motion, no flip: the card shows at once.
     const still = reducedMotion()
     setRevealed(still)
@@ -358,17 +407,18 @@ export function PullMachine({
           ? 'AniList is busy right now. It’s not something you did. Trying again within a minute.'
           : (set && !scored) || coming
             ? FILLING
-            : repeats
-              ? REPEATS
-              : ''
+            : // With a card rolled, the hint that says so is not on the page.
+              pulled && titles.length && !out.length
+              ? LISTED
+              : ends
   // What the status line says, as it happens: each roll as its card shows, and what keeps the
   // machine from its best as that begins (the line, but "Filling the machine…", which comes and
-  // goes with a first press, and the repeats' line, which comes with a roll and is said with it),
-  // whichever came last. Never the sliders' words: each slider says its own. Set as the component
-  // renders.
-  const notice = line === FILLING || line === REPEATS ? '' : line
-  const [news, setNews] = useState({ notice, of: 'pull' })
-  if (news.notice !== notice) setNews({ notice, of: notice ? 'notice' : news.of })
+  // goes with a first press, and how the rolls end, repeats or how few are left, which a roll
+  // brings and says with its own words), whichever came last. Never the sliders' words: each
+  // slider says its own. Set as the component renders.
+  const notice = line === FILLING || line === ends ? '' : line
+  const [news, setNews] = useState({ notice, of: 'pull', words: '' })
+  if (news.notice !== notice) setNews({ ...news, notice, of: notice ? 'notice' : news.of })
   return (
     // The links to #pull land on the heading, which takes their focus, as the other sections' do.
     <section className="ab-pull" aria-labelledby="pull">
@@ -473,7 +523,8 @@ export function PullMachine({
                     <span className="sr-only">Open the title card for {titleOf(pulled)}</span>
                   </a>
                 </div>
-                {/* Beside the faces, whose edges would cut it off; it booms in as the card shows. */}
+                {/* Beside the faces, whose edges would cut it off; it booms in as the card
+                    shows. */}
                 {revealed && (
                   <span className="ab-sfx-tier" aria-hidden="true">
                     {rarity.sfx}
@@ -559,7 +610,7 @@ export function PullMachine({
         {news.of === 'notice'
           ? notice
           : pulled && rarity && revealed
-            ? `Roll ${pulls}: ${titleOf(pulled)}, ${rarity.label}.${line === REPEATS ? ` ${REPEATS}` : ''}`
+            ? `Roll ${pulls}: ${titleOf(pulled)}, ${rarity.label}.${news.words ? ` ${news.words}` : ''}`
             : ''}
       </p>
     </section>

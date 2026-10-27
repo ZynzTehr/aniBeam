@@ -8,12 +8,20 @@ import { setTimeout as sleep } from 'node:timers/promises'
 import { titleOf } from '../src/features/anime/format.ts'
 import { cardOf, ERAS, poolOf, QUERIES, type Media } from '../src/features/anime/queries.ts'
 import { MOOD_TAGS } from '../src/features/mood/moodMap.ts'
-import { AXES, REPEATS, samplesLine, type Axis, type Stop } from '../src/features/mood/moods.ts'
-import { pullable } from '../src/features/mood/roll.ts'
+import {
+  AXES,
+  fewLine,
+  LISTED,
+  REPEATS,
+  samplesLine,
+  type Axis,
+  type Stop,
+} from '../src/features/mood/moods.ts'
+import { FEW, NEED_MORE, pullable } from '../src/features/mood/roll.ts'
 import { rankMatches, whyOf } from '../src/features/mood/score.ts'
 import { accentVars } from '../src/features/theming/deriveAccent.ts'
 import { BASE_URL, Browser, poll } from './browser.ts'
-import { askedFor, listsOf, recordedPool, recordings } from './recordings.ts'
+import { askedFor, listsOf, recordedPage3, recordedPool, recordings } from './recordings.ts'
 
 let browser: Browser
 before(async () => {
@@ -87,6 +95,13 @@ const FOCUS_SPY = `(() => {
  */
 const poolSaved = (id: string) =>
   `(JSON.parse(localStorage.getItem('anibeam:cache'))?.clientState.queries ?? []).some((query) => query.queryKey[1] === ${JSON.stringify(QUERIES.pool)} && JSON.stringify(query.queryKey[2]) === ${JSON.stringify(JSON.stringify(ERAS.find((era) => era.id === id)!.variables))} && query.state.data)`
+
+/**
+ * Whether the page's saved copy holds the decade `id`'s mood pool's page 3 (poolPage3Query): it is
+ * saved, as the pool is, within a second of arriving.
+ */
+const page3Saved = (id: string) =>
+  `(JSON.parse(localStorage.getItem('anibeam:cache'))?.clientState.queries ?? []).some((query) => query.queryKey[1] === ${JSON.stringify(QUERIES.poolPage3)} && JSON.stringify(query.queryKey[2]) === ${JSON.stringify(JSON.stringify(ERAS.find((era) => era.id === id)!.variables))} && query.state.data)`
 
 /** The machine's top matches: each one's address and its Why line, in order. */
 const MATCHES = `[...document.querySelectorAll('.ab-pull .ab-match[href]')].map((link) => link.getAttribute('href') + ' ' + link.querySelector('.ab-match-why').textContent)`
@@ -495,6 +510,8 @@ describe('the journey load', () => {
       'AniList is busy right now. It’s not something you did. Trying again within a minute.',
       'Filling the machine…',
       REPEATS,
+      fewLine(FEW - 1),
+      LISTED,
       longest.join(' · '),
     ]
     const over: string[] = []
@@ -744,9 +761,34 @@ describe('the journey load', () => {
     assert.ok(first > 0, `the first roll said “${rolled[0].said}”`)
   })
 
+  /**
+   * Puts every title of the 1990s' pool and of its page 3 on My List but `left`, with page 3 in,
+   * and gives the ids listed. A roll that leaves fewer than 10 titles to come up asks for page 3
+   * (the plan's A12), whose titles would then come up: so, while it isn't in, one roll is made
+   * with only one other title left, and page 3 awaited, every title of it listed too.
+   */
+  async function leaveOnly(left: number[]) {
+    const pool = recordedPool('1990s').titles
+    const all = [...new Set([...pool, ...recordedPage3('1990s')].map(({ id }) => id))]
+    if (!(await browser.evaluate<boolean>(page3Saved('1990s')))) {
+      const other = pool.find(({ id }) => !left.includes(id))!.id
+      await setList(all.filter((id) => id !== other))
+      await browser.evaluate(NEXT_FRAME)
+      await rollsSaid(1)
+      assert.ok(await browser.waitFor(page3Saved('1990s')), 'page 3 never arrived')
+    }
+    // A write from another tab adds to what the page holds, so `left` are taken off on their own.
+    const listed = all.filter((id) => !left.includes(id))
+    await setList(listed)
+    await setList(left, false)
+    await browser.evaluate(NEXT_FRAME)
+    return listed
+  }
+
   test('with every title left rolled lately, the line says repeats start now, and they come back the oldest first', async () => {
     // Three titles no roll has come near (the least popular, far from Very cozy's best) are all
-    // that is left off My List: three rolls, then the repeats, the first rolled first.
+    // that is left off My List: three rolls, then the repeats, the first rolled first. The
+    // machine holds the whole decade, page 3 too, so the line first counts the titles left down.
     const pool = recordedPool('1990s').titles
     const cozy = new Set(
       rankMatches(pool, { energy: -2, tone: 0, complexity: 0 })
@@ -754,9 +796,7 @@ describe('the journey load', () => {
         .map(({ id }) => id),
     )
     const left = pool.filter(({ id }) => !cozy.has(id)).slice(-3)
-    const listed = pool.filter((media) => !left.includes(media)).map(({ id }) => id)
-    await setList(listed)
-    await browser.evaluate(NEXT_FRAME)
+    const listed = await leaveOnly(left.map(({ id }) => id))
     const line = `document.querySelector('.ab-pull .ab-set').textContent`
     const before = await browser.evaluate<string>(line)
     const rolled = []
@@ -779,11 +819,12 @@ describe('the journey load', () => {
         ),
       },
       {
-        before: '',
+        before: fewLine(3),
         three: left.map(({ id }) => `/anime/${id}`).sort(),
         hrefs: [...three, three[0], three[1]],
-        lines: ['', '', REPEATS, REPEATS, REPEATS],
-        said: rolled.map(({ href }, i) => `${titleAt(href)},${i < 2 ? '' : ` ${REPEATS}`}`),
+        lines: [fewLine(2), fewLine(1), REPEATS, REPEATS, REPEATS],
+        // Each roll says the line as it leaves it, once.
+        said: rolled.map(({ href, line }) => `${titleAt(href)}, ${line}`),
       },
     )
   })
@@ -798,8 +839,7 @@ describe('the journey load', () => {
         .map(({ id }) => id),
     )
     const left = pool.filter(({ id }) => !cozy.has(id)).slice(-3)
-    const listed = pool.filter((media) => !left.includes(media)).map(({ id }) => id)
-    await setList(listed)
+    const listed = await leaveOnly(left.map(({ id }) => id))
     // Every title of the page is on My List now, so the machine asks for its pool, if it hasn't.
     assert.ok(
       await browser.waitFor(
@@ -1615,5 +1655,185 @@ describe('a first visit offline, with the mood scoring blocked, then AniList bus
         },
       },
     )
+  })
+})
+
+describe('page 3 and the end states', () => {
+  // The 1990s' pool cut to its 25 most popular titles, page 2 still saying there is a page 3, so
+  // a few rolls bring it near its end (the plan's PR 4, commit 7), and page 3 is AniList's (REC-4).
+  // And Pre-1970, a decade of 56 titles with no page 3 (REC-3b), whose own page no check records:
+  // it is answered with its pool's first 20, as AniList would send them.
+  const asked: string[] = []
+  const cut = (pool: any) => ({
+    p1: { ...pool.p1, media: pool.p1.media.slice(0, 25) },
+    p2: { ...pool.p2, media: [] },
+  })
+  const nineties = poolOf(cut(recordings().get('pool-1990s')!.body.data), MOOD_TAGS)
+  const page3 = recordedPage3('1990s')
+  const preData = recordings().get('pool-pre-1970')!.body.data
+  const pre = recordedPool('pre-1970').titles
+  const status = `document.querySelector('.ab-pull > [role="status"]').textContent`
+  const line = `document.querySelector('.ab-pull .ab-set').textContent`
+  before(async () => {
+    await browser.forget()
+    await browser.rewriteAniList(({ request, status, body }) => {
+      const what = askedFor(request)
+      asked.push(what)
+      if (what === 'pool 1990s') return { status, body: { data: cut(body.data) } }
+      if (what === 'decade pre-1970')
+        return {
+          status: 200,
+          body: {
+            data: {
+              Page: {
+                // With their relations, which a page's query doesn't ask for and nothing reads.
+                media: preData.p1.media.slice(0, 20),
+              },
+            },
+          },
+        }
+      return null
+    })
+    await browser.load({ reduceMotion: true })
+    assert.ok(await browser.titlesShown(), 'no titles on the page')
+  })
+  after(() => browser.rewriteAniList(null))
+
+  test('with a pool of 25 that has a page 3, the roll that leaves fewer than 10 to come up asks for it, once and none before; its titles then come up, and slider moves still cost nothing', async () => {
+    assert.ok(nineties.hasNextPage && nineties.titles.length >= NEED_MORE + 5, 'not a pool to roll')
+    await setSlider('Energy', -2)
+    assert.ok(await browser.waitFor(poolSaved('1990s')), 'the pool never arrived')
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    // A roll asks for page 3 when fewer than NEED_MORE are left before it rolls: these leave
+    // NEED_MORE or more.
+    const early = nineties.titles.length - NEED_MORE + 1
+    const before = await rollsSaid(early)
+    await sleep(QUIET_MS)
+    const quiet = [...asked]
+    const [last] = await rollsSaid(1)
+    assert.ok(await browser.waitFor(page3Saved('1990s')), 'page 3 never arrived')
+    const after = await rollsSaid(10)
+    // Every stop of every slider, asking for nothing.
+    await eachSetting(SETTINGS, '() => true')
+    await setSlider('Energy', -2)
+    await rollsSaid(3)
+    await sleep(QUIET_MS)
+    await browser.evaluate(`document.querySelector('.ab-reset').click(); true`)
+    const ids = [...before, last, ...after].map(({ href }) => Number(href?.split('/').pop()))
+    const fromPage3 = new Set(
+      page3
+        .filter(({ id }) => !nineties.titles.some((other) => other.id === id))
+        .map(({ id }) => id),
+    )
+    assert.deepEqual(
+      {
+        quiet,
+        asked,
+        different: new Set(ids).size,
+        // With Math.random at 0 a roll takes the best match left at Very cozy: once page 3 is in,
+        // the pool's 8 left are its worst, so page 3's titles come up first.
+        page3After: ids.slice(early + 1).filter((id) => fromPage3.has(id)).length > 0,
+        page3Before: ids.slice(0, early + 1).filter((id) => fromPage3.has(id)),
+        said: [...before, last, ...after].filter(
+          ({ said }) => !/^Roll \d+: .+, (SSR|SR|R|Mystery)\.$/.test(said),
+        ),
+      },
+      {
+        quiet: ['first visit', 'pool 1990s'],
+        asked: ['first visit', 'pool 1990s', 'pool page 3 1990s'],
+        different: early + 11,
+        page3After: true,
+        page3Before: [],
+        // Over 20 left once page 3 is in, and before, not all of the decade: no line, nothing said.
+        said: [],
+      },
+    )
+  })
+
+  test('in a decade with no page 3, five left off My List: the line counts them down, each roll says it once, the sixth is a repeat under the repeats line, and no page 3 is asked for', async () => {
+    // The last five of Pre-1970's pool, none of them among its page's 20: every title on the page
+    // is on My List, so the machine asks for the pool with no press.
+    const left = pre.slice(-5)
+    const listed = pre.filter((media) => !left.includes(media)).map(({ id }) => id)
+    await setList(listed)
+    await browser.evaluate(
+      `document.querySelector('.ab-eras input[value="pre-1970"]').click(); true`,
+    )
+    assert.ok(
+      await browser.waitFor(
+        `${poolSaved('pre-1970')} && !document.querySelector('.ab-lever').disabled && ${line} === ${JSON.stringify(fewLine(5))}`,
+        10_000,
+      ),
+      'the pool never arrived, or the line never counted 5 left',
+    )
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    const rolled = []
+    for (let i = 0; i < 6; i++) {
+      const [roll] = await rollsSaid(1)
+      rolled.push({ ...roll, line: await browser.evaluate<string>(line) })
+    }
+    await sleep(QUIET_MS)
+    const hrefs = rolled.map(({ href }) => href)
+    const titleAt = (href: string | null) =>
+      titleOf(pre.find(({ id }) => `/anime/${id}` === href) ?? left[0])
+    assert.deepEqual(
+      {
+        five: hrefs.slice(0, 5).sort(),
+        sixth: hrefs[5],
+        lines: rolled.map(({ line }) => line),
+        said: rolled.map(({ said }) =>
+          said.replace(/^Roll \d+: /, '').replace(/, (SSR|SR|R|Mystery)\./, ','),
+        ),
+        page3: asked.filter((what) => what === 'pool page 3 pre-1970'),
+        asked: asked.slice(-2),
+      },
+      {
+        five: left.map(({ id }) => `/anime/${id}`).sort(),
+        sixth: hrefs[0],
+        lines: [fewLine(4), fewLine(3), fewLine(2), fewLine(1), REPEATS, REPEATS],
+        said: rolled.map(({ href, line }) => `${titleAt(href)}, ${line}`),
+        page3: [],
+        asked: ['decade pre-1970', 'pool pre-1970'],
+      },
+    )
+  })
+
+  test('a change to My List with no roll changes the line, never what the status line said of the last roll', async () => {
+    // Repeats on: one more title taken off My List turns them off, then back on as it goes back.
+    const said = await browser.evaluate<string>(status)
+    // The page's first title, on My List from the check before, never rolled.
+    const other = pre[0].id
+    await setList([other], false)
+    await browser.evaluate(NEXT_FRAME)
+    const off = {
+      line: await browser.evaluate<string>(line),
+      said: await browser.evaluate<string>(status),
+    }
+    await setList([other])
+    await browser.evaluate(NEXT_FRAME)
+    const on = {
+      line: await browser.evaluate<string>(line),
+      said: await browser.evaluate<string>(status),
+    }
+    assert.ok(said.endsWith(REPEATS), `the last roll said “${said}”`)
+    assert.deepEqual({ off, on }, { off: { line: fewLine(1), said }, on: { line: REPEATS, said } })
+  })
+
+  test('with the rolled card showing, every title left put on My List turns the lever and Roll again off, and the line, said once, says why', async () => {
+    await setList(pre.map(({ id }) => id))
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-lever').disabled`, 5_000),
+      'the lever stayed on',
+    )
+    const machine = await browser.evaluate<object>(`({
+      again: [...document.querySelectorAll('.ab-result button')].find((button) => button.textContent.trim() === 'Roll again').disabled,
+      line: ${line},
+      said: ${status},
+    })`)
+    await setList(
+      pre.map(({ id }) => id),
+      false,
+    )
+    assert.deepEqual(machine, { again: true, line: LISTED, said: LISTED })
   })
 })
