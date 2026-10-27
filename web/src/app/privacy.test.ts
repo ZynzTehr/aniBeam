@@ -478,7 +478,8 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // a page 3 that failed with the mood scoring is asked for again once it loads: 94,550 B, 111 B
 // more. Then the CSS 12,900 B for the review's fix to a first roll from 821 to 1170px, where the
 // rolled card stacks beside the machine: its row keeps the card's room from the start, and the
-// machine tops it, so the lever and what is under the card stay put: 12,869 B, 33 B more.
+// machine tops it, so the lever and what is under the card stay put: 12,869 B, 33 B more. And the
+// JS 94,521 B, 29 B fewer, with no change to what it does: the rarity's rule moved into moods.ts.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
   'the JS every visit loads': 94_600,

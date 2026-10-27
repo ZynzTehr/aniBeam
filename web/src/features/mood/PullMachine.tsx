@@ -38,6 +38,7 @@ import {
   LISTED,
   popularHeading,
   REPEATS,
+  RULE,
   samplesLine,
   wordOf,
   type Axis,
@@ -72,9 +73,6 @@ type Hint = keyof typeof HINTS
 
 // The line while the pool is on its way, which a screen reader is not told (see the status line).
 const FILLING = 'Filling the machine…'
-
-// Under the rolled card's text, what its rarity means (the user's pick, A11): never luck.
-const RULE = 'Rarity is just the AniList score. It never changes what you roll.'
 
 /**
  * The line for what the next roll would find, `next`: a repeat, as every title that can come up

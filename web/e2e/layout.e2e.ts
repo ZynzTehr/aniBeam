@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict'
 import { after, afterEach, before, beforeEach, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { RULE } from '../src/features/mood/moods.ts'
 import { Browser } from './browser.ts'
 
 // A phone's width, without Chrome's mobile emulation: that marks every shift in the page's first
@@ -487,7 +488,7 @@ test('a pull on a phone jumps under 0.1, and the next one too, its title laid ou
   )
 })
 
-test('at 280px the rolled card fits the screen whole, its My List row, Details and Roll again too, and a roll after it moves nothing', async () => {
+test('at 280px the rolled card fits the screen whole, its rarity’s rule, My List row, Details and Roll again too, and a roll after it moves nothing', async () => {
   // The plan's PR 4, commit 6: a phone zoomed to 125% or more. Each part of the card keeps one
   // size from roll to roll (two lines of title, one of season, two of Why and two of the rule), so
   // with motion allowed, its card laid out at the press, three rolls after the first shift nothing
@@ -527,6 +528,10 @@ test('at 280px the rolled card fits the screen whole, its My List row, Details a
     })
   })()`)
   const wide = await browser.evaluate<number>(`document.documentElement.scrollWidth - innerWidth`)
+  // What its rarity means, under its text (A11).
+  const rule = await browser.evaluate<string>(
+    `document.querySelector('.ab-result.is-open .ab-rule')?.textContent ?? 'none'`,
+  )
   await browser.evaluate(
     `document.querySelector('.ab-result h3').scrollIntoView({ block: 'start', behavior: 'instant' }), true`,
   )
@@ -546,10 +551,11 @@ test('at 280px the rolled card fits the screen whole, its My List row, Details a
     `(window.__takeLayoutShifts(), window.__layoutShifts.map((shift) => shift.value.toFixed(4) + ': ' + shift.moved.join(', ')))`,
   )
   assert.deepEqual(
-    { fits, wide, moved, titles: new Set(titles).size },
+    { fits, wide, rule, moved, titles: new Set(titles).size },
     {
       fits: ['Save', 'Want to try', 'Favorite', 'Details', 'Roll again'],
       wide: 0,
+      rule: RULE,
       moved: [],
       titles: 4,
     },

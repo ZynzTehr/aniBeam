@@ -42,6 +42,9 @@ export const popularHeading = (era: Era | null) =>
       ? 'Most popular upcoming titles'
       : `Most popular ${era.id === 'pre-1970' ? 'before 1970' : `in the ${era.label}`}`
 
+/** Under the rolled card's text, what its rarity means (the user's pick, A11): never luck. */
+export const RULE = 'Rarity is just the AniList score. It never changes what you roll.'
+
 /** The machine's line once every title it can roll has come up lately, so the next is a repeat. */
 export const REPEATS = 'Every match has come up once. Repeats start now.'
 

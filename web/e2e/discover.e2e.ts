@@ -3192,6 +3192,32 @@ describe('desktop (1440x900)', () => {
       )
     })
 
+    test('a roll’s capsule, the glow on its card’s back and the turn are timed by flip.ts: the drop from the press, then the opening, then the turn', async () => {
+      // The stylesheet takes its moments from flip.ts (see TIMES in PullMachine), so a timing
+      // changed in one place moves them all: each animation in the card, by its name and what it
+      // plays on, with its delay and its length, read from the browser's own timing of it.
+      await press()
+      const timed = await own.evaluate<
+        string[]
+      >(`[...document.querySelector('.ab-result').getAnimations({ subtree: true })].map((a) => {
+        const { delay, duration } = a.effect.getComputedTiming()
+        return a.animationName + ' on .' + a.effect.target.classList[0] + ': ' + delay + ' + ' + duration
+      }).sort()`)
+      await own.tick(ROLL_MS + 50)
+      const open = DROP_MS + OPEN_MS
+      assert.deepEqual(timed, [
+        `ab-drop on .ab-drop: 0 + ${DROP_MS}`,
+        `ab-fade on .ab-face: ${DROP_MS} + ${OPEN_MS}`,
+        `ab-fade on .ab-result-panel: ${DROP_MS} + ${OPEN_MS}`,
+        // The card's own fade-in, 150 ms with motion or without (spec §3J), under the drop.
+        'ab-fade on .ab-result: 0 + 150',
+        `ab-glow on .ab-face: ${DROP_MS} + ${OPEN_MS}`,
+        `ab-split-bottom on .ab-half: ${DROP_MS} + ${OPEN_MS}`,
+        `ab-split-top on .ab-half: ${DROP_MS} + ${OPEN_MS}`,
+        `ab-turn on .ab-flipper: ${open} + ${FLIP_MS}`,
+      ])
+    })
+
     test('as the capsule pops open, before the card turns, its back glows in its rarity’s color, an SSR’s unlike an R’s', async () => {
       // The user's pick (A9 edge on): from DROP_MS, as the capsule pops open, to DROP_MS + OPEN_MS,
       // when the card starts to turn, its back takes on a glow in the rolled title's rarity's
