@@ -470,7 +470,9 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // the pool's titles to come up, its titles added to the pool's; the saved copy keeping a page 3
 // only with its pool; the line saying "Only N titles left to roll in this decade." and, with a
 // card rolled, that everything is on My List; and each roll saying the line as it left it, kept
-// with that roll: 94,439 B, 298 B more.
+// with that roll: 94,439 B, 298 B more. The gacha (PR 4) in all: the JS every visit loads from
+// 93,711 B to 94,439 B, 728 B more, about 200 B of it a renamed file in an import (the plan said
+// 600 to 800 B), and the CSS from 12,530 B to 12,836 B, 306 B more (the plan said 400 to 550 B).
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
   'the JS every visit loads': 94_500,

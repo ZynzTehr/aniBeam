@@ -27,18 +27,42 @@ function phase4() {
   return readme.slice(start, end < 0 ? undefined : end)
 }
 
-test('each check the README’s Phase 4 section names is in the file it names', () => {
-  const section = phase4()
-  // Each check is named after its file, in the section's own form: `web/e2e/list.e2e.ts` "a cold
-  // My List with 12 titles saved asks AniList once", a name that may be the start of the check's.
+// The README's Phase 5 section on the gacha, from its heading to the next of any level.
+function gacha() {
+  const start = readme.indexOf('\n### The gacha\n')
+  assert.ok(start >= 0, 'the README has no "The gacha" section')
+  const end = readme.slice(start + 1).search(/\n#+ /)
+  return readme.slice(start, end < 0 ? undefined : start + 1 + end)
+}
+
+/**
+ * The checks `section` names that their files no longer hold, as `file: name`, once it names at
+ * least `least`. Each check is named after its file, in the section's own form:
+ * `web/e2e/list.e2e.ts` "a cold My List with 12 titles saved asks AniList once", a name that may be
+ * the start of the check's.
+ */
+function missingChecks(section: string, least: number) {
   const named = [...section.matchAll(/`(web\/[\w/.-]+\.ts)` "([^"]+)"/g)]
-  assert.ok(named.length >= 8, `the section names only ${named.length} checks`)
+  assert.ok(named.length >= least, `the section names only ${named.length} checks`)
   const missing = named.filter(([, file, name]) => {
     const code = readFileSync(`${root}${file}`, 'utf8')
     return !code.includes(`test('${name}`) && !code.includes(`test("${name}`)
   })
+  return missing.map(([, file, name]) => `${file}: ${name}`)
+}
+
+test('each check the README’s Phase 4 section names is in the file it names', () => {
   assert.deepEqual(
-    missing.map(([, file, name]) => `${file}: ${name}`),
+    missingChecks(phase4(), 8),
+    [],
+    'checks the README names that its files no longer hold',
+  )
+})
+
+// Phase 5's gacha too (the plan's PR 4, commit 8): done-when 2 and the checks behind each claim.
+test('each check the README’s gacha section names is in the file it names', () => {
+  assert.deepEqual(
+    missingChecks(gacha(), 12),
     [],
     'checks the README names that its files no longer hold',
   )
