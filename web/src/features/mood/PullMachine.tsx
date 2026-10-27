@@ -235,9 +235,11 @@ export function PullMachine({
   // requests), and wait for the pool: with the page's titles alone, page 3 would be all there is.
   const deeper = !!era && !!pool.data?.hasNextPage
   const wants3 = !!era && deeper && page3.includes(era.id)
+  // Whether page 3 can come now: never offline nor during an outage, when it isn't asked for.
+  const reachable = online && !outage
   const third = useQuery({
     ...poolPage3Query(era ?? FIRST_ERA),
-    enabled: wants3 && online && !outage,
+    enabled: wants3 && reachable,
   })
   const titles = useMemo(() => {
     if (!held?.length) return onPage
@@ -248,9 +250,10 @@ export function PullMachine({
   // Whether the machine holds every title of the decade it will: the pool, and its page 3 if there
   // is one. Only then can it say how few are left in the decade.
   const whole = titles !== onPage && !!pool.data && (!deeper || !!third.data)
-  // Whether page 3 is wanted and not in yet, nor failed: till it lands, no line says repeats start
-  // or how few are left, as its titles would then come up.
-  const filling = wants3 && !third.data && !third.isError
+  // Whether page 3 is wanted and not in yet, nor failed, and can come: till it lands, no line says
+  // repeats start or how few are left, as its titles would then come up. Offline or during an
+  // outage it can't, so the repeats are said as they start; back online, its wait hides them again.
+  const filling = wants3 && reachable && !third.data && !third.isError
   // The decade the titles come from, which heads the matches: the last one while its titles stand
   // in, so the heading never names a decade they are not from. Set as the component renders.
   const [from, setFrom] = useState(era)
@@ -342,11 +345,12 @@ export function PullMachine({
     setSession({ ring: next, pulls: pulls + 1, pulled: media, wanted: more, page3: deep })
     // The line as this roll leaves it, said with the roll and kept with it: a change to My List or
     // the decade after it changes the line, but never what was said of this roll. With page 3 on
-    // its way, wanted by this roll or before it, its titles are still to come up.
+    // its way, wanted by this roll or before it, its titles are still to come up; not while it
+    // can't come (see filling).
     const words = ending(
       rollNext({ ranked, listed, ring: next, random: () => 0 }),
       whole,
-      filling || (deep !== page3 && !third.data),
+      filling || (deep !== page3 && reachable && !third.data),
     )
     setNews((now) => ({ ...now, of: 'pull', words }))
     // With reduced motion, no flip: the card shows at once.

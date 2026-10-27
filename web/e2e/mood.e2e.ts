@@ -1957,3 +1957,77 @@ describe('page 3 held back', () => {
     )
   })
 })
+
+describe('page 3 wanted offline', () => {
+  // The 1990s' pool cut to 25, as above, with the pool in and the connection dropped before the
+  // roll that wants page 3: page 3 can't come, so the machine says repeats start as they do. Then
+  // the connection comes back, page 3 lands and the line clears.
+  const asked: string[] = []
+  const nineties = poolOf(cutTo25(recordings().get('pool-1990s')!.body.data), MOOD_TAGS)
+  // The rolls made with NEED_MORE or more left before them: the next asks for page 3.
+  const early = nineties.titles.length - NEED_MORE + 1
+  const line = `document.querySelector('.ab-pull .ab-set').textContent`
+  const status = `document.querySelector('.ab-pull > [role="status"]').textContent`
+  const goOffline = (offline: boolean) =>
+    browser.send('Network.emulateNetworkConditions', {
+      offline,
+      latency: 0,
+      downloadThroughput: -1,
+      uploadThroughput: -1,
+    })
+  before(async () => {
+    await browser.forget()
+    await browser.rewriteAniList(({ request, status, body }) => {
+      const what = askedFor(request)
+      asked.push(what)
+      if (what === 'pool 1990s') return { status, body: { data: cutTo25(body.data) } }
+      return null
+    })
+    await browser.load({ reduceMotion: true })
+    assert.ok(await browser.titlesShown(), 'no titles on the page')
+  })
+  after(async () => {
+    await goOffline(false)
+    await browser.rewriteAniList(null)
+  })
+
+  test('with page 3 wanted offline, the roll that leaves none to come up says repeats start, on the line and to a screen reader, and once back online page 3 lands and the line clears', async () => {
+    await setSlider('Energy', -2)
+    assert.ok(await browser.waitFor(poolSaved('1990s')), 'the pool never arrived')
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    await rollsSaid(early)
+    await browser.send('Network.enable')
+    await goOffline(true)
+    assert.ok(await browser.waitFor('!navigator.onLine', 5_000), 'the page never went offline')
+    // The roll that wants page 3, then the pool's 8 left: the last of them leaves none to come up.
+    const rolled = await rollsSaid(NEED_MORE - 1)
+    const offline = {
+      line: await browser.evaluate<string>(line),
+      said: await browser.evaluate<string>(status),
+      asked: [...asked],
+    }
+    await goOffline(false)
+    assert.ok(await browser.waitFor(page3Saved('1990s'), 10_000), 'page 3 never arrived')
+    await browser.evaluate(NEXT_FRAME)
+    const landed = await browser.evaluate<string>(line)
+    await setSlider('Energy', 0)
+    assert.deepEqual(
+      {
+        before: rolled
+          .slice(0, -1)
+          .filter(({ said }) => !/^Roll \d+: .+, (SSR|SR|R|Mystery)\.$/.test(said)),
+        line: offline.line,
+        said: offline.said.endsWith(REPEATS) ? REPEATS : offline.said,
+        asked: offline.asked,
+        landed,
+      },
+      {
+        before: [],
+        line: REPEATS,
+        said: REPEATS,
+        asked: ['first visit', 'pool 1990s'],
+        landed: 'Very cozy',
+      },
+    )
+  })
+})
