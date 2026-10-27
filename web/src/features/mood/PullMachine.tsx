@@ -11,6 +11,7 @@ import {
 import { flushSync } from 'react-dom'
 import { markBroken, markLoaded } from '../../components/cover.ts'
 import { cssVars } from '../../components/cssVars.ts'
+import { ListControls } from '../../components/ListControls.tsx'
 import { opener } from '../../components/opener.ts'
 import { SfxHeading } from '../../components/SfxHeading.tsx'
 import type { OpenTitle } from '../../components/TitleCard.tsx'
@@ -63,6 +64,9 @@ type Hint = keyof typeof HINTS
 // The line while the pool is on its way, which a screen reader is not told (see the status line).
 const FILLING = 'Filling the machine…'
 
+// Under the rolled card's text, what its rarity means (the user's pick, A11): never luck.
+const RULE = 'Rarity is just the AniList score. It never changes what you roll.'
+
 // The sliders in the order the machine shows them.
 const AXIS_ORDER = Object.keys(AXES) as Axis[]
 const NONE: Sliders = { energy: 0, tone: 0, complexity: 0 }
@@ -101,7 +105,9 @@ const TIMES = cssVars({
  * List, nor any of the last 30 rolled while another can come up, and then the oldest of them
  * first, under the line "Every match has come up once. Repeats start now."; nor another season of
  * a show rolled lately while a title of another show can come up (see rollNext). Under the rolled
- * title, the top 3 matches, which a slider re-sorts at once (see Matches). The sliders, the last
+ * title, the top 3 matches, which a slider re-sorts at once (see Matches). The rolled card shows the
+ * title's rarity, name, season, format and studio, its Why line and what rarity means (A11), then
+ * its My List row, Details, which opens its title card, and Roll again (A10). The sliders, the last
  * rolls and the rolled title are kept for the visit (see session.ts).
  *
  * The pool is asked for only once it is wanted (the plan's section 2, D1): a slider pressed, the
@@ -159,6 +165,15 @@ export function PullMachine({
     // Each roll draws a card, and its sentinel, of its own.
   }, [revealed, pulls])
   const lever = useRef<HTMLButtonElement>(null)
+  // The rolled card's Roll again: each roll draws a card of its own, so a roll from it gives its
+  // focus to the new card's, as the card's place and its buttons stay where they were.
+  const again = useRef<HTMLButtonElement>(null)
+  const refocus = useRef(false)
+  useLayoutEffect(() => {
+    if (!refocus.current) return
+    refocus.current = false
+    again.current?.focus()
+  }, [pulls])
   const listedIds = useListIds()
   const listed = useMemo(() => new Set(listedIds), [listedIds])
   const set = AXIS_ORDER.some((axis) => sliders[axis] !== 0)
@@ -248,7 +263,9 @@ export function PullMachine({
     [ranked, listed, ring],
   )
 
-  function pull() {
+  // A roll, from the lever or from the rolled card's Roll again (`fromCard`), whose focus then goes
+  // to the new card's.
+  function pull(fromCard = false) {
     // A press while the card turns ends the turn at once and rolls nothing (the user's pick, A9),
     // so a quick second press never skips a title unseen: the next press rolls.
     if (!revealed) return reveal()
@@ -264,6 +281,7 @@ export function PullMachine({
     const more = needMore && era && !wanted.includes(era.id) ? [...wanted, era.id] : wanted
     if (!media) return setSession({ wanted: more })
     clearTimeout(timer.current)
+    refocus.current = fromCard
     setSession({ ring: remember(ring, media.id), pulls: pulls + 1, pulled: media, wanted: more })
     setNews((now) => ({ ...now, of: 'pull' }))
     // With reduced motion, no flip: the card shows at once.
@@ -315,6 +333,8 @@ export function PullMachine({
   }
 
   const rarity = pulled ? rarityOf(pulled.averageScore) : null
+  // The rolled title's Why line, by the sliders as they stand, as the matches' (see Matches).
+  const why = pulled && set && scored ? scored.whyOf(pulled, sliders) : []
   const hint: Hint = !page.length
     ? 'empty'
     : !titles.length
@@ -397,7 +417,7 @@ export function PullMachine({
               type="button"
               className="ab-lever"
               aria-label="Roll a random anime"
-              onClick={pull}
+              onClick={() => pull()}
               disabled={!out.length}
             >
               <span>{pulls ? 'Roll again!' : 'Roll!'}</span>
@@ -460,23 +480,40 @@ export function PullMachine({
                   </span>
                 )}
               </div>
-              <div className="ab-result-copy" inert={!revealed}>
-                <p className="ab-tier">
-                  {rarity.label} <span aria-hidden="true">{rarity.stars}</span>
-                </p>
-                <h3>{titleOf(pulled)}</h3>
-                <p className="ab-result-meta">
-                  {[seasonOf(pulled), formatOf(pulled), studioOf(pulled)]
-                    .filter(Boolean)
-                    .join(' · ')}
-                </p>
+              {/* Its text, invisible and out of reach until it shows, and under it the title's
+                  My List row, Details and Roll again, in reach from the press (A10): a press on
+                  Roll again as the card turns ends the turn, as the lever's does. */}
+              <div className="ab-result-side">
+                <div className="ab-result-copy" inert={!revealed}>
+                  <p className="ab-tier">
+                    {rarity.label} <span aria-hidden="true">{rarity.stars}</span>
+                  </p>
+                  <h3>{titleOf(pulled)}</h3>
+                  <p className="ab-result-meta">
+                    {[seasonOf(pulled), formatOf(pulled), studioOf(pulled)]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </p>
+                  <p className="ab-result-why">{why.length ? `Why: ${why.join(' · ')}` : ''}</p>
+                  <p className="ab-rule">{RULE}</p>
+                </div>
+                <ListControls id={pulled.id} lineId="ab-roll-list-status" />
                 <div className="ab-row-actions">
                   <button
                     type="button"
                     className="ab-btn ab-btn-ink"
                     onClick={(event) => onOpen(pulled, event.currentTarget)}
                   >
-                    Open title card
+                    Details
+                  </button>
+                  <button
+                    ref={again}
+                    type="button"
+                    className="ab-btn"
+                    onClick={() => pull(true)}
+                    disabled={!out.length}
+                  >
+                    Roll again
                   </button>
                 </div>
               </div>

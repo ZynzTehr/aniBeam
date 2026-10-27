@@ -2985,7 +2985,9 @@ describe('desktop (1440x900)', () => {
     // its hint when titles arrived, and each pull read the title twice, every star ("black
     // star") and the button's label. Now one status line, there from the start, says each pull.
     const line = `document.querySelector('.ab-pull > [role="status"]')`
-    const live = `[...document.querySelectorAll('.ab-pull [aria-live], .ab-pull [role="status"], .ab-pull [role="alert"]')].map((el) => el.className)`
+    // Each live region in the section: the status line, and the rolled card's My List row's own
+    // line, which says only what a press in the row did (see ListControls).
+    const live = `[...document.querySelectorAll('.ab-pull [aria-live], .ab-pull [role="status"], .ab-pull [role="alert"]')].map((el) => el.matches('.ab-pull > [role="status"]') ? 'the status line' : el.id === 'ab-roll-list-status' ? 'the My List row’s line, ' + (el.textContent ? 'saying something' : 'silent') : el.className)`
     // The lever's name, which a screen reader says and a voice command finds it by, its words on
     // screen, and the count under it.
     const lever = `(({ lever }) => ({ name: lever.getAttribute('aria-label'), shows: lever.textContent, count: document.querySelector('.ab-count').textContent }))({ lever: document.querySelector('.ab-lever') })`
@@ -2995,7 +2997,7 @@ describe('desktop (1440x900)', () => {
       ),
       {
         line: '',
-        live: ['sr-only'],
+        live: ['the status line'],
         lever: { name: 'Roll a random anime', shows: 'Roll!', count: 'No rolls yet' },
       },
       'before any roll, the only live region in the pull section should be its empty status line',
@@ -3051,10 +3053,11 @@ describe('desktop (1440x900)', () => {
       counts.map((n) => ({ name: 'Roll a random anime', shows: 'Roll again!', count: counted(n) })),
       'the lever and its count after each roll',
     )
-    // The result itself must not speak either, or it reads the title a second time.
+    // The result itself must not speak either, or it reads the title a second time: its My List
+    // row's line is silent until a press in the row.
     assert.deepEqual(
       await browser.evaluate(live),
-      ['sr-only'],
+      ['the My List row’s line, silent', 'the status line'],
       'live regions in the pull section once a title is out',
     )
   })

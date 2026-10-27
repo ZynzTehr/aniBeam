@@ -787,6 +787,128 @@ describe('the journey load', () => {
       },
     )
   })
+
+  test('Save on the rolled card puts it on My List, and none of the next 30 rolls gives it, with 2 others left; the card’s buttons keep their names, and its Roll again keeps its focus', async () => {
+    // The plan's PR 4, commit 6. Three titles are left off My List: the rolled one, once saved,
+    // would be the first to come back as the other two repeat, were it not on My List.
+    const pool = recordedPool('1990s').titles
+    const cozy = new Set(
+      rankMatches(pool, { energy: -2, tone: 0, complexity: 0 })
+        .slice(0, 45)
+        .map(({ id }) => id),
+    )
+    const left = pool.filter(({ id }) => !cozy.has(id)).slice(-3)
+    const listed = pool.filter((media) => !left.includes(media)).map(({ id }) => id)
+    await setList(listed)
+    // Every title of the page is on My List now, so the machine asks for its pool, if it hasn't.
+    assert.ok(
+      await browser.waitFor(
+        `${poolSaved('1990s')} && !document.querySelector('.ab-lever').disabled`,
+      ),
+      'the pool never arrived',
+    )
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    const names = `[document.querySelector('.ab-lever'), ...document.querySelectorAll('.ab-result:not([data-old]) button')].map((button) => button.getAttribute('aria-label') ?? button.textContent.trim())`
+    const [{ href }] = await rollsSaid(1)
+    const saved = Number(href?.split('/').pop())
+    const before = await browser.evaluate<string[]>(names)
+    await browser.evaluate(
+      `[...document.querySelectorAll('.ab-result button')].find((button) => button.textContent.trim() === 'Save').click(); true`,
+    )
+    const entry = await browser.evaluate<{ status: string } | null>(
+      `JSON.parse(localStorage.getItem('anibeam:list:v1'))?.[${saved}] ?? null`,
+    )
+    const pressed = await browser.evaluate<string | null>(
+      `[...document.querySelectorAll('.ab-result button')].find((button) => button.textContent.trim() === 'Save').getAttribute('aria-pressed')`,
+    )
+    const afterSave = await browser.evaluate<string[]>(names)
+    // Roll again, by keyboard: the card is drawn again for the new title, and its Roll again takes
+    // the focus the last one had.
+    await browser.evaluate(`(() => {
+      const again = [...document.querySelectorAll('.ab-result button')].find((button) => button.textContent.trim() === 'Roll again')
+      document.querySelector('.ab-result').setAttribute('data-old', '')
+      again.focus()
+      return true
+    })()`)
+    await browser.press('Space')
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-result.is-open:not([data-old])')`, 5000),
+      'Roll again rolled nothing',
+    )
+    const focus = await browser.evaluate<string>(
+      `(() => { const focused = document.activeElement; return focused?.closest('.ab-result:not([data-old])') ? 'the new card’s ' + focused.textContent.trim() : focused === document.body ? 'nothing' : (focused?.getAttribute('aria-label') ?? focused?.textContent.trim()) })()`,
+    )
+    const afterAgain = await browser.evaluate<string[]>(names)
+    const next = [
+      await browser.evaluate<string>(
+        `document.querySelector('.ab-result.is-open .ab-result-panel').getAttribute('href')`,
+      ),
+      ...(await rollsSaid(29)).map((roll) => roll.href),
+    ]
+    await setList([...listed, saved], false)
+    const card = ['Save', 'Want to try', 'Favorite', 'Details', 'Roll again']
+    assert.deepEqual(
+      {
+        entry: entry?.status,
+        pressed,
+        before,
+        afterSave,
+        afterAgain,
+        focus,
+        rolls: next.length,
+        again: next.filter((other) => other === href),
+        others: [...new Set(next)].sort(),
+      },
+      {
+        entry: 'SAVED',
+        pressed: 'true',
+        before: ['Roll a random anime', ...card],
+        afterSave: ['Roll a random anime', ...card],
+        afterAgain: ['Roll a random anime', ...card],
+        focus: 'the new card’s Roll again',
+        rolls: 30,
+        again: [],
+        others: left
+          .map(({ id }) => `/anime/${id}`)
+          .filter((other) => other !== href)
+          .sort(),
+      },
+    )
+  })
+
+  test('Details on the rolled card opens its title card, and closing it gives Details its focus back', async () => {
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    const [{ href }] = await rollsSaid(1)
+    await browser.evaluate(
+      `[...document.querySelectorAll('.ab-result button')].find((button) => button.textContent.trim() === 'Details').focus(); true`,
+    )
+    await browser.press('Space')
+    assert.ok(
+      await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 5000),
+      'Details opened no title card',
+    )
+    const opened = await browser.evaluate<string>(
+      `document.getElementById('ab-card-title').textContent.trim()`,
+    )
+    await browser.press('Escape')
+    assert.ok(
+      await browser.waitFor(`!document.querySelector('dialog.ab-card')`, 5000),
+      'Esc never closed the title card',
+    )
+    const media = recordedPool('1990s').titles.find(({ id }) => `/anime/${id}` === href)
+    assert.deepEqual(
+      {
+        opened,
+        focus: await browser.evaluate<string>(
+          `document.activeElement.closest('.ab-result') ? 'the card’s ' + document.activeElement.textContent.trim() : document.activeElement.localName`,
+        ),
+      },
+      {
+        opened: media ? titleOf(media) : `a title not in the pool, ${href}`,
+        focus: 'the card’s Details',
+      },
+    )
+  })
 })
 
 describe('a cold first visit, counted', () => {

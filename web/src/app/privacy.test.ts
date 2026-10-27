@@ -460,10 +460,15 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // B with no change to its code: the CSS file's new name renamed My List's page (ListPage-*.js),
 // and that name in the import alone took the JS from 93,810 B to 94,014 B, its bytes uncompressed
 // the same.
+// Then 94,200 B with the rolled card in full (the plan's A10 and A11): the title's My List row
+// (ListControls, already in the code every visit loads, its line given an id of its own), Details
+// and Roll again, whose focus a roll from it hands to the new card's, the Why line and the rarity's
+// rule: 94,141 B, 141 B more than 94,000 B; and the CSS 12,850 B for the card's text keeping one
+// size from roll to roll and its rays fitted to its poster beside the text: 12,836 B, 62 B more.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 94_050,
-  'the CSS': 12_800,
+  'the JS every visit loads': 94_200,
+  'the CSS': 12_850,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,
   'the mood scoring': 1_500,

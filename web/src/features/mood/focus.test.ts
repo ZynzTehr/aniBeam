@@ -4,10 +4,12 @@ import { test } from 'node:test'
 
 // Safari on an iPhone mishandles a range input focused from code (WebKit bug 266283), so the mood
 // code never focuses a slider: a tap on a track sets its stop without it (see PullMachine). The
-// only focus() it calls is the lever's, which takes focus from Reset moods as that hides.
-const ALLOWED = ['lever.current?.focus()']
+// only focus() it calls are the lever's, which takes focus from Reset moods as that hides, and the
+// rolled card's Roll again's, which takes the focus of the last card's as a roll from it draws a
+// new card.
+const ALLOWED = ['lever.current?.focus()', 'again.current?.focus()']
 
-test('the mood code calls focus() on nothing but the lever, never on a slider', () => {
+test('the mood code calls focus() on nothing but the lever and Roll again, never on a slider', () => {
   const folder = new URL('./', import.meta.url)
   const calls = readdirSync(folder)
     .filter((file) => /\.tsx?$/.test(file) && !file.includes('.test.'))

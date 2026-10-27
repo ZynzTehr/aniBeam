@@ -1718,11 +1718,14 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   background: #fff;
 }
 
+/* Beside its text, the card stands taller than its poster (the text, the My List row and the
+   actions): the rays reach as far past the poster as they did when the card was as tall as it,
+   clear of the matches' heading below. Stacked, they reach 12% of the card past it. */
 .ab-burst {
   position: absolute;
   z-index: 0;
-  top: -12%;
-  bottom: -12%;
+  top: -3%;
+  bottom: -3%;
   left: -14%;
   width: 72%;
   background: repeating-conic-gradient(
@@ -1735,7 +1738,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 
 /* The rolled card is laid out at the press, so that showing its title moves nothing on the page;
    until it shows, the text is invisible (and inert, see PullMachine). */
-.ab-result:not(.is-open) > .ab-result-copy {
+.ab-result:not(.is-open) .ab-result-copy {
   visibility: hidden;
 }
 
@@ -1840,9 +1843,14 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   color: var(--hot);
 }
 
-.ab-result-copy {
+/* The card's text, its My List row and its actions, over the burst. Each part of the text keeps
+   one size from roll to roll, so a roll moves nothing under it: two lines of title, one of season,
+   format and studio, two of Why and two of the rarity's rule (the lab's card, signed off). */
+.ab-result-side {
   position: relative;
   z-index: 1;
+  min-width: 0;
+  justify-self: stretch;
 }
 
 .ab-tier {
@@ -1857,16 +1865,47 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 }
 
 .ab-result-copy h3 {
+  display: -webkit-box;
+  height: 2.2em;
   margin: 12px 0 8px;
-  font: 400 clamp(26px, 3vw, 42px) / 1.1 var(--display);
+  overflow: hidden;
+  font: 400 clamp(24px, 2.6vw, 38px) / 1.1 var(--display);
   overflow-wrap: anywhere;
   text-wrap: balance;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .ab-result-meta {
+  height: 1.5em;
   margin: 0;
+  overflow: hidden;
   color: #3d3d3d;
   font-weight: 800;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ab-result-why {
+  display: -webkit-box;
+  height: 2.8em;
+  margin: 8px 0 0;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ab-rule {
+  height: 2.8em;
+  margin: 6px 0 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .ab-row-actions {
@@ -2787,6 +2826,11 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     left: 50%;
   }
 
+  .ab-burst {
+    top: -12%;
+    bottom: -12%;
+  }
+
   .ab-sheet {
     --pad: 20px;
 
@@ -2872,13 +2916,19 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     width: min(64vw, 240px);
   }
 
-  .ab-result .ab-row-actions {
+  .ab-result .ab-row-actions,
+  .ab-result .ab-mylist {
     justify-content: center;
   }
 
   .ab-drop {
     top: 20%;
     left: 50%;
+  }
+
+  .ab-burst {
+    top: -12%;
+    bottom: -12%;
   }
 }
 

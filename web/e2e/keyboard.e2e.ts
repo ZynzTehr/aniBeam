@@ -851,10 +851,17 @@ test('by keyboard alone, Esc empties the search box, arrow keys, Home and End mo
       focus: 'Roll a random anime',
       count: '1 roll this visit',
       heard: true,
-      then: ['Open the title card for the pulled title', 'Open title card'],
+      then: [
+        'Open the title card for the pulled title',
+        'Save',
+        'Want to try',
+        'Favorite',
+        'Details',
+        'Roll again',
+      ],
     },
-    card: { first: 'Close title card', round: 'round the card' },
-    closed: 'Open title card',
+    card: { of: 'the pulled title', first: 'Close title card', round: 'round the card' },
+    closed: 'Details',
     decades: {
       arrows: [
         'Decade: 1980s, with titles from the 1980s',
@@ -936,7 +943,8 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
     `${await focus()}${(await browser.evaluate<boolean>(`document.activeElement.checked`)) ? '' : ' (not chosen)'}`
 
   // Space pulls, and focus stays on the lever. With motion the card shows its title 700 ms later
-  // (ROLL_MS), and its title takes focus only then (it is inert until it shows).
+  // (ROLL_MS), and its title takes focus only then (it is inert until it shows); its My List row,
+  // Details and Roll again follow it.
   journey.lever = [await next(), await next(), await next()]
   await browser.press('Space')
   if (!(await browser.waitFor(`document.querySelector('.ab-result.is-open')`, 5_000))) {
@@ -951,19 +959,28 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
     count: await browser.evaluate<string>(`document.querySelector('.ab-count').textContent`),
     heard: (
       await browser.evaluate<string>(
-        `document.querySelector('.ab-pull [role="status"]').textContent`,
+        `document.querySelector('.ab-pull > [role="status"]').textContent`,
       )
     ).startsWith(`Roll 1: ${pulled},`),
-    then: [(await next()).replace(pulled, 'the pulled title'), await next()],
+    then: [
+      (await next()).replace(pulled, 'the pulled title'),
+      await next(),
+      await next(),
+      await next(),
+      await next(),
+      await next(),
+    ],
   }
 
-  // Space on Open title card opens the card, on its Close button. Tab goes round the card and never
-  // to the page behind it: past its last control Chrome takes focus to its own (none, run like
-  // this), then back to the card. Taller than the screen, the card is a stop of its own. How many
-  // stops a round has depends on the pulled title (Watch trailer, Read more and Show spoiler tags
-  // show only for a trailer, a synopsis over five lines and spoiler tags), so Tab goes on until
-  // focus is back on Close, 13 presses at most: up to 10 stops (Save, Want to try, Favorite,
-  // Open on AniList, those three, Chrome's own, the card and Close) and 3 to spare.
+  // Back to Details, the rolled card's: Space on it opens the title card, on its Close button. Tab
+  // goes round the card and never to the page behind it: past its last control Chrome takes focus
+  // to its own (none, run like this), then back to the card. Taller than the screen, the card is a
+  // stop of its own. How many stops a round has depends on the pulled title (Watch trailer, Read
+  // more and Show spoiler tags show only for a trailer, a synopsis over five lines and spoiler
+  // tags), so Tab goes on until focus is back on Close, 13 presses at most: up to 10 stops (Save,
+  // Want to try, Favorite, Open on AniList, those three, Chrome's own, the card and Close) and 3
+  // to spare.
+  await browser.press('Tab', true)
   const opener = await focus()
   await browser.press('Space')
   if (!(await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 5_000))) {
@@ -984,7 +1001,12 @@ async function keyboardJourney(screen: Parameters<Browser['load']>[0]) {
     !round.includes('the page') &&
     round.includes('Open on AniList') &&
     round.includes('Close title card')
-  journey.card = { first, round: goesRound ? 'round the card' : round }
+  const of = await browser.evaluate<string>(`document.getElementById('ab-card-title').textContent`)
+  journey.card = {
+    of: of.trim() === pulled.trim() ? 'the pulled title' : of,
+    first,
+    round: goesRound ? 'round the card' : round,
+  }
 
   // Space on Close closes the card, with focus back on what opened it.
   for (let stop = 0; stop < 13 && (await focus()) !== 'Close title card'; stop++)
