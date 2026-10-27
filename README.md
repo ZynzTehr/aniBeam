@@ -198,10 +198,10 @@ Each part of the production build, compressed with Brotli at quality 11, against
 
 | Part                                         | Now, of its budget |
 | -------------------------------------------- | ------------------ |
-| The JS every visit loads                     | 94,521 of 94,600 B |
+| The JS every visit loads                     | 94,504 of 94,600 B |
 | The CSS                                      | 12,879 of 12,900 B |
 | The JS loaded only when needed (the samples) | 14,350 of 14,500 B |
-| My List's page, a file of its own            | 2,329 of 2,500 B   |
+| My List's page, a file of its own            | 2,326 of 2,500 B   |
 | The mood scoring, a file of its own          | 955 of 1,500 B     |
 | Every other file                             | 382 of 500 B       |
 
@@ -347,7 +347,7 @@ The checks that hold it:
 - `web/e2e/discover.e2e.ts` "motion turned off mid-flip", `web/e2e/discover.e2e.ts` "a roll’s card never glows" and `web/e2e/discover.e2e.ts` "a roll’s card only fades in", for Reduce motion.
 - `web/e2e/layout.e2e.ts` "at 280px the rolled card fits the screen whole" and `web/e2e/layout.e2e.ts` "beside the machine, from 821 to 1170px".
 
-The gacha took the JS every visit loads from 93,711 to 94,521 B, 810 B more (the plan said 600 to 800), about 200 B of it only the new name of My List's page file in an import and 111 B the review's fix for page 3 on its way, and the CSS from 12,530 to 12,879 B, 349 B more (the plan said 400 to 550). See [Byte budgets now](#byte-budgets-now).
+The gacha took the JS every visit loads from 93,711 to 94,504 B, 793 B more (the plan said 600 to 800), about 200 B of it only the new name of My List's page file in an import and 95 B the review's fixes for page 3 on its way, and the CSS from 12,530 to 12,879 B, 349 B more (the plan said 400 to 550). See [Byte budgets now](#byte-budgets-now).
 
 ### Landing (the scroll slam)
 
