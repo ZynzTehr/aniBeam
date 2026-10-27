@@ -774,7 +774,9 @@ describe('the journey load', () => {
       const other = pool.find(({ id }) => !left.includes(id))!.id
       await setList(all.filter((id) => id !== other))
       await browser.evaluate(NEXT_FRAME)
-      await rollsSaid(1)
+      // That roll leaves none to come up, but page 3's titles are on their way: no repeats yet.
+      const [{ said }] = await rollsSaid(1)
+      assert.ok(!said.endsWith(REPEATS), `the roll that asked for page 3 said “${said}”`)
       assert.ok(await browser.waitFor(page3Saved('1990s')), 'page 3 never arrived')
     }
     // A write from another tab adds to what the page holds, so `left` are taken off on their own.
@@ -1658,17 +1660,19 @@ describe('a first visit offline, with the mood scoring blocked, then AniList bus
   })
 })
 
+/** A decade's two pool pages from AniList, `pool`, cut to page 1's first 25 titles. */
+const cutTo25 = (pool: any) => ({
+  p1: { ...pool.p1, media: pool.p1.media.slice(0, 25) },
+  p2: { ...pool.p2, media: [] },
+})
+
 describe('page 3 and the end states', () => {
   // The 1990s' pool cut to its 25 most popular titles, page 2 still saying there is a page 3, so
   // a few rolls bring it near its end (the plan's PR 4, commit 7), and page 3 is AniList's (REC-4).
   // And Pre-1970, a decade of 56 titles with no page 3 (REC-3b), whose own page no check records:
   // it is answered with its pool's first 20, as AniList would send them.
   const asked: string[] = []
-  const cut = (pool: any) => ({
-    p1: { ...pool.p1, media: pool.p1.media.slice(0, 25) },
-    p2: { ...pool.p2, media: [] },
-  })
-  const nineties = poolOf(cut(recordings().get('pool-1990s')!.body.data), MOOD_TAGS)
+  const nineties = poolOf(cutTo25(recordings().get('pool-1990s')!.body.data), MOOD_TAGS)
   const page3 = recordedPage3('1990s')
   const preData = recordings().get('pool-pre-1970')!.body.data
   const pre = recordedPool('pre-1970').titles
@@ -1679,7 +1683,7 @@ describe('page 3 and the end states', () => {
     await browser.rewriteAniList(({ request, status, body }) => {
       const what = askedFor(request)
       asked.push(what)
-      if (what === 'pool 1990s') return { status, body: { data: cut(body.data) } }
+      if (what === 'pool 1990s') return { status, body: { data: cutTo25(body.data) } }
       if (what === 'decade pre-1970')
         return {
           status: 200,
@@ -1835,5 +1839,120 @@ describe('page 3 and the end states', () => {
       false,
     )
     assert.deepEqual(machine, { again: true, line: LISTED, said: LISTED })
+  })
+})
+
+describe('page 3 held back', () => {
+  // The 1990s' pool cut to 25, as above, and page 3's first request answered with AniList's 429,
+  // its reset 4 seconds away: the pool's last titles can all be rolled while it waits. Then the
+  // page loaded again with the pool saved but not page 3, and the mood scoring's file blocked.
+  const asked: string[] = []
+  const nineties = poolOf(cutTo25(recordings().get('pool-1990s')!.body.data), MOOD_TAGS)
+  const fromPage3 = new Set(
+    recordedPage3('1990s')
+      .filter(({ id }) => !nineties.titles.some((other) => other.id === id))
+      .map(({ id }) => `/anime/${id}`),
+  )
+  // The rolls made with NEED_MORE or more left before them: the next asks for page 3.
+  const early = nineties.titles.length - NEED_MORE + 1
+  const line = `document.querySelector('.ab-pull .ab-set').textContent`
+  const BUSY =
+    'AniList is busy right now. It’s not something you did. Trying again within a minute.'
+  before(async () => {
+    await browser.forget()
+    let busy = true
+    await browser.rewriteAniList(({ request, status, body }) => {
+      const what = askedFor(request)
+      asked.push(what)
+      if (what === 'pool 1990s') return { status, body: { data: cutTo25(body.data) } }
+      if (what !== 'pool page 3 1990s' || !busy) return null
+      busy = false
+      return {
+        status: 429,
+        body: { data: null, errors: [{ message: 'Too Many Requests.', status: 429 }] },
+        headers: {
+          'X-RateLimit-Reset': String(Math.ceil(Date.now() / 1000) + 4),
+          'X-RateLimit-Remaining': '0',
+        },
+      }
+    })
+    await browser.load({ reduceMotion: true })
+    assert.ok(await browser.titlesShown(), 'no titles on the page')
+  })
+  after(async () => {
+    await browser.send('Network.setBlockedURLs', { urls: [] })
+    await browser.rewriteAniList(null)
+  })
+
+  test('with page 3 held by AniList’s 429, the pool’s last titles roll under the busy line, none said as repeats, and page 3’s titles come up once it lands', async () => {
+    await setSlider('Energy', -2)
+    assert.ok(await browser.waitFor(poolSaved('1990s')), 'the pool never arrived')
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    await rollsSaid(early)
+    const [asking] = await rollsSaid(1)
+    assert.ok(
+      await browser.waitFor(`${line} === ${JSON.stringify(BUSY)}`, 5_000),
+      'the busy line never showed',
+    )
+    // The pool's 8 titles left, then 2 repeats, while page 3 waits.
+    const held = await rollsSaid(NEED_MORE)
+    const waiting = { line: await browser.evaluate<string>(line), asked: [...asked] }
+    assert.ok(await browser.waitFor(page3Saved('1990s'), 10_000), 'page 3 never arrived')
+    await browser.evaluate(NEXT_FRAME)
+    const landed = await browser.evaluate<string>(line)
+    const [next] = await rollsSaid(1)
+    await setSlider('Energy', 0)
+    assert.deepEqual(
+      {
+        said: [asking, ...held, next].filter(
+          ({ said }) => !/^Roll \d+: .+, (SSR|SR|R|Mystery)\.$/.test(said),
+        ),
+        waiting,
+        landed,
+        next: fromPage3.has(next.href ?? ''),
+      },
+      {
+        said: [],
+        waiting: { line: BUSY, asked: ['first visit', 'pool 1990s', 'pool page 3 1990s'] },
+        landed: 'Very cozy',
+        next: true,
+      },
+    )
+  })
+
+  test('page 3 wanted while the mood scoring’s file can’t load fails unseen, and a slider set once it loads asks for page 3 again', async () => {
+    // The saved copy updates within a second of the page's last change. Page 3 is taken out of it,
+    // and the page loaded again, so the scoring isn't loaded and no slider is set.
+    await sleep(1_500)
+    await browser.evaluate(`(() => {
+      const cache = JSON.parse(localStorage.getItem('anibeam:cache'))
+      cache.clientState.queries = cache.clientState.queries.filter((query) => query.queryKey[1] !== ${JSON.stringify(QUERIES.poolPage3)})
+      localStorage.setItem('anibeam:cache', JSON.stringify(cache))
+      return true
+    })()`)
+    await browser.send('Network.enable')
+    await browser.send('Network.setBlockedURLs', { urls: ['*/features/mood/scoring.ts*'] })
+    await browser.load({ reduceMotion: true })
+    assert.ok(await browser.titlesShown(), 'no titles on the page')
+    asked.length = 0
+    await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
+    // The last of these asks for page 3, whose scoring can't load; its one retry, a second later,
+    // fails too.
+    const rolled = await rollsSaid(early + 1)
+    await sleep(3_000)
+    const blocked = [...asked]
+    await browser.send('Network.setBlockedURLs', { urls: [] })
+    await setSlider('Energy', -2)
+    const again = await browser.waitFor(page3Saved('1990s'), 10_000)
+    await setSlider('Energy', 0)
+    assert.deepEqual(
+      {
+        rolled: rolled.filter(({ href }) => !href).length,
+        blocked,
+        again,
+        asked: asked.filter((what) => what.startsWith('pool')),
+      },
+      { rolled: 0, blocked: [], again: true, asked: ['pool page 3 1990s'] },
+    )
   })
 })

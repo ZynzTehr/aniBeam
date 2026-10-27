@@ -473,9 +473,13 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // with that roll: 94,439 B, 298 B more. The gacha (PR 4) in all: the JS every visit loads from
 // 93,711 B to 94,439 B, 728 B more, about 200 B of it a renamed file in an import (the plan said
 // 600 to 800 B), and the CSS from 12,530 B to 12,836 B, 306 B more (the plan said 400 to 550 B).
+// Then 94,600 B with the review's fix for page 3 on its way: no line, nor any roll, says repeats
+// start or how few are left until it lands or fails, AniList's 429 on it shows the busy line, and
+// a page 3 that failed with the mood scoring is asked for again once it loads: 94,550 B, 111 B
+// more.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 94_500,
+  'the JS every visit loads': 94_600,
   'the CSS': 12_850,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,

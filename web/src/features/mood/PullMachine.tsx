@@ -79,10 +79,21 @@ const RULE = 'Rarity is just the AniList score. It never changes what you roll.'
 /**
  * The line for what the next roll would find, `next`: a repeat, as every title that can come up
  * has, lately, so the oldest of them comes back (see rollNext); or, once the machine holds the
- * `whole` decade, fewer than 20 left to come up; else none.
+ * `whole` decade, fewer than 20 left to come up; else none. None while page 3 is on its way
+ * (`filling`), whose titles would come up then.
  */
-const ending = (next: Roll<Media>, whole: boolean) =>
-  next.reason === 'repeat' ? REPEATS : next.reason === 'few' && whole ? fewLine(next.left) : ''
+const ending = (next: Roll<Media>, whole: boolean, filling: boolean) =>
+  filling
+    ? ''
+    : next.reason === 'repeat'
+      ? REPEATS
+      : next.reason === 'few' && whole
+        ? fewLine(next.left)
+        : ''
+
+// Whether AniList's 429 holds a request back: it is tried again once the minute is up.
+const busy = (query: { isFetching: boolean; failureReason: Error | null }) =>
+  query.isFetching && (query.failureReason as AniListError | null)?.status === 429
 
 // The sliders in the order the machine shows them.
 const AXIS_ORDER = Object.keys(AXES) as Axis[]
@@ -225,9 +236,10 @@ export function PullMachine({
   // titles follow the pool's, but those the pool already has (AniList's order shifts between
   // requests), and wait for the pool: with the page's titles alone, page 3 would be all there is.
   const deeper = !!era && !!pool.data?.hasNextPage
+  const wants3 = !!era && deeper && page3.includes(era.id)
   const third = useQuery({
     ...poolPage3Query(era ?? FIRST_ERA),
-    enabled: !!era && deeper && page3.includes(era.id) && online && !outage,
+    enabled: wants3 && online && !outage,
   })
   const titles = useMemo(() => {
     if (!held?.length) return onPage
@@ -238,6 +250,9 @@ export function PullMachine({
   // Whether the machine holds every title of the decade it will: the pool, and its page 3 if there
   // is one. Only then can it say how few are left in the decade.
   const whole = titles !== onPage && !!pool.data && (!deeper || !!third.data)
+  // Whether page 3 is wanted and not in yet, nor failed: till it lands, no line says repeats start
+  // or how few are left, as its titles would then come up.
+  const filling = wants3 && !third.data && !third.isError
   // The decade the titles come from, which heads the matches: the last one while its titles stand
   // in, so the heading never names a decade they are not from. Set as the component renders.
   const [from, setFrom] = useState(era)
@@ -260,7 +275,8 @@ export function PullMachine({
   // fail (offline, or an old tab after a deploy renamed it), the line says so, with Try again,
   // which loads it again, and the pool, which failed with it, asking AniList nothing. A pool wanted
   // with no slider set fails with it too, unseen, and an errored query isn't asked for again on
-  // its own: once the scoring loads here, a pool that failed is asked for again, if still wanted.
+  // its own: once the scoring loads here, a pool that failed is asked for again, if still wanted,
+  // and so is its page 3, which needs the scoring too.
   const [scoring, setScoring] = useState(moodScoring.current)
   const [failed, setFailed] = useState(false)
   const scored = scoring ?? moodScoring.current
@@ -269,11 +285,12 @@ export function PullMachine({
     moodScoring.load().then(
       (loaded) => {
         setScoring(loaded)
-        void client.refetchQueries({
-          queryKey: poolQuery(era ?? FIRST_ERA).queryKey,
-          type: 'active',
-          predicate: (query) => query.state.status === 'error',
-        })
+        for (const { queryKey } of [poolQuery(era ?? FIRST_ERA), poolPage3Query(era ?? FIRST_ERA)])
+          void client.refetchQueries({
+            queryKey,
+            type: 'active',
+            predicate: (query) => query.state.status === 'error',
+          })
       },
       () => setFailed(true),
     )
@@ -295,8 +312,8 @@ export function PullMachine({
 
   // The line for what the next roll would find (see ending).
   const ends = useMemo(
-    () => ending(rollNext({ ranked, listed, ring, random: () => 0 }), whole),
-    [ranked, listed, ring, whole],
+    () => ending(rollNext({ ranked, listed, ring, random: () => 0 }), whole, filling),
+    [ranked, listed, ring, whole, filling],
   )
 
   // A roll, from the lever or from the rolled card's Roll again (`fromCard`), whose focus then goes
@@ -327,10 +344,11 @@ export function PullMachine({
     setSession({ ring: next, pulls: pulls + 1, pulled: media, wanted: more, page3: deep })
     // The line as this roll leaves it, said with the roll and kept with it: a change to My List or
     // the decade after it changes the line, but never what was said of this roll. With page 3 on
-    // its way, the machine doesn't hold the whole decade yet.
+    // its way, wanted by this roll or before it, its titles are still to come up.
     const words = ending(
       rollNext({ ranked, listed, ring: next, random: () => 0 }),
-      whole && deep === page3,
+      whole,
+      filling || (deep !== page3 && !third.data),
     )
     setNews((now) => ({ ...now, of: 'pull', words }))
     // With reduced motion, no flip: the card shows at once.
@@ -403,7 +421,7 @@ export function PullMachine({
       ? 'Offline: waiting for a connection.'
       : outage && titles === onPage
         ? samplesLine(out.length)
-        : pool.isFetching && (pool.failureReason as AniListError | null)?.status === 429
+        : busy(pool) || busy(third)
           ? 'AniList is busy right now. It’s not something you did. Trying again within a minute.'
           : (set && !scored) || coming
             ? FILLING
