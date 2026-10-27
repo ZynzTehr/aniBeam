@@ -132,8 +132,8 @@ const TIMES = cssVars({
  * sliders (rankMatches, from the mood scoring's own file); with none, any title. Never one on My
  * List, nor any of the last 30 rolled while another can come up, and then the oldest of them
  * first, under the line "Every match has come up once. Repeats start now."; nor another season of
- * a show rolled lately while a title of another show can come up (see rollNext). A roll that
- * leaves fewer than 10 of the pool's titles to come up asks for its page 3, once, if page 2 said
+ * a show rolled lately while a title of another show can come up (see rollNext). A roll made with
+ * fewer than 10 of the pool's titles left to come up asks for its page 3, once, if page 2 said
  * there is one (A12); once the machine holds all it will of the decade, under 20 titles left, the
  * line says how many. Under the rolled title, the top 3 matches, which a slider re-sorts at once
  * (see Matches). The rolled card shows the title's rarity, name, season, format and studio, its

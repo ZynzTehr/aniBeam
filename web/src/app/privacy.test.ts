@@ -466,13 +466,13 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // rule: 94,141 B, 141 B more than 94,000 B; and the CSS 12,850 B for the card's text keeping one
 // size from roll to roll and its rays fitted to its poster beside the text: 12,836 B, 62 B more.
 // Then 94,500 B with page 3 and the end states (the plan's A12): the pool's page 3, its query's
-// text in QUERIES (about 150 B on its own), asked for once by a roll that leaves fewer than 10 of
-// the pool's titles to come up, its titles added to the pool's; the saved copy keeping a page 3
-// only with its pool; the line saying "Only N titles left to roll in this decade." and, with a
-// card rolled, that everything is on My List; and each roll saying the line as it left it, kept
-// with that roll: 94,439 B, 298 B more. The gacha (PR 4) in all: the JS every visit loads from
-// 93,711 B to 94,439 B, 728 B more, about 200 B of it a renamed file in an import (the plan said
-// 600 to 800 B), and the CSS from 12,530 B to 12,836 B, 306 B more (the plan said 400 to 550 B).
+// text in QUERIES (about 150 B on its own), asked for once by a roll made with fewer than 10 of the
+// pool's titles left to come up, its titles added to the pool's; the saved copy keeping a page 3
+// only with its pool; the line saying "Only N titles left to roll in this decade." and, with a card
+// rolled, that everything is on My List; and each roll saying the line as it left it, kept with
+// that roll: 94,439 B, 298 B more. The gacha (PR 4) in all: the JS every visit loads from 93,711 B
+// to 94,439 B, 728 B more, about 200 B of it a renamed file in an import (the plan said 600 to 800
+// B), and the CSS from 12,530 B to 12,836 B, 306 B more (the plan said 400 to 550 B).
 // Then 94,600 B with the review's fix for page 3 on its way: no line, nor any roll, says repeats
 // start or how few are left until it lands or fails, AniList's 429 on it shows the busy line, and
 // a page 3 that failed with the mood scoring is asked for again once it loads: 94,550 B, 111 B

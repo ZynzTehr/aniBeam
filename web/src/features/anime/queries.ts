@@ -97,9 +97,9 @@ export const QUERIES = {
   // A decade's page and its mood pool in one request, for a decade picked with a slider set, each
   // list under its own name, as the pool and the decade's page have them on their own.
   decadeWithPool: `query (${ERA_VARIABLES}) { era: ${ERA} p1: ${poolPage(1)} p2: ${poolPage(2)} }`,
-  // A decade's mood pool's page 3, its next 50 titles, under its own name: asked for once, when a
-  // roll leaves fewer than 10 of the pool's titles to come up and page 2 said there is a page 3
-  // (the plan's A12, see poolPage3Query).
+  // A decade's mood pool's page 3, its next 50 titles, under its own name: asked for once, by a
+  // roll made with fewer than 10 of the pool's titles left to come up, if page 2 said there is a
+  // page 3 (the plan's A12, see poolPage3Query).
   poolPage3: `query (${ERA_VARIABLES}) { p3: ${poolPage(3)} }`,
   // The titles bundled for when AniList can't be reached, by id (see scripts/refresh-samples.ts).
   // Only finished titles, so none has an episode countdown that would go stale in the bundle.
@@ -436,10 +436,11 @@ export const poolQuery = (era: Era) =>
 
 /**
  * A decade's mood pool's page 3 (the plan's A12): its next 50 titles in one request, each cut as
- * the first two pages' are (poolTitleOf), with no Ecchi title. It is asked for only once a roll
- * leaves fewer than 10 of the pool's titles to come up and page 2 said there is a page 3
- * (Pool.hasNextPage), never by a slider; the caller keeps those titles that the first two pages
- * don't already have. Keyed by the decade alone, fresh as long as the pool.
+ * the first two pages' are (poolTitleOf), with no Ecchi title. It is asked for only by a roll
+ * made with fewer than 10 of the pool's titles left to come up (the one after the roll that left
+ * 9), if page 2 said there is a page 3 (Pool.hasNextPage), never by a slider; the caller keeps
+ * those titles that the first two pages don't already have. Keyed by the decade alone, fresh as
+ * long as the pool.
  */
 export const poolPage3Query = (era: Era) =>
   queryOptions({

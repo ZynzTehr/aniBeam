@@ -22,8 +22,9 @@ export type Session = {
    */
   wanted: readonly string[]
   /**
-   * The decades whose mood pool's page 3 is wanted, by id: once a roll leaves fewer than 10 of the
-   * pool's titles to come up, if page 2 said there is one (see PullMachine). Asked for once.
+   * The decades whose mood pool's page 3 is wanted, by id: once a roll is made with fewer than 10
+   * of the pool's titles left to come up, if page 2 said there is one (see PullMachine). Asked for
+   * once.
    */
   page3: readonly string[]
 }

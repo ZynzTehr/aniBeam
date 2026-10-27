@@ -763,8 +763,8 @@ describe('the journey load', () => {
 
   /**
    * Puts every title of the 1990s' pool and of its page 3 on My List but `left`, with page 3 in,
-   * and gives the ids listed. A roll that leaves fewer than 10 titles to come up asks for page 3
-   * (the plan's A12), whose titles would then come up: so, while it isn't in, one roll is made
+   * and gives the ids listed. A roll made with fewer than 10 titles left to come up asks for page
+   * 3 (the plan's A12), whose titles would then come up: so, while it isn't in, one roll is made
    * with only one other title left, and page 3 awaited, every title of it listed too.
    */
   async function leaveOnly(left: number[]) {
@@ -1667,7 +1667,8 @@ const cutTo25 = (pool: any) => ({
 })
 
 describe('page 3 and the end states', () => {
-  // The 1990s' pool cut to its 25 most popular titles, page 2 still saying there is a page 3, so
+  // The 1990s' pool cut to its 25 most popular titles, 24 that can come up (one is Ecchi), page 2
+  // still saying there is a page 3, so
   // a few rolls bring it near its end (the plan's PR 4, commit 7), and page 3 is AniList's (REC-4).
   // And Pre-1970, a decade of 56 titles with no page 3 (REC-3b), whose own page no check records:
   // it is answered with its pool's first 20, as AniList would send them.
@@ -1703,13 +1704,13 @@ describe('page 3 and the end states', () => {
   })
   after(() => browser.rewriteAniList(null))
 
-  test('with a pool of 25 that has a page 3, the roll that leaves fewer than 10 to come up asks for it, once and none before; its titles then come up, and slider moves still cost nothing', async () => {
-    assert.ok(nineties.hasNextPage && nineties.titles.length >= NEED_MORE + 5, 'not a pool to roll')
+  test('with a pool cut to 24 that has a page 3, a roll made with fewer than 10 left to come up asks for it, once and none before; its titles then come up, and slider moves still cost nothing', async () => {
+    assert.ok(nineties.hasNextPage && nineties.titles.length === 24, 'not the pool to roll')
     await setSlider('Energy', -2)
     assert.ok(await browser.waitFor(poolSaved('1990s')), 'the pool never arrived')
     await browser.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
-    // A roll asks for page 3 when fewer than NEED_MORE are left before it rolls: these leave
-    // NEED_MORE or more.
+    // A roll asks for page 3 when fewer than NEED_MORE are left before it rolls: these are made
+    // with NEED_MORE or more left, the last of them leaving NEED_MORE - 1.
     const early = nineties.titles.length - NEED_MORE + 1
     const before = await rollsSaid(early)
     await sleep(QUIET_MS)
