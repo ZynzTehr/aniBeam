@@ -2905,6 +2905,18 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   container-type: inline-size;
 }
 
+/* Beside the machine, where the rolled card stacks, its row keeps the card's room from the start,
+   so a first roll moves nothing under it, nor the machine, which tops the row beside it. */
+@media (min-width: 821px) and (max-width: 1170px) {
+  .ab-pull-row {
+    align-items: start;
+  }
+
+  .ab-reveal {
+    grid-template-rows: minmax(880px, auto) auto;
+  }
+}
+
 @container (max-width: 630px) {
   .ab-result {
     justify-items: center;

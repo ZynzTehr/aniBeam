@@ -556,3 +556,29 @@ test('at 280px the rolled card fits the screen whole, its My List row, Details a
     `rolled ${titles.join(', ')}`,
   )
 })
+
+test('beside the machine, from 821 to 1170px, where the rolled card stacks, a first roll moves neither the lever nor what is under the card', async () => {
+  // The card is taller stacked than the hint it takes the place of, so its row keeps the card's
+  // room from the start: a first roll grew the row, moving the lever under the pointer, as the
+  // machine sat in the middle of the row, and the matches and decades under it, 337px at 1024px.
+  // Under 821px the card comes in under the machine, below the lever.
+  const seen: string[] = []
+  for (const width of [821, 1024, 1170]) {
+    await browser.load({ width, height: 900, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    await browser.landAll()
+    const where = `['.ab-lever', '.ab-matches', '.ab-strip'].map((part) => Math.round(document.querySelector(part).getBoundingClientRect().top + scrollY))`
+    const before = await browser.evaluate<number[]>(where)
+    await browser.evaluate(`document.querySelector('.ab-lever').click(), true`)
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-result.is-open')`, 5000),
+      'the roll never opened',
+    )
+    const after = await browser.evaluate<number[]>(where)
+    const moved = ['the lever', 'the matches', 'the decades'].flatMap((part, i) =>
+      after[i] === before[i] ? [] : [`${part} ${after[i] - before[i]}px`],
+    )
+    if (moved.length) seen.push(`${width}px: ${moved.join(', ')}`)
+  }
+  assert.deepEqual(seen, [], 'a first roll moves the page')
+})
