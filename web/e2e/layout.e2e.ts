@@ -563,16 +563,31 @@ test('at 280px the rolled card fits the screen whole, its rarity’s rule, My Li
   )
 })
 
-test('beside the machine, from 821 to 1170px, where the rolled card stacks, a first roll moves neither the lever nor what is under the card', async () => {
+test('beside the machine, from 821 to 1170px and at 1180px beside a scrollbar, where the rolled card stacks, a first roll moves neither the lever nor what is under the card', async () => {
   // The card is taller stacked than the hint it takes the place of, so its row keeps the card's
   // room from the start: a first roll grew the row, moving the lever under the pointer, as the
   // machine sat in the middle of the row, and the matches and decades under it, 337px at 1024px.
-  // Under 821px the card comes in under the machine, below the lever.
+  // Under 821px the card comes in under the machine, below the lever. A scrollbar that takes room,
+  // as on Windows (17px here), narrows the reveal, so at 1180px the card stacks there too.
   const seen: string[] = []
-  for (const width of [821, 1024, 1170]) {
+  for (const [width, scrollbar] of [
+    [821, false],
+    [1024, false],
+    [1170, false],
+    [1180, true],
+  ] as const) {
     await browser.load({ width, height: 900, reduceMotion: true })
     assert.ok(await browser.titlesShown())
     await browser.landAll()
+    if (scrollbar)
+      await browser.evaluate(
+        `document.head.append(Object.assign(document.createElement('style'), { textContent: 'html { overflow-y: scroll } ::-webkit-scrollbar { width: 17px }' })), true`,
+      )
+    const at = `${width}px${scrollbar ? ' beside a scrollbar' : ''}`
+    const reveal = await browser.evaluate<number>(
+      `document.querySelector('.ab-reveal').getBoundingClientRect().width`,
+    )
+    assert.ok(reveal <= 630, `${at}: the reveal is ${reveal}px wide, where the card doesn't stack`)
     const where = `['.ab-lever', '.ab-matches', '.ab-strip'].map((part) => Math.round(document.querySelector(part).getBoundingClientRect().top + scrollY))`
     const before = await browser.evaluate<number[]>(where)
     await browser.evaluate(`document.querySelector('.ab-lever').click(), true`)
@@ -584,7 +599,7 @@ test('beside the machine, from 821 to 1170px, where the rolled card stacks, a fi
     const moved = ['the lever', 'the matches', 'the decades'].flatMap((part, i) =>
       after[i] === before[i] ? [] : [`${part} ${after[i] - before[i]}px`],
     )
-    if (moved.length) seen.push(`${width}px: ${moved.join(', ')}`)
+    if (moved.length) seen.push(`${at}: ${moved.join(', ')}`)
   }
   assert.deepEqual(seen, [], 'a first roll moves the page')
 })

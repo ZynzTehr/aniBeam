@@ -1338,8 +1338,12 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   grid-template-columns: minmax(260px, 400px) minmax(0, 1fr);
 }
 
+/* The machine tops its row: beside the stacked card's room (see .ab-reveal::before) it sat in the
+   room's middle. Beside the card side by side, or above it on a phone, it is the tallest in its
+   row, so its top and its middle are the same place there. */
 .ab-machine {
   display: grid;
+  align-self: start;
   justify-items: center;
 }
 
@@ -2905,18 +2909,6 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   container-type: inline-size;
 }
 
-/* Beside the machine, where the rolled card stacks, its row keeps the card's room from the start,
-   so a first roll moves nothing under it, nor the machine, which tops the row beside it. */
-@media (min-width: 821px) and (max-width: 1170px) {
-  .ab-pull-row {
-    align-items: start;
-  }
-
-  .ab-reveal {
-    grid-template-rows: minmax(880px, auto) auto;
-  }
-}
-
 @container (max-width: 630px) {
   .ab-result {
     justify-items: center;
@@ -2941,6 +2933,26 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   .ab-burst {
     top: -12%;
     bottom: -12%;
+  }
+
+  /* Beside the machine, the stacked card's row keeps its room from the start (the card is 795 to
+     872px tall there), so a first roll moves nothing under it, nor the lever beside it. It is set
+     here, where the card stacks, not at a screen width: a scrollbar that takes room, as on
+     Windows, narrows the reveal, and the card stacked up to about 1190px wide with no room kept.
+     A query on the reveal can't size the reveal's own rows, so the room is an empty box of its
+     own, in the hint's or the card's place, which sits in the room's middle. Under 821px the card
+     comes in under the machine and pushes what is under it down, on purpose: 880px empty under
+     the hint would put the matches a screen away on a phone. */
+  @media (min-width: 821px) {
+    .ab-reveal::before {
+      grid-area: 1 / 1;
+      min-height: 880px;
+      content: '';
+    }
+
+    .ab-reveal > :first-child {
+      grid-area: 1 / 1;
+    }
   }
 }
 
