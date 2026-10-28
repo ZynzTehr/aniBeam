@@ -480,9 +480,14 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // rolled card stacks beside the machine: its row keeps the card's room from the start, and the
 // machine tops it, so the lever and what is under the card stay put: 12,869 B, 33 B more. And the
 // JS 94,521 B, 29 B fewer, with no change to what it does: the rarity's rule moved into moods.ts.
+// Then 94,700 B with Phase 5's wrap-up (PR 5): a search with no matches linking its line to the
+// mood sliders, on Discover's pull machine, through App's go (Strip's action slot, the link and
+// its words: 94,577 B, 73 B more; the CSS 12,897 B for the link's underline, within its budget),
+// then /mood landing there, replaced by /#pull with a jump to the Pull heading (the plan's D6,
+// about 60 B): 94,650 B, 73 B more.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 94_600,
+  'the JS every visit loads': 94_700,
   'the CSS': 12_900,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,

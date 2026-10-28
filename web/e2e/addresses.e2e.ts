@@ -212,6 +212,66 @@ test('an address the app doesn’t know becomes /, keeping its query and hash, w
   }
 })
 
+test('/mood, the mood sliders’ address in the spec, becomes /#pull in its place and lands on the Pull heading, focused and in view, still there once the titles and the intro’s covers have landed, asking AniList only for a first visit’s titles', async () => {
+  // The mood sliders live on Discover's pull machine (the user's choice, the plan's D6), so the
+  // address a visitor types by hand, or an old link, lands there. Replaced, not pushed: Back goes
+  // to the page before it, never to /mood. A first visit, with AniList's answers held 2 s, so the
+  // titles, and the intro's covers on a phone above the headline, land after the jump.
+  const asked: string[] = []
+  const what = ({ query }: Answer['request']) =>
+    query === QUERIES.firstVisit ? 'trending + 1990s' : JSON.stringify(query.slice(0, 40))
+  // Where the page is, what has focus, and where the Pull heading is against the header.
+  const LANDED = `(() => {
+    const heading = document.getElementById('pull').getBoundingClientRect()
+    const header = Math.max(0, document.querySelector('.ab-top').getBoundingClientRect().bottom)
+    return {
+      address: location.pathname + location.search + location.hash,
+      focus: document.activeElement.id || document.activeElement.tagName,
+      at: heading.top >= header - 0.5 && heading.bottom <= innerHeight ? 'in view, below the header' : Math.round(heading.top - header) + 'px below the header',
+    }
+  })()`
+  const seen: Record<string, unknown> = {}
+  for (const screen of [PHONE, DESKTOP]) {
+    await browser.forget()
+    // The tab's history from 1 entry, about:blank's: a tab keeps at most 50, so a full one would
+    // count a push as no new entry.
+    await browser.send('Page.resetNavigationHistory')
+    const entries = await browser.evaluate<number>('history.length')
+    await browser.holdAniList(2000)
+    await browser.rewriteAniList(({ request }) => {
+      asked.push(what(request))
+      return null
+    })
+    try {
+      await browser.load({ ...screen, url: at('/mood') })
+      const landed = await browser.waitFor(`document.activeElement.id === 'pull'`, 5000)
+      const first = await browser.evaluate(LANDED)
+      assert.ok(landed, `${screen.width}px: landed at ${JSON.stringify(first)}`)
+      assert.ok(await browser.titlesShown(), `${screen.width}px: the titles never landed`)
+      await browser.animationsDone()
+      await sleep(1000)
+      seen[`${screen.width}px`] = {
+        first,
+        settled: await browser.evaluate(LANDED),
+        entries: (await browser.evaluate<number>('history.length')) - entries,
+      }
+    } finally {
+      await browser.holdAniList(0)
+      await browser.rewriteAniList(null)
+    }
+    // Back leaves the app for the page before it.
+    await browser.evaluate(`history.back(); true`)
+    assert.ok(
+      await browser.waitFor(`location.href === 'about:blank'`, 5000),
+      `${screen.width}px: Back went to ${await where()}`,
+    )
+  }
+  const landed = { address: '/#pull', focus: 'pull', at: 'in view, below the header' }
+  const once = { first: landed, settled: landed, entries: 1 }
+  assert.deepEqual(seen, { '390px': once, '1440px': once }, 'a visit to /mood')
+  assert.deepEqual(asked, ['trending + 1990s', 'trending + 1990s'], 'what it asked AniList for')
+})
+
 test('a first visit to a title’s address moves nothing on the page, with AniList’s answers held 2 s, before or after its card closes', async () => {
   const seen: string[] = []
   for (const screen of [PHONE, DESKTOP])

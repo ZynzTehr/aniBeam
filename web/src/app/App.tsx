@@ -35,6 +35,7 @@ import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
 import {
   isListPath,
+  isMoodPath,
   isOver,
   isTrailer,
   pageBeneath,
@@ -175,9 +176,15 @@ export default function App() {
   // A visit that starts at a title's address opens its card over the page as AniList's answer
   // arrives, or a note in its place if AniList can't give it (see titleNote). Closing either goes
   // Back to the address it was opened over, or, opened at its address, puts / in its place. An
-  // address the app doesn't know becomes /, before the browser draws the page.
+  // address the app doesn't know becomes /, before the browser draws the page. /mood, the spec's
+  // address for the mood sliders, becomes /#pull, as they live on Discover's pull machine (the
+  // plan's D6), and the page, drawn by then, jumps there as the header's Pull does: a new address
+  // alone neither scrolls nor moves focus. Replaced, so Back never returns to /mood.
   useLayoutEffect(() => {
-    if (path !== '/' && addressed === null && !onList)
+    if (isMoodPath(path)) {
+      replace(`/${location.search}#pull`)
+      jumpTo('pull')
+    } else if (path !== '/' && addressed === null && !onList)
       replace(`/${location.search}${location.hash}`)
   }, [path, addressed, onList])
   // A title opened on the page shows its list's copy, at once and again on Forward, with no
