@@ -7,6 +7,7 @@ import { cssVars } from './cssVars.ts'
 import { opener } from './opener.ts'
 import { RetryButton } from './RetryButton.tsx'
 import { SfxHeading } from './SfxHeading.tsx'
+import { Stamp } from './Stamp.tsx'
 import type { OpenTitle } from './TitleCard.tsx'
 import { titlePath } from '../lib/route.ts'
 
@@ -162,6 +163,8 @@ function Panel({
           {media.averageScore !== null && (
             <span className="sr-only">, scored {media.averageScore}%</span>
           )}
+          {/* Last, so the name ends with it: "..., scored 82%, saved, favorite". */}
+          <Stamp id={media.id} />
         </span>
       </a>
     </li>

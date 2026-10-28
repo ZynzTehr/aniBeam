@@ -1,6 +1,7 @@
 // The stamp on a listed title's cover (stamp.ts): what it shows, and what a screen reader hears at
 // the end of the cover's name, on Discover and on My List.
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { entryIn, type Entry, type Status } from '../features/list/store.ts'
 import { stampOf } from './stamp.ts'
@@ -74,5 +75,29 @@ test('each thing a stamp can show has a key of its own, so a change draws a new 
   assert.equal(
     stampOf(entry('WANT', true))?.key,
     stampOf({ ...entry('WANT', true), updatedAt: 0 })?.key,
+  )
+})
+
+// A stamp on every listed cover reads the store, so each must read only its own title's entry
+// (useEntry): React then draws again only the stamps whose entry is another object, which an edit
+// to one title never makes of the others' (see the store's test). The whole list, or its ids,
+// would draw every stamp on the page again at each press. Read as text, as a component can't run
+// here, with its comments left out.
+test('a stamp reads only its own title’s entry from the list, never the whole list', () => {
+  const code = readFileSync(new URL('./Stamp.tsx', import.meta.url), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/\/\/.*$/gm, '')
+  const fromStore = /import\s*\{([^}]*)\}\s*from\s*'\.\.\/features\/list\/store\.ts'/.exec(code)
+  assert.deepEqual(
+    fromStore?.[1].split(',').map((name) => name.trim()),
+    ['useEntry'],
+    'what Stamp.tsx imports from the store',
+  )
+  assert.match(code, /\buseEntry\(id\)/, 'Stamp.tsx reads useEntry(id)')
+  const wholeList = ['useSyncExternalStore', 'getSnapshot', 'subscribe', 'useListIds', 'listedIds']
+  assert.deepEqual(
+    wholeList.filter((name) => new RegExp(`\\b${name}\\b`).test(code)),
+    [],
+    'Stamp.tsx reads the whole list',
   )
 })

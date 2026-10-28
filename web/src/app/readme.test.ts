@@ -79,8 +79,9 @@ function budgetsNow() {
 // The tables' byte budgets are the bundle check's own: BUDGET in privacy.test.ts, read as text, as
 // importing it would run its checks. A budget changed in one and not the other fails, so a raise
 // is written in both in the same commit. The bytes themselves come from a build, so they are not
-// checked here, only that each is written within its budget. The Phase 4 table keeps the figures
-// that phase closed on, as history, and is not held to the budgets any more.
+// checked here, only that each is written within its budget. The Phase 4 and Phase 5 tables keep
+// the figures those phases closed on, as history, and are not held to the budgets any more: Phase
+// 5's was, until the raise for the stamps on listed covers.
 function budgets() {
   const privacy = readFileSync(`${root}web/src/app/privacy.test.ts`, 'utf8')
   const block = /\nconst BUDGET = \{([^}]*)\}/.exec(privacy)?.[1] ?? ''
@@ -153,19 +154,6 @@ function phase5() {
   const end = readme.indexOf('\n## ', start + 1)
   return readme.slice(start, end < 0 ? undefined : end)
 }
-
-// Phase 5 closed on today's budgets, so its table's byte rows are held to them too, until a later
-// raise makes it history, as the Phase 4 table is. Each reads `| Bytes, <part> | <before> |
-// <bytes> of <budget> B | <check> |`, its part named as in "Byte budgets now".
-test('the byte rows of the README’s Phase 5 table are the bundle check’s budgets, each within it', () => {
-  const rows = rowsOf(phase5()).filter(([, measurement]) => measurement?.startsWith('Bytes, '))
-  holdToBudgets(
-    rows.map(([, measurement, , after]) => {
-      const part = measurement.slice('Bytes, '.length)
-      return [part.charAt(0).toUpperCase() + part.slice(1), after]
-    }),
-  )
-})
 
 test('each check the README’s Phase 5 section names is in the file it names', () => {
   assert.deepEqual(

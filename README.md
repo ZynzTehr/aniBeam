@@ -231,7 +231,7 @@ Before is `a9e1f07`, where Phase 5 began (Phase 4's close, with Read more; #36 c
 | Bytes, the mood scoring, a file of its own              | No such file                                    | 955 of 1,500 B                                                                                                                                                                                                                                                     | the same                                                                                                                                                                                                                                                                                                                                                                                 |
 | Bytes, every other file                                 | 354 of 500 B                                    | 370 of 500 B                                                                                                                                                                                                                                                       | the same                                                                                                                                                                                                                                                                                                                                                                                 |
 
-The JS every visit loads grew 3,786 B over the phase, the CSS 1,041 B, in the measured steps the user agreed to (Phase 5's D5), each raise given with its reason in `web/src/app/privacy.test.ts`; the mood scoring, 955 B, loads once the browser is idle, after the page has drawn. This last pull request added 146 B of JS and 18 B of CSS. A check holds the table's budgets to the bundle check's, as it does the [Byte budgets now](#byte-budgets-now) table. The gate's browser checks took about 1,180 s at the phase's start and about 1,336 s at its end. Not measured: layout shift on a production build, and the Phase 2 table's four sizes were not taken again.
+The JS every visit loads grew 3,786 B over the phase, the CSS 1,041 B, in the measured steps the user agreed to (Phase 5's D5), each raise given with its reason in `web/src/app/privacy.test.ts`; the mood scoring, 955 B, loads once the browser is idle, after the page has drawn. This last pull request added 146 B of JS and 18 B of CSS. A check held the table's budgets to the bundle check's until the next raise, for the stamps on listed covers, as it holds the [Byte budgets now](#byte-budgets-now) table's. The gate's browser checks took about 1,180 s at the phase's start and about 1,336 s at its end. Not measured: layout shift on a production build, and the Phase 2 table's four sizes were not taken again.
 
 ### Phase 5, still to check by hand
 
@@ -245,12 +245,12 @@ The browser checks run only in headless Chrome. These are still open for Phase 5
 
 ## Byte budgets now
 
-Each part of the production build, compressed with Brotli at quality 11, against its budget. `web/src/app/privacy.test.ts` "the production bundle stays within its byte budget" weighs them on every run, and its comment gives the reason for each raise. `web/src/app/readme.test.ts` holds each budget here to the bundle check's, so a raise is written in both places in the same commit. The Phase 4 table above keeps the figures that phase closed on, and is no longer checked.
+Each part of the production build, compressed with Brotli at quality 11, against its budget. `web/src/app/privacy.test.ts` "the production bundle stays within its byte budget" weighs them on every run, and its comment gives the reason for each raise. `web/src/app/readme.test.ts` holds each budget here to the bundle check's, so a raise is written in both places in the same commit. The Phase 4 and Phase 5 tables above keep the figures those phases closed on, and are no longer checked.
 
 | Part                                         | Now, of its budget |
 | -------------------------------------------- | ------------------ |
-| The JS every visit loads                     | 94,650 of 94,700 B |
-| The CSS                                      | 12,897 of 12,900 B |
+| The JS every visit loads                     | 94,856 of 94,900 B |
+| The CSS                                      | 13,000 of 13,050 B |
 | The JS loaded only when needed (the samples) | 14,350 of 14,500 B |
 | My List's page, a file of its own            | 2,330 of 2,500 B   |
 | The mood scoring, a file of its own          | 955 of 1,500 B     |

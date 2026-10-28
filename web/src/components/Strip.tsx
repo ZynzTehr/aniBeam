@@ -6,6 +6,7 @@ import { cssVars } from './cssVars.ts'
 import { opener } from './opener.ts'
 import { RetryButton } from './RetryButton.tsx'
 import { SfxHeading } from './SfxHeading.tsx'
+import { Stamp } from './Stamp.tsx'
 import type { OpenTitle } from './TitleCard.tsx'
 import { titlePath } from '../lib/route.ts'
 
@@ -151,10 +152,14 @@ export function Strip({
                       Ch.{i + 1}
                     </span>
                   )}
+                  {/* The stamp's tab grows out of the title box, and its words come after the
+                      season, so the name ends with them: "ONE PIECE, Fall 1999, saved". */}
                   <span className="ab-strip-title">
                     <span>{titleOf(media)}</span>
+                    <Stamp id={media.id} part="tab" />
                   </span>
                   <span className="sr-only">, {seasonOf(media)}</span>
+                  <Stamp id={media.id} part="words" />
                 </a>
               )}
             </li>
