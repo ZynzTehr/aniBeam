@@ -7,6 +7,7 @@ import { cssVars } from './cssVars.ts'
 import { opener } from './opener.ts'
 import { RetryButton } from './RetryButton.tsx'
 import { SfxHeading } from './SfxHeading.tsx'
+import { Stamp } from './Stamp.tsx'
 import type { OpenTitle } from './TitleCard.tsx'
 import { titlePath } from '../lib/route.ts'
 
@@ -162,6 +163,7 @@ function Panel({
           {media.averageScore !== null && (
             <span className="sr-only">, scored {media.averageScore}%</span>
           )}
+          <Stamp id={media.id} surface="trending" part="both" />
         </span>
       </a>
     </li>

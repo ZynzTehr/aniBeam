@@ -421,3 +421,235 @@
 [data-lab-clips] .ab-cut-left {
   background: #08f;
 }
+
+/* ---------- The stamps (see LabStamp.tsx) ----------
+   Absolutely placed, so a stamp takes no room and moves nothing as it comes; inside the cover's
+   link, so it adds no Tab stop and is cut where the cover is. data-look is S1, data-tone S2,
+   data-place S5 (or "cover", inside the cover's frame), data-at the surface. */
+.ab-lab-stamp {
+  position: absolute;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.ab-lab-heart {
+  width: 10px;
+  height: 9px;
+  flex: none;
+  fill: currentColor;
+}
+
+.ab-lab-kana {
+  font-size: 9px;
+  letter-spacing: 0;
+}
+
+@media (max-width: 413px) {
+  .ab-lab-stamp[data-at='match'] .ab-lab-kana {
+    display: none;
+  }
+}
+
+/* A, the folder tab: white, growing out of the box's top ink line, the box's own border. */
+.ab-lab-stamp[data-look='a'] {
+  bottom: 100%;
+  left: 6px;
+  padding: 3px 5px 2px;
+  border: inherit;
+  border-bottom: 0;
+  background: #fff;
+  color: var(--hot-text);
+  font: 800 11px / 1 var(--body);
+  letter-spacing: 0.06em;
+}
+
+@media (min-width: 900px) {
+  .ab-caption > .ab-lab-stamp[data-look='a'] {
+    font-size: 13px;
+  }
+
+  .ab-caption > .ab-lab-stamp[data-look='a'] .ab-lab-heart {
+    width: 12px;
+    height: 11px;
+  }
+}
+
+.ab-lab-stamp[data-look='a'][data-place='b'] {
+  right: 6px;
+  left: auto;
+}
+
+/* Inside the cover's frame there is no ink line to grow from: a tag of its own. */
+.ab-lab-stamp[data-look='a'][data-place='cover'] {
+  top: 8px;
+  right: 8px;
+  bottom: auto;
+  left: auto;
+  border: 2px solid var(--ink);
+}
+
+.ab-lab-stamp[data-look='a'][data-at='match'] {
+  bottom: 0;
+  left: 4px;
+  font-size: 10px;
+}
+
+.ab-lab-stamp[data-look='a'][data-at='roll'] {
+  bottom: 0;
+  left: 10px;
+  font-size: 13px;
+}
+
+.ab-lab-stamp[data-tone='a2'] {
+  background: var(--ink);
+  color: #fff;
+}
+
+.ab-lab-stamp[data-tone='a2'] .ab-lab-heart {
+  fill: var(--hot);
+}
+
+.ab-lab-stamp[data-tone='a3'][data-status='want'] {
+  border-style: dashed;
+}
+
+/* B, the ink sticker: the rarity pill's family, tilted. */
+.ab-lab-stamp[data-look='b'] {
+  bottom: calc(100% - 4px);
+  left: -6px;
+  padding: 3px 6px 2px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 2px 2px 0 var(--ink);
+  color: var(--ink);
+  font: 400 11px / 1 var(--display);
+  transform: rotate(-6deg);
+}
+
+.ab-lab-stamp[data-look='b'] .ab-lab-heart {
+  width: 11px;
+  height: 10px;
+  fill: var(--hot);
+  stroke: var(--ink);
+  stroke-width: 3;
+}
+
+.ab-lab-stamp[data-tone='b2'][data-status='saved'] {
+  color: var(--hot-text);
+}
+
+/* Yellow, beside the yellow rarity sticker, would read as a second grade: white on a match. */
+.ab-lab-stamp[data-tone='b1'][data-status='saved']:not([data-at='match']) {
+  background: var(--sun);
+}
+
+@media (min-width: 900px) {
+  .ab-caption > .ab-lab-stamp[data-look='b'] {
+    font-size: 13px;
+  }
+}
+
+.ab-lab-stamp[data-look='b'][data-place='b'] {
+  right: -6px;
+  left: auto;
+}
+
+.ab-lab-stamp[data-look='b'][data-place='cover'] {
+  top: 6px;
+  right: 6px;
+  bottom: auto;
+  left: auto;
+}
+
+.ab-lab-stamp[data-look='b'][data-at='match'] {
+  bottom: 6px;
+  left: -6px;
+}
+
+.ab-lab-stamp[data-look='b'][data-at='roll'] {
+  bottom: 12px;
+  left: 10px;
+  font-size: 14px;
+}
+
+/* C, the hanko press: a red double ring, pressed a little unevenly. */
+.ab-lab-stamp[data-look='c'] {
+  bottom: calc(100% - 6px);
+  left: 4px;
+  gap: 0.2em;
+  padding: 0.22em 0.45em 0.12em;
+  border: 0.15em solid var(--hot-deep);
+  border-radius: 4px 7px 5px 8px / 7px 4px 8px 5px;
+  background: rgb(246 241 230 / 0.9);
+  color: var(--hot-text);
+  font: 400 12px / 1 var(--display);
+  letter-spacing: 0.06em;
+  mask: linear-gradient(100deg, #000 60%, rgb(0 0 0 / 0.7));
+  outline: 0.08em solid var(--hot-deep);
+  outline-offset: -0.32em;
+  transform: rotate(-8deg);
+  transform-origin: 0 100%;
+}
+
+.ab-lab-stamp[data-look='c'] .ab-lab-heart {
+  width: 1em;
+  height: 0.92em;
+  fill: var(--hot-deep);
+}
+
+.ab-caption > .ab-lab-stamp[data-look='c'] {
+  bottom: calc(100% - 7px);
+  left: 6px;
+  font-size: clamp(11px, 1.6vw, 15px);
+}
+
+.ab-lab-stamp[data-look='c'][data-place='b'] {
+  right: 4px;
+  left: auto;
+}
+
+.ab-lab-stamp[data-look='c'][data-place='cover'] {
+  top: 10px;
+  right: 8px;
+  bottom: auto;
+  left: auto;
+  transform-origin: 100% 0;
+}
+
+.ab-lab-stamp[data-look='c'][data-at='match'] {
+  bottom: 5px;
+  left: 4px;
+  font-size: 10px;
+}
+
+.ab-lab-stamp[data-look='c'][data-at='roll'] {
+  bottom: 12px;
+  left: 12px;
+  font-size: 15px;
+}
+
+@media (max-width: 359px) {
+  .ab-lab-stamp[data-look='c'][data-at='match'][data-fav] .ab-lab-word {
+    display: none;
+  }
+}
+
+/* Forced colors: the word, the outline and the heart in the system's own colors. */
+@media (forced-colors: active) {
+  .ab-lab-stamp {
+    border-color: CanvasText;
+    background: Canvas;
+    color: CanvasText;
+    outline-color: CanvasText;
+  }
+
+  .ab-lab-stamp[data-look] .ab-lab-heart {
+    fill: currentColor;
+    stroke: none;
+  }
+}

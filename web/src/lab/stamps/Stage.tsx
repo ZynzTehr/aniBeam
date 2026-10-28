@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useLayoutEffect, useState, type ReactNode } from 'react'
 import { MangaPage } from '../../components/MangaPage.tsx'
+import { StampDraw } from '../../components/stampDraw.ts'
 import { Strip } from '../../components/Strip.tsx'
 import { TitleCard, type OpenTitle } from '../../components/TitleCard.tsx'
 import { SAMPLES } from '../../features/anime/samples.ts'
@@ -11,6 +12,7 @@ import { PullMachine } from '../../features/mood/PullMachine.tsx'
 import { FRESH, setSession } from '../../features/mood/session.ts'
 import { LANDING_PARTS, startLanding } from '../../lib/landing.ts'
 import { push } from '../../lib/route.ts'
+import { LabStamp } from './LabStamp.tsx'
 import { LabOptions } from './options.ts'
 import { COVERS, refusedRequests, spokenName, tabStops, watchShift } from './page.ts'
 import { DECADE, SEARCH, TRENDING } from './sandbox.ts'
@@ -100,57 +102,59 @@ export function Stage() {
   return (
     <QueryClientProvider client={client}>
       <LabOptions.Provider value={options}>
-        <div className="ab-app ab-lab-page">
-          <title>Stage · Stamps lab</title>
-          <main id="main">
-            <Section n={1}>
-              <MangaPage
-                id="ab-trending"
-                heading="Trending now"
-                sfx="ドン!"
-                titles={TRENDING}
-                onOpen={open}
-              />
-            </Section>
-            <Section n={2}>
-              <Strip
-                id="decades"
-                heading="Browse by decade"
-                sfx="バーン"
-                titles={DECADE}
-                onOpen={open}
-              />
-            </Section>
-            <Section n={3}>
-              <div className="ab-results">
-                <Strip
-                  id="results"
-                  level="h1"
-                  heading="Results for “the”"
-                  sfx="サーチ!"
-                  titles={SEARCH}
+        <StampDraw.Provider value={LabStamp}>
+          <div className="ab-app ab-lab-page">
+            <title>Stage · Stamps lab</title>
+            <main id="main">
+              <Section n={1}>
+                <MangaPage
+                  id="ab-trending"
+                  heading="Trending now"
+                  sfx="ドン!"
+                  titles={TRENDING}
                   onOpen={open}
-                  live={false}
-                  grid
                 />
-              </div>
-            </Section>
-            <Section n={4}>
-              <PullMachine era={null} titles={SAMPLES} settled={false} onOpen={open} />
-            </Section>
-            <Section n={5}>
-              <LabList onOpen={open} covered={card !== null} />
-            </Section>
-          </main>
-          {card && (
-            <TitleCard
-              key={card.media.id}
-              media={card.media}
-              from={card.from}
-              onClose={() => setCard(null)}
-            />
-          )}
-        </div>
+              </Section>
+              <Section n={2}>
+                <Strip
+                  id="decades"
+                  heading="Browse by decade"
+                  sfx="バーン"
+                  titles={DECADE}
+                  onOpen={open}
+                />
+              </Section>
+              <Section n={3}>
+                <div className="ab-results">
+                  <Strip
+                    id="results"
+                    level="h1"
+                    heading="Results for “the”"
+                    sfx="サーチ!"
+                    titles={SEARCH}
+                    onOpen={open}
+                    live={false}
+                    grid
+                  />
+                </div>
+              </Section>
+              <Section n={4}>
+                <PullMachine era={null} titles={SAMPLES} settled={false} onOpen={open} />
+              </Section>
+              <Section n={5}>
+                <LabList onOpen={open} covered={card !== null} />
+              </Section>
+            </main>
+            {card && (
+              <TitleCard
+                key={card.media.id}
+                media={card.media}
+                from={card.from}
+                onClose={() => setCard(null)}
+              />
+            )}
+          </div>
+        </StampDraw.Provider>
       </LabOptions.Provider>
     </QueryClientProvider>
   )

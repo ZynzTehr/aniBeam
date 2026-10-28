@@ -6,6 +6,8 @@ import { cssVars } from './cssVars.ts'
 import { opener } from './opener.ts'
 import { RetryButton } from './RetryButton.tsx'
 import { SfxHeading } from './SfxHeading.tsx'
+import { Stamp } from './Stamp.tsx'
+import type { StampPage } from './stampDraw.ts'
 import type { OpenTitle } from './TitleCard.tsx'
 import { titlePath } from '../lib/route.ts'
 
@@ -25,6 +27,7 @@ export function Strip({
   live = true,
   grid = false,
   inPlaceOf,
+  stampPage,
   children,
 }: {
   id: string
@@ -58,6 +61,8 @@ export function Strip({
   grid?: boolean
   /** What shows in a title's place instead of its cover, if anything: My List's Undo. */
   inPlaceOf?: (media: Media) => ReactNode
+  /** What My List's page already says, which its covers' stamps leave out (draft, see Stamp). */
+  stampPage?: StampPage
   /** Controls shown between the heading and the row, such as the decade chips. */
   children?: ReactNode
 } & (
@@ -76,6 +81,7 @@ export function Strip({
     }
 )) {
   const row = grid ? 'ab-strip-row ab-strip-grid' : 'ab-strip-row'
+  const surface = stampPage ? 'list' : grid ? 'search' : 'strip'
   // Waiting for its first titles, the strip shows empty cards, and its status line shows as a tag
   // over them instead of in a line of its own, so nothing moves as it clears (see .is-tagged). With
   // some titles already in their places, the empty cards among them say it, and the line takes no
@@ -151,10 +157,12 @@ export function Strip({
                       Ch.{i + 1}
                     </span>
                   )}
+                  <Stamp id={media.id} surface={surface} part="cover" page={stampPage} />
                   <span className="ab-strip-title">
                     <span>{titleOf(media)}</span>
+                    <span className="sr-only">, {seasonOf(media)}</span>
+                    <Stamp id={media.id} surface={surface} part="title" page={stampPage} />
                   </span>
-                  <span className="sr-only">, {seasonOf(media)}</span>
                 </a>
               )}
             </li>

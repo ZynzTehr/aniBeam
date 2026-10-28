@@ -11,6 +11,7 @@ import {
 import { flushSync } from 'react-dom'
 import { markBroken, markLoaded } from '../../components/cover.ts'
 import { cssVars } from '../../components/cssVars.ts'
+import { Stamp } from '../../components/Stamp.tsx'
 import { ListControls } from '../../components/ListControls.tsx'
 import { opener } from '../../components/opener.ts'
 import { SfxHeading } from '../../components/SfxHeading.tsx'
@@ -541,6 +542,7 @@ export function PullMachine({
                       onError={markBroken}
                     />
                     <span className="sr-only">Open the title card for {titleOf(pulled)}</span>
+                    <Stamp id={pulled.id} surface="roll" part="both" />
                   </a>
                 </div>
                 {/* Beside the faces, whose edges would cut it off; it booms in as the card
