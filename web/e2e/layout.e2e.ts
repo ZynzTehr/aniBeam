@@ -637,12 +637,13 @@ test('beside the machine, from 821 to 1170px and at 1180px beside a scrollbar, w
   assert.deepEqual(seen, [], 'a first roll moves the page')
 })
 
-test('a listed title’s stamp ends its cover’s name, shows inside its panel clear of the bubble, and moves nothing as it comes or changes, at 280 and 1440px', async () => {
+test('a listed title’s stamp ends its cover’s name, shows inside its panel clear of the bubble and the rank, and moves nothing as it comes or changes, at 280 and 1440px', async () => {
   // Phase 4's PR 4, item 1 (the plan's D4, option A): on trending, the decade strip and search, a
   // listed title's cover shows a folder tab, SAVED or WANT with a heart for a favorite, out of its
   // caption or title box. Seen, not heard: a screen reader hears it at the end of the cover's
   // name, inside the one link, with nothing to press. At 280px, the narrowest phone, a half
-  // panel's tab meets the score bubble's tail; from 900px panels 4 and 5 are cut on the diagonal.
+  // panel's tab meets the score bubble's tail, and a full-width panel's the rank number; from
+  // 900px panels 4 and 5 are cut on the diagonal.
   // The list comes as another tab's write does, by the storage event, with panels 4 and 5 on the
   // screen, so a stamp that took room, or grew in place as it changed, would count as a shift.
   await browser.load({ width: 280, height: 653, reduceMotion: true })
@@ -727,8 +728,11 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
       search: await named(result, ', want to try'),
     }
     // Where each stamp shows: inside the box that clips it (a panel's link, cut on the diagonal
-    // from 900px on panels 4 and 5; a strip card), and clear of the score bubble and its tail.
-    const placed = `((links) => links.flatMap(([name, link]) => {
+    // from 900px on panels 4 and 5; a strip card), and clear of the score bubble and its tail,
+    // and at 280px of the rank number. There a full-width panel is short, and panel 4's caption,
+    // its title on three lines, reaches up beside the number. From 900px the number's box runs
+    // below its glyph, which the tab clears, so the box isn't held to it there.
+    const placed = `((links, rank) => links.flatMap(([name, link]) => {
       const stamp = link.querySelector('.ab-stamp')
       if (!stamp) return [name + ': no stamp']
       const box = stamp.getBoundingClientRect(), edge = link.getBoundingClientRect()
@@ -748,11 +752,14 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
       const bubble = link.querySelector('.ab-bubble')?.getBoundingClientRect()
       if (bubble && box.right > bubble.left && box.left < bubble.right && box.bottom > bubble.top && box.top < bubble.bottom + 11)
         wrong.push('over the bubble or its tail')
+      const number = rank && link.querySelector('.ab-rank')?.getBoundingClientRect()
+      if (number && box.right > number.left && box.left < number.right && box.bottom > number.top && box.top < number.bottom)
+        wrong.push('over the rank number')
       return wrong.length ? [name + ': ' + [...new Set(wrong)].join(', ')] : []
     }))`
     const trendingPanels = `[['panel 2', ${panel(2)}.querySelector('a')], ['panel 4', ${panel(4)}.querySelector('a')], ['panel 5', ${panel(5)}.querySelector('a')]]`
     const at280 = await browser.evaluate<string[]>(
-      `${placed}([...${trendingPanels}, ['the decade card', ${card}], ['the search result', ${result}]])`,
+      `${placed}([...${trendingPanels}, ['the decade card', ${card}], ['the search result', ${result}]], true)`,
     )
     const nested = await browser.evaluate<number>(
       `document.querySelectorAll('a button, a a').length`,

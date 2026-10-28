@@ -852,6 +852,13 @@ img[data-broken] {
     display: none;
   }
 
+  /* Full-width phone panels are short at 280px, and a caption with its title on three lines
+     reaches up beside the rank number: its stamp's tab steps right of the number, still short of
+     the bubble. */
+  .ab-panel:nth-child(3n + 4) .ab-caption > .ab-stamp {
+    left: 46px;
+  }
+
   .ab-bubble {
     padding: 7px 10px 6px;
     font-size: 14px;
