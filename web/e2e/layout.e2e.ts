@@ -637,13 +637,14 @@ test('beside the machine, from 821 to 1170px and at 1180px beside a scrollbar, w
   assert.deepEqual(seen, [], 'a first roll moves the page')
 })
 
-test('a listed title’s stamp ends its cover’s name, shows inside its panel clear of the bubble and the rank, and moves nothing as it comes or changes, at 280 and 1440px', async () => {
-  // Phase 4's PR 4, item 1 (the plan's D4, option A): on trending, the decade strip and search, a
-  // listed title's cover shows a folder tab, SAVED or WANT with a heart for a favorite, out of its
-  // caption or title box. Seen, not heard: a screen reader hears it at the end of the cover's
-  // name, inside the one link, with nothing to press. At 280px, the narrowest phone, a half
-  // panel's tab meets the score bubble's tail, and a full-width panel's the rank number; from
-  // 900px panels 4 and 5 are cut on the diagonal.
+test('a listed title’s stamp ends its cover’s name, shows inside its panel clear of the bubble, the rank and the rarity sticker, and moves nothing as it comes or changes, at 280 and 1440px', async () => {
+  // Phase 4's PR 4, item 1 (the plan's D4, option A): on trending, the decade strip, search and
+  // the top matches, a listed title's cover shows a folder tab, SAVED or WANT with a heart for a
+  // favorite, out of its caption's, title box's or frame's ink line. Seen, not heard: a screen
+  // reader hears it at the end of the cover's name, inside the one link, with nothing to press;
+  // on a match, before the period that ends it. At 280px, the narrowest phone, a half panel's tab
+  // meets the score bubble's tail, a full-width panel's the rank number, and a match's, on a 73px
+  // cover, the rarity sticker; from 900px panels 4 and 5 are cut on the diagonal.
   // The list comes as another tab's write does, by the storage event, with panels 4 and 5 on the
   // screen, so a stamp that took room, or grew in place as it changed, would count as a shift.
   await browser.load({ width: 280, height: 653, reduceMotion: true })
@@ -660,6 +661,11 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
     await idOf(card),
   ]
   const frieren = listsOf(recordings().get('search-frieren')!).Page[0].id
+  // The first top match that isn't one of those.
+  const match = await browser.evaluate<number>(
+    `[...document.querySelectorAll('.ab-pull .ab-match[href]')].map((link) => Number(link.getAttribute('href').split('/').pop())).find((id) => !${JSON.stringify([two, four, five, decade, frieren])}.includes(id))`,
+  )
+  const matchLink = `document.querySelector('.ab-pull .ab-match[href="/anime/${match}"]')`
   const list = (fiveAs: string) => ({
     [two]: { status: 'SAVED', favorite: true },
     [four]: { status: 'WANT', favorite: true },
@@ -669,6 +675,7 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
         : { status: 'WANT', favorite: true },
     [decade]: { status: 'SAVED', favorite: true },
     [frieren]: { status: 'WANT', favorite: false },
+    [match]: { status: 'SAVED', favorite: true },
   })
   const write = (entries: object) =>
     browser.evaluate(`(async () => {
@@ -694,14 +701,14 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
     const now = await browser.evaluate<string>(tab(panel(5)))
     // Each cover's name, from Chrome's accessibility tree, as a screen reader hears it. Chrome
     // puts a space between the parts read out as words of their own (the season's, the stamp's),
-    // which a screen reader doesn't say: it is left out before a comma.
+    // which a screen reader doesn't say: it is left out before a comma, and a match's period.
     const nameOf = async (link: string) => {
       const { result } = await browser.send('Runtime.evaluate', { expression: link })
       const { nodes } = await browser.send('Accessibility.getPartialAXTree', {
         objectId: result.objectId,
         fetchRelatives: false,
       })
-      return (nodes[0].name.value as string).replaceAll(' ,', ',')
+      return (nodes[0].name.value as string).replace(/ (?=[,.])/g, '')
     }
     // A strip card's name as it should be: its title, its season (the words of its own that aren't
     // the stamp's), then the stamp's words.
@@ -714,6 +721,12 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
     )
     const trending = await nameOf(`${panel(2)}.querySelector('a')`)
     const decadeName = await nameOf(card)
+    // A match's name as it should be: its title, its rarity in words, the stamp's, then a period
+    // and its Why line, which says nothing until a slider moves.
+    const matchName = await nameOf(matchLink)
+    const matchNamed = await browser.evaluate<string>(
+      `((link) => link.querySelector('.ab-match-title').textContent + ', ' + ((tier) => (tier === '?' ? 'Mystery' : tier))(link.querySelector('.ab-tier').textContent) + ', saved, favorite.' + (link.querySelector('.ab-match-why').textContent && ' ' + link.querySelector('.ab-match-why').textContent))(${matchLink})`,
+    )
     await browser.search('frieren')
     const result = `document.querySelector('.ab-results .ab-strip-panel[href="/anime/${frieren}"]')`
     assert.ok(await browser.waitFor(result, 10_000), 'Frieren never came up in the search')
@@ -721,21 +734,24 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
       trending: trending.slice(trending.lastIndexOf(', scored')),
       decade: decadeName,
       search: await nameOf(result),
+      match: matchName,
     }
     const expected = {
       trending: `, scored ${score}, saved, favorite`,
       decade: await named(card, ', saved, favorite'),
       search: await named(result, ', want to try'),
+      match: matchNamed,
     }
     // Where each stamp shows: inside the box that clips it (a panel's link, cut on the diagonal
-    // from 900px on panels 4 and 5; a strip card), and clear of the score bubble and its tail,
-    // and at 280px of the rank number. There a full-width panel is short, and panel 4's caption,
+    // from 900px on panels 4 and 5; a strip card), or a match's cover, and clear of the score
+    // bubble and its tail, the rarity sticker, and at 280px of the rank number. There a full-width panel is short, and panel 4's caption,
     // its title on three lines, reaches up beside the number. From 900px the number's box runs
     // below its glyph, which the tab clears, so the box isn't held to it there.
     const placed = `((links, rank) => links.flatMap(([name, link]) => {
       const stamp = link.querySelector('.ab-stamp')
       if (!stamp) return [name + ': no stamp']
-      const box = stamp.getBoundingClientRect(), edge = link.getBoundingClientRect()
+      const box = stamp.getBoundingClientRect()
+      const edge = (link.querySelector('.ab-match-cover') ?? link).getBoundingClientRect()
       const wrong = []
       if (box.left < edge.left - 0.5 || box.top < edge.top - 0.5 || box.right > edge.right + 0.5 || box.bottom > edge.bottom + 0.5)
         wrong.push('outside its box')
@@ -752,14 +768,17 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
       const bubble = link.querySelector('.ab-bubble')?.getBoundingClientRect()
       if (bubble && box.right > bubble.left && box.left < bubble.right && box.bottom > bubble.top && box.top < bubble.bottom + 11)
         wrong.push('over the bubble or its tail')
+      const sticker = link.querySelector('.ab-tier')?.getBoundingClientRect()
+      if (sticker && box.right > sticker.left && box.left < sticker.right && box.bottom > sticker.top && box.top < sticker.bottom)
+        wrong.push('over the rarity sticker')
       const number = rank && link.querySelector('.ab-rank')?.getBoundingClientRect()
       if (number && box.right > number.left && box.left < number.right && box.bottom > number.top && box.top < number.bottom)
         wrong.push('over the rank number')
       return wrong.length ? [name + ': ' + [...new Set(wrong)].join(', ')] : []
     }))`
-    const trendingPanels = `[['panel 2', ${panel(2)}.querySelector('a')], ['panel 4', ${panel(4)}.querySelector('a')], ['panel 5', ${panel(5)}.querySelector('a')]]`
+    const covers = `[['panel 2', ${panel(2)}.querySelector('a')], ['panel 4', ${panel(4)}.querySelector('a')], ['panel 5', ${panel(5)}.querySelector('a')], ['the top match', ${matchLink}]]`
     const at280 = await browser.evaluate<string[]>(
-      `${placed}([...${trendingPanels}, ['the decade card', ${card}], ['the search result', ${result}]], true)`,
+      `${placed}([...${covers}, ['the decade card', ${card}], ['the search result', ${result}]], true)`,
     )
     const nested = await browser.evaluate<number>(
       `document.querySelectorAll('a button, a a').length`,
@@ -773,7 +792,7 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
     await browser.evaluate(
       'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
     )
-    const at1440 = await browser.evaluate<string[]>(`${placed}(${trendingPanels})`)
+    const at1440 = await browser.evaluate<string[]>(`${placed}(${covers})`)
     // In a contrast theme (forced colors), with no rule of its own, the tab keeps the theme's
     // colors for the link it is in, as its caption's frame does: its edge, word and heart in the
     // link color, on the theme's page color, in a light theme and a dark one.

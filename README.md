@@ -249,10 +249,10 @@ Each part of the production build, compressed with Brotli at quality 11, against
 
 | Part                                         | Now, of its budget |
 | -------------------------------------------- | ------------------ |
-| The JS every visit loads                     | 94,785 of 94,900 B |
-| The CSS                                      | 13,005 of 13,050 B |
+| The JS every visit loads                     | 94,712 of 94,900 B |
+| The CSS                                      | 13,013 of 13,050 B |
 | The JS loaded only when needed (the samples) | 14,350 of 14,500 B |
-| My List's page, a file of its own            | 2,330 of 2,500 B   |
+| My List's page, a file of its own            | 2,324 of 2,500 B   |
 | The mood scoring, a file of its own          | 955 of 1,500 B     |
 | Every other file                             | 370 of 500 B       |
 

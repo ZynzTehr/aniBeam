@@ -1644,6 +1644,14 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   font-size: 13px;
 }
 
+/* A listed title's stamp (see .ab-stamp), at the cover's foot across from the sticker, out of the
+   frame's bottom ink line: SAVED and its heart fit a 73px cover at 280px. */
+.ab-match-cover > .ab-stamp {
+  bottom: 0;
+  left: 4px;
+  font-size: 10px;
+}
+
 .ab-match-title,
 .ab-match-why {
   display: -webkit-box;

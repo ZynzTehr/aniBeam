@@ -2,6 +2,7 @@ import type { Ref } from 'react'
 import { markBroken, markLoaded } from '../../components/cover.ts'
 import { opener } from '../../components/opener.ts'
 import { RetryButton } from '../../components/RetryButton.tsx'
+import { Stamp } from '../../components/Stamp.tsx'
 import type { OpenTitle } from '../../components/TitleCard.tsx'
 import { titlePath } from '../../lib/route.ts'
 import { titleOf } from '../anime/format.ts'
@@ -14,8 +15,9 @@ const MATCHES = 3
 
 /**
  * The machine's top matches (the plan's D7 and A8): the first of `titles`, each in a fixed slot
- * with its cover, rarity sticker, title and Why line (`why`, the names of what matched), a real
- * link to the title's address that opens its card with no request. Every part keeps its size
+ * with its cover, rarity sticker, title and Why line (`why`, the names of what matched), and a
+ * listed title's stamp at the cover's foot (see Stamp), a real link to the title's address that
+ * opens its card with no request. Every part keeps its size
  * whatever it holds, and the slots go by their place, not their title, so a slider move, which
  * re-sorts them, changes what each slot holds and moves nothing on the page (Chrome counts a
  * title's slot moved to first place as a layout shift, and a sticker grown from R to SSR too, so
@@ -78,9 +80,13 @@ export function Matches({
                   <span key={rarity.key} className="ab-tier" aria-hidden="true">
                     {rarity.key === 'mystery' ? '?' : rarity.label}
                   </span>
+                  <Stamp id={media.id} part="tab" />
                 </span>
                 <span className="ab-match-title">{titleOf(media)}</span>
-                <span className="sr-only">, {rarity.label}.</span>
+                {/* "ONE PIECE, SSR, saved, favorite." then its Why line. */}
+                <span className="sr-only">, {rarity.label}</span>
+                <Stamp id={media.id} part="words" />
+                <span className="sr-only">.</span>
                 <span className="ab-match-why">
                   {names.length ? `Why: ${names.join(' · ')}` : ''}
                 </span>
