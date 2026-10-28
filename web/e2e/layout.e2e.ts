@@ -810,6 +810,45 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
     const nested = await browser.evaluate<number>(
       `document.querySelectorAll('a button, a a').length`,
     )
+    // Its type, 11px under a phone's captions, 13px from 900px under the larger ones.
+    const size = `getComputedStyle(${panel(5)}.querySelector('.ab-stamp')).fontSize`
+    const sizes = { at280: await browser.evaluate<string>(size), at1440: '' }
+    // A tap on a tab opens the title's card on this page, as one on its cover does: the tab takes
+    // no pointer, so the cover's link gets it. Tapped where a finger would, on panel 2's tab.
+    await into(panel(2), 'center')
+    await browser.evaluate(`(window.__stayed = true)`)
+    const at = await browser.evaluate<{ x: number; y: number }>(
+      `((box) => ({ x: box.left + box.width / 2, y: box.top + box.height / 2 }))(${panel(2)}.querySelector('.ab-stamp').getBoundingClientRect())`,
+    )
+    for (const type of ['mousePressed', 'mouseReleased'])
+      await browser.send('Input.dispatchMouseEvent', { type, ...at, button: 'left', clickCount: 1 })
+    const tapped = {
+      opened: await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 3000),
+      stayed: await browser.evaluate<boolean>(`window.__stayed === true`),
+      at: await browser.evaluate<string>(`location.pathname`),
+    }
+    await browser.press('Escape')
+    await browser.waitFor(`!document.querySelector('dialog.ab-card[open]')`, 3000)
+    // The rolled card has no stamp, as its My List row says the same (the plan's S6): a roll,
+    // its title then listed as a favorite.
+    await browser.evaluate(`(() => {
+      const random = Math.random
+      Math.random = () => 0
+      document.querySelector('.ab-lever').click()
+      Math.random = random
+      return true
+    })()`)
+    const panelOf = `document.querySelector('.ab-result.is-open .ab-result-panel:not([inert])')`
+    assert.ok(await browser.waitFor(panelOf, 5000), 'a roll never opened')
+    const rolledId = await idOf(panelOf)
+    await write({ ...list('want'), [rolledId]: { status: 'SAVED', favorite: true } })
+    const rolled = {
+      tab: await browser.evaluate<string>(tab(`document.querySelector('.ab-result')`)),
+      name: await nameOf(panelOf),
+    }
+    const rolledNamed = await browser.evaluate<string>(
+      `${panelOf}.querySelector('.sr-only').textContent`,
+    )
     await browser.send('Emulation.setDeviceMetricsOverride', {
       width: 1440,
       height: 900,
@@ -820,6 +859,7 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
       'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
     )
     const at1440 = await browser.evaluate<string[]>(`${placed}(${covers})`)
+    sizes.at1440 = await browser.evaluate<string>(size)
     // In a contrast theme (forced colors), with no rule of its own, the tab keeps the theme's
     // colors for the link it is in, as its caption's frame does: its edge, word and heart in the
     // link color, on the theme's page color, in a light theme and a dark one.
@@ -861,7 +901,7 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
     })
     await write({
       ...Object.fromEntries(
-        Object.keys(list('want')).map((id) => [
+        [...Object.keys(list('want')), rolledId].map((id) => [
           id,
           { status: 'SAVED', favorite: false, deleted: true },
         ]),
@@ -874,8 +914,24 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
     const listed = `document.querySelector('.ab-list .ab-strip-panel[href="/anime/${frieren}"]')`
     assert.ok(await browser.waitFor(listed, 10_000), 'Frieren never showed on My List')
     const onList = { tab: await browser.evaluate<string>(tab(listed)), name: await nameOf(listed) }
+    // With Favorites only on, the page says the heart: nothing is left to stamp.
+    await browser.evaluate(`document.querySelector('a[href="/list?fav=1"]').click(), true`)
+    assert.ok(
+      await browser.waitFor(`location.search === '?fav=1' && ${listed}`, 10_000),
+      'Frieren never showed under Favorites only',
+    )
+    await browser.evaluate(
+      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+    )
+    const favoritesOnly = {
+      tab: await browser.evaluate<string>(tab(listed)),
+      name: await nameOf(listed),
+    }
     assert.deepEqual(
-      { came, shown, changed, now, names, at280, nested, at1440, themed, onList },
+      {
+        ...{ came, shown, changed, now, names, at280, nested, sizes, tapped, rolled, at1440 },
+        ...{ themed, onList, favoritesOnly },
+      },
       {
         came: { trending: [], decade: [], match: [] },
         shown: 'SAVED',
@@ -884,11 +940,15 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
         names: expected,
         at280: [],
         nested: 0,
+        sizes: { at280: '11px', at1440: '13px' },
+        tapped: { opened: true, stayed: true, at: `/anime/${two}` },
+        rolled: { tab: '', name: rolledNamed },
         at1440: [],
         themed: ['light', 'dark'].map(
           (scheme) => `${scheme}: edge link as its frame, 3px, word link, heart link, on page`,
         ),
         onList: { tab: ' ♥', name: await named(listed, ', favorite') },
+        favoritesOnly: { tab: '', name: await named(listed, '') },
       },
     )
   } finally {
