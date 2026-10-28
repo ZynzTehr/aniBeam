@@ -223,7 +223,12 @@ export function restoreIn(
 }
 
 /** Where the list is saved: localStorage, under this key alone. */
-export const KEY = 'anibeam:list:v1'
+export const KEY =
+  // Draft only, never merged: the stamps lab at ?proto=stamps keeps a list of its own, so trying
+  // it never reads or writes the visitor's list.
+  typeof location !== 'undefined' && new URLSearchParams(location.search).get('proto') === 'stamps'
+    ? 'anibeam:lab-stamps:v1'
+    : 'anibeam:list:v1'
 
 // The saved copy of AniList's answers (queryClient.ts), which can grow to about 4.3 MB of the
 // about 5 MB a site has. When storage is full, the list wins: the answers are removed, as they can

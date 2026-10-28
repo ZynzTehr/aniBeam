@@ -3,12 +3,14 @@
    a test's string. Left to itself, it reads every file in web/, and the production stylesheet
    carried some 600 bytes of rules that no page uses, such as .container and .transition. So it
    reads only the app's own code and index.html: not the tests, the browser checks, the scripts,
-   or the development-only prototypes and gallery (privacy.test.ts makes sure). */
+   the development-only prototypes and gallery (privacy.test.ts makes sure), or the draft's
+   stamps lab, which brings its own stylesheet. */
 @source '../';
 @source '../../index.html';
 @source not '../**/*.test.{ts,tsx}';
 @source not '../prototype';
 @source not '../gallery';
+@source not '../lab';
 @import '../components/components.css' layer(components);
 
 /*

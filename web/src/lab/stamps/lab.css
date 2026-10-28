@@ -1,0 +1,423 @@
+/*
+ * The draft's stamps lab (see StampsLab.tsx): its shell, its switches, and the stamps it draws on
+ * the site's own covers, which bring their own styles from components.css. StampsLab puts this in
+ * the page itself, inline with its code, so none of it reaches the site's stylesheet, and index.css
+ * keeps this folder out of what Tailwind reads. Every class starts with ab-lab-. Unlayered, so it
+ * outranks components.css.
+ */
+
+/* ---------- The shell ---------- */
+.ab-lab {
+  min-height: 100svh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+}
+
+.ab-lab-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 14px;
+  padding: 8px 16px 4px;
+  background: #fff;
+}
+
+.ab-lab-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin: 0;
+  font: 400 18px / 1.1 var(--display);
+}
+
+.ab-lab-name b {
+  color: var(--hot-text);
+  font-weight: 400;
+}
+
+.ab-lab-name small,
+.ab-lab-rec {
+  padding: 1px 7px;
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  background: var(--sun);
+  color: var(--ink);
+  font: 800 11px / 1.4 var(--body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.ab-lab-rec {
+  margin-left: 6px;
+}
+
+.ab-lab-caption {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* The readouts: one line on a laptop, wrapping on a phone. */
+.ab-lab-readouts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 18px;
+  margin: 0;
+  padding: 4px 16px 8px;
+  background: #fff;
+  font-size: 12.5px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.ab-lab-readouts > div {
+  display: flex;
+  gap: 5px;
+}
+
+.ab-lab-readouts dt::after {
+  content: ':';
+}
+
+.ab-lab-readouts dd {
+  margin: 0;
+  font-weight: 800;
+}
+
+.ab-lab-readouts .is-bad dd {
+  color: var(--hot-text);
+}
+
+.ab-lab-readouts .ab-lab-heard {
+  flex-basis: 100%;
+  min-width: 0;
+}
+
+.ab-lab-readouts .ab-lab-heard dd {
+  overflow-wrap: anywhere;
+}
+
+.ab-lab-button,
+.ab-lab-see,
+.ab-lab-close {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 3px 3px 0 var(--ink);
+  color: var(--ink);
+  font: 800 14px var(--body);
+  cursor: pointer;
+}
+
+.ab-lab-see {
+  min-height: 36px;
+  padding: 0 10px;
+  box-shadow: none;
+  font-size: 12.5px;
+}
+
+.ab-lab-close {
+  display: none;
+  width: 44px;
+  flex: none;
+  padding: 0;
+  box-shadow: none;
+}
+
+.ab-lab-button:focus-visible,
+.ab-lab-see:focus-visible,
+.ab-lab-close:focus-visible,
+.ab-lab-handle:focus-visible,
+.ab-lab-check input:focus-visible + span {
+  outline: 4px solid var(--hot);
+  outline-offset: 2px;
+}
+
+.ab-lab-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ab-lab-main {
+  min-width: 0;
+}
+
+/* The stage's room: the rest of the screen, under the bar and the readouts, above the switches'
+   bar on a phone. */
+.ab-lab-room {
+  position: relative;
+  height: calc(100svh - var(--ab-lab-head, 96px) - var(--ab-lab-foot, 0px));
+  min-height: 320px;
+  overflow: hidden;
+  border-top: 3px solid var(--ink);
+  background-color: #e7e1d6;
+  background-image: radial-gradient(rgb(0 0 0 / 0.1) 1.2px, transparent 1.5px);
+  background-size: 7px 7px;
+}
+
+.ab-lab-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: var(--paper);
+  transform-origin: 0 0;
+}
+
+.ab-lab-frame[style] {
+  outline: 3px solid var(--ink);
+}
+
+/* ---------- The switches ---------- */
+.ab-lab-panel {
+  background: #fff;
+}
+
+.ab-lab-handle {
+  display: none;
+  width: 100%;
+  height: 56px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  overflow: hidden;
+  border: 0;
+  background: var(--sun);
+  color: var(--ink);
+  font: 700 13px var(--body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.ab-lab-handle b {
+  flex: none;
+  font-weight: 800;
+}
+
+.ab-lab-handle span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ab-lab-switches {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1fr);
+  padding: 14px 16px 40px;
+}
+
+.ab-lab-sheet-top {
+  display: flex;
+  align-items: start;
+  gap: 10px;
+}
+
+.ab-lab-intro,
+.ab-lab-why {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+
+.ab-lab-group,
+.ab-lab-switch,
+.ab-lab-radios {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ab-lab-group {
+  padding-bottom: 14px;
+  border-bottom: 3px solid var(--ink);
+}
+
+.ab-lab-legend,
+.ab-lab-switch legend,
+.ab-lab-radios legend {
+  margin: 0 0 6px;
+  padding: 0;
+  font: 400 15px / 1.25 var(--display);
+}
+
+.ab-lab-radios legend {
+  font: 800 13px var(--body);
+}
+
+.ab-lab-num {
+  margin-right: 4px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  font-weight: 400;
+}
+
+.ab-lab-switch {
+  padding-top: 12px;
+  border-top: 2px dashed rgb(20 20 20 / 0.35);
+}
+
+.ab-lab-switch:disabled {
+  opacity: 0.55;
+}
+
+.ab-lab-options,
+.ab-lab-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ab-lab-options .ab-chip span {
+  min-height: 40px;
+  padding: 6px 12px;
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.ab-lab-check {
+  position: relative;
+  display: inline-flex;
+}
+
+.ab-lab-check input {
+  position: absolute;
+  margin: 0;
+  inset: 0;
+  opacity: 0;
+}
+
+.ab-lab-check span {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ab-lab-check span::before {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border: 3px solid var(--ink);
+  border-radius: 4px;
+  content: '';
+}
+
+.ab-lab-check input:checked + span::before {
+  background: var(--ink);
+  box-shadow: inset 0 0 0 2px #fff;
+}
+
+/* A laptop: the switches beside the stage, 320px wide, scrolling on their own. */
+@media (min-width: 900px) {
+  .ab-lab-body {
+    grid-template-columns: minmax(0, 1fr) 320px;
+  }
+
+  .ab-lab-panel {
+    position: sticky;
+    top: 0;
+    height: 100svh;
+    overflow: auto;
+    border-left: var(--border) solid var(--ink);
+  }
+}
+
+/* A phone: the switches are a sheet at the screen's foot, a 56px bar until opened, then 70% of
+   the screen's height, scrolling, with a close button on its top row. */
+@media (max-width: 899px) {
+  .ab-lab-panel {
+    position: fixed;
+    z-index: 20;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    max-height: 70svh;
+    border-top: var(--border) solid var(--ink);
+    box-shadow: 0 -6px 0 rgb(20 20 20 / 0.15);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .ab-lab-panel.is-open {
+    height: 70svh;
+  }
+
+  .ab-lab-handle {
+    display: flex;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .ab-lab-close {
+    display: block;
+  }
+
+  .ab-lab-switches {
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .ab-lab-panel:not(.is-open) .ab-lab-switches {
+    display: none;
+  }
+}
+
+/* ---------- The stage ---------- */
+.ab-lab-page {
+  min-height: 100svh;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+}
+
+.ab-lab-section {
+  border-top: 3px dashed rgb(20 20 20 / 0.3);
+  scroll-margin-top: 0;
+}
+
+.ab-lab-section-name {
+  margin: 0;
+  padding: 8px var(--page-x) 0;
+  color: #555;
+  font: 800 12px var(--body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* Show clip boxes: what clips a stamp, and what it must stay clear of. */
+[data-lab-clips] :is(.ab-link, .ab-strip-panel, .ab-match-cover, .ab-result-panel) {
+  box-shadow: inset 0 0 0 2px #08f;
+}
+
+[data-lab-clips] :is(.ab-bubble, .ab-rank, .ab-chapter, .ab-tier, .ab-caption, .ab-strip-title) {
+  outline: 2px dashed #08f;
+  outline-offset: 1px;
+}
+
+[data-lab-clips] .ab-bubble::after {
+  outline: 2px dashed #f0a;
+}
+
+[data-lab-clips] .ab-cut-right,
+[data-lab-clips] .ab-cut-left {
+  background: #08f;
+}
