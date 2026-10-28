@@ -181,9 +181,22 @@ function LabList(props: { onOpen: OpenTitle; covered: boolean }) {
   const [round, setRound] = useState(0)
   useEffect(() => {
     if (!page) void loadListPage().then((ListPage) => setPage(() => ListPage))
-    // After the store has heard the same event, whichever listens first.
+    // A visit takes the list's titles as it opens: drawn again when the shell changes which titles
+    // are listed (Fill, All saved, Clear), never for a change of state (Change one), which a page
+    // already open keeps, as on the site. After the store has heard the same event, whichever
+    // listens first.
+    const listed = () =>
+      listedIds()
+        .toSorted((a, b) => a - b)
+        .join()
+    let ids = listed()
     const changed = ({ key }: StorageEvent) => {
-      if (key === KEY) setTimeout(() => setRound((n) => n + 1))
+      if (key !== KEY) return
+      setTimeout(() => {
+        const now = listed()
+        if (now !== ids) setRound((n) => n + 1)
+        ids = now
+      })
     }
     addEventListener('storage', changed)
     return () => removeEventListener('storage', changed)

@@ -11,6 +11,10 @@ const HEART =
 // S4's katakana, after the English word.
 const KANA = { SAVED: 'セーブ', WANT: 'ミタイ' }
 
+// When the stage loaded: S7's slam plays only for a title whose entry changed since, so a page
+// load never makes every stamp pop.
+const LOADED = Date.now()
+
 /**
  * The lab's stamp in one of a cover's slots (see components/Stamp.tsx), as the switches set it. It
  * reads only its own title's entry (useEntry), so an edit draws again only the covers of the title
@@ -47,6 +51,7 @@ export function LabStamp({ id, surface, part, page }: StampSlot) {
           data-at={surface}
           data-place={free ? 'cover' : options.s5}
           data-fav={shown.heart ? '' : undefined}
+          data-new={options.s7 === 'b' && entry.updatedAt > LOADED ? '' : undefined}
           aria-hidden="true"
         >
           {heartFirst && heart}

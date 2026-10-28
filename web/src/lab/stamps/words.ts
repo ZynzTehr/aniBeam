@@ -35,9 +35,18 @@ export function stampOf(
   page?: StampPage,
 ): Shown | null {
   if (surface !== 'list' && !options.s6.includes(LETTER[surface])) return null
-  const word: Shown['word'] = options.s3 === 'a' ? entry.status : null
-  const heart = entry.favorite
-  void page
+  let word: Shown['word'] = options.s3 === 'a' ? entry.status : null
+  let heart = entry.favorite
+  // S8 on My List: a, only what the page doesn't already say (the word when it isn't the tab's,
+  // the heart unless Favorites only is on); b, the heart alone; c, nothing; d, the full stamp.
+  if (surface === 'list') {
+    if (options.s8 === 'c') return null
+    if (options.s8 === 'b') word = null
+    if (options.s8 === 'a') {
+      if (page && entry.status === page.tab) word = null
+      if (page?.favoritesOnly) heart = false
+    }
+  }
   if (!word && !heart) return null
   const spoken = [word && (word === 'SAVED' ? 'saved' : 'want to try'), heart && 'favorite']
     .filter(Boolean)

@@ -270,6 +270,7 @@ export function ListPage({ onOpen, covered }: { onOpen: OpenTitle; covered: bool
         onRetry={query.isError && !query.isFetching ? () => void query.refetch() : undefined}
         onOpen={onOpen}
         grid
+        stampPage={{ tab: view.status, favoritesOnly: view.favorites }}
         inPlaceOf={({ id }) =>
           entryIn(list, id) ? undefined : (
             <UndoSlot id={id} was={taken.removed[id]} onUndo={() => undo(id)} />

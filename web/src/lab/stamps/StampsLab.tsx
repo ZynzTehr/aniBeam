@@ -5,12 +5,13 @@ import { Panel } from './Panel.tsx'
 import { Stage, type Message, type Report } from './Stage.tsx'
 import { DEFAULTS, LOOKS, read, VIEW_DEFAULTS, write, type Options, type View } from './switches.ts'
 
-// Measured by the lab commit on a scratch copy of main (see lab-spec.md, section 4): each look's
-// CSS built into the real stylesheet, and a Stamp component with its call sites, brotli 11.
+// Measured on a scratch copy of main (lab-spec.md, section 4): each look's CSS built into the
+// real stylesheet, and a real Stamp component with its call sites and My List's rule, with no lab
+// code, against main's 12,897 B of CSS and 94,650 B of JS every visit loads (brotli 11).
 const BYTES: Record<Options['s1'], string> = {
-  a: 'measured in a later commit',
-  b: 'measured in a later commit',
-  c: 'measured in a later commit',
+  a: 'CSS +107 B, JS +237 B; the slam +40 B CSS, +11 B JS',
+  b: 'CSS +141 B, JS +286 B',
+  c: 'CSS +193 B, JS +210 B',
 }
 
 guardFetch()

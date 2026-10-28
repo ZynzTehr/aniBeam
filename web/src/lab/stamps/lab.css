@@ -653,3 +653,27 @@
     stroke: none;
   }
 }
+
+/* S7 b, the stamp-slam: a stamp whose title changed since the stage loaded drops in, a hard press,
+   only with motion allowed, by the device and by the site's own switch, in the site's own form of
+   motion gate (motion.test.ts holds every stylesheet in src to it). Held while a title card is
+   open, so it plays as the card closes: the hold sits inside the gate too, as a pause outside it
+   would hold a frame for good, and outranks the slam there. */
+@media (prefers-reduced-motion: no-preference) {
+  :where(:root:not([data-motion='reduce'])) {
+    .ab-lab-stamp[data-new] {
+      animation: ab-lab-slam 0.32s cubic-bezier(0.3, 0, 0.2, 1) backwards;
+    }
+
+    body:has(.ab-card[open]) .ab-lab-stamp {
+      animation-play-state: paused;
+    }
+  }
+}
+
+@keyframes ab-lab-slam {
+  from {
+    opacity: 0;
+    transform: scale(2.2) rotate(-20deg);
+  }
+}
