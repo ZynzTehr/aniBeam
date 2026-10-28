@@ -6,7 +6,7 @@ import { after, afterEach, before, beforeEach, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { RULE } from '../src/features/mood/moods.ts'
 import { Browser } from './browser.ts'
-import { listsOf, recordings } from './recordings.ts'
+import { LISTS, listsOf, recordings } from './recordings.ts'
 
 // A phone's width, without Chrome's mobile emulation: that marks every shift in the page's first
 // half second as the visitor's input, as it counts its own setting up of the viewport as one, so
@@ -637,14 +637,16 @@ test('beside the machine, from 821 to 1170px and at 1180px beside a scrollbar, w
   assert.deepEqual(seen, [], 'a first roll moves the page')
 })
 
-test('a listed title’s stamp ends its cover’s name, shows inside its panel clear of the bubble, the rank and the rarity sticker, and moves nothing as it comes or changes, at 280 and 1440px', async () => {
+test('a listed title’s stamp ends its cover’s name, shows inside its panel clear of the bubble, the rank and the rarity sticker, and moves nothing as it comes or changes, at 280 and 1440px; on My List, only what the view doesn’t say', async () => {
   // Phase 4's PR 4, item 1 (the plan's D4, option A): on trending, the decade strip, search and
   // the top matches, a listed title's cover shows a folder tab, SAVED or WANT with a heart for a
   // favorite, out of its caption's, title box's or frame's ink line. Seen, not heard: a screen
   // reader hears it at the end of the cover's name, inside the one link, with nothing to press;
   // on a match, before the period that ends it. At 280px, the narrowest phone, a half panel's tab
   // meets the score bubble's tail, a full-width panel's the rank number, and a match's, on a 73px
-  // cover, the rarity sticker; from 900px panels 4 and 5 are cut on the diagonal.
+  // cover, the rarity sticker; from 900px panels 4 and 5 are cut on the diagonal. On My List a
+  // stamp leaves out what the view already says: its tab's word, and the heart under Favorites
+  // only.
   // The list comes as another tab's write does, by the storage event, with panels 4 and 5 on the
   // screen, so a stamp that took room, or grew in place as it changed, would count as a shift.
   await browser.load({ width: 280, height: 653, reduceMotion: true })
@@ -824,8 +826,31 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
         })()`),
       )
     }
+    // On My List, a stamp says only what the page doesn't: on the Saved tab, a saved favorite's
+    // tab shows its heart alone, and its name ends ", favorite". The list-12 recording's titles,
+    // the list My List can ask AniList for here, all saved, Frieren with the heart; the titles
+    // listed above and not among them taken off, with delete markers, as the store keeps a title
+    // that another tab's list only leaves out.
+    await browser.send('Emulation.setEmulatedMedia', {
+      features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+    })
+    await write({
+      ...Object.fromEntries(
+        Object.keys(list('want')).map((id) => [
+          id,
+          { status: 'SAVED', favorite: false, deleted: true },
+        ]),
+      ),
+      ...Object.fromEntries(
+        LISTS['list-12'].map((id) => [id, { status: 'SAVED', favorite: id === frieren }]),
+      ),
+    })
+    await browser.evaluate(`document.querySelector('.ab-nav a[href="/list"]').click(), true`)
+    const listed = `document.querySelector('.ab-list .ab-strip-panel[href="/anime/${frieren}"]')`
+    assert.ok(await browser.waitFor(listed, 10_000), 'Frieren never showed on My List')
+    const onList = { tab: await browser.evaluate<string>(tab(listed)), name: await nameOf(listed) }
     assert.deepEqual(
-      { came, shown, changed, now, names, at280, nested, at1440, themed },
+      { came, shown, changed, now, names, at280, nested, at1440, themed, onList },
       {
         came: [],
         shown: 'SAVED',
@@ -838,6 +863,7 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
         themed: ['light', 'dark'].map(
           (scheme) => `${scheme}: edge link as its frame, 3px, word link, heart link, on page`,
         ),
+        onList: { tab: ' ♥', name: await named(listed, ', favorite') },
       },
     )
   } finally {

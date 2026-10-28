@@ -493,7 +493,8 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // tab stepping right of the rank number on a phone's full-width panels; the JS 94,785 B, the same
 // code, only My List's page file renamed in an import. Then the stamp on the top matches, at the
 // cover's foot, its words before the name's period: the JS 94,712 B and the CSS 13,013 B, within
-// their budgets (brotli packs the JS 73 B smaller with it).
+// their budgets (brotli packs the JS 73 B smaller with it). Then My List's view handed to its
+// covers' stamps, which leave out what it says: the JS 94,805 B, 93 B more, within its budget.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
   'the JS every visit loads': 94_900,

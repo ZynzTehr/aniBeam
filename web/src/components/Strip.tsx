@@ -7,6 +7,7 @@ import { opener } from './opener.ts'
 import { RetryButton } from './RetryButton.tsx'
 import { SfxHeading } from './SfxHeading.tsx'
 import { Stamp } from './Stamp.tsx'
+import type { StampPage } from './stamp.ts'
 import type { OpenTitle } from './TitleCard.tsx'
 import { titlePath } from '../lib/route.ts'
 
@@ -26,6 +27,7 @@ export function Strip({
   live = true,
   grid = false,
   inPlaceOf,
+  page,
   children,
 }: {
   id: string
@@ -59,6 +61,8 @@ export function Strip({
   grid?: boolean
   /** What shows in a title's place instead of its cover, if anything: My List's Undo. */
   inPlaceOf?: (media: Media) => ReactNode
+  /** What the page already says of its titles, which their stamps leave out: My List's view. */
+  page?: StampPage
   /** Controls shown between the heading and the row, such as the decade chips. */
   children?: ReactNode
 } & (
@@ -156,10 +160,10 @@ export function Strip({
                       season, so the name ends with them: "ONE PIECE, Fall 1999, saved". */}
                   <span className="ab-strip-title">
                     <span>{titleOf(media)}</span>
-                    <Stamp id={media.id} part="tab" />
+                    <Stamp id={media.id} part="tab" page={page} />
                   </span>
                   <span className="sr-only">, {seasonOf(media)}</span>
-                  <Stamp id={media.id} part="words" />
+                  <Stamp id={media.id} part="words" page={page} />
                 </a>
               )}
             </li>
