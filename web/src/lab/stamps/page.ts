@@ -39,7 +39,12 @@ export function tabStops(root: Element) {
 export function spokenName(link: Element) {
   const copy = link.cloneNode(true) as Element
   copy.querySelectorAll('[aria-hidden="true"]').forEach((hidden) => hidden.remove())
-  return (copy.textContent ?? '').replace(/\s+/g, ' ').trim()
+  // A space after each element, as a screen reader leaves between blocks.
+  copy.querySelectorAll('*').forEach((part) => part.append(' '))
+  return (copy.textContent ?? '')
+    .replace(/\s+/g, ' ')
+    .replace(/ ([,.])/g, '$1')
+    .trim()
 }
 
 /** The links a cover is: on trending, strips and search, My List, the matches and the roll. */

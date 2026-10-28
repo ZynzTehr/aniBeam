@@ -13,6 +13,8 @@ const BYTES: Record<Options['s1'], string> = {
   b: 'CSS +141 B, JS +286 B',
   c: 'CSS +193 B, JS +210 B',
 }
+// Measured for look A only; the other looks should cost about the same.
+const ADD_ONS = "Of the JS, My List's rule (S8 a) is 175 B; heart only (S3 b) saves 149 B"
 
 guardFetch()
 
@@ -112,7 +114,7 @@ function Shell() {
             <p className="ab-lab-caption">
               {fixed
                 ? `At ${fixed}px${scale < 1 ? `, shown at ${Math.round(scale * 100)}%` : ''}`
-                : `At ${Math.round(room.width)}px, the room there is`}
+                : `Fit: ${Math.round(room.width)}px wide`}
             </p>
           </header>
           <dl className="ab-lab-readouts" aria-live="off">
@@ -134,7 +136,9 @@ function Shell() {
             </div>
             <div>
               <dt>Bytes ({look.short})</dt>
-              <dd>{BYTES[options.s1]}</dd>
+              <dd>
+                {BYTES[options.s1]}. <small>{ADD_ONS}</small>
+              </dd>
             </div>
             <div className="ab-lab-heard">
               <dt>Reads as</dt>
