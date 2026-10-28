@@ -212,11 +212,14 @@ test('an address the app doesn’t know becomes /, keeping its query and hash, w
   }
 })
 
-test('/mood, the mood sliders’ address in the spec, becomes /#pull in its place and lands on the Pull heading, focused and in view, still there once the titles and the intro’s covers have landed, asking AniList only for a first visit’s titles', async () => {
+test('/mood, the mood sliders’ address in the spec, becomes /#pull in its place, keeping its query, and lands on the Pull heading, focused, in view and unmarked, still there once the titles and the intro’s covers have landed, asking AniList only for a first visit’s titles', async () => {
   // The mood sliders live on Discover's pull machine (the user's choice, the plan's D6), so the
   // address a visitor types by hand, or an old link, lands there. Replaced, not pushed: Back goes
   // to the page before it, never to /mood. A first visit, with AniList's answers held 2 s, so the
-  // titles, and the intro's covers on a phone above the headline, land after the jump.
+  // titles, and the intro's covers on a phone above the headline, land after the jump. The wide
+  // screen's visit brings a query, which stays, as for any address the app doesn't know. No click
+  // led there, so the heading is left unmarked, and the browser's own rule shows or hides its ring
+  // (see jumpTo): marked as a pointer's jump, a keyboard user who typed /mood would see none.
   const asked: string[] = []
   const what = ({ query }: Answer['request']) =>
     query === QUERIES.firstVisit ? 'trending + 1990s' : JSON.stringify(query.slice(0, 40))
@@ -227,11 +230,15 @@ test('/mood, the mood sliders’ address in the spec, becomes /#pull in its plac
     return {
       address: location.pathname + location.search + location.hash,
       focus: document.activeElement.id || document.activeElement.tagName,
+      jump: document.getElementById('pull').dataset.jump ?? 'unmarked',
       at: heading.top >= header - 0.5 && heading.bottom <= innerHeight ? 'in view, below the header' : Math.round(heading.top - header) + 'px below the header',
     }
   })()`
   const seen: Record<string, unknown> = {}
-  for (const screen of [PHONE, DESKTOP]) {
+  for (const [screen, query] of [
+    [PHONE, ''],
+    [DESKTOP, '?x=1'],
+  ] as const) {
     await browser.forget()
     // The tab's history from 1 entry, about:blank's: a tab keeps at most 50, so a full one would
     // count a push as no new entry.
@@ -243,7 +250,7 @@ test('/mood, the mood sliders’ address in the spec, becomes /#pull in its plac
       return null
     })
     try {
-      await browser.load({ ...screen, url: at('/mood') })
+      await browser.load({ ...screen, url: at(`/mood${query}`) })
       const landed = await browser.waitFor(`document.activeElement.id === 'pull'`, 5000)
       const first = await browser.evaluate(LANDED)
       assert.ok(landed, `${screen.width}px: landed at ${JSON.stringify(first)}`)
@@ -266,9 +273,15 @@ test('/mood, the mood sliders’ address in the spec, becomes /#pull in its plac
       `${screen.width}px: Back went to ${await where()}`,
     )
   }
-  const landed = { address: '/#pull', focus: 'pull', at: 'in view, below the header' }
-  const once = { first: landed, settled: landed, entries: 1 }
-  assert.deepEqual(seen, { '390px': once, '1440px': once }, 'a visit to /mood')
+  const once = (address: string) => {
+    const landed = { address, focus: 'pull', jump: 'unmarked', at: 'in view, below the header' }
+    return { first: landed, settled: landed, entries: 1 }
+  }
+  assert.deepEqual(
+    seen,
+    { '390px': once('/#pull'), '1440px': once('/?x=1#pull') },
+    'a visit to /mood',
+  )
   assert.deepEqual(asked, ['trending + 1990s', 'trending + 1990s'], 'what it asked AniList for')
 })
 

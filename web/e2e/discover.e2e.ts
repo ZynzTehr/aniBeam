@@ -1428,11 +1428,12 @@ describe('desktop (1440x900)', () => {
     )
   })
 
-  test('the link to the mood sliders on a search with no matches shows its whole focus ring, on one line, at 1440 and 390', async () => {
+  test('the link to the mood sliders on a search with no matches shows its whole focus ring, on one line, at 1440, 390 and 280', async () => {
     // The ring is the page's own for links, 4px wide and 3px out: nothing may cut it, neither the
     // screen's edge, the sticky header, nor anything that clips what it holds. The link takes
     // focus from the keyboard, so it shows its ring (:focus-visible): Shift+Tab out of it, then
-    // Tab back.
+    // Tab back. At 280px, the narrowest screen the app is checked at, the link starts a line of
+    // its own, which it must not break across two.
     const seen: Record<string, string[]> = {}
     const resize = (width: number, height: number) =>
       browser.send('Emulation.setDeviceMetricsOverride', {
@@ -1445,6 +1446,7 @@ describe('desktop (1440x900)', () => {
       for (const [width, height] of [
         [1440, 900],
         [390, 844],
+        [280, 653],
       ]) {
         await resize(width, height)
         await browser.search('zzqqxx')
@@ -1494,7 +1496,7 @@ describe('desktop (1440x900)', () => {
       await resize(1440, 900)
       await browser.search('')
     }
-    assert.deepEqual(seen, { '1440px': [], '390px': [] })
+    assert.deepEqual(seen, { '1440px': [], '390px': [], '280px': [] })
   })
 
   test('a very long search never makes the page scroll sideways', async () => {
