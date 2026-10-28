@@ -159,9 +159,9 @@ What it delivered:
 - My List's page at `/list`: Saved and Want to try with their counts, Favorites only, the 50 most lately changed titles in one request, an Undo in a removed title's place, and its states when titles are missing, AniList is out of reach or the browser is offline. It is a file of its own, loaded only when needed (#32).
 - The links: My List in the header, marked as the page there, in the phone's menu with マイリスト, and as the intro's fourth button, which flies into the header with the three section links as signed off in Phase 2. Each goes to `/list` with no new page, and on My List the section links lead back to Discover's sections the same way.
 
-After Phase 5, the first item of Phase 4's optional PR 4 came in, as the user picked it in a lab (#42): the stamps. The cover of a title on the list wears SAVED or WANT on a small white tab, with a heart for a favorite, on trending's panels, the decade strip, a search's results and the top 3 matches, and a screen reader hears the same at the end of the cover's name; on My List, a stamp says only what the page doesn't already. See [My List](#my-list). `web/e2e/layout.e2e.ts` "a listed title’s stamp ends its cover’s name" checks the names, the places and that nothing moves. They raised the JS every visit loads to 94,900 B and the CSS to 13,050 B (see [Byte budgets now](#byte-budgets-now)).
-
 Since Phase 2 closed (`f2ea028`), the tests grew from 419 unit tests and 329 browser checks to 475 and 366.
+
+After Phase 5, the first item of Phase 4's optional PR 4 came in, as the user picked it in a lab (#42): the stamps. The cover of a title on the list wears SAVED or WANT on a small white tab, with a heart for a favorite, on trending's panels, the decade strip, a search's results and the top 3 matches, and a screen reader hears the same at the end of the cover's name; on My List, a stamp says only what the page doesn't already. See [My List](#my-list). `web/e2e/layout.e2e.ts` "a listed title’s stamp ends its cover’s name" checks the names, the places and that nothing moves. They raised the JS every visit loads to 94,900 B and the CSS to 13,050 B (see [Byte budgets now](#byte-budgets-now)).
 
 ### Phase 4, measured
 
@@ -255,9 +255,9 @@ Each part of the production build, compressed with Brotli at quality 11, against
 | The JS every visit loads                     | 94,868 of 94,900 B |
 | The CSS                                      | 13,013 of 13,050 B |
 | The JS loaded only when needed (the samples) | 14,350 of 14,500 B |
-| My List's page, a file of its own            | 2,343 of 2,500 B   |
+| My List's page, a file of its own            | 2,344 of 2,500 B   |
 | The mood scoring, a file of its own          | 955 of 1,500 B     |
-| Every other file                             | 370 of 500 B       |
+| Every other file                             | 356 of 500 B       |
 
 ## Notes
 
