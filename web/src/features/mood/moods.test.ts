@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 import { ERAS } from '../anime/queries.ts'
-import { AXES, popularHeading, samplesLine, wordOf } from './moods.ts'
+import { AXES, popularHeading, RULE, samplesLine, wordOf } from './moods.ts'
 
 test('each mood axis names its 5 stops with 5 different words, the middle one "No preference"', () => {
   assert.deepEqual(Object.keys(AXES), ['energy', 'tone', 'complexity'])
@@ -30,6 +30,10 @@ test("each axis's words run from its low end to its high end, as its track does"
   }
 })
 
+test("the card's rarity rule is the user's own words (A11), word for word", () => {
+  assert.equal(RULE, 'Rarity is just the AniList score. It never changes what you roll.')
+})
+
 test('at no preference, the matches are headed by their decade, each in words of its own', () => {
   assert.deepEqual(
     [...ERAS, null].map((era) => popularHeading(era)),
@@ -51,8 +55,8 @@ test('the outage line counts the sample titles that can come out, one as one, an
   assert.deepEqual(
     [5, 1, 0].map((count) => samplesLine(count)),
     [
-      'AniList can’t be reached. Pulling from 5 sample titles.',
-      'AniList can’t be reached. Pulling from 1 sample title.',
+      'AniList can’t be reached. Rolling from 5 sample titles.',
+      'AniList can’t be reached. Rolling from 1 sample title.',
       'AniList can’t be reached.',
     ],
   )

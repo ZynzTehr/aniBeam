@@ -114,22 +114,33 @@ const afterDrawing = (save: () => void | PromiseLike<void>) =>
  * How many decades' mood pools a save keeps, the newest (the plan's B1): 3, as the biggest pool
  * recorded, the 1990s' (e2e/anilist/pool-1990s.json), is 243,874 characters once cut (see poolOf),
  * well short of the 300 KB at which only 2 would be kept. Three of them are about 0.7 MB of the 5
- * MB localStorage holds, and each save writes them out with the rest (see afterDrawing).
+ * MB localStorage holds, and each save writes them out with the rest (see afterDrawing). A pool's
+ * page 3, asked for only once a visitor has rolled most of it, goes with it: the 1990s' is 105,152
+ * characters once cut (e2e/anilist/pool-1990s-page-3.json), so three pools with theirs would be
+ * about 1 MB.
  */
 export const POOLS_SAVED = 3
 
 /**
- * `saving` with only its POOLS_SAVED newest mood pools, by when each came. Here, not in
+ * `saving` with only its POOLS_SAVED newest mood pools, by when each came, and the page 3 of those
+ * alone (poolPage3Query), which follows its pool's titles and is nothing without them. Here, not in
  * shouldDehydrateQuery, which is asked about one query at a time and can't see the others. The
  * pools left out stay in the page's cache for the visit: only the saved copy goes without them.
  */
 const newestPools = (saving: PersistedClient): PersistedClient => {
   const { queries } = saving.clientState
+  const decade = ({ queryKey }: { queryKey: readonly unknown[] }) => JSON.stringify(queryKey[2])
   const pools = queries
     .filter(({ queryKey }) => queryKey[1] === QUERIES.pool)
     .toSorted((a, b) => b.state.dataUpdatedAt - a.state.dataUpdatedAt)
-  if (pools.length <= POOLS_SAVED) return saving
-  const dropped = new Set(pools.slice(POOLS_SAVED))
+  const kept = new Set(pools.slice(0, POOLS_SAVED).map(decade))
+  const dropped = new Set([
+    ...pools.slice(POOLS_SAVED),
+    ...queries.filter(
+      (query) => query.queryKey[1] === QUERIES.poolPage3 && !kept.has(decade(query)),
+    ),
+  ])
+  if (!dropped.size) return saving
   return {
     ...saving,
     clientState: { ...saving.clientState, queries: queries.filter((query) => !dropped.has(query)) },

@@ -42,9 +42,25 @@ export const popularHeading = (era: Era | null) =>
       ? 'Most popular upcoming titles'
       : `Most popular ${era.id === 'pre-1970' ? 'before 1970' : `in the ${era.label}`}`
 
+/** Under the rolled card's text, what its rarity means (the user's pick, A11): never luck. */
+export const RULE = 'Rarity is just the AniList score. It never changes what you roll.'
+
+/** The machine's line once every title it can roll has come up lately, so the next is a repeat. */
+export const REPEATS = 'Every match has come up once. Repeats start now.'
+
+/**
+ * The machine's line with fewer than 20 titles left to come up (FEW in roll.ts), `count` of them,
+ * once it holds every title of the decade it will (the pool, and its page 3 if there is one).
+ */
+export const fewLine = (count: number) =>
+  `Only ${count} ${count === 1 ? 'title' : 'titles'} left to roll in this decade.`
+
+/** What the machine says when every title it holds is on My List (the plan's D4). */
+export const LISTED = 'Everything in the machine is on your list. Try another decade below.'
+
 /**
  * The machine's line while AniList can't be reached, over `count` sample titles that can come out:
  * one is one title, and with none the line says only that (the hint says the rest).
  */
 export const samplesLine = (count: number) =>
-  `AniList can’t be reached.${count ? ` Pulling from ${count} sample ${count === 1 ? 'title' : 'titles'}.` : ''}`
+  `AniList can’t be reached.${count ? ` Rolling from ${count} sample ${count === 1 ? 'title' : 'titles'}.` : ''}`

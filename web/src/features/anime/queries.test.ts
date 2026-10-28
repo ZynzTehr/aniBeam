@@ -10,6 +10,7 @@ import {
   keptFor,
   listQuery,
   poolOf,
+  poolPage3Query,
   poolQuery,
   poolTitleOf,
   QUERIES,
@@ -121,9 +122,11 @@ test('every query asks AniList for exactly the fields of Media, and a title alon
     const wanted =
       name === 'pool'
         ? [pool, pool]
-        : name === 'decadeWithPool'
-          ? [media, pool, pool]
-          : calls.map(() => media)
+        : name === 'poolPage3'
+          ? [pool]
+          : name === 'decadeWithPool'
+            ? [media, pool, pool]
+            : calls.map(() => media)
     assert.deepEqual(calls, wanted, `${name} doesn't ask for exactly the fields it needs`)
   }
 })
@@ -297,6 +300,24 @@ test('each decade’s pool has a key of its own, the decade alone, fresh 6 hours
   }
   const keys = ERAS.map((era) => JSON.stringify(poolQuery(era).queryKey))
   assert.equal(new Set(keys).size, ERAS.length)
+})
+
+// Page 3 too (the plan's A12): asked for by a roll, never by a slider, so its key is the decade
+// alone, and it keeps as long as the pool whose titles it follows.
+test('each decade’s pool’s page 3 has a key of its own, the decade alone, fresh 6 hours and kept a day', () => {
+  const HOUR = 60 * 60_000
+  assert.equal(poolPage3Query.length, 1, 'poolPage3Query takes more than the decade')
+  for (const era of ERAS) {
+    const options = poolPage3Query(era)
+    assert.deepEqual(options.queryKey, ['anilist', QUERIES.poolPage3, era.variables], era.id)
+    assert.equal(options.staleTime, 6 * HOUR, era.id)
+    assert.equal(options.refetchOnWindowFocus, false, `${era.id} refreshes on coming back`)
+    assert.equal(keptFor(options.queryKey, []), 24 * HOUR, era.id)
+  }
+  const keys = ERAS.flatMap((era) => [poolQuery(era), poolPage3Query(era)]).map((options) =>
+    JSON.stringify(options.queryKey),
+  )
+  assert.equal(new Set(keys).size, 2 * ERAS.length)
 })
 
 test('one title is asked for by its id, a number, with its own cache entry', () => {
@@ -1102,10 +1123,12 @@ test('every variable a query sends is declared by that query', async (t) => {
   const sent: { query: string; variables: Record<string, unknown> }[] = []
   t.mock.method(globalThis, 'fetch', async (_url: string, init: RequestInit) => {
     sent.push(JSON.parse(init.body as string))
-    // A list for the lists, a title for the title on its own, two pages for a pool.
+    // A list for the lists, a title for the title on its own, two pages for a pool, and its third.
     const page = { pageInfo: { hasNextPage: false }, media: [] }
     return new Response(
-      JSON.stringify({ data: { Page: { media: [] }, Media: { id: 1 }, p1: page, p2: page } }),
+      JSON.stringify({
+        data: { Page: { media: [] }, Media: { id: 1 }, p1: page, p2: page, p3: page },
+      }),
     )
   })
   for (const options of [
@@ -1115,11 +1138,12 @@ test('every variable a query sends is declared by that query', async (t) => {
     titleQuery(154587),
     listQuery([154587, 1]),
     ...ERAS.map((era) => poolQuery(era)),
+    ...ERAS.map((era) => poolPage3Query(era)),
   ]) {
     // The cast stands in for the context TanStack Query passes; only the signal is used.
     await options.queryFn!({ signal: new AbortController().signal } as never)
   }
-  assert.equal(sent.length, 2 * ERAS.length + 4)
+  assert.equal(sent.length, 3 * ERAS.length + 4)
   for (const { query, variables } of sent) {
     for (const name of Object.keys(variables)) {
       assert.ok(query.includes(`$${name}:`), `sends $${name}, which its query doesn't declare`)

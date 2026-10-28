@@ -4,6 +4,7 @@
 import assert from 'node:assert/strict'
 import { after, afterEach, before, beforeEach, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { RULE } from '../src/features/mood/moods.ts'
 import { Browser } from './browser.ts'
 
 // A phone's width, without Chrome's mobile emulation: that marks every shift in the page's first
@@ -402,9 +403,10 @@ test('a slow first load, seen at the decades, jumps under 0.1, on a phone and on
 })
 
 test('a pull on a phone jumps under 0.1, and the next one too, its title laid out at the press', async () => {
-  // With motion allowed, the capsule drops for 900 ms before it opens on the title, more than the
-  // half second after a press that doesn't count. So the title's box is laid out at the press,
-  // invisible and out of reach (inert) until the capsule opens, and the opening moves nothing.
+  // With motion allowed, the capsule drops and the card turns for ROLL_MS (700 ms) before it shows
+  // the title, more than the half second after a press that doesn't count. So the card is laid out
+  // at the press: its faces unseen until the capsule pops open, its text invisible and both out of
+  // reach (inert) until it shows, and showing it moves nothing.
   await browser.forget()
   await browser.load(PHONE)
   assert.ok(await browser.titlesShown())
@@ -412,10 +414,12 @@ test('a pull on a phone jumps under 0.1, and the next one too, its title laid ou
   const result = `(() => {
     const result = document.querySelector('.ab-result:not([data-old])')
     if (!result) return 'no result'
-    const parts = [result.querySelector('.ab-result-panel'), result.querySelector('.ab-result-copy')]
-    if (parts.some((part) => !part)) return 'no title laid out'
-    const hidden = parts.every((part) => getComputedStyle(part).visibility === 'hidden' && part.inert)
-    const shown = parts.every((part) => getComputedStyle(part).visibility === 'visible' && !part.inert)
+    const poster = result.querySelector('.ab-result-panel'), copy = result.querySelector('.ab-result-copy')
+    if (!poster || !copy) return 'no title laid out'
+    const seen = (part) => part.checkVisibility({ opacityProperty: true, visibilityProperty: true })
+    const faces = [...result.querySelectorAll('.ab-face')]
+    const hidden = poster.inert && copy.inert && !seen(copy) && faces.length === 2 && !faces.some(seen)
+    const shown = !poster.inert && !copy.inert && seen(copy) && seen(poster)
     // The burst of speed lines in the title's color comes with the opening, not before.
     const burst = result.querySelector('.ab-burst') ? ' with its burst' : ''
     return (hidden ? 'hidden and inert' : shown ? 'shown' : 'half shown') + burst + ', ' + Math.round(result.getBoundingClientRect().height) + 'px'
@@ -441,9 +445,9 @@ test('a pull on a phone jumps under 0.1, and the next one too, its title laid ou
       await browser.waitFor(`document.querySelector('.ab-result.is-open:not([data-old])')`, 5000),
       `the ${pull} pull never opened`,
     )
-    // The title's entrance and its burst play as the capsule opens, not at the press, unseen.
+    // The title's entrance and its burst play as the card shows, not at the press, unseen.
     const entering =
-      await browser.evaluate<boolean>(`['.ab-result-panel', '.ab-result-copy', '.ab-sfx-tier', '.ab-burst'].every((part) =>
+      await browser.evaluate<boolean>(`['.ab-result-copy', '.ab-sfx-tier', '.ab-burst'].every((part) =>
       document.querySelector('.ab-result.is-open:not([data-old]) ' + part)?.getAnimations().some((animation) => animation.playState === 'running'))`)
     // What the opening animates: only what moves nothing else, transform and opacity.
     const animating =
@@ -454,11 +458,12 @@ test('a pull on a phone jumps under 0.1, and the next one too, its title laid ou
     await sleep(1000)
     const opened = await browser.evaluate<string>(result)
     const { value } = await browser.layoutShift()
-    // And what a finger or the mouse finds at the middle of the poster, the title and its button,
-    // each brought to the middle of the screen: that part, not the burst or anything else on top.
+    // And what a finger or the mouse finds at the middle of the poster, the title, Save, Details
+    // and Roll again, each brought to the middle of the screen: that part, not the burst or
+    // anything else on top.
     const presses = await browser.evaluate<string>(`(() => {
       const result = document.querySelector('.ab-result.is-open:not([data-old])')
-      const parts = { 'the poster': '.ab-result-panel', 'the title': 'h3', 'Open title card': '.ab-btn' }
+      const parts = { 'the poster': '.ab-result-panel', 'the title': 'h3', 'Save': '.ab-mylist .ab-btn', 'Details': '.ab-row-actions .ab-btn', 'Roll again': '.ab-row-actions .ab-btn:last-child' }
       const missed = Object.entries(parts).flatMap(([name, selector]) => {
         const part = result.querySelector(selector)
         part.scrollIntoView({ block: 'center', behavior: 'instant' })
@@ -481,4 +486,120 @@ test('a pull on a phone jumps under 0.1, and the next one too, its title laid ou
     ),
     'each pull',
   )
+})
+
+test('at 280px the rolled card fits the screen whole, its rarity’s rule, My List row, Details and Roll again too, and a roll after it moves nothing', async () => {
+  // The plan's PR 4, commit 6: a phone zoomed to 125% or more. Each part of the card keeps one
+  // size from roll to roll (two lines of title, one of season, two of Why and two of the rule), so
+  // with motion allowed, its card laid out at the press, three rolls after the first shift nothing
+  // at all, pressed from page script, so no shift is let off as the visitor's input. The card's
+  // title is brought to the top of the screen, so its text, its buttons and the matches under it
+  // are on it (a shift off the screen counts for nothing); Math.random at 0 rolls the decade's
+  // most popular titles in turn, the same every run, one or two lines long at this width.
+  await browser.load({ width: 280, height: 653 })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const roll = async () => {
+    await browser.evaluate(`(() => {
+      document.querySelector('.ab-result')?.setAttribute('data-old', '')
+      const random = Math.random
+      Math.random = () => 0
+      document.querySelector('.ab-lever').click()
+      Math.random = random
+      return true
+    })()`)
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-result.is-open:not([data-old])')`, 5000),
+      'a roll never opened',
+    )
+    await browser.animationsDone()
+  }
+  await browser.evaluate(`document.querySelector('#pull').scrollIntoView(), true`)
+  await roll()
+  // Each part, brought into view: its name, and how far it reaches past either side of the screen.
+  const fits = await browser.evaluate<string[]>(`(() => {
+    const card = document.querySelector('.ab-result.is-open')
+    const parts = [...card.querySelectorAll('.ab-face, .ab-tier, h3, p, button')]
+    return parts.flatMap((part) => {
+      const box = part.getBoundingClientRect()
+      const name = part.matches('button') ? part.textContent.trim() : part.className || part.localName
+      const over = Math.max(0 - box.left, box.right - innerWidth)
+      return part.matches('button') || over > 0.5 ? [name + (over > 0.5 ? ' reaches ' + over.toFixed(1) + 'px past the screen' : '')] : []
+    })
+  })()`)
+  const wide = await browser.evaluate<number>(`document.documentElement.scrollWidth - innerWidth`)
+  // What its rarity means, under its text (A11).
+  const rule = await browser.evaluate<string>(
+    `document.querySelector('.ab-result.is-open .ab-rule')?.textContent ?? 'none'`,
+  )
+  await browser.evaluate(
+    `document.querySelector('.ab-result h3').scrollIntoView({ block: 'start', behavior: 'instant' }), true`,
+  )
+  await browser.evaluate('new Promise((resolve) => requestAnimationFrame(() => resolve(true)))')
+  await browser.evaluate(`window.__takeLayoutShifts(), (window.__layoutShifts.length = 0), true`)
+  const titles = [
+    await browser.evaluate<string>(`document.querySelector('.ab-result h3').textContent`),
+  ]
+  for (let i = 0; i < 3; i++) {
+    await roll()
+    titles.push(
+      await browser.evaluate<string>(`document.querySelector('.ab-result h3').textContent`),
+    )
+  }
+  await sleep(500)
+  const moved = await browser.evaluate<string[]>(
+    `(window.__takeLayoutShifts(), window.__layoutShifts.map((shift) => shift.value.toFixed(4) + ': ' + shift.moved.join(', ')))`,
+  )
+  assert.deepEqual(
+    { fits, wide, rule, moved, titles: new Set(titles).size },
+    {
+      fits: ['Save', 'Want to try', 'Favorite', 'Details', 'Roll again'],
+      wide: 0,
+      rule: RULE,
+      moved: [],
+      titles: 4,
+    },
+    `rolled ${titles.join(', ')}`,
+  )
+})
+
+test('beside the machine, from 821 to 1170px and at 1180px beside a scrollbar, where the rolled card stacks, a first roll moves neither the lever nor what is under the card', async () => {
+  // The card is taller stacked than the hint it takes the place of, so its row keeps the card's
+  // room from the start: a first roll grew the row, moving the lever under the pointer, as the
+  // machine sat in the middle of the row, and the matches and decades under it, 337px at 1024px.
+  // Under 821px the card comes in under the machine, below the lever. A scrollbar that takes room,
+  // as on Windows (17px here), narrows the reveal, so at 1180px the card stacks there too.
+  const seen: string[] = []
+  for (const [width, scrollbar] of [
+    [821, false],
+    [1024, false],
+    [1170, false],
+    [1180, true],
+  ] as const) {
+    await browser.load({ width, height: 900, reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    await browser.landAll()
+    if (scrollbar)
+      await browser.evaluate(
+        `document.head.append(Object.assign(document.createElement('style'), { textContent: 'html { overflow-y: scroll } ::-webkit-scrollbar { width: 17px }' })), true`,
+      )
+    const at = `${width}px${scrollbar ? ' beside a scrollbar' : ''}`
+    const reveal = await browser.evaluate<number>(
+      `document.querySelector('.ab-reveal').getBoundingClientRect().width`,
+    )
+    assert.ok(reveal <= 630, `${at}: the reveal is ${reveal}px wide, where the card doesn't stack`)
+    const where = `['.ab-lever', '.ab-matches', '.ab-strip'].map((part) => Math.round(document.querySelector(part).getBoundingClientRect().top + scrollY))`
+    const before = await browser.evaluate<number[]>(where)
+    await browser.evaluate(`document.querySelector('.ab-lever').click(), true`)
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-result.is-open')`, 5000),
+      'the roll never opened',
+    )
+    const after = await browser.evaluate<number[]>(where)
+    const moved = ['the lever', 'the matches', 'the decades'].flatMap((part, i) =>
+      after[i] === before[i] ? [] : [`${part} ${after[i] - before[i]}px`],
+    )
+    if (moved.length) seen.push(`${at}: ${moved.join(', ')}`)
+  }
+  assert.deepEqual(seen, [], 'a first roll moves the page')
 })

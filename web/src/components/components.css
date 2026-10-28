@@ -505,8 +505,9 @@ img[data-broken] {
 
 /* A box no one sees, which the motion gates widen from 1px to 2px (see the first gate below).
    MotionSwitch watches its width, so it hears motion come back on in the very frame it does,
-   before that frame is drawn (see watchMotionBackOn() in lib/motion.ts). Fixed in the screen's
-   corner, it takes no room in the footer. */
+   before that frame is drawn (see watchMotionBackOn() in lib/motion.ts), and Discover's machine
+   watches one of its own as a roll's card turns, to hear motion turn off. Fixed in the screen's
+   corner, it takes no room in the footer or the card. */
 .ab-motion-sentinel {
   position: fixed;
   top: 0;
@@ -1337,8 +1338,12 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   grid-template-columns: minmax(260px, 400px) minmax(0, 1fr);
 }
 
+/* The machine tops its row: beside the stacked card's room (see .ab-reveal::before) it sat in the
+   room's middle. Beside the card side by side, or above it on a phone, it is the tallest in its
+   row, so its top and its middle are the same place there. */
 .ab-machine {
   display: grid;
+  align-self: start;
   justify-items: center;
 }
 
@@ -1671,6 +1676,14 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   grid-template-columns: minmax(170px, 250px) minmax(0, 1fr);
 }
 
+/* A roll's card fades in over 150 ms (spec §3J): under reduced motion it shows at once, with no
+   flip, and in a single frame it switched a large part of the screen to the title's colors. With
+   motion allowed, it plays under the capsule's drop, before the card's faces show (see the motion
+   block). It is the same rule either way, so motion turning off or on never plays it again. */
+.ab-result {
+  animation: ab-fade 0.15s linear;
+}
+
 /* The capsule is only there to move: it drops in, then splits open on the title (see the motion
    block below). So it stays hidden unless motion is allowed, and the motion block shows it. A
    rule for reduced motion couldn't hide it from everyone who asks: a media query hears only the
@@ -1709,11 +1722,14 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   background: #fff;
 }
 
+/* Beside its text, the card stands taller than its poster (the text, the My List row and the
+   actions): the rays reach as far past the poster as they did when the card was as tall as it,
+   clear of the matches' heading below. Stacked, they reach 12% of the card past it. */
 .ab-burst {
   position: absolute;
   z-index: 0;
-  top: -12%;
-  bottom: -12%;
+  top: -3%;
+  bottom: -3%;
   left: -14%;
   width: 72%;
   background: repeating-conic-gradient(
@@ -1724,21 +1740,88 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   mask-image: radial-gradient(circle, transparent 18%, #000 42%, transparent 74%);
 }
 
-/* The pulled title is laid out at the press, so that the capsule opening on it moves nothing on the
-   page; until it opens, the title is invisible (and inert, see PullMachine). */
-.ab-result:not(.is-open) > .ab-result-panel,
-.ab-result:not(.is-open) > .ab-result-copy {
+/* The rolled card is laid out at the press, so that showing its title moves nothing on the page;
+   until it shows, the text is invisible (and inert, see PullMachine). */
+.ab-result:not(.is-open) .ab-result-copy {
   visibility: hidden;
 }
 
-.ab-result-panel {
+/* The poster, its two faces turning in it as a roll lands (see the motion block). */
+.ab-flip {
   position: relative;
   z-index: 1;
-  display: block;
+  perspective: 1100px;
+}
+
+.ab-flipper {
+  position: relative;
   aspect-ratio: 2 / 3;
+  transform-style: preserve-3d;
+}
+
+/* Overflow, filter and opacity go on the faces, never on the part that turns: they would flatten
+   it, and Safari flickers. */
+.ab-face {
+  position: absolute;
+  overflow: hidden;
   border: var(--border) solid var(--ink);
+  backface-visibility: hidden;
+  inset: 0;
+}
+
+.ab-result-panel {
   background: var(--ink);
   box-shadow: 9px 9px 0 var(--anime-accent);
+}
+
+/* The card's back: AniBeam's screentone and a big ? stamp. */
+.ab-back {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 4px;
+  background: var(--hot) radial-gradient(rgb(0 0 0 / 0.22) 1.6px, transparent 2px) 0 0 / 8px 8px;
+  box-shadow: 9px 9px 0 var(--ink);
+  color: #fff;
+  transform: rotateY(180deg);
+}
+
+/* The color its back glows in before it turns, the rolled title's rarity's (the user's pick, A9):
+   only with motion allowed (see the motion block). */
+.ab-ssr {
+  --glow: var(--hot);
+}
+
+.ab-sr {
+  --glow: var(--sun);
+}
+
+.ab-r {
+  --glow: #8fc3ff;
+}
+
+.ab-mystery {
+  --glow: #fff;
+}
+
+.ab-back b {
+  display: grid;
+  width: 46%;
+  aspect-ratio: 1;
+  place-items: center;
+  border: var(--border) solid var(--ink);
+  border-radius: 50%;
+  background: var(--sun);
+  box-shadow: 5px 5px 0 var(--ink);
+  color: var(--ink);
+  font: 400 clamp(48px, 7vw, 84px) / 1 var(--display);
+}
+
+.ab-back i {
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--ink);
+  font: 400 15px var(--display);
 }
 
 .ab-result-panel img {
@@ -1764,9 +1847,14 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   color: var(--hot);
 }
 
-.ab-result-copy {
+/* The card's text, its My List row and its actions, over the burst. Each part of the text keeps
+   one size from roll to roll, so a roll moves nothing under it: two lines of title, one of season,
+   format and studio, two of Why and two of the rarity's rule (the lab's card, signed off). */
+.ab-result-side {
   position: relative;
   z-index: 1;
+  min-width: 0;
+  justify-self: stretch;
 }
 
 .ab-tier {
@@ -1781,16 +1869,47 @@ body:has(.ab-card[open], .ab-drawer[open]) {
 }
 
 .ab-result-copy h3 {
+  display: -webkit-box;
+  height: 2.2em;
   margin: 12px 0 8px;
-  font: 400 clamp(26px, 3vw, 42px) / 1.1 var(--display);
+  overflow: hidden;
+  font: 400 clamp(24px, 2.6vw, 38px) / 1.1 var(--display);
   overflow-wrap: anywhere;
   text-wrap: balance;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .ab-result-meta {
+  height: 1.5em;
   margin: 0;
+  overflow: hidden;
   color: #3d3d3d;
   font-weight: 800;
+  line-height: 1.5;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ab-result-why {
+  display: -webkit-box;
+  height: 2.8em;
+  margin: 8px 0 0;
+  overflow: hidden;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1.4;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.ab-rule {
+  height: 2.8em;
+  margin: 6px 0 0;
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.4;
 }
 
 .ab-row-actions {
@@ -2692,7 +2811,7 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     text-align: center;
   }
 
-  .ab-result-panel {
+  .ab-flip {
     width: min(64vw, 240px);
   }
 
@@ -2709,6 +2828,11 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   .ab-drop {
     top: 20%;
     left: 50%;
+  }
+
+  .ab-burst {
+    top: -12%;
+    bottom: -12%;
   }
 
   .ab-sheet {
@@ -2792,17 +2916,43 @@ body:has(.ab-card[open], .ab-drawer[open]) {
     text-align: center;
   }
 
-  .ab-result-panel {
+  .ab-flip {
     width: min(64vw, 240px);
   }
 
-  .ab-result .ab-row-actions {
+  .ab-result .ab-row-actions,
+  .ab-result .ab-mylist {
     justify-content: center;
   }
 
   .ab-drop {
     top: 20%;
     left: 50%;
+  }
+
+  .ab-burst {
+    top: -12%;
+    bottom: -12%;
+  }
+
+  /* Beside the machine, the stacked card's row keeps its room from the start (the card is 795 to
+     872px tall there), so a first roll moves nothing under it, nor the lever beside it. It is set
+     here, where the card stacks, not at a screen width: a scrollbar that takes room, as on
+     Windows, narrows the reveal, and the card stacked up to about 1190px wide with no room kept.
+     A query on the reveal can't size the reveal's own rows, so the room is an empty box of its
+     own, in the hint's or the card's place, which sits in the room's middle. Under 821px the card
+     comes in under the machine and pushes what is under it down, on purpose: 880px empty under
+     the hint would put the matches a screen away on a phone. */
+  @media (min-width: 821px) {
+    .ab-reveal::before {
+      grid-area: 1 / 1;
+      min-height: 880px;
+      content: '';
+    }
+
+    .ab-reveal > :first-child {
+      grid-area: 1 / 1;
+    }
   }
 }
 
@@ -2978,35 +3128,49 @@ body:has(.ab-card[open], .ab-drawer[open]) {
       }
     }
 
-    /* The capsule shows only here, where it moves (see .ab-drop above). */
+    /* A roll (F1, timed by PullMachine from flip.ts): the capsule, shown only here, where it moves
+       (see .ab-drop above), drops for --drop, then pops open for --open as the card's faces fade
+       in behind it, and the card turns for --flip, from its back to the title's cover. */
     .ab-drop {
       display: block;
-      animation: ab-drop 0.75s cubic-bezier(0.3, 1.6, 0.4, 1) both;
+      animation: ab-drop var(--drop) cubic-bezier(0.3, 1.6, 0.4, 1) both;
     }
 
-    .ab-result.is-open .ab-top-half {
-      animation: ab-split-top 0.5s cubic-bezier(0.3, 0, 0.2, 1) forwards;
+    .ab-top-half {
+      animation: ab-split-top var(--open) ease-in var(--drop) forwards;
     }
 
-    .ab-result.is-open .ab-bottom-half {
-      animation: ab-split-bottom 0.5s cubic-bezier(0.3, 0, 0.2, 1) forwards;
+    .ab-bottom-half {
+      animation: ab-split-bottom var(--open) ease-in var(--drop) forwards;
     }
 
+    .ab-result:not(.is-open) .ab-face {
+      animation: ab-fade var(--open) linear var(--drop) backwards;
+    }
+
+    /* And as it pops open, the card's back glows in its rarity's color, before it turns. */
+    .ab-result:not(.is-open) .ab-back {
+      animation:
+        ab-fade var(--open) linear var(--drop) backwards,
+        ab-glow var(--open) ease-out var(--drop) both;
+    }
+
+    .ab-result:not(.is-open) .ab-flipper {
+      animation: ab-turn var(--flip) cubic-bezier(0.3, 0.7, 0.3, 1) calc(var(--drop) + var(--open))
+        both;
+    }
+
+    /* As the card shows its title, not at the press, when it is laid out unseen. */
     .ab-burst {
       animation: ab-burst 0.9s ease-out both;
     }
 
-    /* As the capsule opens, not at the press, when the title is laid out unseen. */
-    .ab-result.is-open .ab-result-panel {
-      animation: ab-art 0.8s var(--spring) both 0.1s;
-    }
-
-    .ab-result.is-open .ab-sfx-tier {
-      animation: ab-tier-boom 0.7s var(--spring) both 0.35s;
+    .ab-sfx-tier {
+      animation: ab-tier-boom 0.5s var(--spring) both;
     }
 
     .ab-result.is-open .ab-result-copy {
-      animation: ab-rise 0.6s var(--spring) both 0.3s;
+      animation: ab-rise 0.35s var(--spring) both;
     }
 
     .ab-machine:has(.ab-lever:active) .ab-capsule {
@@ -3119,6 +3283,21 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   from {
     opacity: 0;
     transform: translateY(-240px) rotate(-220deg);
+  }
+}
+
+@keyframes ab-glow {
+  to {
+    box-shadow:
+      9px 9px 0 var(--ink),
+      0 0 0 6px var(--glow),
+      0 0 28px 10px var(--glow);
+  }
+}
+
+@keyframes ab-turn {
+  from {
+    transform: rotateY(180deg);
   }
 }
 

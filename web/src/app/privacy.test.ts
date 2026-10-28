@@ -448,11 +448,42 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // the line's room of three lines on a phone and Reset moods' border for contrast themes (12,506 B).
 // Then 93,800 B with the same code: the top matches moved 1rem down, clear of the pulled title's
 // rays, renamed the CSS file and so My List's page, whose new name in the import alone took the
-// JS from 93,643 B to 93,711 B (its bytes uncompressed the same); the CSS 12,530 B.
+// JS from 93,643 B to 93,711 B (its bytes uncompressed the same); the CSS 12,530 B. Then 93,900 B
+// with the gacha's rolls (PR 4): the machine's words turned to "roll" (93,691 B), then a roll that
+// skips another season of a show rolled in the last 30, the show found through the pool's seasons
+// one to the next, and the line "Every match has come up once. Repeats start now." once only the
+// last rolls are left: 93,892 B, 201 B more. Then the CSS 12,700 B for the roll's flip (F1, the
+// user's pick): the card's two faces, its back in AniBeam's screentone with a ? stamp, turning in
+// 3D after the capsule drops and pops open, timed from flip.ts: 12,697 B, 167 B more (the JS
+// 93,810 B, within its budget). Then the CSS 12,800 B for the glow on the card's back before it
+// turns, in the rarity's color, with motion allowed only: 12,776 B, 79 B more; and the JS 94,050
+// B with no change to its code: the CSS file's new name renamed My List's page (ListPage-*.js),
+// and that name in the import alone took the JS from 93,810 B to 94,014 B, its bytes uncompressed
+// the same.
+// Then 94,200 B with the rolled card in full (the plan's A10 and A11): the title's My List row
+// (ListControls, already in the code every visit loads, its line given an id of its own), Details
+// and Roll again, whose focus a roll from it hands to the new card's, the Why line and the rarity's
+// rule: 94,141 B, 141 B more than 94,000 B; and the CSS 12,850 B for the card's text keeping one
+// size from roll to roll and its rays fitted to its poster beside the text: 12,836 B, 62 B more.
+// Then 94,500 B with page 3 and the end states (the plan's A12): the pool's page 3, its query's
+// text in QUERIES (about 150 B on its own), asked for once by a roll made with fewer than 10 of the
+// pool's titles left to come up, its titles added to the pool's; the saved copy keeping a page 3
+// only with its pool; the line saying "Only N titles left to roll in this decade." and, with a card
+// rolled, that everything is on My List; and each roll saying the line as it left it, kept with
+// that roll: 94,439 B, 298 B more. The gacha (PR 4) in all: the JS every visit loads from 93,711 B
+// to 94,439 B, 728 B more, about 200 B of it a renamed file in an import (the plan said 600 to 800
+// B), and the CSS from 12,530 B to 12,836 B, 306 B more (the plan said 400 to 550 B).
+// Then 94,600 B with the review's fix for page 3 on its way: no line, nor any roll, says repeats
+// start or how few are left until it lands or fails, AniList's 429 on it shows the busy line, and
+// a page 3 that failed with the mood scoring is asked for again once it loads: 94,550 B, 111 B
+// more. Then the CSS 12,900 B for the review's fix to a first roll from 821 to 1170px, where the
+// rolled card stacks beside the machine: its row keeps the card's room from the start, and the
+// machine tops it, so the lever and what is under the card stay put: 12,869 B, 33 B more. And the
+// JS 94,521 B, 29 B fewer, with no change to what it does: the rarity's rule moved into moods.ts.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 93_800,
-  'the CSS': 12_550,
+  'the JS every visit loads': 94_600,
+  'the CSS': 12_900,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,
   'the mood scoring': 1_500,

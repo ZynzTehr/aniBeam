@@ -12,7 +12,7 @@ export type Session = {
   sliders: Sliders
   /** The last rolls' ids, the oldest first, which a roll skips while it can (see rollNext). */
   ring: readonly number[]
-  /** How many pulls this visit. */
+  /** How many rolls this visit. */
   pulls: number
   /** The title the last pull gave. */
   pulled: Media | null
@@ -21,6 +21,12 @@ export type Session = {
    * (see PullMachine).
    */
   wanted: readonly string[]
+  /**
+   * The decades whose mood pool's page 3 is wanted, by id: once a roll is made with fewer than 10
+   * of the pool's titles left to come up, if page 2 said there is one (see PullMachine). Asked for
+   * once.
+   */
+  page3: readonly string[]
 }
 
 /** No slider set, nothing pulled: how a visit starts. */
@@ -30,6 +36,7 @@ export const FRESH: Session = {
   pulls: 0,
   pulled: null,
   wanted: [],
+  page3: [],
 }
 
 let session = FRESH

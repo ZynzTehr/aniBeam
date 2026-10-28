@@ -581,15 +581,16 @@ test('press() presses Space as a keyboard does: on the focused lever, it pulls o
         lever.focus()
         return { focused: document.activeElement === lever, off: lever.disabled, count: ${count} }
       })()`),
-      { focused: true, off: false, count: 'No pulls yet' },
+      { focused: true, off: false, count: 'No rolls yet' },
       'the lever, before Space',
     )
     await browser.press('Space')
-    // The capsule opens 0.9 s after a pull, and a second pull would have come by then.
+    // The card shows its title 0.7 s after a roll (ROLL_MS), and a second roll would have come by
+    // then.
     const opened = await browser.waitFor(`document.querySelector('.ab-result.is-open')`, 5_000)
     assert.deepEqual(
       { opened, count: await browser.evaluate(count) },
-      { opened: true, count: '1 pull this visit' },
+      { opened: true, count: '1 roll this visit' },
       'what Space on the focused lever did',
     )
   } finally {

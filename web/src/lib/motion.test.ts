@@ -12,6 +12,7 @@ import {
   saveMotionChoice,
   watchDeviceMotion,
   watchMotionBackOn,
+  watchMotionOff,
 } from './motion.ts'
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
@@ -261,6 +262,45 @@ test('watchMotionBackOn() calls back only as motion comes back on, not as it sta
   assert.deepEqual(
     heard,
     ['the device stops asking', 'the switch turns off', 'the device stops asking, on that page'],
+    'the steps at which it called back',
+  )
+})
+
+test('watchMotionOff() calls back only as motion turns off, not as it starts watching, until the page stops watching', (t) => {
+  // Discover's machine ends a roll's flip at its last frame as motion turns off (see PullMachine):
+  // the switch turning on, or the device that starts asking while the switch is off. Not as it
+  // starts watching, nor as motion comes back on, nor as the other setting joins one already on.
+  // As above, each step changes the settings, then has the observer call back.
+  const page = fakePage(t)
+  const heard: string[] = []
+  let now = ''
+  const step = (what: string, change = () => {}) => {
+    now = what
+    change()
+    page.resize()
+  }
+  const sentinel = {} as Element
+  let stop = watchMotionOff(sentinel, () => heard.push(now))
+  step('as it starts watching, with motion allowed')
+  step('the device asks', () => page.changeDevice(true))
+  step('the switch turns on, with the device asking', () => (page.dataset.motion = 'reduce'))
+  step('the device stops asking, with the switch on', () => page.changeDevice(false))
+  step('the switch turns off', () => delete page.dataset.motion)
+  step('the switch turns on', () => (page.dataset.motion = 'reduce'))
+  step('the switch turns off again', () => delete page.dataset.motion)
+  stop()
+  step('the switch turns on, once it stopped watching', () => (page.dataset.motion = 'reduce'))
+  step('the switch turns off, once it stopped watching', () => delete page.dataset.motion)
+  // A page that loads with the device asking.
+  page.changeDevice(true)
+  stop = watchMotionOff(sentinel, () => heard.push(now))
+  step('as it starts watching, with the device asking')
+  step('the device stops asking, on that page', () => page.changeDevice(false))
+  step('the device asks again, on that page', () => page.changeDevice(true))
+  stop()
+  assert.deepEqual(
+    heard,
+    ['the device asks', 'the switch turns on', 'the device asks again, on that page'],
     'the steps at which it called back',
   )
 })

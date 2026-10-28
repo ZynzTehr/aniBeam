@@ -11,6 +11,7 @@ import assert from 'node:assert/strict'
 import { test, type TestContext } from 'node:test'
 import {
   ERAS,
+  poolPage3Query,
   poolQuery,
   QUERIES,
   searchQuery,
@@ -319,6 +320,53 @@ test('of five decades’ mood pools, only the newest three are saved, with every
   )
   // The page keeps all five for the visit: only the copy goes without the oldest.
   assert.equal(client.getQueryCache().findAll({ queryKey: ['anilist', QUERIES.pool] }).length, 5)
+})
+
+// A pool's page 3 (poolPage3Query) follows its pool's titles and is nothing without them, so it is
+// saved only with its pool: up to 50 more titles, about 100 KB once cut, that a copy holding no
+// pool would carry for nothing.
+test('a mood pool’s page 3 is saved only with its pool, so the oldest pool’s goes with it', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: Date.UTC(2030, 0, 1) })
+  const now = Date.now()
+  const storage = fakeStorage()
+  const client = new QueryClient()
+  const eraOf = (id: string) => ERAS.find((era) => era.id === id)!
+  const minutesAgo = { '1980s': 6, '1990s': 1, '2000s': 5, '2010s': 3 }
+  for (const [id, minutes] of Object.entries(minutesAgo)) {
+    client.setQueryData(
+      poolQuery(eraOf(id)).queryKey,
+      { titles: [], count: minutes, hasNextPage: true },
+      { updatedAt: now - minutes * MINUTE },
+    )
+    // Each page 3 came after its pool, the 1980s' last of all.
+    client.setQueryData(poolPage3Query(eraOf(id)).queryKey, [], { updatedAt: now - minutes })
+  }
+  // And one whose pool went from the cache, as its day was up first.
+  client.setQueryData(poolPage3Query(eraOf('2020s')).queryKey, [], { updatedAt: now })
+
+  const saving = persistQueryClientSave({
+    ...persistOptions,
+    queryClient: client,
+    persister: cachePersister(storage),
+  })
+  t.mock.timers.tick(1000) // the copy is saved at most once a second
+  await saving
+  const saved: { queryKey: unknown[] }[] = JSON.parse(
+    storage.items.get('anibeam:cache') ?? '{"clientState":{"queries":[]}}',
+  ).clientState.queries
+  const decades = (query: string) =>
+    saved
+      .filter(({ queryKey }) => queryKey[1] === query)
+      .map(
+        ({ queryKey }) =>
+          ERAS.find((era) => JSON.stringify(era.variables) === JSON.stringify(queryKey[2]))?.id,
+      )
+      .sort()
+  assert.deepEqual(
+    { pools: decades(QUERIES.pool), pages3: decades(QUERIES.poolPage3) },
+    { pools: ['1990s', '2000s', '2010s'], pages3: ['1990s', '2000s', '2010s'] },
+    'the pools and the pages 3 saved',
+  )
 })
 
 // The pools a save leaves out (see newestPools) are left out of what tells whether anything saved

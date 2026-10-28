@@ -33,9 +33,10 @@ const shownFor = (entry: Entry | undefined) => `${entry?.status} ${Boolean(entry
  * Its room is always kept, as tall as the longer of the two, so it moves nothing as it comes and
  * goes. The line speaks of the buttons as this tab's last press left them: once another tab
  * changes what they show, it empties, saying nothing. The card's other line, for AniList's
- * hold-ups, stays its own.
+ * hold-ups, stays its own. The line's id is `lineId`, the card's own unless given, so a row on the
+ * page behind it (Discover's rolled card) never shares it.
  */
-export function ListControls({ id }: { id: number }) {
+export function ListControls({ id, lineId = 'ab-list-status' }: { id: number; lineId?: string }) {
   const name = useId()
   const entry = useEntry(id)
   const shown = shownFor(entry)
@@ -95,7 +96,7 @@ export function ListControls({ id }: { id: number }) {
           <span>{line.note}</span>
         </span>
       </div>
-      <p id="ab-list-status" role="status" className="sr-only">
+      <p id={lineId} role="status" className="sr-only">
         {line.says}
       </p>
     </>
