@@ -494,6 +494,54 @@ test('the list stays the very same object between reads, until an entry in it ch
   assert.equal(store.getSnapshot()['1'], first['1'])
 })
 
+test("an edit to one title leaves every other title's entry the very same object", () => {
+  // A cover's stamp reads its own title's entry (useEntry, components/Stamp.tsx), and React draws
+  // it again only when that is another object: so an edit to title 1 must leave title 2's as it
+  // was, or every stamp on the page would be drawn again for one press.
+  const list: List = { '1': saved(T, true), '2': want(T) }
+  const two = entryIn(list, 2)
+  const gone = setStatusIn(list, 1, null, T + 1).list
+  const edits: [string, List][] = [
+    ['moved', setStatusIn(list, 1, 'WANT', T + 1).list],
+    ['taken off', gone],
+    ['its heart', toggleFavoriteIn(list, 1, T + 1).list],
+    ['its pressed button', pressStatusIn(list, 1, 'SAVED', T + 1).list],
+    ['another title added', setStatusIn(list, 3, 'SAVED', T + 1).list],
+    ['Remove them', removeAllIn(list, [1], T + 1).list],
+    ['Undo', restoreIn(gone, 1, saved(T), T + 2).list],
+    [
+      "another tab's copy merged in",
+      merge(list, parse(JSON.stringify({ ...list, '1': want(T + 1) }))),
+    ],
+  ]
+  assert.deepEqual(
+    edits.filter(([, edited]) => entryIn(edited, 2) !== two).map(([edit]) => edit),
+    [],
+    "edits that gave title 2 a new entry, though it didn't change",
+  )
+  // Each of them did change the list, so the check can't pass on an edit that did nothing.
+  assert.deepEqual(
+    edits.filter(([, edited]) => edited === list).map(([edit]) => edit),
+    [],
+    'edits that changed nothing',
+  )
+  // And through the store, as another tab's edit to title 1 reaches this one by its event.
+  const storage = fakeStorage()
+  const events = fakeWindow()
+  let time = T
+  const here = createListStore({ storage, events, now: () => time++ })
+  const there = createListStore({ storage, now: () => time++ })
+  here.setStatus(1, 'SAVED')
+  here.setStatus(2, 'WANT')
+  const stop = here.subscribe(() => {})
+  const before = entryIn(here.getSnapshot(), 2)
+  there.toggleFavorite(1)
+  events.fire('storage', { key: KEY })
+  assert.equal(entryIn(here.getSnapshot(), 1)?.favorite, true, "the other tab's edit")
+  assert.equal(entryIn(here.getSnapshot(), 2), before, 'title 2, after the other tab’s edit')
+  stop()
+})
+
 test("another tab's edit reaches this tab by the page's events, and its listeners hear it once", () => {
   const storage = fakeStorage()
   const events = fakeWindow()
