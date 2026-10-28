@@ -1,5 +1,13 @@
 import { useLayoutEffect, useState, type ComponentProps, type ReactNode } from 'react'
-import { cardNote, noteFor, sampleNote, searchStatus, statusText } from '../app/status.ts'
+import {
+  cardNote,
+  MOOD_DOOR,
+  NO_TITLES,
+  noteFor,
+  sampleNote,
+  searchStatus,
+  statusText,
+} from '../app/status.ts'
 import { IntroHero } from '../components/IntroHero.tsx'
 import { MangaPage, PANELS } from '../components/MangaPage.tsx'
 import { MotionSwitch } from '../components/MotionSwitch.tsx'
@@ -325,13 +333,29 @@ function SectionStates({ onOpen, onOpenHeld }: { onOpen: OpenTitle; onOpenHeld: 
         loading
       />
     ),
-    'No titles found': (
+    'No titles found, as a decade': (
       <Strip
         id="gal-strip-empty"
+        heading="Browse by decade"
+        sfx="バーン"
+        titles={[]}
+        note={NO_TITLES}
+      />
+    ),
+    // As App's SearchResults shows it, its link to Discover's pull machine followed by the browser
+    // here, out of the gallery.
+    'No titles found, as search results, with the link to the mood sliders': (
+      <Strip
+        id="gal-strip-empty-search"
         heading="Results for “zzzz”"
         sfx="サーチ!"
         titles={[]}
-        note="No titles found."
+        note={NO_TITLES}
+        action={
+          <>
+            <a href="/#pull">{MOOD_DOOR}</a>.
+          </>
+        }
         grid
       />
     ),

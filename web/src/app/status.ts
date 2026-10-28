@@ -5,6 +5,14 @@ const FAILED =
 const STALE =
   'AniList isn’t responding right now, so these titles may be out of date. It’s not something you did.'
 
+/** What a list with no titles says (see statusText). */
+export const NO_TITLES = 'No titles found.'
+/**
+ * The words of a search's door to the mood sliders on Discover's pull machine (spec §3E): a link
+ * after the results' line when nothing was found, and plain words in what a screen reader hears.
+ */
+export const MOOD_DOOR = 'Try the mood sliders'
+
 /** The parts of a TanStack Query result the status line depends on. */
 export type QueryStatus = {
   data: unknown[] | undefined
@@ -44,7 +52,7 @@ export function statusText(q: QueryStatus, rateLimited: boolean): string {
   if (!q.data || q.isPlaceholderData) return q.error ? FAILED : 'Loading…'
   // With no titles on screen, a failed refresh reads like a failed first load.
   if (q.error && !q.isFetching) return q.data.length ? STALE : FAILED
-  if (q.data.length === 0) return 'No titles found.'
+  if (q.data.length === 0) return NO_TITLES
   const fetchedAt = new Date(q.dataUpdatedAt).toLocaleTimeString()
   return `${q.data.length} titles, fetched at ${fetchedAt}${q.isFetching ? ' (refreshing…)' : ''}`
 }
@@ -87,7 +95,8 @@ export function searchStatus(q: QueryStatus, term: string, rateLimited: boolean)
   if (q.isPaused || q.error || held) return statusText(q, rateLimited)
   if (!q.data || q.isPlaceholderData) return `Searching for “${term}”…`
   const found = q.data.length
-  if (found === 0) return `No titles found for “${term}”`
+  // The link to the mood sliders is on the results' own line: a live region's text holds none.
+  if (found === 0) return `No titles found for “${term}”. ${MOOD_DOOR}.`
   return `${found} ${found === 1 ? 'title' : 'titles'} found for “${term}”`
 }
 

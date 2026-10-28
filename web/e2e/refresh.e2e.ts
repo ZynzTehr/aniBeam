@@ -277,3 +277,32 @@ test('on a phone, a trending refresh with no titles empties the panels but keeps
     await browser.send('Page.removeScriptToEvaluateOnNewDocument', { identifier })
   }
 })
+
+// Only a search's line links to the mood sliders (spec §3E, see SearchResults in App.tsx): a decade
+// with no titles says "No titles found." alone, as ever. AniList sends no decade an empty list, so
+// the 1980s are answered inside the page, and no request is sent. After the check above, which
+// leaves trending saved with no titles; this one leaves the 1980s saved with none.
+test('a decade with no titles says “No titles found.” alone, with no link to the mood sliders', async () => {
+  await browser.evaluate(`(() => {
+    const fetch = window.fetch
+    window.fetch = function (url, init) {
+      const { query, variables } = url === 'https://graphql.anilist.co' ? JSON.parse(init.body) : {}
+      if (!query?.includes('POPULARITY_DESC') || variables.from !== 19799999)
+        return fetch.apply(this, arguments)
+      const empty = JSON.stringify({ data: { Page: { media: [] } } })
+      return Promise.resolve(new Response(empty, { headers: { 'Content-Type': 'application/json' } }))
+    }
+    document.querySelector('.ab-eras input[value="1980s"]').click()
+    return true
+  })()`)
+  const note = `document.querySelector('[aria-labelledby="decades"] .ab-note')`
+  assert.ok(
+    await browser.waitFor(`${note}.textContent === 'No titles found.'`, 5_000),
+    'the 1980s never said they have no titles',
+  )
+  assert.equal(
+    await browser.evaluate(`${note}.querySelectorAll('*').length`),
+    0,
+    'the decade’s note holds a link, or anything but its words',
+  )
+})

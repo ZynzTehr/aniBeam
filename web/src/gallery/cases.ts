@@ -130,7 +130,13 @@ export const ECCHI_POOL: Media[] = SAMPLES.slice(0, 9).map((media) => ({
  */
 export const STATES = {
   page: ['Loading', 'Failed, with Try again', 'Fan favorites, the samples', 'Only 4 titles'],
-  strip: ['A row', 'A grid, as search results are', 'Loading', 'No titles found'],
+  strip: [
+    'A row',
+    'A grid, as search results are',
+    'Loading',
+    'No titles found, as a decade',
+    'No titles found, as search results, with the link to the mood sliders',
+  ],
   intro: ['3 covers', 'Covers with gaps', 'Loading', 'No covers'],
   pull: [
     'Nothing to pull yet',

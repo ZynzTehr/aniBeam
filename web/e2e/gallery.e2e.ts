@@ -146,6 +146,7 @@ test('every state of each section shows, each as it should', { skip }, async () 
         state.querySelectorAll('.ab-strip-row[aria-hidden] > li').length + ' empty',
         state.querySelector('.ab-strip-grid') ? 'a grid' : 'a row',
         state.querySelector('.ab-note')?.textContent ?? '',
+        ...[...state.querySelectorAll('.ab-note a')].map((link) => 'a link to ' + link.getAttribute('href')),
       ].join(', '),
       lines: (state) => [...state.querySelectorAll('dd')].map((dd) => dd.textContent).join(' | '),
       controls: (state) => [...state.querySelectorAll('button, .ab-soon')].map((part) => part.textContent.replace(/\\s+/g, ' ').trim() + (part.hasAttribute('aria-pressed') ? ', pressed ' + part.getAttribute('aria-pressed') : '')).join(' | '),
@@ -179,7 +180,8 @@ test('every state of each section shows, each as it should', { skip }, async () 
       '17 covers, 0 empty, a row, ',
       '17 covers, 0 empty, a grid, ',
       '0 covers, 8 empty, a row, Loading…',
-      '0 covers, 0 empty, a grid, No titles found.',
+      '0 covers, 0 empty, a row, No titles found.',
+      '0 covers, 0 empty, a grid, No titles found. Try the mood sliders., a link to /#pull',
     ].map((look, i) => ({ label: STATES.strip[i], look })),
     "the strip's states",
   )

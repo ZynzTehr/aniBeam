@@ -534,7 +534,7 @@ const RULES: {
   {
     lists: [search('zzqqxx'), search('zzqqxxy')],
     needs: 'no titles',
-    why: "as discover.e2e.ts's 'screen readers hear each search’s outcome from one status line that is always there' waits to hear that none were found for zzqqxx, then for zzqqxxy",
+    why: "as discover.e2e.ts's 'screen readers hear each search’s outcome from one status line that is always there' waits to hear that none were found for zzqqxx, then for zzqqxxy, and the link to the mood sliders shows on zzqqxx's line only when none are (its checks in discover.e2e.ts, navigation.e2e.ts and layout.e2e.ts)",
     broken: (titles) => (titles.length ? `it has ${titles.length}` : ''),
   },
   {

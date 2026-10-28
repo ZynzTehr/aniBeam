@@ -19,6 +19,7 @@ export function Strip({
   onOpen,
   level = 'h2',
   note = null,
+  action,
   loading = false,
   onRetry,
   live = true,
@@ -46,6 +47,11 @@ export function Strip({
   level?: 'h1' | 'h2'
   /** A status line (loading, error, rate limit), or null when there's nothing to say. */
   note?: string | null
+  /**
+   * A link after the note, in its line, as a search with no titles offers the mood sliders. Never
+   * on a strip whose note is a live region: a live region's text holds no link.
+   */
+  action?: ReactNode
   /**
    * Show empty cards while the first load runs: one for each place in `titles` when it holds only
    * nulls, else 8.
@@ -86,6 +92,7 @@ export function Strip({
       {children}
       <p role={live ? 'status' : undefined} className={tagged ? 'ab-note is-tagged' : 'ab-note'}>
         {note}
+        {action && <> {action}</>}
       </p>
       {onRetry && <RetryButton headingId={id} onRetry={onRetry} />}
       {waiting && (

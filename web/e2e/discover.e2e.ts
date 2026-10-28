@@ -932,7 +932,7 @@ describe('desktop (1440x900)', () => {
     await browser.search('zzqqxxnotananime')
     assert.ok(
       await browser.waitFor(
-        `document.querySelector('.ab-results .ab-note')?.textContent === 'No titles found.'`,
+        `document.querySelector('.ab-results .ab-note')?.textContent === 'No titles found. Try the mood sliders.'`,
       ),
       'no "No titles found." line',
     )
@@ -1396,14 +1396,25 @@ describe('desktop (1440x900)', () => {
       await browser.waitFor(`/^\\d+ titles? found for “frieren”$/.test(${region}?.textContent)`),
       'results not announced',
     )
+    // Nothing found offers the mood sliders in plain words: the link is on the results' own line,
+    // as a live region's text can hold none.
     await browser.search('zzqqxx')
     assert.ok(
-      await browser.waitFor(`${region}?.textContent === 'No titles found for “zzqqxx”'`),
+      await browser.waitFor(
+        `${region}?.textContent === 'No titles found for “zzqqxx”. Try the mood sliders.'`,
+      ),
       'no-match not announced',
+    )
+    assert.equal(
+      await browser.evaluate(`${region}.querySelectorAll('*').length`),
+      0,
+      'the announcement holds a link, or anything but its words',
     )
     await browser.search('zzqqxxy')
     assert.ok(
-      await browser.waitFor(`${region}?.textContent === 'No titles found for “zzqqxxy”'`),
+      await browser.waitFor(
+        `${region}?.textContent === 'No titles found for “zzqqxxy”. Try the mood sliders.'`,
+      ),
       'a second no-match read as no change',
     )
     const notes = await browser.evaluate<number>(
@@ -1415,6 +1426,75 @@ describe('desktop (1440x900)', () => {
       await browser.waitFor(`${region}?.textContent === ''`, 5_000),
       'the announcement outlived the search',
     )
+  })
+
+  test('the link to the mood sliders on a search with no matches shows its whole focus ring, on one line, at 1440 and 390', async () => {
+    // The ring is the page's own for links, 4px wide and 3px out: nothing may cut it, neither the
+    // screen's edge, the sticky header, nor anything that clips what it holds. The link takes
+    // focus from the keyboard, so it shows its ring (:focus-visible): Shift+Tab out of it, then
+    // Tab back.
+    const seen: Record<string, string[]> = {}
+    const resize = (width: number, height: number) =>
+      browser.send('Emulation.setDeviceMetricsOverride', {
+        width,
+        height,
+        deviceScaleFactor: 1,
+        mobile: false,
+      })
+    try {
+      for (const [width, height] of [
+        [1440, 900],
+        [390, 844],
+      ]) {
+        await resize(width, height)
+        await browser.search('zzqqxx')
+        const link = `document.querySelector('.ab-results .ab-note a')`
+        assert.ok(await browser.waitFor(link), `no link at ${width}px`)
+        await browser.evaluate(`${link}.focus(); true`)
+        await browser.press('Tab', true)
+        await browser.press('Tab')
+        await browser.evaluate(
+          'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+        )
+        seen[`${width}px`] = await browser.evaluate<string[]>(`(() => {
+          const link = ${link}
+          if (document.activeElement !== link) return ['Tab did not come back to it']
+          if (!link.matches(':focus-visible')) return ['no ring from the keyboard']
+          const style = getComputedStyle(link)
+          if (style.outlineStyle === 'none') return ['no ring']
+          const boxes = link.getClientRects()
+          if (boxes.length !== 1) return ['on ' + boxes.length + ' lines, its ring broken up']
+          const reach = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset)
+          const r = boxes[0]
+          const ring = { top: r.top - reach, left: r.left - reach, right: r.right + reach, bottom: r.bottom + reach }
+          const problems = []
+          const cut = (by, edges) => {
+            const sides = ['top', 'left'].filter((side) => ring[side] < edges[side] - 0.5)
+              .concat(['bottom', 'right'].filter((side) => ring[side] > edges[side] + 0.5))
+            if (sides.length) problems.push('ring cut off at the ' + sides.join(' and ') + ' by ' + by)
+          }
+          cut('the screen', { top: 0, left: 0, bottom: innerHeight, right: innerWidth })
+          cut('the header', { top: document.querySelector('.ab-top').getBoundingClientRect().bottom, left: -Infinity, bottom: Infinity, right: Infinity })
+          for (let el = link.parentElement; el && el !== document.body; el = el.parentElement) {
+            const clips = getComputedStyle(el)
+            if (clips.overflowX === 'visible' && clips.overflowY === 'visible') continue
+            const edges = el.getBoundingClientRect()
+            cut('.' + el.classList[0], {
+              top: clips.overflowY === 'visible' ? -Infinity : edges.top + el.clientTop,
+              left: clips.overflowX === 'visible' ? -Infinity : edges.left + el.clientLeft,
+              bottom: clips.overflowY === 'visible' ? Infinity : edges.top + el.clientTop + el.clientHeight,
+              right: clips.overflowX === 'visible' ? Infinity : edges.left + el.clientLeft + el.clientWidth,
+            })
+          }
+          return problems
+        })()`)
+      }
+    } finally {
+      await browser.evaluate('document.activeElement.blur(); true')
+      await resize(1440, 900)
+      await browser.search('')
+    }
+    assert.deepEqual(seen, { '1440px': [], '390px': [] })
   })
 
   test('a very long search never makes the page scroll sideways', async () => {
