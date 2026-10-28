@@ -198,7 +198,7 @@ Phase 5 was the mood matcher and the gacha (spec §3E and §8): three mood slide
 
 What it delivered:
 
-- The mood scoring: each title placed on the three sliders from its genres and tags, in `score.ts` and `moods.ts`, a file of its own that loads once the browser is idle (#37).
+- The mood scoring: each title placed on the three sliders from its genres and tags, in `score.ts` and `moodMap.ts` (with `scoring.ts`), a file of its own that loads once the browser is idle (#37).
 - The decade's mood pool: about 100 titles with every tag the scoring reads, in one request, asked for only once it is wanted, and kept fresh 6 hours (#38).
 - The machine: the three sliders and Reset moods, the top 3 matches under the rolled title, each with a Why line, and the sliders and the last rolls kept for the visit (#39). See [Mood sliders](#mood-sliders).
 - The gacha: a roll drops a capsule and turns a card over on a title, with its rarity, its My List row, Details and Roll again; never a title on My List, nor a recent roll or another season of one; and the pool's page 3 once few are left (#40). See [The gacha](#the-gacha).
