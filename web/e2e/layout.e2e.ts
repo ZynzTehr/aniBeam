@@ -647,8 +647,9 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
   // cover, the rarity sticker; from 900px panels 4 and 5 are cut on the diagonal. On My List a
   // stamp leaves out what the view already says: its tab's word, and the heart under Favorites
   // only.
-  // The list comes as another tab's write does, by the storage event, with panels 4 and 5 on the
-  // screen, so a stamp that took room, or grew in place as it changed, would count as a shift.
+  // The list comes as another tab's write does, by the storage event, in steps: with panels 4 and
+  // 5 on the screen, then the decade card, then the top match, each listed as it shows, so a stamp
+  // that took room, or grew in place as it changed, would count as a shift.
   await browser.load({ width: 280, height: 653, reduceMotion: true })
   assert.ok(await browser.titlesShown())
   await browser.landAll()
@@ -693,11 +694,20 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
   // What a stamp shows, as its tab reads: its word, then ♥ for its heart.
   const tab = (link: string) =>
     `[...${link}.querySelectorAll('.ab-stamp')].map((tab) => tab.textContent + (tab.querySelector('svg') ? ' ♥' : '')).join(' | ')`
-  try {
-    await browser.evaluate(
-      `${panel(4)}.scrollIntoView({ block: 'start', behavior: 'instant' }), window.__takeLayoutShifts(), (window.__layoutShifts.length = 0), true`,
+  const into = (element: string, block: string) =>
+    browser.evaluate(
+      `${element}.scrollIntoView({ block: '${block}', behavior: 'instant' }), window.__takeLayoutShifts(), (window.__layoutShifts.length = 0), true`,
     )
-    const came = await write(list('saved'))
+  const without = (entries: object, ...ids: number[]) =>
+    Object.fromEntries(Object.entries(entries).filter(([id]) => !ids.includes(Number(id))))
+  try {
+    await into(panel(4), 'start')
+    const came = { trending: await write(without(list('saved'), decade, match)) }
+    await into(card, 'center')
+    const decadeCame = await write(without(list('saved'), match))
+    await into(matchLink, 'center')
+    Object.assign(came, { decade: decadeCame, match: await write(list('saved')) })
+    await into(panel(4), 'start')
     const shown = await browser.evaluate<string>(tab(panel(5)))
     const changed = await write(list('want'))
     const now = await browser.evaluate<string>(tab(panel(5)))
@@ -751,17 +761,25 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
       match: await matchNamed(matchLink, ', saved, favorite'),
       unlisted: await matchNamed(unlisted, ''),
     }
-    // Where each stamp shows: inside the box that clips it (a panel's link, cut on the diagonal
-    // from 900px on panels 4 and 5; a strip card), or a match's cover, and clear of the score
-    // bubble and its tail, the rarity sticker, and at 280px of the rank number. There a full-width panel is short, and panel 4's caption,
-    // its title on three lines, reaches up beside the number. From 900px the number's box runs
-    // below its glyph, which the tab clears, so the box isn't held to it there.
+    // Where each stamp shows: on the ink line it grows out of, a caption's or a title box's top
+    // or a match cover's foot; inside the box that clips it (a panel's link, cut on the diagonal
+    // from 900px on panels 4 and 5; a strip card), or a match's cover; and clear of the score
+    // bubble and its tail, the rarity sticker, and at 280px of the rank number. There a
+    // full-width panel is short, and panel 4's caption, its title on three lines, reaches up
+    // beside the number. From 900px the number's box runs below its glyph, which the tab clears,
+    // so the box isn't held to it there.
     const placed = `((links, rank) => links.flatMap(([name, link]) => {
       const stamp = link.querySelector('.ab-stamp')
       if (!stamp) return [name + ': no stamp']
       const box = stamp.getBoundingClientRect()
       const edge = (link.querySelector('.ab-match-cover') ?? link).getBoundingClientRect()
       const wrong = []
+      // Measured in the layout's own terms, before a caption's tilt: a tab grows up from its box's
+      // padding edge, at a match cover's foot down to it.
+      const from = stamp.parentElement
+      const foot = stamp.offsetTop + stamp.offsetHeight
+      if (stamp.offsetParent !== from || Math.abs(foot - (from.matches('.ab-match-cover') ? from.clientHeight : 0)) > 1)
+        wrong.push('off its ink line')
       if (box.left < edge.left - 0.5 || box.top < edge.top - 0.5 || box.right > edge.right + 0.5 || box.bottom > edge.bottom + 0.5)
         wrong.push('outside its box')
       // The cut: a link's clip-path runs from (cut - 2px, 0) to (0, 100%) on panel 5, and from
@@ -859,7 +877,7 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
     assert.deepEqual(
       { came, shown, changed, now, names, at280, nested, at1440, themed, onList },
       {
-        came: [],
+        came: { trending: [], decade: [], match: [] },
         shown: 'SAVED',
         changed: [],
         now: 'WANT ♥',
