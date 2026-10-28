@@ -146,7 +146,7 @@ test('every state of each section shows, each as it should', { skip }, async () 
         state.querySelectorAll('.ab-strip-row[aria-hidden] > li').length + ' empty',
         state.querySelector('.ab-strip-grid') ? 'a grid' : 'a row',
         state.querySelector('.ab-note')?.textContent ?? '',
-        ...[...state.querySelectorAll('.ab-note a')].map((link) => 'a link to ' + link.getAttribute('href')),
+        ...[...state.querySelectorAll('.ab-note a')].map((link) => 'a link to ' + link.getAttribute('href') + (link.closest('[role="status"]') ? ' in a live region' : '')),
       ].join(', '),
       lines: (state) => [...state.querySelectorAll('dd')].map((dd) => dd.textContent).join(' | '),
       controls: (state) => [...state.querySelectorAll('button, .ab-soon')].map((part) => part.textContent.replace(/\\s+/g, ' ').trim() + (part.hasAttribute('aria-pressed') ? ', pressed ' + part.getAttribute('aria-pressed') : '')).join(' | '),
@@ -174,6 +174,8 @@ test('every state of each section shows, each as it should', { skip }, async () 
     ].map((look, i) => ({ label: STATES.page[i], look })),
     "the trending page's states",
   )
+  // No link is in a live region, whose text holds none (see Strip's action): the gallery's search
+  // results pass live={false}, as App's SearchResults does.
   assert.deepEqual(
     shown.strip,
     [

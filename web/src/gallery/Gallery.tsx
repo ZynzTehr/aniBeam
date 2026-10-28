@@ -342,8 +342,9 @@ function SectionStates({ onOpen, onOpenHeld }: { onOpen: OpenTitle; onOpenHeld: 
         note={NO_TITLES}
       />
     ),
-    // As App's SearchResults shows it, its link to Discover's pull machine followed by the browser
-    // here, out of the gallery.
+    // As App's SearchResults shows it: its line is no live region, as there the page's own status
+    // line is what screen readers hear, and its link to Discover's pull machine is followed by the
+    // browser here, out of the gallery.
     'No titles found, as search results, with the link to the mood sliders': (
       <Strip
         id="gal-strip-empty-search"
@@ -356,6 +357,7 @@ function SectionStates({ onOpen, onOpenHeld }: { onOpen: OpenTitle; onOpenHeld: 
             <a href="/#pull">{MOOD_DOOR}</a>.
           </>
         }
+        live={false}
         grid
       />
     ),
