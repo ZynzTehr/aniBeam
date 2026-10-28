@@ -19,6 +19,7 @@ export function Strip({
   onOpen,
   level = 'h2',
   note = null,
+  action,
   loading = false,
   onRetry,
   live = true,
@@ -53,15 +54,27 @@ export function Strip({
   loading?: boolean
   /** Shown as a Try again button after a failed load. */
   onRetry?: () => void
-  /** Announce the note to screen readers (off where another line announces it). */
-  live?: boolean
   /** Wrap into rows instead of scrolling sideways (search results). */
   grid?: boolean
   /** What shows in a title's place instead of its cover, if anything: My List's Undo. */
   inPlaceOf?: (media: Media) => ReactNode
   /** Controls shown between the heading and the row, such as the decade chips. */
   children?: ReactNode
-}) {
+} & (
+  | {
+      /** Announce the note to screen readers (off where another line announces it). */
+      live?: true
+      action?: undefined
+    }
+  | {
+      live: false
+      /**
+       * A link after the note, in its line, as a search with no titles offers the mood sliders.
+       * Only on a strip whose note isn't a live region, as a live region's text holds no link.
+       */
+      action?: ReactNode
+    }
+)) {
   const row = grid ? 'ab-strip-row ab-strip-grid' : 'ab-strip-row'
   // Waiting for its first titles, the strip shows empty cards, and its status line shows as a tag
   // over them instead of in a line of its own, so nothing moves as it clears (see .is-tagged). With
@@ -86,6 +99,7 @@ export function Strip({
       {children}
       <p role={live ? 'status' : undefined} className={tagged ? 'ab-note is-tagged' : 'ab-note'}>
         {note}
+        {action && <> {action}</>}
       </p>
       {onRetry && <RetryButton headingId={id} onRetry={onRetry} />}
       {waiting && (

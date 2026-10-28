@@ -268,7 +268,12 @@ test('search announcements name the search and what it found', () => {
     searchStatus({ ...idle, data: one }, 'mushishi', false),
     '1 title found for “mushishi”',
   )
-  assert.equal(searchStatus({ ...idle, data: [] }, 'zzz', false), 'No titles found for “zzz”')
+  // Nothing found offers the mood sliders, in plain words: a live region's text can hold no link,
+  // so the link is on the results' own line (see SearchResults in App.tsx).
+  assert.equal(
+    searchStatus({ ...idle, data: [] }, 'zzz', false),
+    'No titles found for “zzz”. Try the mood sliders.',
+  )
   assert.equal(
     searchStatus({ ...idle, isPaused: true }, 'zzz', false),
     'Offline: waiting for a connection.',

@@ -11,8 +11,17 @@ import { fileURLToPath } from 'node:url'
 const web = fileURLToPath(new URL('../../', import.meta.url))
 const config = JSON.parse(readFileSync(`${web}vercel.json`, 'utf8'))
 
-// The addresses a visitor can type or be sent: the app sends those it doesn't know to /.
-const ADDRESSES = ['/', '/anime/154587', '/anime/154587/', '/anime/1?ep=5', '/list', '/a/b/c']
+// The addresses a visitor can type or be sent: the app sends those it doesn't know to /, and
+// /mood, the spec's address for the mood sliders, which the app sends to /#pull, on the machine.
+const ADDRESSES = [
+  '/',
+  '/anime/154587',
+  '/anime/154587/',
+  '/anime/1?ep=5',
+  '/list',
+  '/mood',
+  '/a/b/c',
+]
 
 test('Vercel sends every address to the app, so a shared /anime/:id link opens its title', () => {
   // The user's choice for PR 9: every path, not only /anime/ (unknown paths reach the app).

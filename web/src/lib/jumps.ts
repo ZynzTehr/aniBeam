@@ -15,9 +15,13 @@ let last: 'pointer' | 'key' = 'key'
 /** Whether `event`, a click, came from a pointer, as byPointer tells, by the last input too. */
 export const pointed = (event: MouseEvent) => byPointer((event as PointerEvent).pointerType, last)
 
-/** Marks `target`, a heading a link's click focuses, as a pointer's jump or not (see below). */
-function mark(target: HTMLElement, event: MouseEvent) {
-  if (pointed(event)) target.dataset.jump = 'pointer'
+/**
+ * Marks `target`, a heading a link's click focuses, as a pointer's jump or not (see below). With no
+ * click, as for an address typed by hand, it is left unmarked, and the browser's own rule shows or
+ * hides its ring.
+ */
+function mark(target: HTMLElement, event?: MouseEvent) {
+  if (event && pointed(event)) target.dataset.jump = 'pointer'
   else delete target.dataset.jump
 }
 
@@ -59,10 +63,11 @@ export function markPointerJumps(): () => void {
 /**
  * Jumps to the section heading with `id` as a link to it would, after `event`, the click on a link
  * the page follows itself, with no new page, to a section drawn just now (as My List's Browse
- * what's trending does): brings it to the screen's top, below the header (its scroll margin), and
- * focuses it, marked as markPointerJumps marks one.
+ * what's trending does), or with no event, for an address that leads there (/mood): brings it to
+ * the screen's top, below the header (its scroll margin), and focuses it, marked as
+ * markPointerJumps marks one.
  */
-export function jumpTo(id: string, event: MouseEvent) {
+export function jumpTo(id: string, event?: MouseEvent) {
   document.getElementById(id)?.scrollIntoView()
   focusOn(id, event)
 }
@@ -71,7 +76,7 @@ export function jumpTo(id: string, event: MouseEvent) {
  * Focuses the heading with `id` where it is, after `event`, the click on a link to its page, as
  * jumpTo does but with no scroll, marked as markPointerJumps marks one. Says whether it was there.
  */
-export function focusOn(id: string, event: MouseEvent) {
+export function focusOn(id: string, event?: MouseEvent) {
   const target = document.getElementById(id)
   if (!target) return false
   mark(target, event)

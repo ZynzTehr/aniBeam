@@ -402,6 +402,38 @@ test('a slow first load, seen at the decades, jumps under 0.1, on a phone and on
   assert.deepEqual(seen, [], 'the page jumps under the visitor as the titles land')
 })
 
+test('a search with no matches jumps under 0.1 as its line shows with the link to the mood sliders, at 768px as at 390 and 1440, the line one line tall, as without its link', async () => {
+  // The link follows the results' line, "No titles found.", in the same line (see SearchResults in
+  // App.tsx): wrapping to a line of its own, it would push down everything under the results.
+  const seen: Record<string, string> = {}
+  for (const screen of [PHONE, { width: 768, height: 1024 }, DESKTOP]) {
+    await browser.load(screen)
+    assert.ok(await browser.titlesShown())
+    await browser.animationsDone()
+    await sleep(1000)
+    await browser.search('zzqqxx')
+    assert.ok(
+      await browser.waitFor(`document.querySelector('.ab-results .ab-note a')`),
+      `${screen.width}px: no link to the mood sliders`,
+    )
+    await sleep(1000)
+    const { value } = await browser.layoutShift()
+    const line = await browser.evaluate<string>(`(() => {
+      const note = document.querySelector('.ab-results .ab-note'), link = note.querySelector('a')
+      const tall = note.getBoundingClientRect().height
+      const lines = Math.round(tall / parseFloat(getComputedStyle(note).lineHeight))
+      link.style.display = 'none'
+      const alone = note.getBoundingClientRect().height
+      link.style.removeProperty('display')
+      return (lines === 1 ? 'one line' : lines + ' lines') + (tall === alone ? ', as without its link' : ', ' + alone + 'px tall without its link, ' + tall + 'px with it')
+    })()`)
+    seen[`${screen.width}px`] = `${line}, ${value < 0.1 ? 'under 0.1' : await shifted()}`
+    await browser.search('')
+  }
+  const fine = 'one line, as without its link, under 0.1'
+  assert.deepEqual(seen, { '390px': fine, '768px': fine, '1440px': fine })
+})
+
 test('a pull on a phone jumps under 0.1, and the next one too, its title laid out at the press', async () => {
   // With motion allowed, the capsule drops and the card turns for ROLL_MS (700 ms) before it shows
   // the title, more than the half second after a press that doesn't count. So the card is laid out

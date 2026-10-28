@@ -35,6 +35,7 @@ import { LANDING_PARTS, startLanding } from '../lib/landing.ts'
 import { refetchFailed } from '../lib/queryClient.ts'
 import {
   isListPath,
+  isMoodPath,
   isOver,
   isTrailer,
   pageBeneath,
@@ -47,7 +48,16 @@ import {
 import { LIST_HREF, startSectionNav } from '../lib/sectionNav.ts'
 import { useSteadyList } from '../lib/steadyList.ts'
 import { useDebounced } from '../lib/useDebounced.ts'
-import { cardNote, noteFor, NOT_FOUND, sampleNote, searchStatus, titleNote } from './status.ts'
+import {
+  cardNote,
+  MOOD_DOOR,
+  NO_TITLES,
+  noteFor,
+  NOT_FOUND,
+  sampleNote,
+  searchStatus,
+  titleNote,
+} from './status.ts'
 
 const note = (query: UseQueryResult<Media[]>) => noteFor(query, isRateLimited())
 // The header's links: the page's three sections, and My List's page, marked current on it. No
@@ -166,9 +176,15 @@ export default function App() {
   // A visit that starts at a title's address opens its card over the page as AniList's answer
   // arrives, or a note in its place if AniList can't give it (see titleNote). Closing either goes
   // Back to the address it was opened over, or, opened at its address, puts / in its place. An
-  // address the app doesn't know becomes /, before the browser draws the page.
+  // address the app doesn't know becomes /, before the browser draws the page. /mood, the spec's
+  // address for the mood sliders, becomes /#pull, as they live on Discover's pull machine (the
+  // plan's D6), and the page, drawn by then, jumps there as the header's Pull does: a new address
+  // alone neither scrolls nor moves focus. Replaced, so Back never returns to /mood.
   useLayoutEffect(() => {
-    if (path !== '/' && addressed === null && !onList)
+    if (isMoodPath(path)) {
+      replace(`/${location.search}#pull`)
+      jumpTo('pull')
+    } else if (path !== '/' && addressed === null && !onList)
       replace(`/${location.search}${location.hash}`)
   }, [path, addressed, onList])
   // A title opened on the page shows its list's copy, at once and again on Forward, with no
@@ -408,6 +424,7 @@ export default function App() {
             onOpen={open}
             retryFailed={retryFailed}
             onStatus={setAnnouncement}
+            onGo={go}
           />
         ) : onList ? (
           loaded.ListPage ? (
@@ -570,12 +587,15 @@ function SearchResults({
   onOpen,
   retryFailed,
   onStatus,
+  onGo,
 }: {
   term: string
   onOpen: OpenTitle
   retryFailed: () => void
   /** Receives the screen-reader announcement for this search ('' once it is gone). */
   onStatus: (text: string) => void
+  /** Follows a link to a section of Discover, as the header's do (App's go). */
+  onGo: (event: MouseEvent<HTMLAnchorElement>) => void
 }) {
   // Whether the last render showed titles: this search's own, or those of the one it refines.
   // TanStack offers the last search that had titles, even after a different search's empty
@@ -620,6 +640,10 @@ function SearchResults({
     if (!inView || !isRefinement(lastTerm.current, term)) window.scrollTo({ top: 0 })
     lastTerm.current = term
   }, [term, results.isPlaceholderData])
+  // A search that found nothing offers the mood sliders (spec §3E): Discover's pull machine, on the
+  // same page below the results, which the link jumps to as the header's Pull does, focusing its
+  // heading. The line that screen readers hear says the same words, with no link (searchStatus).
+  const said = note(results)
   return (
     <div ref={box} className="ab-results">
       <Strip
@@ -629,7 +653,17 @@ function SearchResults({
         heading={`Results for “${term}”`}
         sfx="サーチ!"
         titles={results.data ?? []}
-        note={note(results)}
+        note={said}
+        action={
+          said === NO_TITLES && (
+            <>
+              <a href="/#pull" onClick={onGo}>
+                {MOOD_DOOR}
+              </a>
+              .
+            </>
+          )
+        }
         loading={results.isPending || results.isPlaceholderData}
         onRetry={retryFor(results, retryFailed)}
         onOpen={onOpen}

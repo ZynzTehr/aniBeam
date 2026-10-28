@@ -76,12 +76,12 @@ function budgetsNow() {
   return readme.slice(start, end < 0 ? undefined : end)
 }
 
-// The table's byte budgets are the bundle check's own: BUDGET in privacy.test.ts, read as text, as
-// importing it would run its checks. A budget changed in one and not the other fails, so a raise is
-// written in both in the same commit. The bytes themselves come from a build, so they are not
+// The tables' byte budgets are the bundle check's own: BUDGET in privacy.test.ts, read as text, as
+// importing it would run its checks. A budget changed in one and not the other fails, so a raise
+// is written in both in the same commit. The bytes themselves come from a build, so they are not
 // checked here, only that each is written within its budget. The Phase 4 table keeps the figures
 // that phase closed on, as history, and is not held to the budgets any more.
-test('the byte budgets in the README’s "Byte budgets now" table are the bundle check’s', () => {
+function budgets() {
   const privacy = readFileSync(`${root}web/src/app/privacy.test.ts`, 'utf8')
   const block = /\nconst BUDGET = \{([^}]*)\}/.exec(privacy)?.[1] ?? ''
   const budget = Object.fromEntries(
@@ -91,38 +91,86 @@ test('the byte budgets in the README’s "Byte budgets now" table are the bundle
     ]),
   )
   assert.equal(Object.keys(budget).length, 6, `BUDGET read as ${JSON.stringify(budget)}`)
-  // Each row reads `| <part> | <bytes> of <budget> B |`, after the heading row and its rule.
-  const rows = budgetsNow()
-    .split('\n')
-    .filter((line) => line.startsWith('|'))
-    .slice(2)
-    .map((line) => line.split('|').map((cell) => cell.trim()))
-  const read = (cell: string) =>
-    /^([\d,]+) of ([\d,]+) B$/
-      .exec(cell)
-      ?.slice(1)
-      .map((n) => Number(n.replaceAll(',', '')))
-  const parts: Record<string, string> = {
-    'The JS every visit loads': 'the JS every visit loads',
-    'The CSS': 'the CSS',
-    'The JS loaded only when needed (the samples)': 'the JS loaded only when needed',
-    "My List's page, a file of its own": 'My List’s page',
-    'The mood scoring, a file of its own': 'the mood scoring',
-    'Every other file': 'every other file',
-  }
+  return budget
+}
+
+// A table's figure, "94,650 of 94,700 B", as its bytes and its budget.
+const read = (cell: string) =>
+  /^([\d,]+) of ([\d,]+) B$/
+    .exec(cell)
+    ?.slice(1)
+    .map((n) => Number(n.replaceAll(',', '')))
+
+// Each part of the build as the README's tables name it, and as BUDGET does.
+const PARTS: Record<string, string> = {
+  'The JS every visit loads': 'the JS every visit loads',
+  'The CSS': 'the CSS',
+  'The JS loaded only when needed (the samples)': 'the JS loaded only when needed',
+  "My List's page, a file of its own": 'My List’s page',
+  'The mood scoring, a file of its own': 'the mood scoring',
+  'Every other file': 'every other file',
+}
+
+/**
+ * Checks `rows`, each a table row's part and its figure, against BUDGET: each part's budget is the
+ * bundle check's, every part is there, and each figure is within its budget.
+ */
+function holdToBudgets(rows: [part: string, figure: string][]) {
   assert.deepEqual(
-    Object.fromEntries(rows.map(([, part, now]) => [parts[part] ?? part, read(now)?.[1]])),
-    budget,
+    Object.fromEntries(rows.map(([part, figure]) => [PARTS[part] ?? part, read(figure)?.[1]])),
+    budgets(),
     'the budgets in the table, against privacy.test.ts',
   )
   assert.deepEqual(
     rows
-      .filter(([, , now]) => {
-        const [bytes, most] = read(now) ?? [NaN, NaN]
+      .filter(([, figure]) => {
+        const [bytes, most] = read(figure) ?? [NaN, NaN]
         return !(bytes <= most)
       })
-      .map(([, part, now]) => `${part}: ${now}`),
+      .map(([part, figure]) => `${part}: ${figure}`),
     [],
     'figures over their budget, or not written as "N of M B"',
+  )
+}
+
+// The rows of a Markdown table in `section`, after its heading row and its rule, as their cells.
+const rowsOf = (section: string) =>
+  section
+    .split('\n')
+    .filter((line) => line.startsWith('|'))
+    .slice(2)
+    .map((line) => line.split('|').map((cell) => cell.trim()))
+
+test('the byte budgets in the README’s "Byte budgets now" table are the bundle check’s', () => {
+  // Each row reads `| <part> | <bytes> of <budget> B |`.
+  holdToBudgets(rowsOf(budgetsNow()).map(([, part, now]) => [part, now]))
+})
+
+// The README's Phase 5 section, from its heading to the next.
+function phase5() {
+  const start = readme.indexOf('\n## Phase 5 complete\n')
+  assert.ok(start >= 0, 'the README has no "Phase 5 complete" section')
+  const end = readme.indexOf('\n## ', start + 1)
+  return readme.slice(start, end < 0 ? undefined : end)
+}
+
+// Phase 5 closed on today's budgets, so its table's byte rows are held to them too, until a later
+// raise makes it history, as the Phase 4 table is. Each reads `| Bytes, <part> | <before> |
+// <bytes> of <budget> B | <check> |`, its part named as in "Byte budgets now".
+test('the byte rows of the README’s Phase 5 table are the bundle check’s budgets, each within it', () => {
+  const rows = rowsOf(phase5()).filter(([, measurement]) => measurement?.startsWith('Bytes, '))
+  holdToBudgets(
+    rows.map(([, measurement, , after]) => {
+      const part = measurement.slice('Bytes, '.length)
+      return [part.charAt(0).toUpperCase() + part.slice(1), after]
+    }),
+  )
+})
+
+test('each check the README’s Phase 5 section names is in the file it names', () => {
+  assert.deepEqual(
+    missingChecks(phase5(), 15),
+    [],
+    'checks the README names that its files no longer hold',
   )
 })

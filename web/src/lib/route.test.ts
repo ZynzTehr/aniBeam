@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import {
   dropTrailer,
   isListPath,
+  isMoodPath,
   isOver,
   isTrailer,
   pageBeneath,
@@ -45,6 +46,15 @@ test('My List’s address is /list, with or without a last slash, and nothing el
   assert.equal(isListPath('/list/'), true)
   for (const path of ['/', '/list//', '/lists', '/list/1', '/List', '/x/list', '/anime/154587', ''])
     assert.equal(isListPath(path), false, path)
+})
+
+// The spec's address for the mood sliders, which live on Discover's pull machine: App puts /#pull
+// in its place.
+test('the mood sliders’ address is /mood, with or without a last slash, and nothing else', () => {
+  assert.equal(isMoodPath('/mood'), true)
+  assert.equal(isMoodPath('/mood/'), true)
+  for (const path of ['/', '/mood//', '/moods', '/mood/1', '/Mood', '/x/mood', '/list', ''])
+    assert.equal(isMoodPath(path), false, path)
 })
 
 test('the page an address shows is its own, or under a card the one it was opened over, or /', () => {

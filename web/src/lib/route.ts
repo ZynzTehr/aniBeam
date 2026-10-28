@@ -1,8 +1,9 @@
 import { useSyncExternalStore } from 'react'
 
 // The page's address (spec §3.0): / is Discover, /list is My List, and /anime/:id opens that
-// title's card over the page. Later addresses (/mood) and chat's episode rooms (/anime/:id?ep=N,
-// the query) fit beside these: this file reads only the path, and leaves the query and the hash to
+// title's card over the page. /mood, the spec's address for the mood sliders, which live on
+// Discover's pull machine, becomes /#pull (see App). Chat's episode rooms (/anime/:id?ep=N, the
+// query) fit beside these: this file reads only the path, and leaves the query and the hash to
 // their owners (sync's #r= fragment, in Phase 8, is never read here).
 
 // An AniList id: a whole number from 1, with no leading zero, of at most 9 digits (AniList's ids
@@ -20,6 +21,9 @@ export const titlePath = (id: number) => `/anime/${id}`
 
 /** Whether an address's path is My List's: /list, or /list/. */
 export const isListPath = (pathname: string) => /^\/list\/?$/.test(pathname)
+
+/** Whether an address's path is the mood sliders' in the spec: /mood, or /mood/. */
+export const isMoodPath = (pathname: string) => /^\/mood\/?$/.test(pathname)
 
 // Back and Forward announce themselves (popstate), but the page's own changes to the address
 // don't, so those tell the listeners here.

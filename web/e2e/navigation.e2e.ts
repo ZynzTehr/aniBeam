@@ -1304,6 +1304,72 @@ test('a tap or click on a section link focuses its heading with no ring, even wh
   assert.deepEqual({ id: keyed.id, ring: keyed.ring }, { id: 'pull', ring: true }, 'Enter')
 })
 
+test('a search with no matches links its line to the mood sliders: a click, Enter or a tap on a phone lands on the Pull heading, focused, below the header, with no new page', async () => {
+  // Spec §3E's link to Mood, which is Discover's pull machine, below the results on the same page.
+  // It is followed as the header's Pull is (see App's go): a new history entry, no new page (the
+  // window's mark stays), and a jump that focuses the heading, marked as a pointer's after a click
+  // or a tap, with its ring after Enter.
+  const link = `.ab-results .ab-note a`
+  const line = `(() => {
+    const note = document.querySelector('.ab-results .ab-note'), link = note?.querySelector('a')
+    return link && { line: note.textContent, link: link.textContent, href: link.getAttribute('href') }
+  })()`
+  const landed = (jump: string) => ({
+    address: '/#pull',
+    stayed: true,
+    focus: 'pull',
+    jump,
+    at: 'just below the header',
+    links: 'header',
+    menu: 'shut',
+  })
+  const seen: Record<string, unknown> = {}
+  for (const how of ['click', 'Enter', 'tap'] as const) {
+    await browser.load({ ...(how === 'tap' ? PHONE : DESKTOP), reduceMotion: true })
+    assert.ok(await browser.titlesShown())
+    await browser.search('zzqqxx')
+    assert.ok(await browser.waitFor(`document.querySelector('${link}')`), `${how}: no link`)
+    assert.deepEqual(
+      await browser.evaluate(line),
+      {
+        line: 'No titles found. Try the mood sliders.',
+        link: 'Try the mood sliders',
+        href: '/#pull',
+      },
+      `${how}: the results' line`,
+    )
+    await browser.evaluate(`window.__stayed = true; true`)
+    if (how === 'click') await clickAt(link)
+    else if (how === 'Enter') {
+      await browser.evaluate(`document.querySelector('${link}').focus(); true`)
+      await browser.press('Enter')
+    } else {
+      await browser.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 })
+      try {
+        await tapOn(link)
+      } finally {
+        await browser.send('Emulation.setTouchEmulationEnabled', { enabled: false })
+      }
+    }
+    assert.ok(
+      await browser.waitFor(`document.activeElement.id === 'pull'`, 5000),
+      `${how}: landed at ${await browser.evaluate(`location.pathname + location.hash`)}`,
+    )
+    await frames()
+    const at = await browser.evaluate<Record<string, unknown>>(FROM_LIST)
+    // Under 900px neither set of links is drawn, whichever data-links names.
+    if (how === 'tap') delete at.links
+    seen[how] = at
+  }
+  const tapped: Record<string, unknown> = landed('pointer')
+  delete tapped.links
+  assert.deepEqual(
+    seen,
+    { click: landed('pointer'), Enter: landed('unmarked'), tap: tapped },
+    'the link to the mood sliders followed',
+  )
+})
+
 test('the intro’s buttons are the landmark named Sections, read only while they show, and the header’s links are Site, read only once the buttons have docked, each with My List’s link to /list last; on a phone the menu’s are Sections, My List’s link there too', async () => {
   const landmarks = async () => {
     const { nodes } = await browser.send('Accessibility.getFullAXTree')

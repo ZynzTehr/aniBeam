@@ -3668,6 +3668,15 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   margin: 0;
 }
 
+/* A link in a status line, as a search that found nothing offers the mood sliders: underlined, as
+   only its line's ink tells it from the words around it, and never broken across two lines, which
+   would break its focus ring in two. */
+.ab-note a {
+  text-decoration: underline 2px;
+  text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
 /* While a section waits for its first titles, its status line ("Loading…") shows as a tag over
    its empty panels (.ab-note-tag) instead of in a line of its own, so nothing moves as it clears
    and the titles take the panels' place. The line itself stays in the page's flow, with no height,
