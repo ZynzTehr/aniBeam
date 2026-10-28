@@ -495,6 +495,8 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // cover's foot, its words before the name's period: the JS 94,712 B and the CSS 13,013 B, within
 // their budgets (brotli packs the JS 73 B smaller with it). Then My List's view handed to its
 // covers' stamps, which leave out what it says: the JS 94,805 B, 93 B more, within its budget.
+// Then a match's rarity, its stamp's words and its period in one span, so no period stands alone
+// in its name: the JS 94,868 B, 63 B more, within its budget.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
   'the JS every visit loads': 94_900,

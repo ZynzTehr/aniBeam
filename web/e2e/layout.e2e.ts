@@ -703,14 +703,15 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
     const now = await browser.evaluate<string>(tab(panel(5)))
     // Each cover's name, from Chrome's accessibility tree, as a screen reader hears it. Chrome
     // puts a space between the parts read out as words of their own (the season's, the stamp's),
-    // which a screen reader doesn't say: it is left out before a comma, and a match's period.
+    // which a screen reader doesn't say before a comma, so it is left out there. Not before a
+    // match's period: a period alone after a space is said as "dot", so it ends the words before.
     const nameOf = async (link: string) => {
       const { result } = await browser.send('Runtime.evaluate', { expression: link })
       const { nodes } = await browser.send('Accessibility.getPartialAXTree', {
         objectId: result.objectId,
         fetchRelatives: false,
       })
-      return (nodes[0].name.value as string).replace(/ (?=[,.])/g, '')
+      return (nodes[0].name.value as string).replace(/ (?=,)/g, '')
     }
     // A strip card's name as it should be: its title, its season (the words of its own that aren't
     // the stamp's), then the stamp's words.
@@ -724,11 +725,15 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
     const trending = await nameOf(`${panel(2)}.querySelector('a')`)
     const decadeName = await nameOf(card)
     // A match's name as it should be: its title, its rarity in words, the stamp's, then a period
-    // and its Why line, which says nothing until a slider moves.
+    // and its Why line, which says nothing until a slider moves; and a match not on the list, as
+    // before the stamps, its rarity and the period.
     const matchName = await nameOf(matchLink)
-    const matchNamed = await browser.evaluate<string>(
-      `((link) => link.querySelector('.ab-match-title').textContent + ', ' + ((tier) => (tier === '?' ? 'Mystery' : tier))(link.querySelector('.ab-tier').textContent) + ', saved, favorite.' + (link.querySelector('.ab-match-why').textContent && ' ' + link.querySelector('.ab-match-why').textContent))(${matchLink})`,
-    )
+    const matchNamed = (link: string, words: string) =>
+      browser.evaluate<string>(
+        `((link) => link.querySelector('.ab-match-title').textContent + ', ' + ((tier) => (tier === '?' ? 'Mystery' : tier))(link.querySelector('.ab-tier').textContent) + ${JSON.stringify(words)} + '.' + (link.querySelector('.ab-match-why').textContent && ' ' + link.querySelector('.ab-match-why').textContent))(${link})`,
+      )
+    const unlisted = `[...document.querySelectorAll('.ab-pull .ab-match[href]')].find((link) => !${JSON.stringify(Object.keys(list('want')))}.includes(link.getAttribute('href').split('/').pop()))`
+    const unlistedName = await nameOf(unlisted)
     await browser.search('frieren')
     const result = `document.querySelector('.ab-results .ab-strip-panel[href="/anime/${frieren}"]')`
     assert.ok(await browser.waitFor(result, 10_000), 'Frieren never came up in the search')
@@ -737,12 +742,14 @@ test('a listed title’s stamp ends its cover’s name, shows inside its panel c
       decade: decadeName,
       search: await nameOf(result),
       match: matchName,
+      unlisted: unlistedName,
     }
     const expected = {
       trending: `, scored ${score}, saved, favorite`,
       decade: await named(card, ', saved, favorite'),
       search: await named(result, ', want to try'),
-      match: matchNamed,
+      match: await matchNamed(matchLink, ', saved, favorite'),
+      unlisted: await matchNamed(unlisted, ''),
     }
     // Where each stamp shows: inside the box that clips it (a panel's link, cut on the diagonal
     // from 900px on panels 4 and 5; a strip card), or a match's cover, and clear of the score

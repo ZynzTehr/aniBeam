@@ -84,9 +84,7 @@ export function Matches({
                 </span>
                 <span className="ab-match-title">{titleOf(media)}</span>
                 {/* "ONE PIECE, SSR, saved, favorite." then its Why line. */}
-                <span className="sr-only">, {rarity.label}</span>
-                <Stamp id={media.id} part="words" />
-                <span className="sr-only">.</span>
+                <Stamp id={media.id} part="words" before={`, ${rarity.label}`} after="." />
                 <span className="ab-match-why">
                   {names.length ? `Why: ${names.join(' · ')}` : ''}
                 </span>
