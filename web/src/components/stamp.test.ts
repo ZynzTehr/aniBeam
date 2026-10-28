@@ -82,22 +82,45 @@ test('each thing a stamp can show has a key of its own, so a change draws a new 
 // (useEntry): React then draws again only the stamps whose entry is another object, which an edit
 // to one title never makes of the others' (see the store's test). The whole list, or its ids,
 // would draw every stamp on the page again at each press. Read as text, as a component can't run
-// here, with its comments left out.
+// here, with its comments left out: Stamp.tsx and every module of the app's own that it imports,
+// followed through to the store, so a helper module can't read the whole list on its behalf.
 test('a stamp reads only its own title’s entry from the list, never the whole list', () => {
-  const code = readFileSync(new URL('./Stamp.tsx', import.meta.url), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/\/\/.*$/gm, '')
-  const fromStore = /import\s*\{([^}]*)\}\s*from\s*'\.\.\/features\/list\/store\.ts'/.exec(code)
-  assert.deepEqual(
-    fromStore?.[1].split(',').map((name) => name.trim()),
-    ['useEntry'],
-    'what Stamp.tsx imports from the store',
-  )
-  assert.match(code, /\buseEntry\(id\)/, 'Stamp.tsx reads useEntry(id)')
+  const store = new URL('../features/list/store.ts', import.meta.url).href
+  const modules = new Map<string, string>()
+  const read = (url: URL) => {
+    if (url.href === store || modules.has(url.href)) return
+    const code = readFileSync(url, 'utf8')
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/.*$/gm, '')
+    modules.set(url.href, code)
+    for (const [, from] of code.matchAll(/\bfrom\s*'(\.[^']*)'/g)) read(new URL(from, url))
+  }
+  read(new URL('./Stamp.tsx', import.meta.url))
   const wholeList = ['useSyncExternalStore', 'getSnapshot', 'subscribe', 'useListIds', 'listedIds']
-  assert.deepEqual(
-    wholeList.filter((name) => new RegExp(`\\b${name}\\b`).test(code)),
-    [],
-    'Stamp.tsx reads the whole list',
-  )
+  const found = [...modules].flatMap(([url, code]) => {
+    const name = url.split('/src/').pop()
+    // What it takes from the store: only useEntry, and types.
+    const taken = [...code.matchAll(/\b(?:import|export)\s+(type\s+)?([^;]*?)\s*from\s*'([^']*)'/g)]
+      .filter(([, , , from]) => new URL(from, url).href === store)
+      .flatMap(([, type, names]) =>
+        type
+          ? []
+          : /^\{([^}]*)\}$/.test(names)
+            ? names
+                .slice(1, -1)
+                .split(',')
+                .map((one) => one.trim())
+                .filter((one) => one && one !== 'useEntry' && !one.startsWith('type '))
+            : [names],
+      )
+    return [
+      ...taken.map((one) => `${name} takes ${one} from the store`),
+      ...wholeList
+        .filter((one) => new RegExp(`\\b${one}\\b`).test(code))
+        .map((one) => `${name}: ${one}`),
+    ]
+  })
+  assert.deepEqual(found, [], 'Stamp.tsx, or a module it imports, reads the whole list')
+  assert.match(modules.get(new URL('./Stamp.tsx', import.meta.url).href) ?? '', /\buseEntry\(id\)/)
+  assert.ok(modules.size >= 2, `only ${[...modules.keys()].join(', ')} read`)
 })
