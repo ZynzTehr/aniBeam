@@ -1,5 +1,6 @@
+import { use } from 'react'
 import { useEntry } from '../features/list/store.ts'
-import { stampOf, type StampPage } from './stamp.ts'
+import { stampOf, Unstamped, type StampPage } from './stamp.ts'
 
 /**
  * A listed title's stamp on its cover (see stampOf): the folder tab, SAVED or WANT with a heart for
@@ -25,7 +26,8 @@ export function Stamp({
   before?: string
   after?: string
 }) {
-  const shown = stampOf(useEntry(id), page)
+  const entry = useEntry(id)
+  const shown = import.meta.env.DEV && use(Unstamped) ? null : stampOf(entry, page)
   return (
     <>
       {shown && part !== 'words' && (

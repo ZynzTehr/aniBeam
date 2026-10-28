@@ -60,7 +60,7 @@ test('?gallery shows the gallery, not the app', { skip }, async () => {
 })
 
 test(
-  'every title case shows on the trending page and on the strip, its gap and all',
+  'every title case shows on the trending page and on the strip, its gap and all, and no stamp',
   { skip },
   async () => {
     await browser.load({ url: GALLERY, reduceMotion: true })
@@ -108,6 +108,28 @@ test(
     // Only the splash panel shows a banner, so the case is seen only there.
     assert.equal(shown.splash, true, 'the no-banner case is not on the splash panel')
     assert.equal(shown.banner, false, 'the splash panel offers a banner it has not got')
+    // No title here shows a stamp, even one on this browser's list (the stamps' plan, S6): its
+    // cases have real AniList ids, so a stamp would show whatever the list held, not the case.
+    // Every title on the gallery is listed, as another tab's write comes, then taken off again,
+    // each with its delete marker (the store keeps a title another tab's list only leaves out),
+    // and the list emptied for the checks after this one.
+    const stamped = await browser.evaluate<string[]>(`(async () => {
+      const links = () => [...document.querySelectorAll('a[href^="/anime/"]')]
+      const ids = [...new Set(links().map((link) => link.getAttribute('href').split('/').pop()))]
+      const write = (json) => {
+        localStorage.setItem('anibeam:list:v1', json)
+        dispatchEvent(new StorageEvent('storage', { key: 'anibeam:list:v1', newValue: json }))
+      }
+      const all = (entry) => JSON.stringify(Object.fromEntries(ids.map((id) => [id, { status: 'SAVED', favorite: true, updatedAt: Date.now(), ...entry }])))
+      write(all({}))
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      const stamped = links().filter((link) => link.querySelector('.ab-stamp') || /, (saved|favorite)/.test(link.textContent))
+      await new Promise((resolve) => setTimeout(resolve, 2))
+      write(all({ deleted: true }))
+      localStorage.removeItem('anibeam:list:v1')
+      return [ids.length + ' titles listed', ...new Set(stamped.map((link) => link.getAttribute('href')))]
+    })()`)
+    assert.deepEqual(stamped.slice(1), [], `stamped, of ${stamped[0]}`)
   },
 )
 

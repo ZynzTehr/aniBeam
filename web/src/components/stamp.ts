@@ -1,7 +1,15 @@
+import { createContext } from 'react'
 import type { Entry, Status } from '../features/list/store.ts'
 
 // The stamp on a listed title's cover (the plan's D4, option A; Phase 4's PR 4, item 1): SAVED or
 // WANT, with a heart for a favorite, drawn by Stamp.tsx and heard at the end of the cover's name.
+
+/**
+ * True below it, no stamps: main.tsx's development-only pages, the gallery and the prototypes,
+ * whose sample titles have real AniList ids, so a stamp there would show whatever this browser's
+ * list held, not the design (the stamps' plan, S6). A production build leaves it out.
+ */
+export const Unstamped = /* @__PURE__ */ createContext(false)
 
 /** What My List's page already says of the covers it shows: the tab, and Favorites only. */
 export type StampPage = { tab?: Status; favoritesOnly?: boolean }
