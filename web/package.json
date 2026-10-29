@@ -9,7 +9,7 @@
     "typecheck": "tsc -b",
     "lint": "oxlint",
     "test": "node --import ./scripts/blocking-test-output.ts --test --test-timeout=10000 --test-force-exit --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/every-test-reported.ts --test-reporter-destination=stderr",
-    "test:browser": "node --import ./scripts/blocking-test-output.ts --test --test-concurrency=1 --test-timeout=600000 --test-force-exit --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/every-test-reported.ts --test-reporter-destination=stderr e2e/*.e2e.ts",
+    "test:browser": "node --import ./scripts/blocking-test-output.ts --test --test-concurrency=4 --test-timeout=600000 --test-force-exit --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./scripts/every-test-reported.ts --test-reporter-destination=stderr e2e/*.e2e.ts",
     "samples": "node scripts/refresh-samples.ts",
     "e2e:record": "node scripts/record-anilist.ts",
     "preview": "vite preview"
