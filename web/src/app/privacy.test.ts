@@ -485,10 +485,22 @@ test("every one of the app's own classes in its markup has a rule in its stylesh
 // its words: 94,577 B, 73 B more; the CSS 12,897 B for the link's underline, within its budget),
 // then /mood landing there, replaced by /#pull with a jump to the Pull heading (the plan's D6,
 // about 60 B): 94,650 B, 73 B more.
+// Then 94,900 B with the stamps on listed covers (Phase 4's PR 4, item 1, the user's picks in the
+// stamps lab, #42): components/Stamp.tsx, reading its own title's entry, with its words, and the
+// stamp on trending's panels and on the decade strip's and search's cards: 94,856 B, 206 B more;
+// and the CSS 13,050 B for its folder tab, out of a caption's or a title box's top ink line, 13px
+// on trending from 900px: 13,000 B, 103 B more. Then the CSS 13,005 B, within its budget, for the
+// tab stepping right of the rank number on a phone's full-width panels; the JS 94,785 B, the same
+// code, only My List's page file renamed in an import. Then the stamp on the top matches, at the
+// cover's foot, its words before the name's period: the JS 94,712 B and the CSS 13,013 B, within
+// their budgets (brotli packs the JS 73 B smaller with it). Then My List's view handed to its
+// covers' stamps, which leave out what it says: the JS 94,805 B, 93 B more, within its budget.
+// Then a match's rarity, its stamp's words and its period in one span, so no period stands alone
+// in its name: the JS 94,868 B, 63 B more, within its budget.
 // The fonts in web/public are copied as they are, outside the build, so this doesn't weigh them.
 const BUDGET = {
-  'the JS every visit loads': 94_700,
-  'the CSS': 12_900,
+  'the JS every visit loads': 94_900,
+  'the CSS': 13_050,
   'the JS loaded only when needed': 14_500,
   'My List’s page': 2_500,
   'the mood scoring': 1_500,

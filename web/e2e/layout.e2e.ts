@@ -6,6 +6,7 @@ import { after, afterEach, before, beforeEach, test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { RULE } from '../src/features/mood/moods.ts'
 import { Browser } from './browser.ts'
+import { LISTS, listsOf, recordings } from './recordings.ts'
 
 // A phone's width, without Chrome's mobile emulation: that marks every shift in the page's first
 // half second as the visitor's input, as it counts its own setting up of the viewport as one, so
@@ -634,4 +635,326 @@ test('beside the machine, from 821 to 1170px and at 1180px beside a scrollbar, w
     if (moved.length) seen.push(`${at}: ${moved.join(', ')}`)
   }
   assert.deepEqual(seen, [], 'a first roll moves the page')
+})
+
+test('a listed title’s stamp ends its cover’s name, shows inside its panel clear of the bubble, the rank and the rarity sticker, and moves nothing as it comes or changes, at 280 and 1440px; on My List, only what the view doesn’t say', async () => {
+  // Phase 4's PR 4, item 1 (the plan's D4, option A): on trending, the decade strip, search and
+  // the top matches, a listed title's cover shows a folder tab, SAVED or WANT with a heart for a
+  // favorite, out of its caption's, title box's or frame's ink line. Seen, not heard: a screen
+  // reader hears it at the end of the cover's name, inside the one link, with nothing to press;
+  // on a match, before the period that ends it. At 280px, the narrowest phone, a half panel's tab
+  // meets the score bubble's tail, a full-width panel's the rank number, and a match's, on a 73px
+  // cover, the rarity sticker; from 900px panels 4 and 5 are cut on the diagonal. On My List a
+  // stamp leaves out what the view already says: its tab's word, and the heart under Favorites
+  // only.
+  // The list comes as another tab's write does, by the storage event, in steps: with panels 4 and
+  // 5 on the screen, then the decade card, then the top match, each listed as it shows, so a stamp
+  // that took room, or grew in place as it changed, would count as a shift.
+  await browser.load({ width: 280, height: 653, reduceMotion: true })
+  assert.ok(await browser.titlesShown())
+  await browser.landAll()
+  const panel = (n: number) => `document.querySelector('.ab-grid > .ab-panel:nth-child(${n})')`
+  const card = `document.querySelector('[aria-labelledby="decades"] .ab-strip-row:not([aria-hidden]) .ab-strip-panel[href]')`
+  const idOf = (link: string) =>
+    browser.evaluate<number>(`Number(${link}.getAttribute('href').split('/').pop())`)
+  const [two, four, five, decade] = [
+    await idOf(`${panel(2)}.querySelector('a')`),
+    await idOf(`${panel(4)}.querySelector('a')`),
+    await idOf(`${panel(5)}.querySelector('a')`),
+    await idOf(card),
+  ]
+  const frieren = listsOf(recordings().get('search-frieren')!).Page[0].id
+  // The first top match that isn't one of those.
+  const match = await browser.evaluate<number>(
+    `[...document.querySelectorAll('.ab-pull .ab-match[href]')].map((link) => Number(link.getAttribute('href').split('/').pop())).find((id) => !${JSON.stringify([two, four, five, decade, frieren])}.includes(id))`,
+  )
+  const matchLink = `document.querySelector('.ab-pull .ab-match[href="/anime/${match}"]')`
+  const list = (fiveAs: string) => ({
+    [two]: { status: 'SAVED', favorite: true },
+    [four]: { status: 'WANT', favorite: true },
+    [five]:
+      fiveAs === 'saved'
+        ? { status: 'SAVED', favorite: false }
+        : { status: 'WANT', favorite: true },
+    [decade]: { status: 'SAVED', favorite: true },
+    [frieren]: { status: 'WANT', favorite: false },
+    [match]: { status: 'SAVED', favorite: true },
+  })
+  const write = (entries: object) =>
+    browser.evaluate(`(async () => {
+      const now = Date.now()
+      const json = JSON.stringify(Object.fromEntries(Object.entries(${JSON.stringify(entries)}).map(([id, entry]) => [id, { ...entry, updatedAt: now }])))
+      localStorage.setItem('anibeam:list:v1', json)
+      dispatchEvent(new StorageEvent('storage', { key: 'anibeam:list:v1', newValue: json }))
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      window.__takeLayoutShifts()
+      return window.__layoutShifts.splice(0).map((shift) => shift.value.toFixed(4) + ': ' + shift.moved.join(', '))
+    })()`)
+  // What a stamp shows, as its tab reads: its word, then ♥ for its heart.
+  const tab = (link: string) =>
+    `[...${link}.querySelectorAll('.ab-stamp')].map((tab) => tab.textContent + (tab.querySelector('svg') ? ' ♥' : '')).join(' | ')`
+  const into = (element: string, block: string) =>
+    browser.evaluate(
+      `${element}.scrollIntoView({ block: '${block}', behavior: 'instant' }), window.__takeLayoutShifts(), (window.__layoutShifts.length = 0), true`,
+    )
+  const without = (entries: object, ...ids: number[]) =>
+    Object.fromEntries(Object.entries(entries).filter(([id]) => !ids.includes(Number(id))))
+  try {
+    await into(panel(4), 'start')
+    const came = { trending: await write(without(list('saved'), decade, match)) }
+    await into(card, 'center')
+    const decadeCame = await write(without(list('saved'), match))
+    await into(matchLink, 'center')
+    Object.assign(came, { decade: decadeCame, match: await write(list('saved')) })
+    await into(panel(4), 'start')
+    const shown = await browser.evaluate<string>(tab(panel(5)))
+    const changed = await write(list('want'))
+    const now = await browser.evaluate<string>(tab(panel(5)))
+    // Each cover's name, from Chrome's accessibility tree, as a screen reader hears it. Chrome
+    // puts a space between the parts read out as words of their own (the season's, the stamp's),
+    // which a screen reader doesn't say before a comma, so it is left out there. Not before a
+    // match's period: a period alone after a space is said as "dot", so it ends the words before.
+    const nameOf = async (link: string) => {
+      const { result } = await browser.send('Runtime.evaluate', { expression: link })
+      const { nodes } = await browser.send('Accessibility.getPartialAXTree', {
+        objectId: result.objectId,
+        fetchRelatives: false,
+      })
+      return (nodes[0].name.value as string).replace(/ (?=,)/g, '')
+    }
+    // A strip card's name as it should be: its title, its season (the words of its own that aren't
+    // the stamp's), then the stamp's words.
+    const named = (link: string, words: string) =>
+      browser.evaluate<string>(
+        `${link}.querySelector('.ab-strip-title > :first-child').textContent + [...${link}.querySelectorAll(':scope > .sr-only')].find((span) => !${JSON.stringify(words)}.startsWith(span.textContent)).textContent + ${JSON.stringify(words)}`,
+      )
+    const score = await browser.evaluate<string>(
+      `${panel(2)}.querySelector('.ab-bubble').textContent`,
+    )
+    const trending = await nameOf(`${panel(2)}.querySelector('a')`)
+    const decadeName = await nameOf(card)
+    // A match's name as it should be: its title, its rarity in words, the stamp's, then a period
+    // and its Why line, which says nothing until a slider moves; and a match not on the list, as
+    // before the stamps, its rarity and the period.
+    const matchName = await nameOf(matchLink)
+    const matchNamed = (link: string, words: string) =>
+      browser.evaluate<string>(
+        `((link) => link.querySelector('.ab-match-title').textContent + ', ' + ((tier) => (tier === '?' ? 'Mystery' : tier))(link.querySelector('.ab-tier').textContent) + ${JSON.stringify(words)} + '.' + (link.querySelector('.ab-match-why').textContent && ' ' + link.querySelector('.ab-match-why').textContent))(${link})`,
+      )
+    const unlisted = `[...document.querySelectorAll('.ab-pull .ab-match[href]')].find((link) => !${JSON.stringify(Object.keys(list('want')))}.includes(link.getAttribute('href').split('/').pop()))`
+    const unlistedName = await nameOf(unlisted)
+    await browser.search('frieren')
+    const result = `document.querySelector('.ab-results .ab-strip-panel[href="/anime/${frieren}"]')`
+    assert.ok(await browser.waitFor(result, 10_000), 'Frieren never came up in the search')
+    const names = {
+      trending: trending.slice(trending.lastIndexOf(', scored')),
+      decade: decadeName,
+      search: await nameOf(result),
+      match: matchName,
+      unlisted: unlistedName,
+    }
+    const expected = {
+      trending: `, scored ${score}, saved, favorite`,
+      decade: await named(card, ', saved, favorite'),
+      search: await named(result, ', want to try'),
+      match: await matchNamed(matchLink, ', saved, favorite'),
+      unlisted: await matchNamed(unlisted, ''),
+    }
+    // Where each stamp shows: on the ink line it grows out of, a caption's or a title box's top
+    // or a match cover's foot; inside the box that clips it (a panel's link, cut on the diagonal
+    // from 900px on panels 4 and 5; a strip card), or a match's cover; and clear of the score
+    // bubble and its tail, the rarity sticker, and at 280px of the rank number. There a
+    // full-width panel is short, and panel 4's caption, its title on three lines, reaches up
+    // beside the number. From 900px the number's box runs below its glyph, which the tab clears,
+    // so the box isn't held to it there.
+    const placed = `((links, rank) => links.flatMap(([name, link]) => {
+      const stamp = link.querySelector('.ab-stamp')
+      if (!stamp) return [name + ': no stamp']
+      const box = stamp.getBoundingClientRect()
+      const edge = (link.querySelector('.ab-match-cover') ?? link).getBoundingClientRect()
+      const wrong = []
+      // Measured in the layout's own terms, before a caption's tilt: a tab grows up from its box's
+      // padding edge, at a match cover's foot down to it.
+      const from = stamp.parentElement
+      const foot = stamp.offsetTop + stamp.offsetHeight
+      if (stamp.offsetParent !== from || Math.abs(foot - (from.matches('.ab-match-cover') ? from.clientHeight : 0)) > 1)
+        wrong.push('off its ink line')
+      if (box.left < edge.left - 0.5 || box.top < edge.top - 0.5 || box.right > edge.right + 0.5 || box.bottom > edge.bottom + 0.5)
+        wrong.push('outside its box')
+      // The cut: a link's clip-path runs from (cut - 2px, 0) to (0, 100%) on panel 5, and from
+      // (100%, 0) to (100% - cut + 2px, 100%) on panel 4.
+      const li = link.parentElement
+      const cut = getComputedStyle(li).clipPath === 'none' ? 0 : parseFloat(getComputedStyle(li).getPropertyValue('--cut')) - 2
+      for (const y of [box.top, box.bottom]) {
+        const down = (y - edge.top) / edge.height
+        if (li.matches('.ab-cut-left') && cut && box.left < edge.left + cut * (1 - down) - 0.5) wrong.push('cut off by the diagonal')
+        if (li.matches('.ab-cut-right') && cut && box.right > edge.right - cut * down + 0.5) wrong.push('cut off by the diagonal')
+      }
+      // The bubble and its tail, which hangs 14px below the bubble's padding box (11px below it).
+      const bubble = link.querySelector('.ab-bubble')?.getBoundingClientRect()
+      if (bubble && box.right > bubble.left && box.left < bubble.right && box.bottom > bubble.top && box.top < bubble.bottom + 11)
+        wrong.push('over the bubble or its tail')
+      const sticker = link.querySelector('.ab-tier')?.getBoundingClientRect()
+      if (sticker && box.right > sticker.left && box.left < sticker.right && box.bottom > sticker.top && box.top < sticker.bottom)
+        wrong.push('over the rarity sticker')
+      const number = rank && link.querySelector('.ab-rank')?.getBoundingClientRect()
+      if (number && box.right > number.left && box.left < number.right && box.bottom > number.top && box.top < number.bottom)
+        wrong.push('over the rank number')
+      return wrong.length ? [name + ': ' + [...new Set(wrong)].join(', ')] : []
+    }))`
+    const covers = `[['panel 2', ${panel(2)}.querySelector('a')], ['panel 4', ${panel(4)}.querySelector('a')], ['panel 5', ${panel(5)}.querySelector('a')], ['the top match', ${matchLink}]]`
+    const at280 = await browser.evaluate<string[]>(
+      `${placed}([...${covers}, ['the decade card', ${card}], ['the search result', ${result}]], true)`,
+    )
+    const nested = await browser.evaluate<number>(
+      `document.querySelectorAll('a button, a a').length`,
+    )
+    // Its type, 11px under a phone's captions, 13px from 900px under the larger ones.
+    const size = `getComputedStyle(${panel(5)}.querySelector('.ab-stamp')).fontSize`
+    const sizes = { at280: await browser.evaluate<string>(size), at1440: '' }
+    // A tap on a tab opens the title's card on this page, as one on its cover does: the tab takes
+    // no pointer, so the cover's link gets it. Tapped where a finger would, on panel 2's tab.
+    await into(panel(2), 'center')
+    await browser.evaluate(`(window.__stayed = true)`)
+    const at = await browser.evaluate<{ x: number; y: number }>(
+      `((box) => ({ x: box.left + box.width / 2, y: box.top + box.height / 2 }))(${panel(2)}.querySelector('.ab-stamp').getBoundingClientRect())`,
+    )
+    for (const type of ['mousePressed', 'mouseReleased'])
+      await browser.send('Input.dispatchMouseEvent', { type, ...at, button: 'left', clickCount: 1 })
+    const tapped = {
+      opened: await browser.waitFor(`document.querySelector('dialog.ab-card[open]')`, 3000),
+      stayed: await browser.evaluate<boolean>(`window.__stayed === true`),
+      at: await browser.evaluate<string>(`location.pathname`),
+    }
+    await browser.press('Escape')
+    await browser.waitFor(`!document.querySelector('dialog.ab-card[open]')`, 3000)
+    // The rolled card has no stamp, as its My List row says the same (the plan's S6): a roll,
+    // its title then listed as a favorite.
+    await browser.evaluate(`(() => {
+      const random = Math.random
+      Math.random = () => 0
+      document.querySelector('.ab-lever').click()
+      Math.random = random
+      return true
+    })()`)
+    const panelOf = `document.querySelector('.ab-result.is-open .ab-result-panel:not([inert])')`
+    assert.ok(await browser.waitFor(panelOf, 5000), 'a roll never opened')
+    const rolledId = await idOf(panelOf)
+    await write({ ...list('want'), [rolledId]: { status: 'SAVED', favorite: true } })
+    const rolled = {
+      tab: await browser.evaluate<string>(tab(`document.querySelector('.ab-result')`)),
+      name: await nameOf(panelOf),
+    }
+    const rolledNamed = await browser.evaluate<string>(
+      `${panelOf}.querySelector('.sr-only').textContent`,
+    )
+    await browser.send('Emulation.setDeviceMetricsOverride', {
+      width: 1440,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: false,
+    })
+    await browser.evaluate(
+      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+    )
+    const at1440 = await browser.evaluate<string[]>(`${placed}(${covers})`)
+    sizes.at1440 = await browser.evaluate<string>(size)
+    // In a contrast theme (forced colors), with no rule of its own, the tab keeps the theme's
+    // colors for the link it is in, as its caption's frame does: its edge, word and heart in the
+    // link color, on the theme's page color, in a light theme and a dark one.
+    const themed: string[] = []
+    for (const scheme of ['light', 'dark']) {
+      await browser.send('Emulation.setEmulatedMedia', {
+        features: [
+          { name: 'prefers-reduced-motion', value: 'reduce' },
+          { name: 'forced-colors', value: 'active' },
+          { name: 'prefers-color-scheme', value: scheme },
+        ],
+      })
+      themed.push(
+        await browser.evaluate<string>(`(() => {
+          const color = (system) => {
+            const probe = document.body.appendChild(document.createElement('i'))
+            probe.style.color = system
+            const value = getComputedStyle(probe).color
+            probe.remove()
+            return value
+          }
+          const named = { [color('LinkText')]: 'link', [color('Canvas')]: 'page', [color('CanvasText')]: 'text' }
+          const stamp = ${panel(5)}.querySelector('.ab-stamp')
+          if (!stamp) return ${JSON.stringify(scheme)} + ': no stamp'
+          const style = getComputedStyle(stamp)
+          const frame = getComputedStyle(stamp.parentElement).borderTopColor
+          const as = (value) => named[value] ?? value
+          return ${JSON.stringify(scheme)} + ': edge ' + as(style.borderTopColor) + (style.borderTopColor === frame ? ' as its frame' : ', its frame ' + as(frame)) + ', ' + style.borderTopWidth + ', word ' + as(style.color) + ', heart ' + as(getComputedStyle(stamp.querySelector('svg')).fill) + ', on ' + as(style.backgroundColor)
+        })()`),
+      )
+    }
+    // On My List, a stamp says only what the page doesn't: on the Saved tab, a saved favorite's
+    // tab shows its heart alone, and its name ends ", favorite". The list-12 recording's titles,
+    // the list My List can ask AniList for here, all saved, Frieren with the heart; the titles
+    // listed above and not among them taken off, with delete markers, as the store keeps a title
+    // that another tab's list only leaves out.
+    await browser.send('Emulation.setEmulatedMedia', {
+      features: [{ name: 'prefers-reduced-motion', value: 'reduce' }],
+    })
+    await write({
+      ...Object.fromEntries(
+        [...Object.keys(list('want')), rolledId].map((id) => [
+          id,
+          { status: 'SAVED', favorite: false, deleted: true },
+        ]),
+      ),
+      ...Object.fromEntries(
+        LISTS['list-12'].map((id) => [id, { status: 'SAVED', favorite: id === frieren }]),
+      ),
+    })
+    await browser.evaluate(`document.querySelector('.ab-nav a[href="/list"]').click(), true`)
+    const listed = `document.querySelector('.ab-list .ab-strip-panel[href="/anime/${frieren}"]')`
+    assert.ok(await browser.waitFor(listed, 10_000), 'Frieren never showed on My List')
+    const onList = { tab: await browser.evaluate<string>(tab(listed)), name: await nameOf(listed) }
+    // With Favorites only on, the page says the heart: nothing is left to stamp.
+    await browser.evaluate(`document.querySelector('a[href="/list?fav=1"]').click(), true`)
+    assert.ok(
+      await browser.waitFor(`location.search === '?fav=1' && ${listed}`, 10_000),
+      'Frieren never showed under Favorites only',
+    )
+    await browser.evaluate(
+      'new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(true))))',
+    )
+    const favoritesOnly = {
+      tab: await browser.evaluate<string>(tab(listed)),
+      name: await nameOf(listed),
+    }
+    assert.deepEqual(
+      {
+        ...{ came, shown, changed, now, names, at280, nested, sizes, tapped, rolled, at1440 },
+        ...{ themed, onList, favoritesOnly },
+      },
+      {
+        came: { trending: [], decade: [], match: [] },
+        shown: 'SAVED',
+        changed: [],
+        now: 'WANT ♥',
+        names: expected,
+        at280: [],
+        nested: 0,
+        sizes: { at280: '11px', at1440: '13px' },
+        tapped: { opened: true, stayed: true, at: `/anime/${two}` },
+        rolled: { tab: '', name: rolledNamed },
+        at1440: [],
+        themed: ['light', 'dark'].map(
+          (scheme) => `${scheme}: edge link as its frame, 3px, word link, heart link, on page`,
+        ),
+        onList: { tab: ' ♥', name: await named(listed, ', favorite') },
+        favoritesOnly: { tab: '', name: await named(listed, '') },
+      },
+    )
+  } finally {
+    await browser.send('Emulation.setEmulatedMedia', { features: [] })
+    await browser.evaluate(
+      `localStorage.removeItem('anibeam:list:v1'), dispatchEvent(new StorageEvent('storage', { key: 'anibeam:list:v1', newValue: null })), true`,
+    )
+  }
 })

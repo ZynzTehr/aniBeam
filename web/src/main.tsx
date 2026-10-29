@@ -3,6 +3,7 @@ import { lazy, StrictMode, Suspense } from 'react'
 import { createRoot } from 'react-dom/client'
 import './styles/index.css'
 import App from './app/App.tsx'
+import { Unstamped } from './components/stamp.ts'
 import { loadListPage, preloadListPage } from './features/list/page.ts'
 import { preloadScoring } from './features/mood/loadScoring.ts'
 import { savedMotionChoice } from './lib/motion.ts'
@@ -34,7 +35,9 @@ const render = () => {
       <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
         {Page ? (
           <Suspense fallback={null}>
-            <Page />
+            <Unstamped value>
+              <Page />
+            </Unstamped>
           </Suspense>
         ) : (
           <App />

@@ -472,12 +472,40 @@ img[data-broken] {
 }
 
 /* The clamp sits on an inner span: on the padded box itself, a third line would peek
-   through the bottom padding. */
-.ab-strip-title > span {
+   through the bottom padding. The first, the title's: a listed title's stamp follows it. */
+.ab-strip-title > :first-child {
   display: -webkit-box;
   overflow: hidden;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+}
+
+/* A listed title's stamp (see Stamp.tsx): a white folder tab growing out of the top ink line of a
+   trending caption or a strip's title box, at its left, in the box's own border, so a listed
+   title looks the same everywhere. Placed absolutely, it takes no room and moves nothing as it
+   comes, and inside the cover's link it is cut where the cover is. Its heart grows with its word. */
+.ab-stamp {
+  position: absolute;
+  bottom: 100%;
+  left: 6px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 5px 2px;
+  border: inherit;
+  border-bottom: 0;
+  background: #fff;
+  color: var(--hot-text);
+  font: 800 11px / 1 var(--body);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.ab-stamp svg {
+  width: 0.9em;
+  height: 0.82em;
+  fill: currentColor;
 }
 
 /* The footer: the Reduce motion switch (see MotionSwitch), then AniList's credit. */
@@ -729,6 +757,11 @@ img[data-broken] {
   .ab-splash .ab-caption {
     max-width: min(64%, 760px);
   }
+
+  /* Under captions of 40px type, a stamp's 11px read small. */
+  .ab-caption > .ab-stamp {
+    font-size: 13px;
+  }
 }
 
 .ab-splash .ab-caption b {
@@ -817,6 +850,13 @@ img[data-broken] {
 
   .ab-panel:not(:first-child):not(:nth-child(3n + 4)) .ab-caption small {
     display: none;
+  }
+
+  /* Full-width phone panels are short at 280px, and a caption with its title on three lines
+     reaches up beside the rank number: its stamp's tab steps right of the number, still short of
+     the bubble. */
+  .ab-panel:nth-child(3n + 4) .ab-caption > .ab-stamp {
+    left: 46px;
   }
 
   .ab-bubble {
@@ -1602,6 +1642,14 @@ body:has(.ab-card[open], .ab-drawer[open]) {
   right: -8px;
   padding: 0 7px;
   font-size: 13px;
+}
+
+/* A listed title's stamp (see .ab-stamp), at the cover's foot across from the sticker, out of the
+   frame's bottom ink line: SAVED and its heart fit a 73px cover at 280px. */
+.ab-match-cover > .ab-stamp {
+  bottom: 0;
+  left: 4px;
+  font-size: 10px;
 }
 
 .ab-match-title,
