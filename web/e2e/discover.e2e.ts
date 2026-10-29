@@ -3393,10 +3393,13 @@ describe('desktop (1440x900)', () => {
         }
       }
       // The group's dice keep it under 11 rolls, short of the roll that asks for the pool (see its
-      // before), on the 1990s as recorded: more means the recording changed under the dice.
+      // before). More means the group's rolls changed under the dice, and not only by the 1990s
+      // recording: the glow's check rolls until an SSR and an R come up, so the app's tiers or its
+      // pick order, or a check's dice or rolls, can take the group as far.
+      const rolls = parseInt(seen['the device'].before.count)
       assert.ok(
-        parseInt(seen['the device'].before.count) < 11,
-        'the 1990s recording changed size, so a roll now waits for the pool',
+        rolls < 11,
+        `the group reached roll ${rolls}, far enough for a roll to wait for the 1990s pool: the 1990s recording, the app's rolls or this group's rolls changed`,
       )
       const told = ({ before, after, playing }: (typeof seen)[string]) => ({
         midTurn: before.turned !== null && before.turned > 0 && before.turned < 180,
