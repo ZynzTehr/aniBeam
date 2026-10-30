@@ -12,6 +12,14 @@ const LOCK = 7_204_401
 
 /** Runs the files in `dir` that haven't run on this database, and returns their names. */
 export async function migrate(client: pg.ClientBase, dir: URL = MIGRATIONS) {
+  const files = readdirSync(dir).filter((name) => name.toLowerCase().endsWith('.sql'))
+  // A SQL file named otherwise would be left out without a word, and never run, so it stops the
+  // run before anything does.
+  const misnamed = files.find((name) => !/^\d{4}_\w+\.sql$/.test(name))
+  if (misnamed)
+    throw new Error(
+      `Migration file ${misnamed} isn't named NNNN_words.sql (4 digits, _, then letters, digits or _)`,
+    )
   await client.query('select pg_advisory_lock($1)', [LOCK])
   try {
     await client.query(
@@ -19,7 +27,6 @@ export async function migrate(client: pg.ClientBase, dir: URL = MIGRATIONS) {
     )
     const { rows } = await client.query<{ name: string }>('select name from schema_migrations')
     const applied = new Set(rows.map((row) => row.name))
-    const files = readdirSync(dir).filter((name) => /^\d{4}_\w+\.sql$/.test(name))
     const ran: string[] = []
     for (const name of files.sort()) {
       if (applied.has(name)) continue

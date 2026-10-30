@@ -71,3 +71,14 @@ test('a file that fails leaves nothing behind and is not recorded, so it runs ag
   writeFileSync(new URL('0002_bad.sql', dir), 'create table half (id int);')
   assert.deepEqual(await migrate(client, dir), ['0002_bad.sql'])
 })
+
+test('a .sql file not named NNNN_words.sql stops the run, rather than never running', async (t) => {
+  const client = await emptyDatabase(t)
+  for (const name of ['0002_add-index.sql', '002_x.sql', '0002_X.SQL']) {
+    const dir = folder(t, { '0001_a.sql': 'create table a (id int);', [name]: 'select 1;' })
+    await assert.rejects(migrate(client, dir), {
+      message: `Migration file ${name} isn't named NNNN_words.sql (4 digits, _, then letters, digits or _)`,
+    })
+  }
+  assert.deepEqual(await tables(client), [])
+})
