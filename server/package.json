@@ -10,7 +10,7 @@
     "start": "node --env-file-if-exists=.env dist/index.js"
   },
   "dependencies": {
-    "fastify": "^5.12.5"
+    "fastify": "^5.12.7"
   },
   "devDependencies": {
     "@types/node": "^24.19.1",
