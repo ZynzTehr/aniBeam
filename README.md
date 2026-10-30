@@ -520,7 +520,7 @@ The chat server (`server/`) is Fastify with Postgres, and Drizzle for typed quer
 
 #### The tests' Postgres
 
-`npm test` starts a Postgres 18 of its own for the chat server's tests (`server/src/testing/global-setup.ts`): a new cluster in a temp folder, on 127.0.0.1 at a free port, which it deletes at the end. It runs the migrations once, on a template database, and each test file gets its own copy of it, so test files running at once never see each other's rows. A run that was killed leaves its folder behind, and the next run removes it. Without Postgres (`brew install postgresql@18`), the chat server's tests fail with a message saying how to install it; they never skip.
+`npm test` starts a Postgres 18 of its own for the chat server's tests (`server/src/testing/global-setup.ts`): a new cluster in a temp folder, on 127.0.0.1 at a free port, which it deletes at the end. It runs the migrations once, on a template database, and each test file gets its own copy of it, so test files running at once never see each other's rows. A run stopped with Ctrl-C deletes it on the way out, though it then reads as exit 0, as Node's test runner exits that way. A run killed outright (`kill -9`) leaves its folder behind, with its Postgres still running, and the next run stops that Postgres and removes the folder. Without Postgres (`brew install postgresql@18`), the chat server's tests fail with a message saying how to install it; they never skip.
 
 ### Firebase config is not secret
 

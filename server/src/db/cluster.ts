@@ -52,6 +52,22 @@ export async function startCluster({ parent = tmpdir(), dirs = postgresDirs() } 
   const pgCtl = path.join(findPostgres(dirs), 'pg_ctl')
   removeStaleClusters(parent, pgCtl)
   const dir = mkdtempSync(path.join(parent, `${PREFIX}${process.pid}-`))
+  // A run stopped with Ctrl-C or SIGTERM exits without calling stop() (the test runner turns
+  // either into an exit), even while it is still starting, so the cluster also goes on the way
+  // out. Only kill -9 skips this, and leaves the folder for the next start to remove.
+  const atExit = () => {
+    try {
+      remove(pgCtl, dir)
+    } catch {
+      // pg_ctl can't stop the Postgres initdb runs for itself, which ends with initdb. The
+      // folder is deleted either way, though initdb may still make it again.
+    }
+  }
+  process.once('exit', atExit)
+  const stop = () => {
+    process.off('exit', atExit)
+    remove(pgCtl, dir)
+  }
   const data = path.join(dir, 'data')
   const log = path.join(dir, 'postgres.log')
   try {
@@ -70,14 +86,14 @@ export async function startCluster({ parent = tmpdir(), dirs = postgresDirs() } 
     const cluster: Cluster = {
       url: `postgres://postgres@127.0.0.1:${port}/postgres`,
       dir,
-      stop: () => remove(pgCtl, dir),
+      stop,
     }
     return cluster
   } catch (err) {
     // Its log says why, and goes with the folder.
     const why = existsSync(log) ? `\n${readFileSync(log, 'utf8')}` : ''
     try {
-      remove(pgCtl, dir)
+      stop()
     } catch {
       // The folder is gone either way.
     }
