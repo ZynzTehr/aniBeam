@@ -1,7 +1,10 @@
 // GET /rooms/:roomKey/messages: a room's history, readable without signing in (spec section 7).
 // Pages hold 50 messages, newest first, and ?before=<id> asks for the page older than that id.
 // Ids, not times, mark the place: Postgres keeps times to the microsecond and JavaScript to the
-// millisecond, so a time would skip messages, while ids grow in the order messages are added.
+// millisecond, so a time would skip messages. Ids grow in the order messages are added, but an id
+// is given when a message is added and seen once it is saved, so a message still being saved can
+// show up a moment after a newer one. A page read in between leaves it out, and so do the pages
+// older than it, which start below its nextBefore. Live delivery is what brings that message.
 import { roomKeySchema, type ErrorCode } from '@anibeam/shared'
 import { and, desc, eq, isNull, lt } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
