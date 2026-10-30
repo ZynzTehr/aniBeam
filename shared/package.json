@@ -11,6 +11,10 @@
     "test": "node --import ../web/scripts/blocking-test-output.ts --test --test-timeout=10000 --test-force-exit --test-reporter=spec --test-reporter-destination=stdout --test-reporter=../web/scripts/every-test-reported.ts --test-reporter-destination=stderr 'src/**/*.test.ts'"
   },
   "devDependencies": {
+    "@types/node": "^24.19.1",
     "typescript": "~6.0.2"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
   }
 }
