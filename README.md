@@ -39,7 +39,7 @@ The `.env.example` files list every variable with a comment explaining it. Real 
 
 The site deploys on [Vercel](https://vercel.com). Sign in with GitHub and import this repository. Vercel finds two apps, `web` and the Fastify chat server, so import only `web`. Vercel then uses its Vite settings with `web` as the root directory. It installs the workspaces, runs `npm run build`, and serves `dist`. No environment variables are needed yet. `web/vercel.json` sends every address that is no file to `index.html`, so a title's own address, such as `/anime/154587`, reaches the app instead of Vercel's 404 (see Title addresses). `npm run dev` and `vite preview` do that on their own, so only a unit check (`web/src/app/vercel.test.ts`) can catch the rule going missing.
 
-After that, every pull request gets a preview link, and merging into `main` updates the live site. The chat server will need a host that keeps WebSocket connections open, which is planned for Phase 6.
+After that, every pull request gets a preview link, and merging into `main` updates the live site. The chat server will need a host that keeps WebSocket connections open, which waits for Phase 7, when the chat first needs a public address.
 
 ## Project structure
 
@@ -504,7 +504,7 @@ Tailwind v4 uses native CSS cascade layers, ordered `theme → base → componen
 
 ### Chat server
 
-The chat server (`server/`) is Fastify with Postgres, and Drizzle for typed queries. So far it stores messages and gives a room's history back; sockets and sign-in come later in Phase 6.
+The chat server (`server/`) is Fastify with Postgres, and Drizzle for typed queries. So far it has the tables for messages and gives a room's history back; nothing writes messages yet, and sockets and sign-in come later in Phase 6.
 
 #### The tables
 
@@ -516,7 +516,7 @@ The chat server (`server/`) is Fastify with Postgres, and Drizzle for typed quer
 
 `GET /rooms/:roomKey/messages` answers a room's messages, 50 at a time, newest first, with hidden messages left out. Anyone can read it, signed in or not. A room key is `anime:<AniList id>:ep:<episode>` or `anime:<AniList id>:all`, such as `anime:154587:ep:5`, checked by `roomKeySchema` in `shared/src/room-key.ts`. The answer is `{ messages, nextBefore }`. Each message is `{ id, roomKey, handle, body, spoiler, createdAt }`: a handle, never a user id. `nextBefore` is the id to ask with for the next, older page (`?before=<id>`), or `null` on the last page. Pages go by id, not by time: Postgres keeps times to the microsecond and JavaScript to the millisecond, so a time would skip messages posted within one millisecond. A bad room key or `before` answers 400 with `{ "error": "invalid" }`, a code from the one list in `shared/src/errors.ts`. Request bodies are limited to 4 KB.
 
-`npm run dev:server` reads the database's address from `DATABASE_URL` in `server/.env`. The server starts without one, and answers `GET /health`, but history needs it.
+`npm run dev:server` reads the database's address from `DATABASE_URL` in `server/.env`. The server starts without one, and answers `GET /health`, but history needs it. Nothing makes the tables on that database yet: there is no migrate command, so history answers 500 there until `migrate()` from `server/src/db/migrate.ts` has run on it. `npm run demo:chat`, later in Phase 6, will run it.
 
 #### The tests' Postgres
 
