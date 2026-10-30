@@ -75,6 +75,24 @@ test('120 messages, 10 of them inside one millisecond, come back as 3 pages, new
   assert.equal(third.nextBefore, null)
 })
 
+test('pages go by id, even where a newer message has an older time', async () => {
+  const room = 'anime:7:all'
+  // Each message's time is a second before the one added before it. now() is the time its
+  // transaction began, so a message saved in a slow transaction can be timed before an older id.
+  const { rows } = await db.pool.query<{ id: number }>(
+    `insert into messages (room_key, user_id, body, created_at)
+     select $1, $2, 'message ' || n, timestamptz '2026-10-29 12:00:00Z' - n * interval '1 second'
+     from generate_series(1, 60) n returning id::int`,
+    [room, aki],
+  )
+  const posted = rows.map((row) => row.id)
+  const first = await page(`/rooms/${room}/messages`)
+  const second = await page(`/rooms/${room}/messages?before=${first.nextBefore}`)
+  assert.deepEqual([ids(first).length, ids(second).length], [50, 10])
+  assert.deepEqual([...ids(first), ...ids(second)], posted.toReversed())
+  assert.equal(second.nextBefore, null)
+})
+
 test('a message carries its id, room, handle, body, spoiler and time, and never a user id or the sign-in uid', async () => {
   const room = 'anime:1:all'
   const { rows } = await db.pool.query<{ id: number; created_at: Date }>(
