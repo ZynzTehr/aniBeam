@@ -6,7 +6,7 @@ AniBeam is an anime discovery app drawn like a manga page. It shows what's trend
 
 ## Prerequisites
 
-- Node.js 22.18 or newer (`node -v`). The tests run TypeScript files directly, which older versions can't do.
+- Node.js 22.18 or newer (`node -v`). The tests run TypeScript files directly, which older versions can't do. The chat server's tests need Node 24 or newer, for the test runner's `--test-global-setup` option, which starts their Postgres.
 - npm 10 or newer
 - Postgres 18, for the chat server's tests: `brew install postgresql@18`. The tests start a throwaway Postgres of their own, so nothing needs to run in the background (see [Chat server](#chat-server)).
 
