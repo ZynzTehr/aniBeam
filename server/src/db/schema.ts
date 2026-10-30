@@ -1,6 +1,6 @@
 // The tables as server/migrations makes them, for Drizzle's typed queries. The SQL files are what
 // changes the tables; this file only describes them, and schema.test.ts checks that it still
-// matches the real ones (columns, constraints and indexes, by name).
+// matches the real ones (each column, constraint and index, as Postgres writes them out).
 import { sql } from 'drizzle-orm'
 import {
   bigint,

@@ -1,92 +1,145 @@
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
-import { getTableConfig, type PgTable } from 'drizzle-orm/pg-core'
+import { is, SQL } from 'drizzle-orm'
+import { getTableConfig, PgDialect, type IndexedColumn, type PgTable } from 'drizzle-orm/pg-core'
+import type pg from 'pg'
 import { testDatabase, type TestDatabase } from '../testing/database.ts'
 import * as schema from './schema.ts'
 
-// The drift check: schema.ts describes the tables by hand, so this compares it with the tables the
-// migrations really made. Each column's type, null rule, identity and default, and each
-// constraint and index, by name (with the columns of each unique constraint and foreign key).
-
-let db: TestDatabase
-before(async () => {
-  db = await testDatabase()
-})
-after(() => db?.close())
+// The drift check: schema.ts describes the tables by hand, so this builds the tables it describes
+// in an empty database and compares them with the tables the migrations really made, as
+// Postgres writes both out. That covers each column's type, null rule, identity and default, and
+// each constraint and index whole: its columns or expression, order, check and actions.
 
 const tables: PgTable[] = [schema.users, schema.messages, schema.reports]
 
-/** What schema.ts says a table is. */
-function described(table: PgTable) {
-  const config = getTableConfig(table)
-  const keys = config.foreignKeys.map((key) => {
-    const { columns, foreignColumns, foreignTable } = key.reference()
-    const names = (list: typeof columns) => list.map((column) => column.name).join(', ')
-    const to = getTableConfig(foreignTable).name
-    return `${key.getName()}: FOREIGN KEY (${names(columns)}) REFERENCES ${to}(${names(foreignColumns)})`
-  })
-  const uniques = [
-    ...config.columns
-      .filter((column) => column.isUnique)
-      .map((column) => `${column.uniqueName}: UNIQUE (${column.name})`),
-    ...config.uniqueConstraints.map(
-      (unique) => `${unique.getName()}: UNIQUE (${unique.columns.map((c) => c.name).join(', ')})`,
-    ),
-  ]
-  return {
-    columns: config.columns
-      .map((column) => ({
-        name: column.name,
-        type: column.getSQLType(),
-        notNull: column.notNull,
-        primary: column.primary,
-        identity: column.generatedIdentity?.type ?? null,
-        default: column.hasDefault && !column.generatedIdentity,
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name)),
-    constraints: [
-      ...keys,
-      ...uniques,
-      ...config.checks.map((check) => `${check.name}: CHECK`),
-    ].sort(),
-    indexes: config.indexes.map((index) => index.config.name).sort(),
-  }
+/** The tables the migrations made. */
+let real: TestDatabase
+/** The tables schema.ts describes, built by this test. */
+let described: TestDatabase
+before(async () => {
+  real = await testDatabase()
+  described = await testDatabase({ template: 'template0' })
+  for (const statement of build(tables)) await described.pool.query(statement)
+})
+after(async () => {
+  await real?.close()
+  await described?.close()
+})
+
+const dialect = new PgDialect()
+const quote = (name: string) => dialect.escapeName(name)
+const names = (columns: { name: string }[]) => columns.map((c) => quote(c.name)).join(', ')
+
+/** A piece of schema.ts's SQL, such as a check, with its columns named as a CREATE needs them. */
+function render(value: SQL) {
+  const query = dialect.sqlToQuery(value, 'indexes')
+  if (query.params.length > 0) throw new Error(`Write the values into the SQL: ${query.sql}`)
+  return query.sql
 }
 
-/** What the database says a table is. */
-async function real(name: string) {
-  const { rows: columns } = await db.pool.query(
+/** A column's default, as SQL. */
+function value(given: unknown) {
+  if (is(given, SQL)) return render(given)
+  if (typeof given === 'boolean' || typeof given === 'number') return String(given)
+  throw new Error(`schema.test.ts can't write the default ${JSON.stringify(given)} yet`)
+}
+
+/** The statements that make the tables schema.ts describes: the tables, then their keys and indexes. */
+function build(list: PgTable[]) {
+  const configs = list.map(getTableConfig)
+  const creates = configs.map((config) => {
+    if (config.primaryKeys.length > 0)
+      throw new Error("schema.test.ts can't build a primary key of more columns yet")
+    const columns = config.columns.map((column) =>
+      [
+        quote(column.name),
+        column.getSQLType(),
+        column.generatedIdentity &&
+          `generated ${column.generatedIdentity.type === 'always' ? 'always' : 'by default'} as identity`,
+        column.primary && 'primary key',
+        column.notNull && 'not null',
+        column.default !== undefined && `default ${value(column.default)}`,
+        column.isUnique &&
+          `constraint ${quote(column.uniqueName!)} unique${column.uniqueType === 'not distinct' ? ' nulls not distinct' : ''}`,
+      ]
+        .filter(Boolean)
+        .join(' '),
+    )
+    const constraints = [
+      ...config.checks.map(
+        (check) => `constraint ${quote(check.name)} check (${render(check.value)})`,
+      ),
+      ...config.uniqueConstraints.map(
+        (unique) =>
+          `constraint ${quote(unique.getName()!)} unique${unique.nullsNotDistinct ? ' nulls not distinct' : ''} (${names(unique.columns)})`,
+      ),
+    ]
+    return `create table ${quote(config.name)} (${[...columns, ...constraints].join(', ')})`
+  })
+  const keys = configs.flatMap((config) =>
+    config.foreignKeys.map((key) => {
+      const { columns, foreignColumns, foreignTable } = key.reference()
+      return (
+        `alter table ${quote(config.name)} add constraint ${quote(key.getName())} foreign key (${names(columns)}) ` +
+        `references ${quote(getTableConfig(foreignTable).name)} (${names(foreignColumns)}) ` +
+        `on delete ${key.onDelete} on update ${key.onUpdate}`
+      )
+    }),
+  )
+  const indexes = configs.flatMap((config) =>
+    config.indexes.map(({ config: index }) => {
+      // Drizzle records nulls last even for desc(), where Postgres puts them first, so only an
+      // explicit nulls first is written out, and Postgres's own place for them is kept otherwise.
+      const columns = (index.columns as (SQL | IndexedColumn)[]).map((column) =>
+        is(column, SQL)
+          ? `(${render(column)})`
+          : [
+              quote(column.name!),
+              column.indexConfig.opClass,
+              column.indexConfig.order === 'desc' && 'desc',
+              column.indexConfig.nulls === 'first' && 'nulls first',
+            ]
+              .filter(Boolean)
+              .join(' '),
+      )
+      return (
+        `create ${index.unique ? 'unique ' : ''}index ${quote(index.name!)} on ${index.only ? 'only ' : ''}` +
+        `${quote(config.name)} using ${index.method} (${columns.join(', ')})` +
+        (index.where ? ` where ${render(index.where)}` : '')
+      )
+    }),
+  )
+  return [...creates, ...keys, ...indexes]
+}
+
+/** A table as the database writes it out. */
+async function catalog(pool: pg.Pool, name: string) {
+  const { rows: columns } = await pool.query(
     `select column_name as name, data_type as type, is_nullable = 'NO' as "notNull",
-       exists (select from pg_constraint p, pg_attribute a
-         where p.conrelid = $1::text::regclass and p.contype = 'p' and a.attrelid = p.conrelid
-           and a.attnum = any (p.conkey) and a.attname = column_name) as primary,
-       lower(identity_generation) as identity, column_default is not null as default
-     from information_schema.columns where table_schema = 'public' and table_name = $1::text`,
+       lower(identity_generation) as identity, column_default as default
+     from information_schema.columns where table_schema = 'public' and table_name = $1::text
+     order by column_name`,
     [name],
   )
-  // Not-null constraints (contype n) are compared with the columns, and the primary key above.
-  const { rows: constraints } = await db.pool.query<{ name: string; def: string }>(
+  // Not-null constraints (contype n) are compared with the columns.
+  const { rows: constraints } = await pool.query<{ name: string; def: string }>(
     `select conname as name, pg_get_constraintdef(oid) as def from pg_constraint
-     where conrelid = $1::regclass and contype in ('f', 'u', 'c')`,
+     where conrelid = $1::regclass and contype in ('p', 'f', 'u', 'c') order by conname`,
     [name],
   )
   // The indexes of its own, not the ones that hold a constraint up.
-  const { rows: indexes } = await db.pool.query<{ name: string }>(
-    `select indexrelid::regclass::text as name from pg_index
-     where indrelid = $1::regclass and not exists (select from pg_constraint where conindid = indexrelid)`,
+  const { rows: indexes } = await pool.query<{ name: string; def: string }>(
+    `select indexrelid::regclass::text as name, pg_get_indexdef(indexrelid) as def from pg_index
+     where indrelid = $1::regclass and not exists (select from pg_constraint where conindid = indexrelid)
+     order by 1`,
     [name],
   )
-  return {
-    columns: columns.sort((a, b) => a.name.localeCompare(b.name)),
-    constraints: constraints
-      .map(({ name, def }) => `${name}: ${def.startsWith('CHECK') ? 'CHECK' : def}`)
-      .sort(),
-    indexes: indexes.map((index) => index.name).sort(),
-  }
+  return { columns, constraints, indexes }
 }
 
 test('schema.ts describes every table the migrations make', async () => {
-  const { rows } = await db.pool.query<{ name: string }>(
+  const { rows } = await real.pool.query<{ name: string }>(
     "select tablename as name from pg_tables where schemaname = 'public' and tablename <> 'schema_migrations'",
   )
   assert.deepEqual(
@@ -98,6 +151,6 @@ test('schema.ts describes every table the migrations make', async () => {
 for (const table of tables) {
   const name = getTableConfig(table).name
   test(`schema.ts matches the real ${name} table`, async () => {
-    assert.deepEqual(described(table), await real(name))
+    assert.deepEqual(await catalog(described.pool, name), await catalog(real.pool, name))
   })
 }
