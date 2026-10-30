@@ -16,7 +16,8 @@ create table messages (
   id bigint generated always as identity primary key,
   room_key text not null,
   user_id bigint not null constraint messages_user_id_fkey references users (id),
-  -- char_length counts characters (code points), so 500 emoji fit.
+  -- char_length counts code points, so 500 single emoji fit. An accented letter typed as two
+  -- code points (e and a combining accent), or a joined emoji such as a family, counts as more.
   body text not null constraint messages_body_check check (char_length(body) between 1 and 500),
   spoiler boolean not null default false,
   created_at timestamptz not null default now(),

@@ -31,16 +31,22 @@ async function addMessage(userId: string, body = 'hi') {
   return rows[0].id
 }
 
-test('a 501-character body is refused, and 500 characters fit, even as 500 emoji', async () => {
+test('a body over 500 code points is refused, and 500 fit, even as 500 single emoji', async () => {
   const user = await addUser()
   await assert.rejects(addMessage(user, 'a'.repeat(501)), {
     code: '23514',
     constraint: 'messages_body_check',
   })
   await addMessage(user, 'a'.repeat(500))
-  // Each emoji is two UTF-16 units in JavaScript, but one character to Postgres.
+  // Each emoji is two UTF-16 units in JavaScript, but one code point to Postgres.
   await addMessage(user, '😀'.repeat(500))
   await assert.rejects(addMessage(user, '😀'.repeat(501)), { constraint: 'messages_body_check' })
+  // An é typed as e and a combining accent is one letter to a reader but two code points, so 250
+  // of them fill a message. A counter that matches is [...body].length, not body.length.
+  await addMessage(user, 'e\u0301'.repeat(250))
+  await assert.rejects(addMessage(user, 'e\u0301'.repeat(251)), {
+    constraint: 'messages_body_check',
+  })
 })
 
 test('an empty body is refused', async () => {

@@ -8,7 +8,7 @@ import { historyRoutes } from './routes/history.ts'
 // The routes that read the database come with a pool of connections to it; the pool belongs to
 // the caller, who closes it. Sockets and auth are added later in Phase 6.
 export function buildApp(options: { logger?: boolean; pool?: pg.Pool } = {}) {
-  // 4 KB holds any request the chat makes (a message is at most 500 characters), and a body
+  // 4 KB holds any request the chat makes (a message is at most 500 code points), and a body
   // larger than that is refused with 413 before it is read.
   const app = Fastify({
     logger: options.logger ?? false,
