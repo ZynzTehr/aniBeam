@@ -50,7 +50,8 @@ test('when Postgres drops an idle connection, the server logs it and goes on ans
   // or a host cutting idle connections, does.
   const { rows } = await db.pool.query(
     `select pg_terminate_backend(pid) as ended from pg_stat_activity
-     where datname = current_database() and pid <> pg_backend_pid()`,
+     where datname = current_database() and pid <> pg_backend_pid()
+       and backend_type = 'client backend'`,
   )
   assert.deepEqual(rows, [{ ended: true }])
   await new Promise<void>((resolve, reject) => {
