@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
+import pg from 'pg'
 import { testDatabase, type TestDatabase } from './database.ts'
 
 let db: TestDatabase
@@ -32,4 +33,13 @@ test('a test file gets a database of its own, named for its process, that no oth
   } finally {
     await other.close()
   }
+})
+
+test("the tests' Postgres asks for its run's password, so no other program on this Mac gets in", async () => {
+  // Its superuser could run commands as you (COPY ... TO PROGRAM), so a guess must not do.
+  const url = new URL(db.url)
+  assert.ok(url.password.length >= 32, 'the address carries a long password')
+  url.password = 'guess'
+  const client = new pg.Client({ connectionString: url.href })
+  await assert.rejects(client.connect(), { code: '28P01' })
 })

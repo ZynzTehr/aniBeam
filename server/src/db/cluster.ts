@@ -2,7 +2,8 @@
 // no Unix socket, for the server's tests. stop() shuts it down and deletes the folder. A run that
 // was killed never gets to, so each start first removes the folders such runs left behind.
 import { execFile, execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer, type AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -14,7 +15,7 @@ const run = promisify(execFile)
 const PREFIX = 'anibeam-pg-'
 
 export interface Cluster {
-  /** The address of the cluster's `postgres` database, as the superuser `postgres`. */
+  /** The address of the cluster's `postgres` database, as the superuser, with its password. */
   url: string
   /** The folder that holds the cluster, deleted by stop(). */
   dir: string
@@ -71,20 +72,26 @@ export async function startCluster({ parent = tmpdir(), dirs = postgresDirs() } 
   const data = path.join(dir, 'data')
   const log = path.join(dir, 'postgres.log')
   try {
-    // trust lets anyone on this Mac connect without a password: there is nothing to protect, and
-    // only 127.0.0.1 is listened on. fsync and the rest are off because nothing need survive a
-    // crash, which makes each write about as fast as memory.
+    // The superuser can run commands as you (COPY ... TO PROGRAM), and any program on this Mac
+    // can reach 127.0.0.1, so it gets a password made for this cluster, which only its address
+    // carries. initdb reads it from a file readable by you alone, deleted once read. fsync and
+    // the rest are off because nothing need survive a crash, which makes each write about as
+    // fast as memory.
+    const password = randomBytes(24).toString('hex')
+    const passwordFile = path.join(dir, 'password')
+    writeFileSync(passwordFile, password, { mode: 0o600 })
     await run(path.join(path.dirname(pgCtl), 'initdb'), [
-      ...['-D', data, '-U', 'postgres', '-A', 'trust', '-E', 'UTF8', '--locale=C'],
-      ...['--no-sync', '--no-instructions'],
+      ...['-D', data, '-U', 'postgres', '-A', 'scram-sha-256', '--pwfile', passwordFile],
+      ...['-E', 'UTF8', '--locale=C', '--no-sync', '--no-instructions'],
     ])
+    rmSync(passwordFile)
     const port = await freePort()
     await run(pgCtl, [
       ...['start', '-w', '-D', data, '-l', log, '-o'],
       `-p ${port} -k '' -h 127.0.0.1 -c fsync=off -c synchronous_commit=off -c full_page_writes=off`,
     ])
     const cluster: Cluster = {
-      url: `postgres://postgres@127.0.0.1:${port}/postgres`,
+      url: `postgres://postgres:${password}@127.0.0.1:${port}/postgres`,
       dir,
       stop,
     }
