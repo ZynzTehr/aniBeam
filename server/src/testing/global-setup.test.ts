@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { test } from 'node:test'
-import { startTestPostgres } from './global-setup.ts'
+import { globalSetup, globalTeardown, startTestPostgres } from './global-setup.ts'
 
 /** The pids of the processes whose command line names `folder`: a Postgres running in it. */
 function postgresIn(folder: string) {
@@ -33,6 +33,33 @@ test('a migration that fails stops the throwaway Postgres and deletes its folder
     startTestPostgres({ parent, migrations: pathToFileURL(`${migrations}/`) }),
     /Migration 0001_broken\.sql failed/,
   )
+  assert.deepEqual(readdirSync(parent), [], 'its folder was deleted')
+  assert.deepEqual(postgresIn(parent), [], 'its Postgres was stopped')
+})
+
+test('the global teardown stops the Postgres the global setup started, and deletes its folder', async (t) => {
+  // The setup makes its cluster in the system's temp folder, which TMPDIR names.
+  const parent = mkdtempSync(path.join(tmpdir(), 'anibeam-teardown-'))
+  const before = { TMPDIR: process.env.TMPDIR, ANIBEAM_TEST_PG: process.env.ANIBEAM_TEST_PG }
+  const restore = (name: keyof typeof before) => {
+    if (before[name] === undefined) delete process.env[name]
+    else process.env[name] = before[name]
+  }
+  t.after(() => {
+    for (const pid of postgresIn(parent)) process.kill(Number(pid), 'SIGQUIT')
+    rmSync(parent, { recursive: true, force: true })
+    restore('ANIBEAM_TEST_PG')
+  })
+  process.env.TMPDIR = parent
+  try {
+    await globalSetup()
+  } finally {
+    restore('TMPDIR')
+  }
+  assert.equal(readdirSync(parent).length, 1, 'the setup made its folder')
+  assert.notDeepEqual(postgresIn(parent), [], 'the setup started its Postgres')
+
+  globalTeardown()
   assert.deepEqual(readdirSync(parent), [], 'its folder was deleted')
   assert.deepEqual(postgresIn(parent), [], 'its Postgres was stopped')
 })
