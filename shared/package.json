@@ -7,7 +7,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import ../web/scripts/blocking-test-output.ts --test --test-timeout=10000 --test-force-exit --test-reporter=spec --test-reporter-destination=stdout --test-reporter=../web/scripts/every-test-reported.ts --test-reporter-destination=stderr 'src/**/*.test.ts'"
   },
   "devDependencies": {
     "typescript": "~6.0.2"

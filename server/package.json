@@ -5,8 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=.env src/index.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
+    "lint": "oxlint",
+    "test": "node --import ../web/scripts/blocking-test-output.ts --test --test-timeout=10000 --test-force-exit --test-reporter=spec --test-reporter-destination=stdout --test-reporter=../web/scripts/every-test-reported.ts --test-reporter-destination=stderr 'src/**/*.test.ts'",
     "start": "node --env-file-if-exists=.env dist/index.js"
   },
   "dependencies": {
@@ -14,6 +16,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.19.1",
+    "oxlint": "^1.81.0",
     "tsx": "^4.23.15",
     "typescript": "~6.0.2"
   }

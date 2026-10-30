@@ -1,10 +1,11 @@
-import Fastify from 'fastify'
+import { buildApp } from './app.ts'
 
-// Phase 0 stub: proves the chat server boots. Chat routes, sockets,
-// database and auth are added in Phase 6.
-const app = Fastify({ logger: true })
+// The chat server's entry: builds the app and listens.
+const app = buildApp({ logger: true })
 
-app.get('/health', async () => ({ ok: true }))
+// A host stops the server with SIGTERM: stop taking requests, let the ones under way finish, and
+// exit once nothing is left open.
+process.once('SIGTERM', () => void app.close())
 
 const port = Number(process.env.PORT ?? 3001)
 
