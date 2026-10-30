@@ -8,14 +8,16 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
-    "test": "node --import ../web/scripts/blocking-test-output.ts --test --test-timeout=10000 --test-force-exit --test-reporter=spec --test-reporter-destination=stdout --test-reporter=../web/scripts/every-test-reported.ts --test-reporter-destination=stderr 'src/**/*.test.ts'",
+    "test": "node --import ../web/scripts/blocking-test-output.ts --test --test-timeout=10000 --test-force-exit --test-reporter=spec --test-reporter-destination=stdout --test-reporter=../web/scripts/every-test-reported.ts --test-reporter-destination=stderr --test-global-setup=src/testing/global-setup.ts 'src/**/*.test.ts'",
     "start": "node --env-file-if-exists=.env dist/index.js"
   },
   "dependencies": {
-    "fastify": "^5.12.7"
+    "fastify": "^5.12.7",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@types/node": "^24.19.1",
+    "@types/pg": "^8.23.1",
     "oxlint": "^1.81.0",
     "tsx": "^4.23.15",
     "typescript": "~6.0.2"
