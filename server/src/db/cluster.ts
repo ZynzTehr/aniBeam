@@ -96,20 +96,20 @@ export async function startCluster({ parent = tmpdir(), dirs = postgresDirs() } 
   try {
     // The superuser can run commands as you (COPY ... TO PROGRAM), and any program on this Mac
     // can reach 127.0.0.1, so it gets a password made for this cluster, which only its address
-    // carries. initdb reads it from a file readable by you alone, deleted once read. Under the C
-    // locale lower() folds only A to Z, so Ärger and ärger don't clash as handles here; handles
-    // will hold only A to Z, a to z, 0 to 9 and _, which every locale folds alike. fsync and the
-    // rest are off because nothing need survive a crash, which makes each write about as fast as
-    // memory.
+    // carries. initdb reads it from a file readable by you alone, deleted once read.
     const password = randomBytes(24).toString('hex')
     const passwordFile = path.join(dir, 'password')
     writeFileSync(passwordFile, password, { mode: 0o600 })
     await run(path.join(path.dirname(pgCtl), 'initdb'), [
       ...['-D', data, '-U', 'postgres', '-A', 'scram-sha-256', '--pwfile', passwordFile],
+      // Under the C locale lower() folds only A to Z, so Ärger and ärger don't clash as handles
+      // here; handles will hold only A to Z, a to z, 0 to 9 and _, which every locale folds alike.
       ...['-E', 'UTF8', '--locale=C', '--no-sync', '--no-instructions'],
     ])
     rmSync(passwordFile)
     const port = await freePort()
+    // fsync and the rest are off because nothing need survive a crash, which makes each write
+    // about as fast as memory.
     await run(pgCtl, [
       ...['start', '-w', '-D', data, '-l', log, '-o'],
       `-p ${port} -k '' -h 127.0.0.1 -c fsync=off -c synchronous_commit=off -c full_page_writes=off`,
