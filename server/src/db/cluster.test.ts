@@ -14,7 +14,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { test } from 'node:test'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { removeStaleClusters, startCluster } from './cluster.ts'
+import { findPostgres, postgresDirs, removeStaleClusters, startCluster } from './cluster.ts'
 
 /** Whether a process with this pid is running. */
 function running(pid: number) {
@@ -34,6 +34,21 @@ function postmasterPid(file: string) {
 test("no initdb fails the run with 'brew install postgresql@18'", async () => {
   // npm test's global setup awaits startCluster, so this is what fails the run.
   await assert.rejects(startCluster({ dirs: [] }), /brew install postgresql@18/)
+})
+
+test('a Postgres other than 18 is passed over, and one alone fails the run naming its version', (t) => {
+  // A folder like Postgres 17's, whose initdb says its version as the real one does.
+  const old = mkdtempSync(path.join(tmpdir(), 'anibeam-pg17-'))
+  t.after(() => rmSync(old, { recursive: true, force: true }))
+  writeFileSync(path.join(old, 'initdb'), '#!/bin/sh\necho "initdb (PostgreSQL) 17.6"\n', {
+    mode: 0o755,
+  })
+  writeFileSync(path.join(old, 'pg_ctl'), '#!/bin/sh\nexit 1\n', { mode: 0o755 })
+
+  assert.throws(() => findPostgres([old]), {
+    message: `Found Postgres 17.6 at ${old}, but the server's tests need 18. Install it with: brew install postgresql@18`,
+  })
+  assert.notEqual(findPostgres([old, ...postgresDirs()]), old)
 })
 
 test('a folder a killed run left is removed with its Postgres stopped, and a running run keeps its own', async (t) => {

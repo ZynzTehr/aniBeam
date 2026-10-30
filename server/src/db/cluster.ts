@@ -26,26 +26,48 @@ export interface Cluster {
   stop(): void
 }
 
-/** Where to look for initdb and pg_ctl: Homebrew's Postgres 18 first, then the PATH. */
+/**
+ * Where to look for initdb and pg_ctl: Homebrew's Postgres 18 first, then Debian's and Ubuntu's
+ * folder for it, which isn't on the PATH, then the PATH.
+ */
 export function postgresDirs() {
   return [
     '/opt/homebrew/opt/postgresql@18/bin',
     '/usr/local/opt/postgresql@18/bin',
+    '/usr/lib/postgresql/18/bin',
     ...(process.env.PATH ?? '').split(path.delimiter).filter(Boolean),
   ]
 }
 
-/** The first of `dirs` that holds both initdb and pg_ctl. Without one the tests can't run. */
+/**
+ * The first of `dirs` that holds initdb and pg_ctl of Postgres 18. Another version is passed
+ * over, since the tests are for the version the server will run on. Without 18 the tests can't
+ * run, and the error names any other version found.
+ */
 export function findPostgres(dirs = postgresDirs()) {
-  const found = dirs.find(
-    (dir) => existsSync(path.join(dir, 'initdb')) && existsSync(path.join(dir, 'pg_ctl')),
+  const others: string[] = []
+  for (const dir of dirs) {
+    if (!existsSync(path.join(dir, 'initdb')) || !existsSync(path.join(dir, 'pg_ctl'))) continue
+    const version = versionIn(dir)
+    if (version?.split('.')[0] === '18') return dir
+    others.push(`${version ?? 'of a version initdb did not say'} at ${dir}`)
+  }
+  const install = 'Install it with: brew install postgresql@18'
+  throw new Error(
+    others.length > 0
+      ? `Found Postgres ${others.join(', ')}, but the server's tests need 18. ${install}`
+      : `No Postgres found (initdb and pg_ctl), and the server's tests need one. ${install}`,
   )
-  if (!found)
-    throw new Error(
-      "No Postgres found (initdb and pg_ctl), and the server's tests need one. " +
-        'Install it with: brew install postgresql@18',
-    )
-  return found
+}
+
+/** The version of the Postgres in `dir`, as its initdb says it ("initdb (PostgreSQL) 18.6"). */
+function versionIn(dir: string) {
+  try {
+    const said = execFileSync(path.join(dir, 'initdb'), ['--version'], { encoding: 'utf8' })
+    return /\(PostgreSQL\) (\d+(?:\.\d+)*)/.exec(said)?.[1]
+  } catch {
+    return undefined
+  }
 }
 
 /** Makes a cluster in a new folder under `parent`, starts it, and says where to reach it. */
