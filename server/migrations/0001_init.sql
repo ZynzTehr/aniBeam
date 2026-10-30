@@ -9,7 +9,8 @@ create table users (
   created_at timestamptz not null default now(),
   banned_at timestamptz
 );
--- Handles are unique ignoring case: Aki and aki can't both exist.
+-- Handles are unique ignoring case: Aki and aki can't both exist. Handles will hold only A to Z,
+-- a to z, 0 to 9 and _, the letters lower() folds alike in every locale.
 create unique index users_handle_lower_key on users (lower(handle));
 
 create table messages (

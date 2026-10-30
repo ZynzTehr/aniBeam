@@ -96,9 +96,11 @@ export async function startCluster({ parent = tmpdir(), dirs = postgresDirs() } 
   try {
     // The superuser can run commands as you (COPY ... TO PROGRAM), and any program on this Mac
     // can reach 127.0.0.1, so it gets a password made for this cluster, which only its address
-    // carries. initdb reads it from a file readable by you alone, deleted once read. fsync and
-    // the rest are off because nothing need survive a crash, which makes each write about as
-    // fast as memory.
+    // carries. initdb reads it from a file readable by you alone, deleted once read. Under the C
+    // locale lower() folds only A to Z, so Ärger and ärger don't clash as handles here; handles
+    // will hold only A to Z, a to z, 0 to 9 and _, which every locale folds alike. fsync and the
+    // rest are off because nothing need survive a crash, which makes each write about as fast as
+    // memory.
     const password = randomBytes(24).toString('hex')
     const passwordFile = path.join(dir, 'password')
     writeFileSync(passwordFile, password, { mode: 0o600 })
