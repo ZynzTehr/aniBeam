@@ -147,6 +147,11 @@ test('a bad room key answers 400 invalid', async () => {
     'anime:1:all%0A',
     'anime:1:all:x',
     'room',
+    // Fastify refuses these itself, before the route: a bad %-escape, and a key over 100
+    // characters.
+    'anime:%ZZ:all',
+    'anime:%',
+    `anime:1:ep:${'1'.repeat(100)}`,
   ]) {
     const response = await app.inject({ method: 'GET', url: `/rooms/${key}/messages` })
     assert.equal(response.statusCode, 400, key)
