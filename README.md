@@ -6,8 +6,9 @@ AniBeam is an anime discovery app drawn like a manga page. It shows what's trend
 
 ## Prerequisites
 
-- Node.js 22.18 or newer (`node -v`). The tests run TypeScript files directly, which older versions can't do.
+- Node.js 22.18 or newer (`node -v`). The tests run TypeScript files directly, which older versions can't do. The chat server's tests need Node 24 or newer, for the test runner's `--test-global-setup` option, which starts their Postgres.
 - npm 10 or newer
+- Postgres 18, for the chat server's tests: `brew install postgresql@18`. The tests start a throwaway Postgres of their own, so nothing needs to run in the background (see [Chat server](#chat-server)).
 
 ## Setup
 
@@ -21,16 +22,16 @@ The `.env.example` files list every variable with a comment explaining it. Real 
 
 ## Scripts (run from the repo root)
 
-| Command                | What it does                                                           |
-| ---------------------- | ---------------------------------------------------------------------- |
-| `npm run dev`          | Starts the web app at http://localhost:5173                            |
-| `npm run dev:server`   | Starts the chat server at http://localhost:3001 (`GET /health`)        |
-| `npm run build`        | Type-checks and builds every workspace                                 |
-| `npm run typecheck`    | Type-checks every workspace                                            |
-| `npm run lint`         | Lints the web app with oxlint, which refuses `dangerouslySetInnerHTML` |
-| `npm test`             | Runs the unit tests with Node's built-in test runner                   |
-| `npm run test:browser` | Runs the browser checks in `web/e2e` (see below)                       |
-| `npm run format`       | Formats the repo with Prettier                                         |
+| Command                | What it does                                                                                              |
+| ---------------------- | --------------------------------------------------------------------------------------------------------- |
+| `npm run dev`          | Starts the web app at http://localhost:5173                                                               |
+| `npm run dev:server`   | Starts the chat server at http://localhost:3001 (`GET /health`)                                           |
+| `npm run build`        | Type-checks and builds every workspace                                                                    |
+| `npm run typecheck`    | Type-checks every workspace                                                                               |
+| `npm run lint`         | Lints the web app and the chat server with oxlint, which refuses `dangerouslySetInnerHTML` in the web app |
+| `npm test`             | Runs the unit tests with Node's built-in test runner, the chat server's against a throwaway Postgres      |
+| `npm run test:browser` | Runs the browser checks in `web/e2e` (see below)                                                          |
+| `npm run format`       | Formats the repo with Prettier                                                                            |
 
 `npm test` and `npm run test:browser` stop a test after its time limit, and end each test file's process the moment its last test ends, so that a test left waiting can't stall them. Each file's results reach the runner through a pipe, which macOS writes in the background, so a process ended that way could lose the last of them, and a run passed on fewer tests (270 of 303 once). So every test process writes its output at once (`web/scripts/blocking-test-output.ts`), and a reporter fails the run, naming the file, if any test a file queued never reported (`web/scripts/every-test-reported.ts`). A file queues every test as it loads only if it awaits nothing at its top level after its first test, and a test holds every test file to that: a test registered after such an await would never be queued, and could go missing unseen.
 
@@ -38,7 +39,7 @@ The `.env.example` files list every variable with a comment explaining it. Real 
 
 The site deploys on [Vercel](https://vercel.com). Sign in with GitHub and import this repository. Vercel finds two apps, `web` and the Fastify chat server, so import only `web`. Vercel then uses its Vite settings with `web` as the root directory. It installs the workspaces, runs `npm run build`, and serves `dist`. No environment variables are needed yet. `web/vercel.json` sends every address that is no file to `index.html`, so a title's own address, such as `/anime/154587`, reaches the app instead of Vercel's 404 (see Title addresses). `npm run dev` and `vite preview` do that on their own, so only a unit check (`web/src/app/vercel.test.ts`) can catch the rule going missing.
 
-After that, every pull request gets a preview link, and merging into `main` updates the live site. The chat server will need a host that keeps WebSocket connections open, which is planned for Phase 6.
+After that, every pull request gets a preview link, and merging into `main` updates the live site. The chat server will need a host that keeps WebSocket connections open, which waits for Phase 7, when the chat first needs a public address.
 
 ## Project structure
 
@@ -68,15 +69,18 @@ AniBeam/
 │       ├── styles/          # Tailwind entry point, design tokens, custom CSS
 │       └── main.tsx         # Entry point
 ├── server/                  # Chat API: Fastify + Socket.IO + Postgres
+│   ├── migrations/          # SQL files that make and change the tables, run once each, in order
 │   └── src/
-│       ├── routes/          # REST endpoints (e.g. message history)
+│       ├── routes/          # REST endpoints: a room's message history
 │       ├── sockets/         # Socket.IO event handlers (join room, send message)
-│       ├── db/              # Database schema, migrations, client
+│       ├── db/              # The throwaway Postgres, the migration runner, the tables for Drizzle (schema.ts)
 │       ├── auth/            # Firebase sign-in token verification
 │       ├── moderation/      # Rate limits, reports, profanity filter
-│       └── index.ts         # Entry point
+│       ├── testing/         # Test helpers: the tests' Postgres, and a database for each test file
+│       ├── app.ts           # The routes, without listening, so tests can call them
+│       └── index.ts         # Entry point: listens, and closes on SIGTERM
 ├── shared/                  # Types and validation schemas used by both web and server
-│   └── src/
+│   └── src/                 # The room key schema (zod/mini) and the error codes
 └── package.json             # Workspace root and shared scripts
 ```
 
@@ -497,6 +501,26 @@ Tailwind v4 is configured in CSS, not JavaScript. `web/src/styles/index.css` imp
 Tailwind makes a utility of any word that names one in the files it reads, even in a comment, and by default it reads every file. So `index.css` imports it with `source(none)` and names what it reads: `web/src` and `web/index.html`, but not the tests, the prototypes or the gallery (the browser checks and the scripts sit outside `web/src`). Reading everything, it had shipped about 600 bytes of rules no page used. `npm test` checks this with canaries, utility names written only in files Tailwind mustn't read, such as `italic` in `privacy.test.ts`: none may have a rule in the production stylesheet. The other way round, every Tailwind class the app's markup uses must have its rule there, and every one of the app's own `ab-` and `is-` classes a rule in its stylesheets, so a misspelt class fails.
 
 Tailwind v4 uses native CSS cascade layers, ordered `theme → base → components → utilities`. A later layer wins regardless of selector specificity, so no `!important` is needed. One rule to remember: **put custom component styles inside `@layer components`**. CSS written outside any layer beats every utility class, so a utility like `p-4` would stop working on that element.
+
+### Chat server
+
+The chat server (`server/`) is Fastify with Postgres, and Drizzle for typed queries. So far it has the tables for messages and gives a room's history back; nothing writes messages yet, and sockets and sign-in come later in Phase 6.
+
+#### The tables
+
+`server/migrations/0001_init.sql` makes three tables (spec section 7). `users` holds the user id from a sign-in and a handle, never an email; handles are unique ignoring case, so Aki and aki can't both exist. Handles will hold only A to Z, a to z, 0 to 9 and _, because `lower()` folds other letters, such as Ä, differently from one database setting to another, and not at all in the tests' Postgres. `messages` holds each message's room key, body (1 to 500 code points, so 500 single emoji fit, while an accented letter typed as two code points, or a joined emoji such as a family, counts as more; a counter that matches is `[...body].length`), spoiler flag and the time it was hidden, if it was. `reports` allows one report per person per message, with a reason of spoiler, abuse, spam or other. The tables keep these rules themselves, whatever the server sends them. Each id comes from an identity column, so ids grow in the order rows are added.
+
+`server/src/db/migrate.ts` runs the files in `server/migrations` that haven't run on a database yet, in name order, and records each in `schema_migrations`, so each runs exactly once. A file runs in one transaction with its record, so one that fails leaves nothing behind. `server/src/db/schema.ts` describes the same tables for Drizzle, by hand. A test (`schema.test.ts`) builds the tables it describes in an empty database and compares them with the tables the migrations really made, as Postgres writes both out: each column's type, null rule, identity and default, and each constraint and index whole, with its columns, order, check and actions. So the two can't drift apart unseen.
+
+#### History
+
+`GET /rooms/:roomKey/messages` answers a room's messages, 50 at a time, newest first, with hidden messages left out. Anyone can read it, signed in or not. A room key is `anime:<AniList id>:ep:<episode>` or `anime:<AniList id>:all`, such as `anime:154587:ep:5`, checked by `roomKeySchema` in `shared/src/room-key.ts`. The answer is `{ messages, nextBefore }`. Each message is `{ id, roomKey, handle, body, spoiler, createdAt }`: a handle, never a user id. `nextBefore` is the id to ask with for the next, older page (`?before=<id>`), or `null` on the last page. Pages go by id, not by time: Postgres keeps times to the microsecond and JavaScript to the millisecond, so a time would skip messages posted within one millisecond. A bad room key or `before` answers 400 with `{ "error": "invalid" }`, a code from the one list in `shared/src/errors.ts`. Request bodies are limited to 4 KB.
+
+`npm run dev:server` reads the database's address from `DATABASE_URL` in `server/.env`. The server starts without one, and answers `GET /health`, but history needs it. Nothing makes the tables on that database yet: there is no migrate command, so history answers 500 there until `migrate()` from `server/src/db/migrate.ts` has run on it. `npm run demo:chat`, later in Phase 6, will run it.
+
+#### The tests' Postgres
+
+`npm test` starts a Postgres 18 of its own for the chat server's tests (`server/src/testing/global-setup.ts`): a new cluster in a temp folder, on 127.0.0.1 at a free port, which it deletes at the end. It signs in with a password made for that run, because any program on your computer can reach 127.0.0.1, and Postgres's superuser can run commands as you. It runs the migrations once, on a template database, and each test file gets its own copy of it, so test files running at once never see each other's rows. A run stopped with Ctrl-C deletes it on the way out, though it then reads as exit 0, as Node's test runner exits that way. A run killed outright (`kill -9`) leaves its folder behind, with its Postgres still running, and the next run stops that Postgres and removes the folder. Without Postgres 18 (`brew install postgresql@18`), the chat server's tests fail with a message saying how to install it, naming any other version they found; they never skip.
 
 ### Firebase config is not secret
 
