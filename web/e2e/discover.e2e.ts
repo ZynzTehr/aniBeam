@@ -3198,6 +3198,13 @@ describe('desktop (1440x900)', () => {
       await own.animationsDone()
       await own.evaluate(`document.querySelector('#pull').scrollIntoView(); true`)
       await own.stopClock()
+      // The page's dice fixed, so the group's rolls come up the same way every run. A roll that
+      // leaves fewer than 10 of the page's 1990s titles to come up asks for the decade's pool,
+      // whose recorded answer comes 200 ms later on Node's clock, while the group's rolls come a
+      // tick apart: left to chance, the group sometimes rolled that far, ran out of the page's
+      // titles before the pool came, and its last check heard "Repeats start now." after its roll.
+      // The glow's check sets dice of its own, and the last check stops the group rolling that far.
+      await own.evaluate('Math.random = () => 0; true')
     })
     after(() => own?.close())
 
@@ -3385,6 +3392,15 @@ describe('desktop (1440x900)', () => {
           await own.tick(ROLL_MS)
         }
       }
+      // The group's dice keep it under 11 rolls, short of the roll that asks for the pool (see its
+      // before). More means the group's rolls changed under the dice, and not only by the 1990s
+      // recording: the glow's check rolls until an SSR and an R come up, so the app's tiers or its
+      // pick order, or a check's dice or rolls, can take the group as far.
+      const rolls = parseInt(seen['the device'].before.count)
+      assert.ok(
+        rolls < 11,
+        `the group reached roll ${rolls}, far enough for a roll to wait for the 1990s pool: the 1990s recording, the app's rolls or this group's rolls changed`,
+      )
       const told = ({ before, after, playing }: (typeof seen)[string]) => ({
         midTurn: before.turned !== null && before.turned > 0 && before.turned < 180,
         before: { shown: before.shown, said: before.said },

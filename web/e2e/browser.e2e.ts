@@ -2,7 +2,7 @@
 // AniList from recordings of its answers unless asked for AniList's own, and a recorded browser
 // gives the page those, and sends AniList nothing. And press() presses keys as a keyboard does.
 import assert from 'node:assert/strict'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { test } from 'node:test'
@@ -15,18 +15,25 @@ import { Browser, type AniListMode, type Recording } from './browser.ts'
 const profiles = () => readdirSync(tmpdir()).filter((name) => name.startsWith('anibeam-e2e-'))
 
 test('a Chrome that exits at once fails fast and leaves no profile behind', async () => {
-  const before = profiles()
+  // The system temp folder holds the profile of every Chrome the other test files run meanwhile,
+  // made and removed as they go, so this one makes its profile in a temp folder of its own.
+  const tmp = process.env.TMPDIR
+  const own = mkdtempSync(join(tmpdir(), 'anibeam-tmp-'))
+  process.env.TMPDIR = own
   const chromeBin = process.env.CHROME_BIN
   process.env.CHROME_BIN = '/usr/bin/false' // starts, then exits straight away
   try {
     const started = Date.now()
     await assert.rejects(Browser.open(), /exited before it was ready/)
     assert.ok(Date.now() - started < 5_000, 'it waited for a browser that had already exited')
-    assert.deepEqual(profiles(), before, 'its profile folder was left behind')
+    assert.deepEqual(profiles(), [], 'its profile folder was left behind')
   } finally {
-    // The checks below start a real Chrome.
+    // The checks below start a real Chrome, in the system temp folder.
     if (chromeBin === undefined) delete process.env.CHROME_BIN
     else process.env.CHROME_BIN = chromeBin
+    if (tmp === undefined) delete process.env.TMPDIR
+    else process.env.TMPDIR = tmp
+    rmSync(own, { recursive: true, force: true })
   }
 })
 

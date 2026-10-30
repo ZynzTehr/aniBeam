@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { globSync, readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import { fileURLToPath } from 'node:url'
 
@@ -41,4 +41,15 @@ test('both test commands load blocking-test-output.ts into each test process and
       .map((part) => `${name}: ${part}`),
   )
   assert.deepEqual(missing, [], 'what the test commands lack')
+})
+
+test('npm run test:browser runs every browser test file', () => {
+  // every-test-reported.ts sees only the files that started, and the gate prints the count without
+  // a number to hold it to, so a file pattern that left a file out would pass on fewer tests.
+  const { scripts } = JSON.parse(readFileSync(`${WEB}/package.json`, 'utf8'))
+  const words = String(scripts['test:browser']).split(/\s+/)
+  const patterns = words.slice(words.findLastIndex((word) => word.startsWith('--')) + 1)
+  const run = new Set(patterns.flatMap((pattern) => globSync(pattern, { cwd: WEB })))
+  const left = globSync('e2e/**/*.e2e.ts', { cwd: WEB }).filter((file) => !run.has(file))
+  assert.deepEqual(left, [], 'the browser test files npm run test:browser leaves out')
 })
