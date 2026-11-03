@@ -11,13 +11,17 @@ before(async () => {
 })
 after(() => db?.close())
 
+const GUARD = fileURLToPath(new URL('testing/no-network.ts', import.meta.url))
+
 /** Starts the server as a host does, with `env` added, and waits for it to listen. */
 async function start(t: TestContext, env: Record<string, string> = {}) {
   // Port 0 asks the system for a free port; Fastify logs the address it got.
-  const server = spawn(process.execPath, [fileURLToPath(new URL('index.ts', import.meta.url))], {
-    env: { ...process.env, PORT: '0', ...env },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  // With the fetch guard, as each test file has it, since the server checks sign-in tokens.
+  const server = spawn(
+    process.execPath,
+    ['--import', GUARD, fileURLToPath(new URL('index.ts', import.meta.url))],
+    { env: { ...process.env, PORT: '0', ...env }, stdio: ['ignore', 'pipe', 'pipe'] },
+  )
   let output = ''
   server.stdout.setEncoding('utf8').on('data', (chunk: string) => (output += chunk))
   server.stderr.setEncoding('utf8').on('data', (chunk: string) => (output += chunk))
@@ -100,4 +104,20 @@ test("the server lets CORS_ORIGIN's pages read its answers, and outside producti
   const unset = await start(t)
   assert.equal(await origin(unset.address, 'http://localhost:5173'), 'http://localhost:5173')
   assert.equal(await origin(unset.address, 'https://ani-beam.vercel.app'), null)
+})
+
+test("the server refuses the dev entry's sign-in, dev:<name>", async (t) => {
+  // No project, as outside production: no token is taken, so none needs Google's keys.
+  const { address, output } = await start(t, { DATABASE_URL: db.url, FIREBASE_PROJECT_ID: '' })
+  for (const path of ['/me', '/me/handle']) {
+    const response = await fetch(`${address}${path}`, {
+      method: path === '/me' ? 'GET' : 'POST',
+      headers: { authorization: 'Bearer dev:aki', 'content-type': 'application/json' },
+      body: path === '/me' ? undefined : JSON.stringify({ handle: 'aki' }),
+    })
+    assert.equal(response.status, 401, output())
+    assert.deepEqual(await response.json(), { error: 'bad-token' })
+  }
+  const { rows } = await db.pool.query('select count(*)::int as users from users')
+  assert.deepEqual(rows, [{ users: 0 }])
 })
