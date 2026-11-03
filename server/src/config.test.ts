@@ -31,7 +31,6 @@ test('in production, a CORS_ORIGIN that is not origins stops the start', () => {
     'https://anibeam.app/chat',
     'anibeam.app',
     'HTTPS://ANIBEAM.APP',
-    '*',
     'ftp://anibeam.app',
     // An empty entry, and a bad one after a good one.
     'https://anibeam.app,',
@@ -42,6 +41,35 @@ test('in production, a CORS_ORIGIN that is not origins stops the start', () => {
       /CORS_ORIGIN has ".*", which isn't an origin/,
       value,
     )
+})
+
+test('a CORS_ORIGIN with a wildcard stops the start, since no browser sends one', () => {
+  for (const value of ['https://*.vercel.app', 'https://anibeam.app, https://*.anibeam.app', '*']) {
+    assert.throws(
+      () => loadConfig(production({ CORS_ORIGIN: value })),
+      /a \* matches no page/,
+      value,
+    )
+    assert.throws(() => loadConfig({ CORS_ORIGIN: value }), /a \* matches no page/, value)
+  }
+})
+
+test('in production, an http:// CORS_ORIGIN stops the start, but for this computer', () => {
+  for (const value of ['http://anibeam.app', 'https://anibeam.app, http://www.anibeam.app:8080'])
+    assert.throws(
+      () => loadConfig(production({ CORS_ORIGIN: value })),
+      /CORS_ORIGIN has "http:\/\/[^"]+", which isn't https:\/\//,
+      value,
+    )
+  assert.deepEqual(
+    loadConfig(production({ CORS_ORIGIN: 'http://localhost:5173,http://127.0.0.1:4173' }))
+      .corsOrigins,
+    ['http://localhost:5173', 'http://127.0.0.1:4173'],
+  )
+  // Outside production, a page on another computer of the network may be http://.
+  assert.deepEqual(loadConfig({ CORS_ORIGIN: 'http://192.168.1.33:5173' }).corsOrigins, [
+    'http://192.168.1.33:5173',
+  ])
 })
 
 test('in production, a missing FIREBASE_PROJECT_ID stops the start', () => {

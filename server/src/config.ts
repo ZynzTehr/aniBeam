@@ -25,12 +25,22 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     )
   const corsOrigins = origins ? origins.split(',').map((entry) => entry.trim()) : [DEV_ORIGIN]
   // A browser sends its page's origin exactly: a scheme, a host and a port if any, with no path
-  // and no / at the end, so an entry written any other way would never match and is a mistake.
-  // This holds outside production too, where a typo would only show as a refused request.
+  // and no / at the end, so an entry written any other way would never match and is a mistake,
+  // a wildcard too, which URL takes as a host. This holds outside production too, where a typo
+  // would only show as a refused request. In production each is https://, but for this
+  // computer's: a page sent over http:// can be changed on its way, to read the answers too.
   for (const entry of corsOrigins)
-    if (!isOrigin(entry))
+    if (entry.includes('*'))
+      problems.push(
+        `CORS_ORIGIN has ${JSON.stringify(entry)}, and a * matches no page, since a browser sends its page's origin exactly: list each origin, comma-separated.`,
+      )
+    else if (!isOrigin(entry))
       problems.push(
         `CORS_ORIGIN has ${JSON.stringify(entry)}, which isn't an origin: http:// or https://, a host and a port if any, and no path or / at the end, such as https://anibeam.app.`,
+      )
+    else if (production && entry.startsWith('http:') && !LOCAL.has(new URL(entry).hostname))
+      problems.push(
+        `CORS_ORIGIN has ${JSON.stringify(entry)}, which isn't https://: in production only this computer's pages (localhost, 127.0.0.1) may be http://.`,
       )
 
   const firebaseProjectId = env.FIREBASE_PROJECT_ID?.trim() || undefined
@@ -50,6 +60,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     throw new Error(`The chat server can't start:\n${problems.map((p) => `- ${p}`).join('\n')}`)
   return { corsOrigins, firebaseProjectId }
 }
+
+/** This computer's host names, as URL writes them. */
+const LOCAL = new Set(['localhost', '127.0.0.1', '[::1]'])
 
 /** Whether `entry` is an http or https origin, written as a browser sends it. */
 function isOrigin(entry: string) {
