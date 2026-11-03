@@ -25,11 +25,14 @@ let keysUrl: URL
 let verify: Verify
 /** Whether the key server answers 500, as if Google's were failing. */
 let keysFail = false
+/** How many times the key server has been asked for the keys. */
+let fetches = 0
 
 before(async () => {
   ;({ privateKey, publicKey } = await generateKeyPair('RS256', { extractable: true }))
   const keys = { keys: [{ ...(await exportJWK(publicKey)), kid: KID, alg: 'RS256', use: 'sig' }] }
   server = createServer((_request, response) => {
+    fetches++
     if (keysFail) return response.writeHead(500).end()
     response.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(keys))
   })
@@ -163,6 +166,18 @@ test('a token with a changed claim, or no token at all, is refused', async () =>
     'ERR_JWS_SIGNATURE_VERIFICATION_FAILED',
   )
   for (const text of ['', 'not a token', 'a.b.c']) await refused(text, 'ERR_JWS_INVALID')
+})
+
+test("Google's keys are fetched once and kept, even for tokens naming key ids they don't have", async () => {
+  const verifier = firebaseVerifier(PROJECT, keysUrl)
+  const before = fetches
+  for (let i = 0; i < 3; i++) assert.deepEqual(await verifier(await token()), { uid: 'uid-aki' })
+  // A key id the keys don't have asks for them again, as for a key Google has just added, but not
+  // within 30 s of the last fetch, so that forged key ids can't make the server fetch them on
+  // every request.
+  for (let i = 0; i < 5; i++)
+    await assert.rejects(verifier(await token({}, { kid: `unknown-${i}` })), BadToken)
+  assert.equal(fetches - before, 1)
 })
 
 test('a server with no Firebase project refuses every token', async () => {
