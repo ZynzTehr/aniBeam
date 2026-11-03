@@ -42,6 +42,25 @@ test('the server listens, and on SIGTERM closes and exits with 0', async (t) => 
   assert.deepEqual({ code, signal }, { code: 0, signal: null }, output())
 })
 
+test('in production, the server refuses to start without its settings, and says why', async (t) => {
+  const env: NodeJS.ProcessEnv = { ...process.env, PORT: '0', NODE_ENV: 'production' }
+  for (const name of ['CORS_ORIGIN', 'FIREBASE_PROJECT_ID', 'FIREBASE_AUTH_EMULATOR_HOST'])
+    delete env[name]
+  const server = spawn(process.execPath, [fileURLToPath(new URL('index.ts', import.meta.url))], {
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  t.after(() => server.kill('SIGKILL'))
+  let output = ''
+  server.stdout.setEncoding('utf8').on('data', (chunk: string) => (output += chunk))
+  server.stderr.setEncoding('utf8').on('data', (chunk: string) => (output += chunk))
+  const [code] = await once(server, 'exit')
+  assert.equal(code, 1, output)
+  assert.match(output, /CORS_ORIGIN is missing/)
+  assert.match(output, /FIREBASE_PROJECT_ID is missing/)
+  assert.doesNotMatch(output, /Server listening/)
+})
+
 test('when Postgres drops an idle connection, the server logs it and goes on answering', async (t) => {
   const { server, address, exited, output } = await start(t, { DATABASE_URL: db.url })
   const history = `${address}/rooms/anime:1:all/messages`

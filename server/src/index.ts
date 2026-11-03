@@ -1,5 +1,14 @@
 import pg from 'pg'
 import { buildApp } from './app.ts'
+import { loadConfig } from './config.ts'
+
+// Settings that are missing or unsafe in production stop the server here, before it listens.
+try {
+  loadConfig()
+} catch (err) {
+  console.error((err as Error).message)
+  process.exit(1)
+}
 
 // The chat server's entry: builds the app and listens. The database is at DATABASE_URL; the pool
 // connects at the first query, so the server starts (and answers /health) without one.
