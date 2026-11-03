@@ -180,6 +180,24 @@ test("Google's keys are fetched once and kept, even for tokens naming key ids th
   assert.equal(fetches - before, 1)
 })
 
+test("the keys are kept for 6 hours, so that Google's key server failing for less is not noticed", async (t) => {
+  // Only Date is faked: jose times the keys by it, and the tokens' times follow it.
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() })
+  const verifier = firebaseVerifier(PROJECT, keysUrl)
+  const before = fetches
+  assert.deepEqual(await verifier(await token()), { uid: 'uid-aki' })
+  t.mock.timers.tick(6 * 3_600_000 - 60_000)
+  keysFail = true
+  t.after(() => (keysFail = false))
+  assert.deepEqual(await verifier(await token()), { uid: 'uid-aki' })
+  assert.equal(fetches - before, 1)
+  // Kept no longer than that, so that a key Google drops stops being taken.
+  keysFail = false
+  t.mock.timers.tick(2 * 60_000)
+  assert.deepEqual(await verifier(await token()), { uid: 'uid-aki' })
+  assert.equal(fetches - before, 2)
+})
+
 test('a server with no Firebase project refuses every token', async () => {
   await assert.rejects(firebaseVerifier(undefined, keysUrl)(await token()), BadToken)
 })

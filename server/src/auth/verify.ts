@@ -49,9 +49,12 @@ const REFUSED = new Set([
  * test serves its own.
  */
 export function firebaseVerifier(projectId: string | undefined, keys = GOOGLE_KEYS): Verify {
-  // jose keeps the keys it fetched for 10 minutes, and asks sooner only for a key id it hasn't
-  // seen, at most every 30 s.
-  const googleKeys = createRemoteJWKSet(keys)
+  // jose keeps the keys it fetched for 6 hours, about as long as Google's answer says they may be
+  // kept (its Cache-Control max-age), and asks sooner only for a key id it hasn't seen, at most
+  // every 30 s. Its own 10 minutes would make Google's key server failing for longer than that a
+  // 500 for every signed-in request: jose fetches again once the keys are old, and doesn't fall
+  // back on the ones it has.
+  const googleKeys = createRemoteJWKSet(keys, { cacheMaxAge: 6 * 60 * 60 * 1000 })
   return async (token) => {
     if (!projectId) throw new BadToken('no FIREBASE_PROJECT_ID')
     let claims: JWTPayload
