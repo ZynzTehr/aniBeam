@@ -26,6 +26,7 @@ The `.env.example` files list every variable with a comment explaining it. Real 
 | ---------------------- | --------------------------------------------------------------------------------------------------------- |
 | `npm run dev`          | Starts the web app at http://localhost:5173                                                               |
 | `npm run dev:server`   | Starts the chat server at http://localhost:3001 (`GET /health`)                                           |
+| `npm run demo:chat`    | Starts the chat server on http://127.0.0.1:3001 with a dev sign-in and its own Postgres                   |
 | `npm run build`        | Type-checks and builds every workspace                                                                    |
 | `npm run typecheck`    | Type-checks every workspace                                                                               |
 | `npm run lint`         | Lints the web app and the chat server with oxlint, which refuses `dangerouslySetInnerHTML` in the web app |
@@ -504,7 +505,18 @@ Tailwind v4 uses native CSS cascade layers, ordered `theme → base → componen
 
 ### Chat server
 
-The chat server (`server/`) is Fastify with Postgres, and Drizzle for typed queries. So far it has the tables for messages and gives a room's history back; nothing writes messages yet, and sockets and sign-in come later in Phase 6.
+The chat server (`server/`) is Fastify with Postgres, and Drizzle for typed queries. So far it has the tables for messages, gives a room's history back, checks sign-in tokens and lets a signed-in user pick a handle. Nothing writes messages yet, and sockets come later in Phase 6.
+
+#### Settings
+
+`server/.env.example` lists the settings, and `server/src/config.ts` reads them as the server starts. `npm run dev:server` and `npm start` read them from `server/.env`; `npm run demo:chat` reads none of that file.
+
+- `PORT`: the port the server listens on, 3001 if unset. It listens on every address of the computer, as a host needs.
+- `DATABASE_URL`: the Postgres to use. The server starts without one, and answers `GET /health`, but history and the `/me` routes need it.
+- `CORS_ORIGIN`: the web app's origins, the only websites whose pages may read the server's answers (see [CORS](#which-websites-may-call-it-cors)), comma-separated. Each is written as a browser sends it: `http://` or `https://`, the host, a port if any, and no path or `/` at the end, such as `https://anibeam.app`. Unset outside production, it means `http://localhost:5173`, the web dev server. An entry written any other way stops the start, in production or not, since it could never match.
+- `FIREBASE_PROJECT_ID`: the Firebase project whose sign-ins the server takes. It isn't a secret, and no service-account key is needed, because the server checks tokens against Google's public keys. Unset outside production, every token is refused.
+- `TRUST_PROXY`: for a proxy in front of the server, which the rate and connection limits will read later in Phase 6. Nothing reads it yet.
+- With `NODE_ENV=production`, the server refuses to start without `CORS_ORIGIN` or `FIREBASE_PROJECT_ID`, or with `FIREBASE_AUTH_EMULATOR_HOST` set, and names each problem. That variable makes Firebase's own libraries take tokens no one signed, for its emulator.
 
 #### The tables
 
@@ -516,7 +528,38 @@ The chat server (`server/`) is Fastify with Postgres, and Drizzle for typed quer
 
 `GET /rooms/:roomKey/messages` answers a room's messages, 50 at a time, newest first, with hidden messages left out. Anyone can read it, signed in or not. A room key is `anime:<AniList id>:ep:<episode>` or `anime:<AniList id>:all`, such as `anime:154587:ep:5`, checked by `roomKeySchema` in `shared/src/room-key.ts`. The answer is `{ messages, nextBefore }`. Each message is `{ id, roomKey, handle, body, spoiler, createdAt }`: a handle, never a user id. `nextBefore` is the id to ask with for the next, older page (`?before=<id>`), or `null` on the last page. Pages go by id, not by time: Postgres keeps times to the microsecond and JavaScript to the millisecond, so a time would skip messages posted within one millisecond. A bad room key or `before` answers 400 with `{ "error": "invalid" }`, a code from the one list in `shared/src/errors.ts`. Request bodies are limited to 4 KB.
 
-`npm run dev:server` reads the database's address from `DATABASE_URL` in `server/.env`. The server starts without one, and answers `GET /health`, but history needs it. Nothing makes the tables on that database yet: there is no migrate command, so history answers 500 there until `migrate()` from `server/src/db/migrate.ts` has run on it. `npm run demo:chat`, later in Phase 6, will run it.
+`npm run dev:server` reads the database's address from `DATABASE_URL` in `server/.env`. There is no migrate command of its own yet: `npm run demo:chat` runs `migrate()` from `server/src/db/migrate.ts` on the database it uses, but nothing runs it on `npm run dev:server`'s, so history answers 500 there until the migrations have run on it.
+
+#### Sign-in and handles
+
+The routes for a signed-in user take a Firebase ID token in an `Authorization: Bearer <token>` header. `server/src/auth/verify.ts` checks it with jose against Google's public keys: signed with RS256 by one of Google's securetoken keys, issued by `https://securetoken.google.com/<project>` for `<project>`, not expired, issued and signed in no later than now (with 5 s to spare for clocks a little off), and with a uid (`sub`) of 1 to 128 characters. It gives the routes the uid alone; the token's other claims, such as the email, go no further. The server never takes a user id or a handle from the client: a uid in a body is refused, and one in a header or the address is never read. The log writes the Authorization header as `[Redacted]`. The server's tests sign tokens with keys of their own, served from 127.0.0.1, and reach nothing on the network (`server/src/testing/no-network.ts`).
+
+- `GET /me` answers `{ "handle": "aki", "banned": false }`, with `handle` null until the user picks one.
+- `POST /me/handle` with `{ "handle": "aki" }` makes the user's account, and answers 201 with what `GET /me` would. A handle is 3 to 20 of A to Z, a to z, 0 to 9 and _, unique ignoring case, and set once. The account holds the uid and the handle, never an email. 409 `handle-taken` means someone has that handle, in any case, and 409 `handle-already-set` means this user picked one already. Two requests at once for one handle are decided by the database's unique index: one gets it, and the other gets 409.
+- With no token, either answers 401 `sign-in-required`. A header that isn't `Bearer <token>`, or a token that proves nothing, answers 401 `bad-token`. The token is checked before the body is read.
+
+#### Errors
+
+Every refusal answers `{ "error": "<code>" }`, with a code from the one list in `shared/src/errors.ts`, so the web app can tell them apart: 400 `invalid` (413 for a body over 4 KB, and 415 for one of a type no route reads), 401 `sign-in-required` or `bad-token`, 404 `not-found`, and 409 `handle-taken` or `handle-already-set`. Fastify's own refusals, such as bad JSON or an address no route has, answer the same way. A failure of the server's own answers 500 with `{ "statusCode": 500, "error": "Internal Server Error" }`, the one answer whose `error` isn't a code, and without its message, which can hold the SQL that failed.
+
+#### Which websites may call it (CORS)
+
+A browser tells the server which page a request came from, in the `Origin` header, and lets the page read the answer only if the server names that origin back in `Access-Control-Allow-Origin`. `server/src/cors.ts` names it only when it is exactly one of `CORS_ORIGIN`'s, so a lookalike such as `https://anibeam.app.evil.example`, or `null` (a file or a sandboxed page), gets none. Every answer has `Vary: Origin`, so that a cache never hands one origin's answer to another. Before a request with Authorization or a JSON body, a browser asks first with OPTIONS (the preflight), and the answer allows GET and POST, with the Authorization and Content-Type headers, for those origins only. No answer allows credentials: the token travels in a header, not a cookie. Origin stops other websites, not scripts, which can send any Origin they like; the sign-in, and the limits later in Phase 6, are for those.
+
+#### Trying it: `npm run demo:chat`
+
+`npm run demo:chat` starts the chat server for trying on this computer (`server/src/dev/demo.ts`). It starts a throwaway Postgres 18 of its own, as the tests do, runs the migrations, and listens on http://127.0.0.1:3001 with a dev sign-in and no Firebase project: the token `dev:<name>`, a name of 1 to 20 of A to Z, a to z, 0 to 9 and _, signs in as the user `dev:<name>`. Ctrl-C stops it and deletes the Postgres. With `DATABASE_URL` set, it uses and migrates that database instead, and `PORT` changes the port. Since anyone can sign in as anyone there, it listens on 127.0.0.1 only, which no other computer reaches, refuses to start with `NODE_ENV=production`, and is left out of the build, and a test checks that `server/src/index.ts` never imports it. It allows no website's pages (no CORS origins), which curl doesn't need.
+
+```bash
+npm run demo:chat
+# Then, in another terminal:
+curl -X POST -H 'Authorization: Bearer dev:aki' -H 'Content-Type: application/json' -d '{"handle":"aki"}' http://127.0.0.1:3001/me/handle
+# {"handle":"aki","banned":false}
+curl -H 'Authorization: Bearer dev:aki' http://127.0.0.1:3001/me
+# {"handle":"aki","banned":false}
+curl http://127.0.0.1:3001/rooms/anime:154587:ep:5/messages
+# {"messages":[],"nextBefore":null}
+```
 
 #### The tests' Postgres
 
