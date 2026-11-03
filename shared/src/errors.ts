@@ -5,6 +5,11 @@ export const ERROR_CODES = [
   'invalid',
   // Nothing is there: an address no REST route has.
   'not-found',
+  // A route for a signed-in user, asked with no token. REST answers it with 401.
+  'sign-in-required',
+  // A token that proves nothing: forged, expired, for another project, or not a Bearer token.
+  // REST answers it with 401.
+  'bad-token',
 ] as const
 
 export type ErrorCode = (typeof ERROR_CODES)[number]

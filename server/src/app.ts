@@ -5,17 +5,33 @@ import { STATUS_CODES } from 'node:http'
 import type pg from 'pg'
 import type { Verify } from './auth/verify.ts'
 import { historyRoutes } from './routes/history.ts'
+import { meRoutes } from './routes/me.ts'
+
+/**
+ * What the log writes as [Redacted]: the Authorization header, which holds a sign-in token, in
+ * headers logged on their own or in a request logged whole. Fastify's own request log has no
+ * headers, so these are for any log line that adds them.
+ */
+export const REDACT = ['headers.authorization', '*.headers.authorization']
 
 // The chat server's routes, without listening, so that tests can call them through app.inject.
 // The routes that read the database come with a pool of connections to it; the pool belongs to
 // the caller, who closes it. `verify` checks sign-in tokens: the production entry passes
-// Firebase's (auth/verify.ts), the dev entry its own, and tests one with keys of their own. The
-// routes that use it, and sockets, are added later in Phase 6.
-export function buildApp(options: { logger?: boolean; pool?: pg.Pool; verify?: Verify } = {}) {
+// Firebase's (auth/verify.ts), the dev entry its own, and tests one of their own. The routes for
+// a signed-in user come with both a pool and `verify`. `logger` is true to log to stdout, or a
+// stream for a test to read.
+export function buildApp(
+  options: {
+    logger?: boolean | { stream: { write(line: string): void } }
+    pool?: pg.Pool
+    verify?: Verify
+  } = {},
+) {
+  const { logger = false } = options
   // 4 KB holds any request the chat makes (a message is at most 500 code points), and a body
   // larger than that is refused with 413 before it is read.
   const app = Fastify({
-    logger: options.logger ?? false,
+    logger: logger && { ...(logger === true ? {} : logger), redact: REDACT },
     bodyLimit: 4096,
     // An address Fastify refuses before any route sees it, a bad %-escape or a part over 100
     // characters (such as a room key), gets the answer of any other bad request of ours.
@@ -63,7 +79,11 @@ export function buildApp(options: { logger?: boolean; pool?: pg.Pool; verify?: V
   })
 
   app.get('/health', async () => ({ ok: true }))
-  if (options.pool) historyRoutes(app, drizzle({ client: options.pool }))
+  if (options.pool) {
+    const db = drizzle({ client: options.pool })
+    historyRoutes(app, db)
+    if (options.verify) meRoutes(app, db, options.verify)
+  }
 
   return app
 }

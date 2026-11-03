@@ -127,3 +127,15 @@ test('ids grow in the order rows are added, and a message starts shown and not a
   ])
   assert.deepEqual(rows, [{ spoiler: false, hidden_at: null }])
 })
+
+test('the users table has no email column: only the id, the sign-in uid, handle and two times', async () => {
+  // Spec section 5: a chat account is the uid and a handle, never an email or other contact.
+  const { rows } = await db.pool.query<{ column_name: string }>(
+    `select column_name from information_schema.columns
+     where table_schema = 'public' and table_name = 'users' order by ordinal_position`,
+  )
+  assert.deepEqual(
+    rows.map((row) => row.column_name),
+    ['id', 'auth_uid', 'handle', 'created_at', 'banned_at'],
+  )
+})
