@@ -3,6 +3,7 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { after, before, test } from 'node:test'
 import { exportJWK, generateKeyPair, SignJWT } from 'jose'
+import pg from 'pg'
 import { buildApp } from '../app.ts'
 import { BadToken, firebaseVerifier, type Verify } from '../auth/verify.ts'
 import { testDatabase, type TestDatabase } from '../testing/database.ts'
@@ -392,6 +393,35 @@ test('one user asking for two handles at once gets one, and 409 handle-already-s
   })
   const { rows } = await db.pool.query('select handle from users where auth_uid = $1', [user.uid])
   assert.equal(rows.length, 1)
+})
+
+test("when the database fails, the log keeps the query and its code, not the user's uid or handle", async (t) => {
+  let log = ''
+  // Port 1, where no Postgres is: every query fails to connect.
+  const down = new pg.Pool({ connectionString: 'postgres://anibeam@127.0.0.1:1/anibeam' })
+  t.after(() => down.end())
+  const failing = buildApp({
+    pool: down,
+    verify: async () => ({ uid: 'uid-secret' }),
+    logger: { stream: { write: (line) => void (log += line) } },
+  })
+  t.after(() => failing.close())
+  const headers = { authorization: 'Bearer token-secret' }
+  const asked = [
+    await failing.inject({ method: 'GET', url: '/me', headers }),
+    await failing.inject({
+      method: 'POST',
+      url: '/me/handle',
+      headers,
+      payload: { handle: 'SecretHandle' },
+    }),
+  ]
+  for (const response of asked) assert.equal(response.statusCode, 500, response.body)
+  assert.doesNotMatch(log, /uid-secret|SecretHandle/)
+  // What the log does keep: which query failed, and why.
+  assert.match(log, /"msg":"A database query failed"/)
+  assert.match(log, /"query":"insert into \\"users\\"/)
+  assert.match(log, /"code":"ECONNREFUSED"/)
 })
 
 test('a token as Firebase signs one makes a row of its uid and handle, and its email is kept nowhere', async (t) => {

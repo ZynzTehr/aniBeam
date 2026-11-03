@@ -1,4 +1,5 @@
 import type { ErrorCode } from '@anibeam/shared'
+import { DrizzleQueryError } from 'drizzle-orm/errors'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import Fastify, { type FastifyError, type FastifyReply, type FastifyRequest } from 'fastify'
 import { STATUS_CODES } from 'node:http'
@@ -79,11 +80,17 @@ export function buildApp(
   )
 
   // A failure of ours (a 5xx) is logged, and answered without its message, which can hold the
-  // SQL that failed.
+  // SQL that failed. A failed query is logged without the values it was given, the user's uid
+  // and the handle asked for among them, which Drizzle writes into its message and stack: the
+  // query, where it was run from, and Postgres's code alone, since its message can quote a value.
   app.setErrorHandler((err: { statusCode?: number }, request, reply) => {
     if (err.statusCode !== undefined && err.statusCode >= 400 && err.statusCode < 500)
       return reply.code(err.statusCode).send({ error: 'invalid' satisfies ErrorCode })
-    request.log.error(err)
+    if (err instanceof DrizzleQueryError) {
+      const { code } = (err.cause ?? {}) as { code?: unknown }
+      const at = err.stack?.split('\n').filter((line) => /^\s+at /.test(line))
+      request.log.error({ query: err.query, code, at }, 'A database query failed')
+    } else request.log.error(err)
     return reply.code(500).send({ statusCode: 500, error: 'Internal Server Error' })
   })
 
