@@ -10,6 +10,10 @@ export const ERROR_CODES = [
   // A token that proves nothing: forged, expired, for another project, or not a Bearer token.
   // REST answers it with 401.
   'bad-token',
+  // Someone has this handle already, written in any case. REST answers it with 409.
+  'handle-taken',
+  // The user has picked a handle, and a handle is set once. REST answers it with 409.
+  'handle-already-set',
 ] as const
 
 export type ErrorCode = (typeof ERROR_CODES)[number]

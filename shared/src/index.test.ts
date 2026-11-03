@@ -5,7 +5,14 @@ import * as shared from '@anibeam/shared'
 
 test('the package exports the room key schema and the error codes', () => {
   assert.deepEqual(Object.keys(shared).sort(), ['ERROR_CODES', 'roomKeySchema'])
-  assert.deepEqual(shared.ERROR_CODES, ['invalid', 'not-found', 'sign-in-required', 'bad-token'])
+  assert.deepEqual(shared.ERROR_CODES, [
+    'invalid',
+    'not-found',
+    'sign-in-required',
+    'bad-token',
+    'handle-taken',
+    'handle-already-set',
+  ])
   assert.equal(shared.roomKeySchema.safeParse('anime:1:all').success, true)
 })
 
