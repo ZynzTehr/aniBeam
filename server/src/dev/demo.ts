@@ -3,7 +3,7 @@
 // Postgres of its own (src/db/cluster.ts), deleted when it stops, or DATABASE_URL's if one is
 // given; either way it runs the migrations first. Since anyone can sign in as anyone, it listens
 // on 127.0.0.1 only, which no other computer reaches, refuses NODE_ENV=production, and is left
-// out of dist/. Ctrl-C (SIGINT) or SIGTERM stops it.
+// out of dist/. Ctrl-C (SIGINT), SIGTERM or closing its terminal (SIGHUP) stops it.
 import pg from 'pg'
 import { buildApp } from '../app.ts'
 import { startCluster } from '../db/cluster.ts'
@@ -34,9 +34,12 @@ function stop(code: number) {
 }
 // Ctrl-C under npm run comes twice, from the terminal and from npm passing it on, and a second
 // SIGINT with no listener would end the process before the Postgres is deleted, so the listeners
-// stay for every signal and the stop runs once.
+// stay for every signal and the stop runs once. Closing the terminal sends SIGHUP, which with no
+// listener ends the process with no exit, leaving the Postgres running: pg_ctl starts it apart
+// from the terminal, so it gets no SIGHUP of its own.
 process.on('SIGINT', () => void stop(0))
 process.on('SIGTERM', () => void stop(0))
+process.on('SIGHUP', () => void stop(0))
 
 try {
   const given = process.env.DATABASE_URL

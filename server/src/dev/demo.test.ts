@@ -109,3 +109,18 @@ test('without DATABASE_URL, it starts a throwaway Postgres, and Ctrl-C deletes i
   assert.deepEqual({ code, signal }, { code: 0, signal: null }, output())
   assert.deepEqual(clusters(), [], 'the throwaway Postgres is deleted')
 })
+
+test('closing the terminal (SIGHUP) stops it too, and deletes the throwaway Postgres', async (t) => {
+  const parent = mkdtempSync(path.join(tmpdir(), 'anibeam-demo-test-'))
+  t.after(() => rmSync(parent, { recursive: true, force: true }))
+  const { signal: send, exited, listening, output } = demo(t, { DATABASE_URL: '', TMPDIR: parent })
+  await listening
+  const clusters = () => readdirSync(parent).filter((name) => name.startsWith('anibeam-pg-'))
+  assert.equal(clusters().length, 1)
+  // A terminal sends SIGHUP to what runs in it as it closes. Postgres, which pg_ctl started apart
+  // from the terminal, gets none, so only the entry can stop it.
+  send('SIGHUP')
+  const [code, signal] = await exited
+  assert.deepEqual({ code, signal }, { code: 0, signal: null }, output())
+  assert.deepEqual(clusters(), [], 'the throwaway Postgres is deleted')
+})
