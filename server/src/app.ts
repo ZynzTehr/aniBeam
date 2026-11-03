@@ -4,6 +4,7 @@ import Fastify, { type FastifyError, type FastifyReply, type FastifyRequest } fr
 import { STATUS_CODES } from 'node:http'
 import type pg from 'pg'
 import type { Verify } from './auth/verify.ts'
+import { cors } from './cors.ts'
 import { historyRoutes } from './routes/history.ts'
 import { meRoutes } from './routes/me.ts'
 
@@ -18,24 +19,29 @@ export const REDACT = ['headers.authorization', '*.headers.authorization']
 // The routes that read the database come with a pool of connections to it; the pool belongs to
 // the caller, who closes it. `verify` checks sign-in tokens: the production entry passes
 // Firebase's (auth/verify.ts), the dev entry its own, and tests one of their own. The routes for
-// a signed-in user come with both a pool and `verify`. `logger` is true to log to stdout, or a
-// stream for a test to read.
+// a signed-in user come with both a pool and `verify`. `corsOrigins` are the web app's origins,
+// whose pages may read the answers (CORS_ORIGIN, cors.ts); with none, no website's may. `logger`
+// is true to log to stdout, or a stream for a test to read.
 export function buildApp(
   options: {
+    corsOrigins?: readonly string[]
     logger?: boolean | { stream: { write(line: string): void } }
     pool?: pg.Pool
     verify?: Verify
   } = {},
 ) {
   const { logger = false } = options
+  const { headers, hook } = cors(options.corsOrigins ?? [])
   // 4 KB holds any request the chat makes (a message is at most 500 code points), and a body
   // larger than that is refused with 413 before it is read.
   const app = Fastify({
     logger: logger && { ...(logger === true ? {} : logger), redact: REDACT },
     bodyLimit: 4096,
     // An address Fastify refuses before any route sees it, a bad %-escape or a part over 100
-    // characters (such as a room key), gets the answer of any other bad request of ours.
-    frameworkErrors: (err: FastifyError, _request: FastifyRequest, reply: FastifyReply) => {
+    // characters (such as a room key), gets the answer of any other bad request of ours. No hook
+    // runs for it, so it gets the CORS headers here.
+    frameworkErrors: (err: FastifyError, request: FastifyRequest, reply: FastifyReply) => {
+      headers(request, reply)
       if (err.code === 'FST_ERR_BAD_URL' || err.code === 'FST_ERR_MAX_PARAM_LENGTH')
         return reply.code(400).send({ error: 'invalid' satisfies ErrorCode })
       return reply.send(err)
@@ -60,6 +66,9 @@ export function buildApp(
       socket.destroy(err)
     },
   })
+
+  // First, before any route: the CORS headers on every answer, and the preflight's answer.
+  app.addHook('onRequest', hook)
 
   // Every refusal answers {"error": <code>} with a code from shared's list, Fastify's own as well
   // as ours, so that web/ reads the field as a code on every answer but a 500. An address no

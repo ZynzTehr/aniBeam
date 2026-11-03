@@ -85,3 +85,19 @@ test('when Postgres drops an idle connection, the server logs it and goes on ans
   assert.equal((await fetch(history)).status, 200, output())
   assert.doesNotMatch(output(), /connectionParameters/, 'the log holds the error, not its client')
 })
+
+test("the server lets CORS_ORIGIN's pages read its answers, and outside production the web dev server's when it is unset", async (t) => {
+  const origin = async (address: string, page: string) =>
+    (await fetch(`${address}/health`, { headers: { origin: page } })).headers.get(
+      'access-control-allow-origin',
+    )
+  const set = await start(t, { CORS_ORIGIN: 'https://ani-beam.vercel.app' })
+  assert.equal(
+    await origin(set.address, 'https://ani-beam.vercel.app'),
+    'https://ani-beam.vercel.app',
+  )
+  assert.equal(await origin(set.address, 'http://localhost:5173'), null)
+  const unset = await start(t)
+  assert.equal(await origin(unset.address, 'http://localhost:5173'), 'http://localhost:5173')
+  assert.equal(await origin(unset.address, 'https://ani-beam.vercel.app'), null)
+})

@@ -15,7 +15,12 @@ try {
 // The chat server's entry: builds the app and listens. The database is at DATABASE_URL; the pool
 // connects at the first query, so the server starts (and answers /health) without one.
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL })
-const app = buildApp({ logger: true, pool, verify: firebaseVerifier(config.firebaseProjectId) })
+const app = buildApp({
+  corsOrigins: config.corsOrigins,
+  logger: true,
+  pool,
+  verify: firebaseVerifier(config.firebaseProjectId),
+})
 app.addHook('onClose', () => pool.end())
 // Postgres can end a connection the pool holds idle, as a restart or a host that cuts idle
 // connections does. The pool lets that connection go, the next query opens a new one, and the
