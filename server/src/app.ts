@@ -1,6 +1,7 @@
 import type { ErrorCode } from '@anibeam/shared'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import Fastify, { type FastifyError, type FastifyReply, type FastifyRequest } from 'fastify'
+import { STATUS_CODES } from 'node:http'
 import type pg from 'pg'
 import { historyRoutes } from './routes/history.ts'
 
@@ -20,12 +21,40 @@ export function buildApp(options: { logger?: boolean; pool?: pg.Pool } = {}) {
         return reply.code(400).send({ error: 'invalid' satisfies ErrorCode })
       return reply.send(err)
     },
+    // A request Node can't read as HTTP, such as a broken first line or headers over 16 KB, never
+    // reaches Fastify's routes. Fastify answers it straight on the connection, as Node does, so
+    // this is that answer with our body.
+    clientErrorHandler: (err, socket) => {
+      if (err.code === 'ECONNRESET' || socket.destroyed) return
+      const status =
+        err.code === 'ERR_HTTP_REQUEST_TIMEOUT'
+          ? 408
+          : err.code === 'HPE_HEADER_OVERFLOW'
+            ? 431
+            : 400
+      const body = JSON.stringify({ error: 'invalid' satisfies ErrorCode })
+      if (socket.writable)
+        socket.write(
+          `HTTP/1.1 ${status} ${STATUS_CODES[status]}\r\nContent-Length: ${body.length}\r\n` +
+            `Content-Type: application/json; charset=utf-8\r\nConnection: close\r\n\r\n${body}`,
+        )
+      socket.destroy(err)
+    },
   })
 
+  // Every refusal answers {"error": <code>} with a code from shared's list, Fastify's own as well
+  // as ours, so that web/ reads the field as a code on every answer but a 500. An address no
+  // route has is not-found. The rest Fastify refuses (bad JSON, a body over 4 KB, a content type
+  // no route reads) is invalid, and its status (400, 413, 415) says which.
+  app.setNotFoundHandler((_request, reply) =>
+    reply.code(404).send({ error: 'not-found' satisfies ErrorCode }),
+  )
+
   // A failure of ours (a 5xx) is logged, and answered without its message, which can hold the
-  // SQL that failed. A refusal (a 4xx, such as 413) keeps Fastify's own answer.
+  // SQL that failed.
   app.setErrorHandler((err: { statusCode?: number }, request, reply) => {
-    if (err.statusCode !== undefined && err.statusCode < 500) throw err
+    if (err.statusCode !== undefined && err.statusCode >= 400 && err.statusCode < 500)
+      return reply.code(err.statusCode).send({ error: 'invalid' satisfies ErrorCode })
     request.log.error(err)
     return reply.code(500).send({ statusCode: 500, error: 'Internal Server Error' })
   })

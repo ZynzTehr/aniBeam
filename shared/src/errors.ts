@@ -3,6 +3,8 @@
 export const ERROR_CODES = [
   // The request itself is wrong: a bad room key, cursor or payload. REST answers it with 400.
   'invalid',
+  // Nothing is there: an address no REST route has.
+  'not-found',
 ] as const
 
 export type ErrorCode = (typeof ERROR_CODES)[number]
