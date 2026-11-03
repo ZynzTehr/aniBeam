@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
     "test": "node --import ../web/scripts/blocking-test-output.ts --import ./src/testing/no-network.ts --test --test-timeout=10000 --test-force-exit --test-reporter=spec --test-reporter-destination=stdout --test-reporter=../web/scripts/every-test-reported.ts --test-reporter-destination=stderr --test-global-setup=src/testing/global-setup.ts 'src/**/*.test.ts'",
-    "start": "node --env-file-if-exists=.env dist/index.js"
+    "start": "node --env-file-if-exists=.env dist/index.js",
+    "demo:chat": "node src/dev/demo.ts"
   },
   "dependencies": {
     "@anibeam/shared": "*",
