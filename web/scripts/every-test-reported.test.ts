@@ -66,13 +66,18 @@ test('no test file awaits at its top level after registering a test, so each que
   // A test registered after such an await would never be queued: --test-force-exit would end the
   // file once the tests before the await had run, and the reporter couldn't tell (see
   // every-test-reported.ts). An await before the first test is fine. Each statement at the top of
-  // each test file, read without the functions inside it, which run later.
+  // each test file, read without the functions inside it, which run later. The server's and
+  // shared's tests run with the same reporters, so their files are read too, from web/.
   const web = fileURLToPath(new URL('..', import.meta.url))
   const files = globSync(
-    ['src/**/*.test.{ts,tsx}', 'e2e/**/*.{test,e2e}.ts', 'scripts/**/*.test.ts'],
-    {
-      cwd: web,
-    },
+    [
+      'src/**/*.test.{ts,tsx}',
+      'e2e/**/*.{test,e2e}.ts',
+      'scripts/**/*.test.ts',
+      '../server/src/**/*.test.ts',
+      '../shared/src/**/*.test.ts',
+    ],
+    { cwd: web },
   )
   const atTop = (node: ts.Node, found: (node: ts.Node) => boolean): boolean =>
     found(node) ||
@@ -97,5 +102,9 @@ test('no test file awaits at its top level after registering a test, so each que
     })
   })
   assert.ok(files.length > 20, `found only ${files.length} test files`)
+  assert.ok(
+    files.some((file) => file.startsWith('../server/')),
+    `found no server test files in ${files.length}`,
+  )
   assert.deepEqual(late, [], 'top-level awaits after a test is registered')
 })
