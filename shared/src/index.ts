@@ -1,6 +1,7 @@
 // Types and validation schemas shared by web/ and server/. The schemas use zod/mini, whose
 // functions a bundle takes one by one, so web/ pays only for the ones it uses.
 export { ERROR_CODES, type ErrorCode } from './errors.ts'
+export { messageSendSchema, type MessageSend } from './message.ts'
 export { roomKeySchema, roomPayloadSchema, type RoomKey } from './room-key.ts'
 
 /** An AniList media ID. */

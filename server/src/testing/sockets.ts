@@ -4,6 +4,7 @@ import type { TestContext } from 'node:test'
 import type { AddressInfo } from 'node:net'
 import { io, type ManagerOptions, type Socket, type SocketOptions } from 'socket.io-client'
 import type { buildApp } from '../app.ts'
+import type { ChatSocket } from '../sockets/sockets.ts'
 
 /** The origin the tests' apps allow, as the web app's would be. */
 export const ORIGIN = 'https://ani-beam.vercel.app'
@@ -70,3 +71,26 @@ export function within<T>(promise: Promise<T>, what: string) {
   })
   return Promise.race([promise, late]).finally(() => clearTimeout(timer))
 }
+
+/**
+ * Starts keeping the events `socket` gets, and gives a function that resolves with them, up to a
+ * mark the server sends it alone after whatever the test sent: a socket's packets arrive in the
+ * order they were sent, so an event sent before the mark that reaches the socket at all is there,
+ * with no wait for one that never comes. Start it before sending what the socket must not get,
+ * since an event that arrived before it started isn't kept.
+ */
+export function hearing(socket: Socket, server: ChatSocket) {
+  const events: string[] = []
+  const listener = (event: string) => events.push(event)
+  socket.onAny(listener)
+  return async () => {
+    const marked = next(socket, 'test:mark')
+    server.emit('test:mark')
+    await marked
+    socket.offAny(listener)
+    return events.filter((event) => event !== 'test:mark')
+  }
+}
+
+/** The events `socket` gets from now up to a mark, as hearing() keeps them. */
+export const heard = (socket: Socket, server: ChatSocket) => hearing(socket, server)()

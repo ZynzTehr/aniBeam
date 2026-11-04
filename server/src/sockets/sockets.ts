@@ -3,9 +3,11 @@
 // Fastify's HTTP server, and so its port: requests under /socket.io/ go to Socket.IO, the rest to
 // Fastify's routes.
 import type { ErrorCode } from '@anibeam/shared'
+import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import type { FastifyInstance } from 'fastify'
 import { Server, type DefaultEventsMap, type Socket } from 'socket.io'
 import { BadToken, type Verify } from '../auth/verify.ts'
+import { messageEvents } from './messages.ts'
 import { roomEvents } from './rooms.ts'
 
 /** What the server keeps on each socket. */
@@ -39,13 +41,16 @@ export const MAX_PACKET = 16 * 1024
 /**
  * Attaches Socket.IO to `app`'s HTTP server, as app.io. `allows` is the CORS hook's check of an
  * origin (cors.ts), so that sockets take the same websites' pages as REST. `verify` checks the
- * sign-in tokens, as it does for REST; without one, every token is refused. `serveClient` serves
- * Socket.IO's browser file at /socket.io/socket.io.min.js, for the dev entry's page.
+ * sign-in tokens, as it does for REST; without one, every token is refused. `db` is where
+ * message:send saves messages; without one, as for the routes that read it, sockets may join
+ * and leave rooms but have no message:send. `serveClient` serves Socket.IO's browser file at
+ * /socket.io/socket.io.min.js, for the dev entry's page.
  */
 export function sockets(
   app: FastifyInstance,
   options: {
     allows: (origin: string | undefined) => boolean
+    db: NodePgDatabase | undefined
     serveClient: boolean
     verify: Verify | undefined
   },
@@ -89,6 +94,10 @@ export function sockets(
     next()
   })
 
-  io.on('connection', (socket) => roomEvents(socket, app.log))
+  const { db } = options
+  io.on('connection', (socket) => {
+    roomEvents(socket, app.log)
+    if (db) messageEvents(socket, db, app.log)
+  })
   return io
 }

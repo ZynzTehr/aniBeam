@@ -3,9 +3,10 @@ import { globSync, readFileSync } from 'node:fs'
 import { test } from 'node:test'
 import * as shared from '@anibeam/shared'
 
-test('the package exports the room schemas and the error codes', () => {
+test('the package exports the room and message schemas and the error codes', () => {
   assert.deepEqual(Object.keys(shared).sort(), [
     'ERROR_CODES',
+    'messageSendSchema',
     'roomKeySchema',
     'roomPayloadSchema',
   ])
@@ -17,6 +18,8 @@ test('the package exports the room schemas and the error codes', () => {
     'handle-taken',
     'handle-already-set',
     'too-many-rooms',
+    'handle-required',
+    'not-joined',
     'server-error',
   ])
   assert.equal(shared.roomKeySchema.safeParse('anime:1:all').success, true)

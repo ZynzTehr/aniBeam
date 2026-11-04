@@ -5,7 +5,8 @@ export const ERROR_CODES = [
   'invalid',
   // Nothing is there: an address no REST route has.
   'not-found',
-  // A route for a signed-in user, asked with no token. REST answers it with 401.
+  // A route for a signed-in user, asked with no token, or a message sent from a signed-out
+  // socket. REST answers it with 401.
   'sign-in-required',
   // A token that proves nothing: forged, expired, for another project, or not a Bearer token.
   // REST answers it with 401.
@@ -16,6 +17,11 @@ export const ERROR_CODES = [
   'handle-already-set',
   // A socket in the most rooms it may be in at once (5) asked to join another. Its ack says it.
   'too-many-rooms',
+  // A signed-in user with no handle yet sent a message: a message shows its handle, so the user
+  // picks one first (POST /me/handle).
+  'handle-required',
+  // A message sent to a room the socket hasn't joined.
+  'not-joined',
   // A failure of the server's own, such as the database being down, and not the request's.
   // REST answers it with 500, and a socket ack for a message that failed to save says it too,
   // with no stack, SQL or message, which can hold a user's uid or the SQL that failed.

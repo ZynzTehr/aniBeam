@@ -1,11 +1,11 @@
 import type { ErrorCode } from '@anibeam/shared'
-import { DrizzleQueryError } from 'drizzle-orm/errors'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import Fastify, { type FastifyError, type FastifyReply, type FastifyRequest } from 'fastify'
 import { STATUS_CODES } from 'node:http'
 import type pg from 'pg'
 import type { Verify } from './auth/verify.ts'
 import { cors } from './cors.ts'
+import { logFailure } from './failure.ts'
 import { historyRoutes } from './routes/history.ts'
 import { meRoutes } from './routes/me.ts'
 import { sockets } from './sockets/sockets.ts'
@@ -18,13 +18,13 @@ import { sockets } from './sockets/sockets.ts'
 export const REDACT = ['headers.authorization', '*.headers.authorization']
 
 // The chat server's routes, without listening, so that tests can call them through app.inject.
-// The routes that read the database come with a pool of connections to it; the pool belongs to
-// the caller, who closes it. `verify` checks sign-in tokens: the production entry passes
-// Firebase's (auth/verify.ts), the dev entry its own, and tests one of their own. The routes for
-// a signed-in user come with both a pool and `verify`. `corsOrigins` are the web app's origins,
-// whose pages may read the answers (CORS_ORIGIN, cors.ts), and open sockets; with none, no
-// website's may. `serveClient` serves Socket.IO's browser file, which only the dev entry's page
-// loads. `logger` is true to log to stdout, or a stream for a test to read.
+// The routes that read the database, and message:send, come with a pool of connections to it;
+// the pool belongs to the caller, who closes it. `verify` checks sign-in tokens: the production
+// entry passes Firebase's (auth/verify.ts), the dev entry its own, and tests one of their own.
+// The routes for a signed-in user come with both a pool and `verify`. `corsOrigins` are the web
+// app's origins, whose pages may read the answers (CORS_ORIGIN, cors.ts), and open sockets; with
+// none, no website's may. `serveClient` serves Socket.IO's browser file, which only the dev
+// entry's page loads. `logger` is true to log to stdout, or a stream for a test to read.
 export function buildApp(
   options: {
     corsOrigins?: readonly string[]
@@ -82,28 +82,22 @@ export function buildApp(
     reply.code(404).send({ error: 'not-found' satisfies ErrorCode }),
   )
 
-  // A failure of ours (a 5xx) is logged, and answered 500 server-error alone, without its
-  // message or stack, which can hold the SQL that failed. A failed query is logged without the
-  // values it was given, the user's uid and the handle asked for among them, which Drizzle writes
-  // into its message and stack: the query, where it was run from, and Postgres's code alone,
-  // since its message can quote a value.
+  // A failure of ours (a 5xx) is logged (failure.ts, which leaves a failed query's values out),
+  // and answered 500 server-error alone, without its message or stack, which can hold the SQL
+  // that failed.
   app.setErrorHandler((err: { statusCode?: number }, request, reply) => {
     if (err.statusCode !== undefined && err.statusCode >= 400 && err.statusCode < 500)
       return reply.code(err.statusCode).send({ error: 'invalid' satisfies ErrorCode })
-    if (err instanceof DrizzleQueryError) {
-      const { code } = (err.cause ?? {}) as { code?: unknown }
-      const at = err.stack?.split('\n').filter((line) => /^\s+at /.test(line))
-      request.log.error({ query: err.query, code, at }, 'A database query failed')
-    } else request.log.error(err)
+    logFailure(request.log, err)
     return reply.code(500).send({ error: 'server-error' satisfies ErrorCode })
   })
 
+  const db = options.pool && drizzle({ client: options.pool })
   // The sockets, on the server Fastify made, which listens when the app does.
-  sockets(app, { allows, serveClient: options.serveClient ?? false, verify: options.verify })
+  sockets(app, { allows, db, serveClient: options.serveClient ?? false, verify: options.verify })
 
   app.get('/health', async () => ({ ok: true }))
-  if (options.pool) {
-    const db = drizzle({ client: options.pool })
+  if (db) {
     historyRoutes(app, db)
     if (options.verify) meRoutes(app, db, options.verify)
   }

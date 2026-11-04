@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict'
 import { test, type TestContext } from 'node:test'
-import type { Socket } from 'socket.io-client'
 import { buildApp } from '../app.ts'
-import { ask, client, connected, listen, next, ORIGIN, within } from '../testing/sockets.ts'
+import { ask, client, connected, heard, listen, next, ORIGIN, within } from '../testing/sockets.ts'
 import { MAX_ROOMS } from './rooms.ts'
 import type { ChatSocket } from './sockets.ts'
 
@@ -18,22 +17,6 @@ async function joiner(t: TestContext) {
   const socket = client(t, url)
   await within(connected(socket), 'connected')
   return { app, socket, server: await arrived }
-}
-
-/**
- * The events `socket` gets, up to a mark the server sends it alone after whatever the test sent
- * first: a socket's packets arrive in the order they were sent, so an event sent before the mark
- * that reaches the socket at all is here, with no wait for one that never comes.
- */
-async function heard(socket: Socket, server: ChatSocket) {
-  const events: string[] = []
-  const listener = (event: string) => events.push(event)
-  socket.onAny(listener)
-  const marked = next(socket, 'test:mark')
-  server.emit('test:mark')
-  await marked
-  socket.offAny(listener)
-  return events.filter((event) => event !== 'test:mark')
 }
 
 test('join answers ok once the socket is in the room: a message sent then reaches it', async (t) => {
