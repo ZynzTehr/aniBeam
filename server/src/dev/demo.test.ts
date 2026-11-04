@@ -8,7 +8,7 @@ import path from 'node:path'
 import { after, before, test, type TestContext } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { testDatabase, type TestDatabase } from '../testing/database.ts'
-import { client, connected, freePort, within } from '../testing/sockets.ts'
+import { client, connected, onFreePort, within } from '../testing/sockets.ts'
 import { CSP } from './page.ts'
 
 let db: TestDatabase
@@ -128,9 +128,13 @@ test('closing the terminal (SIGHUP) stops it too, and deletes the throwaway Post
 })
 
 test("the dev entry serves the demo page, whose origin opens sockets, and Socket.IO's browser file", async (t) => {
-  const port = await freePort()
-  const { listening, output } = demo(t, { DATABASE_URL: db.url, PORT: String(port) })
-  const address = await listening
+  const {
+    port,
+    started: { address, output },
+  } = await onFreePort(async (port) => {
+    const { listening, output } = demo(t, { DATABASE_URL: db.url, PORT: String(port) })
+    return { address: await listening, output }
+  })
   for (const path of ['/demo', '/demo/demo.js']) {
     const page = await fetch(`${address}${path}`)
     assert.equal(page.status, 200, output())

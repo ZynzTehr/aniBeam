@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import type { ChatMessage } from './sockets/messages.ts'
 import { testDatabase, type TestDatabase } from './testing/database.ts'
-import { ask, client, connected, freePort, next, ORIGIN, within } from './testing/sockets.ts'
+import { ask, client, connected, next, onFreePort, ORIGIN, within } from './testing/sockets.ts'
 
 // The built server, as npm run build makes it and npm start runs it. The tests run the source
 // with Node's type stripping, which runs each file as written, so a mistake only the build makes
@@ -118,11 +118,12 @@ test('the built production entry answers /health, has no demo page, and acks a s
 })
 
 test('the built dev entry carries a message from one client to another in under 1 s', async (t) => {
-  const port = await freePort()
-  const { address, output } = await run(t, path.join(builtDev, 'dev/demo.js'), {
-    DATABASE_URL: db.url,
-    PORT: String(port),
-  })
+  const {
+    port,
+    started: { address, output },
+  } = await onFreePort((port) =>
+    run(t, path.join(builtDev, 'dev/demo.js'), { DATABASE_URL: db.url, PORT: String(port) }),
+  )
   assert.equal((await fetch(`${address}/demo`)).status, 200, output())
   const origin = `http://127.0.0.1:${port}`
   const [aki, rei] = await Promise.all(

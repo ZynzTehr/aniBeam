@@ -95,11 +95,31 @@ export function hearing(socket: Socket, server: ChatSocket) {
 /** The events `socket` gets from now up to a mark, as hearing() keeps them. */
 export const heard = (socket: Socket, server: ChatSocket) => hearing(socket, server)()
 
-/** A port nothing listens on now, for a dev entry that must know its port before it listens. */
+/**
+ * A port nothing listens on now, for a dev entry that must know its port before it listens. It
+ * is let go before the entry listens on it, so another process may take it first: start the
+ * entry with onFreePort().
+ */
 export async function freePort() {
   const server = createServer()
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
   const { port } = server.address() as AddressInfo
   await new Promise((resolve) => server.close(resolve))
   return port
+}
+
+/**
+ * Starts something on a port from freePort(), and gives the port and what `start` gave. If
+ * another process took the port first, `start` fails with EADDRINUSE, and it starts again on
+ * another port, 3 tries in all. Any other failure fails at once.
+ */
+export async function onFreePort<T>(start: (port: number) => Promise<T>) {
+  for (let tries = 1; ; tries++) {
+    const port = await freePort()
+    try {
+      return { port, started: await start(port) }
+    } catch (err) {
+      if (tries === 3 || !String(err).includes('EADDRINUSE')) throw err
+    }
+  }
 }
