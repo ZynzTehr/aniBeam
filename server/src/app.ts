@@ -72,17 +72,18 @@ export function buildApp(
   app.addHook('onRequest', hook)
 
   // Every refusal answers {"error": <code>} with a code from shared's list, Fastify's own as well
-  // as ours, so that web/ reads the field as a code on every answer but a 500. An address no
-  // route has is not-found. The rest Fastify refuses (bad JSON, a body over 4 KB, a content type
-  // no route reads) is invalid, and its status (400, 413, 415) says which.
+  // as ours, so that web/ reads the field as a code on every answer. An address no route has is
+  // not-found. The rest Fastify refuses (bad JSON, a body over 4 KB, a content type no route
+  // reads) is invalid, and its status (400, 413, 415) says which.
   app.setNotFoundHandler((_request, reply) =>
     reply.code(404).send({ error: 'not-found' satisfies ErrorCode }),
   )
 
-  // A failure of ours (a 5xx) is logged, and answered without its message, which can hold the
-  // SQL that failed. A failed query is logged without the values it was given, the user's uid
-  // and the handle asked for among them, which Drizzle writes into its message and stack: the
-  // query, where it was run from, and Postgres's code alone, since its message can quote a value.
+  // A failure of ours (a 5xx) is logged, and answered 500 server-error alone, without its
+  // message or stack, which can hold the SQL that failed. A failed query is logged without the
+  // values it was given, the user's uid and the handle asked for among them, which Drizzle writes
+  // into its message and stack: the query, where it was run from, and Postgres's code alone,
+  // since its message can quote a value.
   app.setErrorHandler((err: { statusCode?: number }, request, reply) => {
     if (err.statusCode !== undefined && err.statusCode >= 400 && err.statusCode < 500)
       return reply.code(err.statusCode).send({ error: 'invalid' satisfies ErrorCode })
@@ -91,7 +92,7 @@ export function buildApp(
       const at = err.stack?.split('\n').filter((line) => /^\s+at /.test(line))
       request.log.error({ query: err.query, code, at }, 'A database query failed')
     } else request.log.error(err)
-    return reply.code(500).send({ statusCode: 500, error: 'Internal Server Error' })
+    return reply.code(500).send({ error: 'server-error' satisfies ErrorCode })
   })
 
   app.get('/health', async () => ({ ok: true }))

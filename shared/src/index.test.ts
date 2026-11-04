@@ -12,6 +12,7 @@ test('the package exports the room key schema and the error codes', () => {
     'bad-token',
     'handle-taken',
     'handle-already-set',
+    'server-error',
   ])
   assert.equal(shared.roomKeySchema.safeParse('anime:1:all').success, true)
 })

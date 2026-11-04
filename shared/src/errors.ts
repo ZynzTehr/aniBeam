@@ -1,8 +1,5 @@
 // The one list of error codes the chat server answers with, over REST and in socket acks, so
 // that web/ can tell each refusal apart. Each code joins the list in the PR that first uses it.
-// A 500, a failure of the server's own, is the one answer without a code: its body is
-// {"statusCode": 500, "error": "Internal Server Error"}, so web/ tells it by its status and never
-// reads its error as one of these.
 export const ERROR_CODES = [
   // The request itself is wrong: a bad room key, cursor or payload. REST answers it with 400.
   'invalid',
@@ -17,6 +14,10 @@ export const ERROR_CODES = [
   'handle-taken',
   // The user has picked a handle, and a handle is set once. REST answers it with 409.
   'handle-already-set',
+  // A failure of the server's own, such as the database being down, and not the request's.
+  // REST answers it with 500, and a socket ack for a message that failed to save says it too,
+  // with no stack, SQL or message, which can hold a user's uid or the SQL that failed.
+  'server-error',
 ] as const
 
 export type ErrorCode = (typeof ERROR_CODES)[number]

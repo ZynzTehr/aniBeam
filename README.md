@@ -540,7 +540,7 @@ The routes for a signed-in user take a Firebase ID token in an `Authorization: B
 
 #### Errors
 
-Every refusal answers `{ "error": "<code>" }`, with a code from the one list in `shared/src/errors.ts`, so the web app can tell them apart: 400 `invalid` (413 for a body over 4 KB, and 415 for one of a type no route reads), 401 `sign-in-required` or `bad-token`, 404 `not-found`, and 409 `handle-taken` or `handle-already-set`. Fastify's own refusals, such as bad JSON or an address no route has, answer the same way. A failure of the server's own answers 500 with `{ "statusCode": 500, "error": "Internal Server Error" }`, the one answer whose `error` isn't a code, and without its message, which can hold the SQL that failed.
+Every refusal answers `{ "error": "<code>" }`, with a code from the one list in `shared/src/errors.ts`, so the web app can tell them apart: 400 `invalid` (413 for a body over 4 KB, and 415 for one of a type no route reads), 401 `sign-in-required` or `bad-token`, 404 `not-found`, and 409 `handle-taken` or `handle-already-set`. Fastify's own refusals, such as bad JSON or an address no route has, answer the same way. A failure of the server's own, such as the database being down, answers 500 with `{ "error": "server-error" }` and nothing else: no stack, SQL or message, which can hold the SQL that failed or a user's uid.
 
 #### Which websites may call it (CORS)
 
