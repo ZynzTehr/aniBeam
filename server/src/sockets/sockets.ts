@@ -6,6 +6,7 @@ import type { ErrorCode } from '@anibeam/shared'
 import type { FastifyInstance } from 'fastify'
 import { Server, type DefaultEventsMap, type Socket } from 'socket.io'
 import { BadToken, type Verify } from '../auth/verify.ts'
+import { roomEvents } from './rooms.ts'
 
 /** What the server keeps on each socket. */
 export interface SocketData {
@@ -87,5 +88,7 @@ export function sockets(
     }
     next()
   })
+
+  io.on('connection', (socket) => roomEvents(socket, app.log))
   return io
 }

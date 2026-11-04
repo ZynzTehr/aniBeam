@@ -49,6 +49,11 @@ export function connected(socket: Socket) {
   })
 }
 
+/** Sends `event` with `args` and an ack, and resolves with the server's answer, or rejects after WAIT. */
+export function ask(socket: Socket, event: string, ...args: unknown[]): Promise<unknown> {
+  return socket.timeout(WAIT).emitWithAck(event, ...args)
+}
+
 /** Resolves with the first `event` on `emitter`, or rejects after WAIT. */
 export function next<T = unknown>(
   emitter: { once(event: string, listener: (value: T) => void): unknown },

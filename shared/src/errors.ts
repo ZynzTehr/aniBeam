@@ -14,6 +14,8 @@ export const ERROR_CODES = [
   'handle-taken',
   // The user has picked a handle, and a handle is set once. REST answers it with 409.
   'handle-already-set',
+  // A socket in the most rooms it may be in at once (5) asked to join another. Its ack says it.
+  'too-many-rooms',
   // A failure of the server's own, such as the database being down, and not the request's.
   // REST answers it with 500, and a socket ack for a message that failed to save says it too,
   // with no stack, SQL or message, which can hold a user's uid or the SQL that failed.

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { roomKeySchema } from './room-key.ts'
+import { roomKeySchema, roomPayloadSchema } from './room-key.ts'
 
 const valid = (key: unknown) => roomKeySchema.safeParse(key).success
 
@@ -47,4 +47,19 @@ test('a number too long for its part, or not a string, is refused', () => {
   assert.equal(valid('anime:1:ep:123456'), false)
   assert.equal(valid(154587), false)
   assert.equal(valid(null), false)
+})
+
+test('a join or leave payload is { roomKey } with a room key, and nothing else', () => {
+  const payload = (value: unknown) => roomPayloadSchema.safeParse(value).success
+  assert.equal(payload({ roomKey: 'anime:154587:ep:5' }), true)
+  for (const value of [
+    { roomKey: 'anime:0:all' },
+    { roomKey: 'anime:1:all', uid: 'uid-aki' },
+    {},
+    'anime:1:all',
+    ['anime:1:all'],
+    null,
+    undefined,
+  ])
+    assert.equal(payload(value), false, JSON.stringify(value))
 })
