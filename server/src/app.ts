@@ -8,6 +8,7 @@ import type { Verify } from './auth/verify.ts'
 import { cors } from './cors.ts'
 import { historyRoutes } from './routes/history.ts'
 import { meRoutes } from './routes/me.ts'
+import { sockets } from './sockets/sockets.ts'
 
 /**
  * What the log writes as [Redacted]: the Authorization header, which holds a sign-in token, in
@@ -21,18 +22,20 @@ export const REDACT = ['headers.authorization', '*.headers.authorization']
 // the caller, who closes it. `verify` checks sign-in tokens: the production entry passes
 // Firebase's (auth/verify.ts), the dev entry its own, and tests one of their own. The routes for
 // a signed-in user come with both a pool and `verify`. `corsOrigins` are the web app's origins,
-// whose pages may read the answers (CORS_ORIGIN, cors.ts); with none, no website's may. `logger`
-// is true to log to stdout, or a stream for a test to read.
+// whose pages may read the answers (CORS_ORIGIN, cors.ts), and open sockets; with none, no
+// website's may. `serveClient` serves Socket.IO's browser file, which only the dev entry's page
+// loads. `logger` is true to log to stdout, or a stream for a test to read.
 export function buildApp(
   options: {
     corsOrigins?: readonly string[]
     logger?: boolean | { stream: { write(line: string): void } }
     pool?: pg.Pool
+    serveClient?: boolean
     verify?: Verify
   } = {},
 ) {
   const { logger = false } = options
-  const { headers, hook } = cors(options.corsOrigins ?? [])
+  const { allows, headers, hook } = cors(options.corsOrigins ?? [])
   // 4 KB holds any request the chat makes (a message is at most 500 code points), and a body
   // larger than that is refused with 413 before it is read.
   const app = Fastify({
@@ -94,6 +97,9 @@ export function buildApp(
     } else request.log.error(err)
     return reply.code(500).send({ error: 'server-error' satisfies ErrorCode })
   })
+
+  // The sockets, on the server Fastify made, which listens when the app does.
+  sockets(app, { allows, serveClient: options.serveClient ?? false })
 
   app.get('/health', async () => ({ ok: true }))
   if (options.pool) {
