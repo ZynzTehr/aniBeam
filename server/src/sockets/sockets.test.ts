@@ -87,6 +87,20 @@ test('a request with no Origin is refused, over polling and WebSocket', async (t
   assert.equal(opened, 0)
 })
 
+test("an app serves Socket.IO's browser file only when told to, as the dev entry alone is", async (t) => {
+  for (const [options, served] of [
+    [{}, false],
+    [{ serveClient: false }, false],
+    [{ serveClient: true }, true],
+  ] as const) {
+    const url = await listen(t, buildApp(options))
+    const file = await fetch(`${url}/socket.io/socket.io.min.js`)
+    const javascript = /javascript/.test(file.headers.get('content-type') ?? '')
+    await file.arrayBuffer()
+    assert.equal(file.status === 200 && javascript, served, JSON.stringify(options))
+  }
+})
+
 test('app.close() with a socket open finishes within 1 s', async (t) => {
   const { app, url } = await server(t)
   for (const transports of [['websocket'], ['polling']])
