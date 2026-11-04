@@ -150,7 +150,7 @@ test('history then holds the message as the ack gave it, and a body of HTML is k
   assert.equal(messages[0].body, body)
 })
 
-test('a body of 501 code points, or of spaces alone, or any other bad payload answers invalid, and nothing is saved', async (t) => {
+test('a body of 501 code points, or of spaces or characters that show nothing alone, or any other bad payload answers invalid, and nothing is saved', async (t) => {
   const { app, url } = await server(t)
   const a = await member(t, app, url, 'token-aki')
   const b = await member(t, app, url, 'token-rei')
@@ -159,6 +159,9 @@ test('a body of 501 code points, or of spaces alone, or any other bad payload an
   for (const args of [
     [{ roomKey: ROOM, body: emoji.repeat(501), spoiler: false }],
     [{ roomKey: ROOM, body: '    ', spoiler: false }],
+    // Characters that show nothing, which trimming leaves: a zero-width space, a Hangul filler.
+    [{ roomKey: ROOM, body: '\u200B', spoiler: false }],
+    [{ roomKey: ROOM, body: '\u3164', spoiler: false }],
     [{ roomKey: ROOM, body: 'no spoiler' }],
     [{ roomKey: ROOM, body: 'a string spoiler', spoiler: 'false' }],
     // The handle comes from the sender's row: one in the payload is refused, as is a user id.
@@ -174,7 +177,15 @@ test('a body of 501 code points, or of spaces alone, or any other bad payload an
       { error: 'invalid' },
       JSON.stringify(args),
     )
-  for (const body of [emoji.repeat(501), 'no spoiler', 'a string spoiler', 'as rei', 'and more'])
+  for (const body of [
+    emoji.repeat(501),
+    '\u200B',
+    '\u3164',
+    'no spoiler',
+    'a string spoiler',
+    'as rei',
+    'and more',
+  ])
     assert.equal(await saved(body), 0, body)
   assert.deepEqual(await heardByB(), [])
   // 500 emoji fit, as the database counts them, and the body is saved trimmed.

@@ -40,6 +40,31 @@ test('a NUL, or half a surrogate pair alone, is refused', () => {
     assert.equal(body({ roomKey: ROOM, body: refused, spoiler: false }), undefined)
 })
 
+/** A body's code points in hex, for a failure's message, since most of these show nothing. */
+const codes = (text: string) => [...text].map((c) => c.codePointAt(0)?.toString(16)).join(' ')
+
+test('a body of characters that show nothing is refused, and one with a character that shows passes', () => {
+  for (const refused of [
+    '\u200B', // a zero-width space, which trim() leaves
+    '\u200B\u200B\u200B',
+    '\u3164', // the Hangul filler
+    '\u2800', // the Braille blank
+    '\u202E', // a right-to-left override
+    ' \u200B\uFE0F\u2060 ', // spaces, a zero-width space, a variation selector, a word joiner
+    '\u0007\u0085', // control characters
+  ])
+    assert.equal(body({ roomKey: ROOM, body: refused, spoiler: false }), undefined, codes(refused))
+  // One that shows is enough, and the rest stay as sent.
+  for (const shows of [
+    'a\u200B',
+    '\u2764\uFE0F',
+    'e\u0301',
+    '\u{1F468}\u200D\u{1F469}\u200D\u{1F467}',
+    '.',
+  ])
+    assert.equal(body({ roomKey: ROOM, body: shows, spoiler: false }), shows, codes(shows))
+})
+
 test('a bad room key, a spoiler that is not true or false, or another key is refused', () => {
   for (const value of [
     { roomKey: 'anime:0:all', body: 'hi', spoiler: false },
