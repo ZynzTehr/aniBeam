@@ -1,13 +1,15 @@
 // npm run demo:chat: the chat server for trying it on this computer, with the dev sign-in
 // (verify.ts), where the token dev:<name> signs in as that name. Its database is a throwaway
 // Postgres of its own (src/db/cluster.ts), deleted when it stops, or DATABASE_URL's if one is
-// given; either way it runs the migrations first. Since anyone can sign in as anyone, it listens
-// on 127.0.0.1 only, which no other computer reaches, refuses NODE_ENV=production, and is left
-// out of dist/. Ctrl-C (SIGINT), SIGTERM or closing its terminal (SIGHUP) stops it.
+// given; either way it runs the migrations first. It serves the two-tab demo's page at /demo
+// (page.ts). Since anyone can sign in as anyone, it listens on 127.0.0.1 only, which no other
+// computer reaches, refuses NODE_ENV=production, and is left out of dist/. Ctrl-C (SIGINT),
+// SIGTERM or closing its terminal (SIGHUP) stops it.
 import pg from 'pg'
 import { buildApp } from '../app.ts'
 import { startCluster } from '../db/cluster.ts'
 import { migrate } from '../db/migrate.ts'
+import { demoPage } from './page.ts'
 import { devVerifier } from './verify.ts'
 
 if (process.env.NODE_ENV === 'production') {
@@ -58,6 +60,8 @@ try {
     serveClient: true,
     verify: devVerifier,
   })
+  // The two-tab demo's page, at /demo.
+  demoPage(app)
   app.addHook('onClose', () => pool.end())
   // As in src/index.ts: an idle connection Postgres ends must not end the process.
   const log = app.log
@@ -77,7 +81,9 @@ try {
       : 'Database: DATABASE_URL',
   )
   await app.listen({ port, host: '127.0.0.1' })
-  log.info('Dev sign-in: send Authorization: Bearer dev:<name>. Ctrl-C stops the server.')
+  log.info(
+    `The two-tab demo: http://127.0.0.1:${port}/demo. Dev sign-in: send Authorization: Bearer dev:<name>. Ctrl-C stops the server.`,
+  )
 } catch (err) {
   console.error(err)
   await stop(1)

@@ -1,0 +1,58 @@
+/* The two-tab demo's look: plain, readable, and nothing the CSP has to allow inline. */
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  background: #12121a;
+  color: #ececf1;
+}
+main {
+  max-width: 40rem;
+  margin: 1.5rem auto;
+  padding: 0 1rem;
+}
+h1 {
+  font-size: 1.4rem;
+}
+.note,
+#who,
+#status {
+  color: #a9a9b8;
+}
+form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin: 0.75rem 0;
+}
+input:not([type='checkbox']) {
+  flex: 1;
+  min-width: 10rem;
+  padding: 0.4rem;
+}
+#messages {
+  list-style: none;
+  padding: 0.5rem;
+  min-height: 8rem;
+  border: 1px solid #3a3a4a;
+  border-radius: 6px;
+}
+#messages li {
+  padding: 0.25rem 0;
+}
+.handle {
+  font-weight: 600;
+  margin-right: 0.5rem;
+}
+.time {
+  color: #8a8a9a;
+  font-size: 0.8rem;
+  margin-right: 0.5rem;
+}
+.spoiler {
+  filter: blur(4px);
+  cursor: pointer;
+}
+#error {
+  color: #ff8a8a;
+}

@@ -9,6 +9,7 @@ import { after, before, test, type TestContext } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { testDatabase, type TestDatabase } from '../testing/database.ts'
 import { client, connected, within } from '../testing/sockets.ts'
+import { CSP } from './page.ts'
 
 let db: TestDatabase
 before(async () => {
@@ -135,10 +136,15 @@ async function freePort() {
   return port
 }
 
-test("the dev entry's own pages open sockets, and load Socket.IO's browser file", async (t) => {
+test("the dev entry serves the demo page, whose origin opens sockets, and Socket.IO's browser file", async (t) => {
   const port = await freePort()
   const { listening, output } = demo(t, { DATABASE_URL: db.url, PORT: String(port) })
   const address = await listening
+  for (const path of ['/demo', '/demo/demo.js']) {
+    const page = await fetch(`${address}${path}`)
+    assert.equal(page.status, 200, output())
+    assert.equal(page.headers.get('content-security-policy'), CSP, path)
+  }
   const file = await fetch(`${address}/socket.io/socket.io.min.js`)
   assert.equal(file.status, 200, output())
   assert.match(file.headers.get('content-type') ?? '', /javascript/)

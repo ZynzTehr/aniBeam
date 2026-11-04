@@ -46,8 +46,14 @@ test('the server listens, and on SIGTERM closes and exits with 0', async (t) => 
   assert.deepEqual({ code, signal }, { code: 0, signal: null }, output())
 })
 
-test("the server doesn't serve Socket.IO's browser file, which only the dev entry's page loads", async (t) => {
+test("the server serves neither the dev entry's demo page nor Socket.IO's browser file, which only that page loads", async (t) => {
   const { address } = await start(t)
+  for (const path of ['/demo', '/demo/demo.js', '/demo/demo.css']) {
+    const page = await fetch(`${address}${path}`)
+    assert.equal(page.status, 404, path)
+    assert.deepEqual(await page.json(), { error: 'not-found' }, path)
+  }
+  // Socket.IO answers this one itself, with 400, as it has no such file to give.
   const file = await fetch(`${address}/socket.io/socket.io.min.js`)
   assert.notEqual(file.status, 200)
   assert.doesNotMatch(file.headers.get('content-type') ?? '', /javascript/)
