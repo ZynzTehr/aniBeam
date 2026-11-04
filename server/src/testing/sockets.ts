@@ -1,7 +1,7 @@
 // Socket.IO clients for the server's tests, as a browser's would connect. Each waits on an event
 // or an ack, never on a fixed time, which bounds only a failure.
 import type { TestContext } from 'node:test'
-import type { AddressInfo } from 'node:net'
+import { createServer, type AddressInfo } from 'node:net'
 import { io, type ManagerOptions, type Socket, type SocketOptions } from 'socket.io-client'
 import type { buildApp } from '../app.ts'
 import type { ChatSocket } from '../sockets/sockets.ts'
@@ -94,3 +94,12 @@ export function hearing(socket: Socket, server: ChatSocket) {
 
 /** The events `socket` gets from now up to a mark, as hearing() keeps them. */
 export const heard = (socket: Socket, server: ChatSocket) => hearing(socket, server)()
+
+/** A port nothing listens on now, for a dev entry that must know its port before it listens. */
+export async function freePort() {
+  const server = createServer()
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address() as AddressInfo
+  await new Promise((resolve) => server.close(resolve))
+  return port
+}
