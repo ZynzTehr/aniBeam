@@ -72,6 +72,8 @@ after(async () => {
 
 /** Runs a built entry with `env` added, until the test ends, and waits for it to listen. */
 async function run(t: TestContext, entry: string, env: Record<string, string>) {
+  // A built file, never the source, which Node would run as well, and pass.
+  assert.ok(entry.startsWith(out + path.sep) && entry.endsWith('.js'), entry)
   const server = spawn(process.execPath, ['--import', GUARD, entry], {
     env: { ...process.env, PORT: '0', ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
