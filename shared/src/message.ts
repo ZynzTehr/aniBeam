@@ -12,8 +12,9 @@ const VISIBLE = /[^\p{Default_Ignorable_Code_Point}\p{Cc}\p{Z}\u2800]/u
 /**
  * A message's body: trimmed, then 1 to 500 code points, counted as [...body].length is and as
  * the database's char_length counts them, so 500 single emoji fit. A body of spaces alone is
- * empty once trimmed, and one of characters that show nothing is refused (VISIBLE). A NUL, or half of a surrogate pair on its own, is refused too: Postgres
- * can't store the first, and would store the second as another character than the one sent.
+ * empty once trimmed, and one of characters that show nothing is refused (VISIBLE). A NUL, or
+ * half of a surrogate pair on its own, is refused too: Postgres can't store the first, and would
+ * store the second as another character than the one sent.
  */
 const bodySchema = z.string().check(
   z.trim(),
