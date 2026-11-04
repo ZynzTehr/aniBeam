@@ -72,16 +72,17 @@ AniBeam/
 ├── server/                  # Chat API: Fastify + Socket.IO + Postgres
 │   ├── migrations/          # SQL files that make and change the tables, run once each, in order
 │   └── src/
-│       ├── routes/          # REST endpoints: a room's message history
-│       ├── sockets/         # Socket.IO event handlers (join room, send message)
+│       ├── routes/          # REST endpoints: a room's message history, and the user's handle
+│       ├── sockets/         # Socket.IO: who may connect, join and leave, message:send
 │       ├── db/              # The throwaway Postgres, the migration runner, the tables for Drizzle (schema.ts)
 │       ├── auth/            # Firebase sign-in token verification
 │       ├── moderation/      # Rate limits, reports, profanity filter
-│       ├── testing/         # Test helpers: the tests' Postgres, and a database for each test file
+│       ├── dev/             # npm run demo:chat, its dev sign-in and the two-tab demo page (not built)
+│       ├── testing/         # Test helpers: the tests' Postgres, a database for each test file, socket clients
 │       ├── app.ts           # The routes, without listening, so tests can call them
 │       └── index.ts         # Entry point: listens, and closes on SIGTERM
 ├── shared/                  # Types and validation schemas used by both web and server
-│   └── src/                 # The room key schema (zod/mini) and the error codes
+│   └── src/                 # The room key and message schemas (zod/mini) and the error codes
 └── package.json             # Workspace root and shared scripts
 ```
 
@@ -505,7 +506,7 @@ Tailwind v4 uses native CSS cascade layers, ordered `theme → base → componen
 
 ### Chat server
 
-The chat server (`server/`) is Fastify with Postgres, and Drizzle for typed queries. So far it has the tables for messages, gives a room's history back, checks sign-in tokens and lets a signed-in user pick a handle. Nothing writes messages yet, and sockets come later in Phase 6.
+The chat server (`server/`) is Fastify with Postgres, Drizzle for typed queries, and Socket.IO for live rooms. It keeps the messages, gives a room's history back, checks sign-in tokens, lets a signed-in user pick a handle, and sends each new message to everyone in its room the moment it is saved. The limits (rate, connections, a word filter, bans and reports) come next, later in Phase 6.
 
 #### Settings
 
@@ -538,17 +539,56 @@ The routes for a signed-in user take a Firebase ID token in an `Authorization: B
 - `POST /me/handle` with `{ "handle": "aki" }` makes the user's account, and answers 201 with what `GET /me` would. A handle is 3 to 20 of A to Z, a to z, 0 to 9 and _, unique ignoring case, and set once. The account holds the uid and the handle, never an email. 409 `handle-taken` means someone has that handle, in any case, and 409 `handle-already-set` means this user picked one already. Two requests at once for one handle are decided by the database's unique index: one gets it, and the other gets 409.
 - With no token, either answers 401 `sign-in-required`. A header that isn't `Bearer <token>`, or a token that proves nothing, answers 401 `bad-token`. The token is checked before the body is read.
 
+#### Sockets
+
+HTTP answers only what it is asked, so a page would have to keep asking for new messages. A socket stays open, so the server can send each one the moment it is saved. Socket.IO shares the server's port, under `/socket.io/`. A client connects with `io(url, { auth: { token } })`, where the token is the same Firebase ID token REST takes, read from the handshake's `auth` alone (never from the address or a header). With no token the socket is signed out: it may join rooms and read them live, but not send (D12). A token that proves nothing refuses the connection with the connect error `bad-token`, and the verifier failing (Google's keys not loading) with `server-error`; the client's `connect_error` has the code as its `message`. Only `CORS_ORIGIN`'s pages may connect, over polling or WebSocket: CORS covers none of a WebSocket, so the server checks the `Origin` itself, and polling's answers name those pages' origins, as REST's do, so their browsers let them read them. A request with no `Origin` is refused. A browser sends one with every WebSocket and every request to another site, but not with a GET to its page's own server, so a page the server serves itself connects over WebSocket alone. Another site's page gets Socket.IO's own `connect_error` (`websocket error` or `xhr poll error`), not a code. A packet over 16 KB closes a WebSocket; over polling, the request answers 413, and Socket.IO's client then closes the socket.
+
+Each event a client sends carries its payload and an ack, a function Socket.IO calls with the server's answer:
+
+| Event          | Payload                      | Ack                                                                                                                                                                                   |
+| -------------- | ---------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `join`         | `{ roomKey }`                | `{ ok: true }` once the socket is in the room, so history read next misses nothing; `invalid`, or `too-many-rooms` past 5 rooms                                                       |
+| `leave`        | `{ roomKey }`                | `{ ok: true }`, in the room or not; `invalid`                                                                                                                                         |
+| `message:send` | `{ roomKey, body, spoiler }` | `{ ok: true, message }` once the message is saved; else the first that applies of `invalid`, `sign-in-required`, `not-joined`, `handle-required`, and `server-error` if saving failed |
+
+Every other key in a payload is refused (`invalid`), a handle or a user id among them: who sends comes from the token alone. `body` is trimmed, then must be 1 to 500 code points, one of them at least a character that shows (`shared/src/message.ts`): a body of nothing but zero-width spaces, direction marks, control characters or blank fillers is refused, as one of spaces is. `spoiler` is `true` or `false`. A saved message has history's shape, `{ id, roomKey, handle, body, spoiler, createdAt }`, with the handle from the sender's account, never a user id. The server then sends it to the room's other sockets as `message:new`; the sender has it from its ack alone, so it never shows twice. Socket.IO sends each event at most once, so a client that reconnects joins its room again, then reads the history again and merges it with what it has by `id`. There are no automatic send retries, so a message is never posted twice. One server instance is supported for now, since rooms live in its memory.
+
 #### Errors
 
-Every refusal answers `{ "error": "<code>" }`, with a code from the one list in `shared/src/errors.ts`, so the web app can tell them apart: 400 `invalid` (413 for a body over 4 KB, and 415 for one of a type no route reads), 401 `sign-in-required` or `bad-token`, 404 `not-found`, and 409 `handle-taken` or `handle-already-set`. Fastify's own refusals, such as bad JSON or an address no route has, answer the same way. A failure of the server's own answers 500 with `{ "statusCode": 500, "error": "Internal Server Error" }`, the one answer whose `error` isn't a code, and without its message, which can hold the SQL that failed.
+Every refusal answers `{ "error": "<code>" }` over REST and in an ack, and a refused socket gets the code as its `connect_error`'s `message`, with a code from the one list in `shared/src/errors.ts`, so the web app can tell them apart:
+
+- `invalid`: a bad room key, cursor, body or payload. REST answers 400 (413 for a body over 4 KB, and 415 for one of a type no route reads).
+- `not-found`: an address no route has. REST answers 404.
+- `sign-in-required`: a route for a signed-in user asked with no token (401), or `message:send` from a signed-out socket.
+- `bad-token`: a token that proves nothing, or an Authorization header that isn't `Bearer <token>`. REST answers 401, and a socket gets it as its connect error.
+- `handle-taken`: someone has that handle, in any case. REST answers 409.
+- `handle-already-set`: the user picked a handle already. REST answers 409.
+- `too-many-rooms`: a `join` past 5 rooms.
+- `handle-required`: `message:send` from a user with no handle yet, who picks one first with `POST /me/handle`.
+- `not-joined`: `message:send` to a room the socket hasn't joined.
+- `server-error`: a failure of the server's own, such as the database being down. REST answers 500, an ack says it for any event whose handling failed (a `message:send` whose message failed to save among them, and then the room gets nothing), and a socket gets it as its connect error when its token couldn't be checked. It comes with nothing else: no stack, SQL or message, which can hold the SQL that failed or a user's uid, and the log keeps a failed query without its values.
+
+Fastify's own refusals, such as bad JSON or an address no route has, answer the same way.
 
 #### Which websites may call it (CORS)
 
-A browser tells the server which page a request came from, in the `Origin` header, and lets the page read the answer only if the server names that origin back in `Access-Control-Allow-Origin`. `server/src/cors.ts` names it only when it is exactly one of `CORS_ORIGIN`'s, so a lookalike such as `https://anibeam.app.evil.example`, or `null` (a file or a sandboxed page), gets none. Every answer has `Vary: Origin`, so that a cache never hands one origin's answer to another. Before a request with Authorization or a JSON body, a browser asks first with OPTIONS (the preflight), and the answer allows GET and POST, with the Authorization and Content-Type headers, for those origins only. No answer allows credentials: the token travels in a header, not a cookie. Origin stops other websites, not scripts, which can send any Origin they like; the sign-in, and the limits later in Phase 6, are for those.
+A browser tells the server which page a request came from, in the `Origin` header, and lets the page read the answer only if the server names that origin back in `Access-Control-Allow-Origin`. `server/src/cors.ts` names it only when it is exactly one of `CORS_ORIGIN`'s, so a lookalike such as `https://anibeam.app.evil.example`, or `null` (a file or a sandboxed page), gets none. Every answer has `Vary: Origin`, so that a cache never hands one origin's answer to another. Before a request with Authorization or a JSON body, a browser asks first with OPTIONS (the preflight), and the answer allows GET and POST, with the Authorization and Content-Type headers, for those origins only. No answer allows credentials: the token travels in a header, not a cookie. Socket.IO answers everything under `/socket.io/` before Fastify's hooks run, so it names the same origins itself, in polling's answers and their preflights (`server/src/sockets/sockets.ts`). Origin stops other websites, not scripts, which can send any Origin they like; the sign-in, and the limits later in Phase 6, are for those.
 
-#### Trying it: `npm run demo:chat`
+#### Trying it: the two-tab demo
 
-`npm run demo:chat` starts the chat server for trying on this computer (`server/src/dev/demo.ts`). It starts a throwaway Postgres 18 of its own, as the tests do, runs the migrations, and listens on http://127.0.0.1:3001 with a dev sign-in and no Firebase project: the token `dev:<name>`, a name of 1 to 20 of A to Z, a to z, 0 to 9 and _, signs in as the user `dev:<name>`. Ctrl-C stops it and deletes the Postgres. With `DATABASE_URL` set, it uses and migrates that database instead, and `PORT` changes the port. Since anyone can sign in as anyone there, it listens on 127.0.0.1 only, which no other computer reaches, refuses to start with `NODE_ENV=production`, and is left out of the build, and a test checks that `server/src/index.ts` never imports it. It allows no website's pages (no CORS origins), which curl doesn't need.
+Phase 6 is done when two browser tabs exchange messages. Before web/ has a chat, the chat server's dev entry has a page of its own for that:
+
+1. From the repo root, run `npm run demo:chat`. It starts a throwaway Postgres 18, makes the tables, and starts the chat server on http://127.0.0.1:3001 with a dev sign-in.
+2. Open http://127.0.0.1:3001/demo in two tabs. Type `aki` in the first tab's name box and `rei` in the second's, and press Sign in and set handle in each.
+3. Press Join in both tabs (the room is `anime:154587:ep:5`), and send a message from one. It shows in the other tab within 1 s (a few milliseconds here), and once in the tab that sent it. A third tab that joins `anime:154587:ep:6` sees nothing, and a reloaded tab gets the room's history back when it joins. Ctrl-C stops the server and deletes the Postgres.
+
+`npm test` checks the same thing without a browser: two Node clients exchange a message in under 1,000 ms, against the source and against a fresh build of the server (`server/src/build.test.ts`).
+
+`npm run demo:chat` (`server/src/dev/demo.ts`) signs in without a Firebase project: the token `dev:<name>`, a name of 1 to 20 of A to Z, a to z, 0 to 9 and _, signs in as the user `dev:<name>`. With `DATABASE_URL` set, it uses and migrates that database instead of a throwaway one, and `PORT` changes the port. Since anyone can sign in as anyone there, it listens on 127.0.0.1 only, which no other computer reaches, refuses to start with `NODE_ENV=production`, and is left out of the build, and a test checks that `server/src/index.ts` never imports it. Its own pages, at http://127.0.0.1:3001 and http://localhost:3001 (or the port `PORT` names), are the only websites' pages that may open sockets to it and read its answers; curl needs neither. It serves Socket.IO's browser file, at `/socket.io/socket.io.min.js`, and the page; `npm start` serves neither, and answers 404 for `/demo`.
+
+The page (`server/src/dev/page/`) is an HTML file, a stylesheet and a script, each served as a file under a Content Security Policy of `default-src 'self'; script-src 'self'` (and no plugins, `<base>`, form posts or framing), so a script written into the page, inline or as an `onerror=`, never runs. It puts each message on the page with `textContent`, never as HTML, so a body of `<img src=x onerror=alert(1)>` shows as that text. Its socket is WebSocket only: a browser sends no `Origin` with a GET to its page's own server, which polling's first request is, and the server refuses a request without one. On joining a room, it reads the history and merges it with live messages by id, so none shows twice, newest last. It leaves the room before only once the new one is joined, so a join refused, as of a bad key, leaves it in the room it shows.
+
+The routes work with curl too:
 
 ```bash
 npm run demo:chat
