@@ -566,7 +566,7 @@ Every refusal answers `{ "error": "<code>" }` over REST and in an ack, and a ref
 - `too-many-rooms`: a `join` past 5 rooms.
 - `handle-required`: `message:send` from a user with no handle yet, who picks one first with `POST /me/handle`.
 - `not-joined`: `message:send` to a room the socket hasn't joined.
-- `server-error`: a failure of the server's own, such as the database being down. REST answers 500, a `message:send` ack says it when the message failed to save (and the room gets nothing), and a socket gets it as its connect error when its token couldn't be checked. It comes with nothing else: no stack, SQL or message, which can hold the SQL that failed or a user's uid, and the log keeps a failed query without its values.
+- `server-error`: a failure of the server's own, such as the database being down. REST answers 500, an ack says it for any event whose handling failed (a `message:send` whose message failed to save among them, and then the room gets nothing), and a socket gets it as its connect error when its token couldn't be checked. It comes with nothing else: no stack, SQL or message, which can hold the SQL that failed or a user's uid, and the log keeps a failed query without its values.
 
 Fastify's own refusals, such as bad JSON or an address no route has, answer the same way.
 
