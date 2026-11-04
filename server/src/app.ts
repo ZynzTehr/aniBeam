@@ -99,7 +99,7 @@ export function buildApp(
   })
 
   // The sockets, on the server Fastify made, which listens when the app does.
-  sockets(app, { allows, serveClient: options.serveClient ?? false })
+  sockets(app, { allows, serveClient: options.serveClient ?? false, verify: options.verify })
 
   app.get('/health', async () => ({ ok: true }))
   if (options.pool) {
