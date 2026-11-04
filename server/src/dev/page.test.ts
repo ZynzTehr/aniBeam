@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
+import { runInNewContext } from 'node:vm'
 import { buildApp } from '../app.ts'
 import { CSP, demoPage } from './page.ts'
 
@@ -70,4 +71,121 @@ test('demo.js opens its socket over WebSocket alone, which always carries the Or
   // A browser sends no Origin with a GET to its page's own server, which polling's first request
   // is, so the server, which refuses a request without one, would refuse the page's polling.
   assert.match(read('demo.js'), /transports: \['websocket'\]/)
+})
+
+// demo.js itself, run against a stand-in page, socket and fetch, so that what it does with what
+// the server answers is checked without a browser.
+
+/** A stand-in for one of the page's elements, with what demo.js reads and sets. */
+class Element {
+  textContent = ''
+  value = ''
+  checked = false
+  className = ''
+  title = ''
+  children: Element[] = []
+  listeners = new Map<string, (event: { preventDefault(): void }) => unknown>()
+  classList = { remove: () => {} }
+  addEventListener(type: string, listener: (event: { preventDefault(): void }) => unknown) {
+    this.listeners.set(type, listener)
+  }
+  append(...children: Element[]) {
+    this.children.push(...children)
+  }
+  replaceChildren(...children: Element[]) {
+    this.children = children
+  }
+}
+
+const ROOM = 'anime:154587:ep:5'
+const OTHER_ROOM = 'anime:154587:ep:6'
+
+/** A message of ROOM, as the server sends one. */
+const message = (id: number, roomKey = ROOM) => ({
+  id,
+  roomKey,
+  handle: 'aki',
+  body: `message ${id}`,
+  spoiler: false,
+  createdAt: '2026-11-03T12:00:00.000Z',
+})
+
+/**
+ * Runs demo.js on a page of stand-ins. The socket acks each event with `answer`'s answer and
+ * keeps what was sent; a history read waits until the test gives it the page's messages.
+ */
+function demoScript(answer: (event: string, payload: { roomKey: string }) => unknown) {
+  const elements = new Map<string, Element>()
+  const element = (id: string) => elements.get(id) ?? elements.set(id, new Element()).get(id)!
+  const sent: [string, unknown][] = []
+  // As JSON, as it would go to the server: an object made inside the script has the script's own
+  // Object, which deepEqual tells apart from this file's.
+  const keep = (event: string, payload: unknown) =>
+    sent.push([event, JSON.parse(JSON.stringify(payload))])
+  const listeners = new Map<string, (...args: unknown[]) => unknown>()
+  const socket = {
+    connected: true,
+    io: { engine: { transport: { name: 'websocket' } } },
+    on: (event: string, listener: (...args: unknown[]) => unknown) =>
+      listeners.set(event, listener),
+    emit: (event: string, payload: unknown) => void keep(event, payload),
+    timeout: () => ({
+      emitWithAck: async (event: string, payload: { roomKey: string }) => {
+        keep(event, payload)
+        return answer(event, payload)
+      },
+    }),
+  }
+  const histories: ((messages: unknown[]) => void)[] = []
+  const fetch = () =>
+    Promise.resolve({
+      json: () =>
+        new Promise((resolve) =>
+          histories.push((messages) => resolve({ messages, nextBefore: null })),
+        ),
+    })
+  runInNewContext(read('demo.js'), {
+    document: { getElementById: element, createElement: () => new Element() },
+    io: () => socket,
+    fetch,
+  })
+  /** Lets every promise demo.js is waiting on settle: the stand-ins answer at once. */
+  const settled = () => new Promise((resolve) => setImmediate(resolve))
+  return {
+    sent,
+    text: (id: string) => element(id).textContent,
+    /** The bodies on the page, in order. */
+    shown: () => element('messages').children.map((item) => item.children[2].textContent),
+    /** Types `key` in the room box and presses Join. */
+    join: async (key: string) => {
+      element('room').value = key
+      void element('room-form').listeners.get('submit')!({
+        preventDefault() {},
+      })
+      await settled()
+    },
+    /** Answers the oldest history read still waiting with `messages`. */
+    history: async (...messages: unknown[]) => {
+      histories.shift()!(messages)
+      await settled()
+    },
+    /** A message:new from the server. */
+    live: async (...messages: unknown[]) => {
+      for (const one of messages) listeners.get('message:new')!(one)
+      await settled()
+    },
+  }
+}
+
+test("demo.js shows a message that is in the room's history and came live too once, in id order", async () => {
+  const page = demoScript(() => ({ ok: true }))
+  await page.join(ROOM)
+  // Sent while history loads: it is live, and in the history too.
+  await page.live(message(2))
+  await page.history(message(2), message(1))
+  await page.live(message(3), message(2))
+  assert.deepEqual(page.shown(), ['message 1', 'message 2', 'message 3'])
+  // Another room's message, which the socket may still get as it leaves it, shows nowhere.
+  await page.live(message(4, OTHER_ROOM))
+  assert.deepEqual(page.shown(), ['message 1', 'message 2', 'message 3'])
 })
