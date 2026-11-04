@@ -76,8 +76,9 @@ export async function startCluster({ parent = tmpdir(), dirs = postgresDirs() } 
   removeStaleClusters(parent, pgCtl)
   const dir = mkdtempSync(path.join(parent, `${PREFIX}${process.pid}-`))
   // A run stopped with Ctrl-C or SIGTERM exits without calling stop() (the test runner turns
-  // either into an exit), even while it is still starting, so the cluster also goes on the way
-  // out. Only kill -9 skips this, and leaves the folder for the next start to remove.
+  // either into an exit, and the dev entry SIGHUP too), even while it is still starting, so the
+  // cluster also goes on the way out. A signal nothing turns into an exit, such as kill -9, skips
+  // this, and leaves the folder for the next start to remove.
   const atExit = () => {
     try {
       remove(pgCtl, dir)

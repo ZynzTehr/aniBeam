@@ -11,13 +11,17 @@ before(async () => {
 })
 after(() => db?.close())
 
+const GUARD = fileURLToPath(new URL('testing/no-network.ts', import.meta.url))
+
 /** Starts the server as a host does, with `env` added, and waits for it to listen. */
 async function start(t: TestContext, env: Record<string, string> = {}) {
   // Port 0 asks the system for a free port; Fastify logs the address it got.
-  const server = spawn(process.execPath, [fileURLToPath(new URL('index.ts', import.meta.url))], {
-    env: { ...process.env, PORT: '0', ...env },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
+  // With the fetch guard, as each test file has it, since the server checks sign-in tokens.
+  const server = spawn(
+    process.execPath,
+    ['--import', GUARD, fileURLToPath(new URL('index.ts', import.meta.url))],
+    { env: { ...process.env, PORT: '0', ...env }, stdio: ['ignore', 'pipe', 'pipe'] },
+  )
   let output = ''
   server.stdout.setEncoding('utf8').on('data', (chunk: string) => (output += chunk))
   server.stderr.setEncoding('utf8').on('data', (chunk: string) => (output += chunk))
@@ -40,6 +44,25 @@ test('the server listens, and on SIGTERM closes and exits with 0', async (t) => 
   server.kill('SIGTERM')
   const [code, signal] = await exited
   assert.deepEqual({ code, signal }, { code: 0, signal: null }, output())
+})
+
+test('in production, the server refuses to start without its settings, and says why', async (t) => {
+  const env: NodeJS.ProcessEnv = { ...process.env, PORT: '0', NODE_ENV: 'production' }
+  for (const name of ['CORS_ORIGIN', 'FIREBASE_PROJECT_ID', 'FIREBASE_AUTH_EMULATOR_HOST'])
+    delete env[name]
+  const server = spawn(process.execPath, [fileURLToPath(new URL('index.ts', import.meta.url))], {
+    env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  t.after(() => server.kill('SIGKILL'))
+  let output = ''
+  server.stdout.setEncoding('utf8').on('data', (chunk: string) => (output += chunk))
+  server.stderr.setEncoding('utf8').on('data', (chunk: string) => (output += chunk))
+  const [code] = await once(server, 'exit')
+  assert.equal(code, 1, output)
+  assert.match(output, /CORS_ORIGIN is missing/)
+  assert.match(output, /FIREBASE_PROJECT_ID is missing/)
+  assert.doesNotMatch(output, /Server listening/)
 })
 
 test('when Postgres drops an idle connection, the server logs it and goes on answering', async (t) => {
@@ -65,4 +88,36 @@ test('when Postgres drops an idle connection, the server logs it and goes on ans
   assert.deepEqual(await (await fetch(`${address}/health`)).json(), { ok: true })
   assert.equal((await fetch(history)).status, 200, output())
   assert.doesNotMatch(output(), /connectionParameters/, 'the log holds the error, not its client')
+})
+
+test("the server lets CORS_ORIGIN's pages read its answers, and outside production the web dev server's when it is unset", async (t) => {
+  const origin = async (address: string, page: string) =>
+    (await fetch(`${address}/health`, { headers: { origin: page } })).headers.get(
+      'access-control-allow-origin',
+    )
+  const set = await start(t, { CORS_ORIGIN: 'https://ani-beam.vercel.app' })
+  assert.equal(
+    await origin(set.address, 'https://ani-beam.vercel.app'),
+    'https://ani-beam.vercel.app',
+  )
+  assert.equal(await origin(set.address, 'http://localhost:5173'), null)
+  const unset = await start(t)
+  assert.equal(await origin(unset.address, 'http://localhost:5173'), 'http://localhost:5173')
+  assert.equal(await origin(unset.address, 'https://ani-beam.vercel.app'), null)
+})
+
+test("the server refuses the dev entry's sign-in, dev:<name>", async (t) => {
+  // No project, as outside production: no token is taken, so none needs Google's keys.
+  const { address, output } = await start(t, { DATABASE_URL: db.url, FIREBASE_PROJECT_ID: '' })
+  for (const path of ['/me', '/me/handle']) {
+    const response = await fetch(`${address}${path}`, {
+      method: path === '/me' ? 'GET' : 'POST',
+      headers: { authorization: 'Bearer dev:aki', 'content-type': 'application/json' },
+      body: path === '/me' ? undefined : JSON.stringify({ handle: 'aki' }),
+    })
+    assert.equal(response.status, 401, output())
+    assert.deepEqual(await response.json(), { error: 'bad-token' })
+  }
+  const { rows } = await db.pool.query('select count(*)::int as users from users')
+  assert.deepEqual(rows, [{ users: 0 }])
 })
