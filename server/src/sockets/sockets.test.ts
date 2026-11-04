@@ -41,6 +41,40 @@ test("polling from another site's page answers 403", async (t) => {
   assert.equal((await fetch(handshake, { headers: { origin: ORIGIN } })).status, 200)
 })
 
+test("polling answers name an allowed page's origin, so its browser lets the page read them", async (t) => {
+  const { url } = await server(t)
+  const polling = `${url}/socket.io/?EIO=4&transport=polling`
+  // A browser reads a cross-site answer only if access-control-allow-origin names its page's
+  // origin. Node's client never checks, so the headers are checked here.
+  const opened = await fetch(polling, { headers: { origin: ORIGIN } })
+  assert.equal(opened.status, 200)
+  assert.equal(opened.headers.get('access-control-allow-origin'), ORIGIN)
+  assert.match(opened.headers.get('vary') ?? '', /\bOrigin\b/)
+  assert.equal(opened.headers.get('access-control-allow-credentials'), null)
+  // The socket's later requests, with its sid, as well.
+  const { sid } = JSON.parse((await opened.text()).slice(1)) as { sid: string }
+  const headers = { origin: ORIGIN, 'content-type': 'text/plain;charset=UTF-8' }
+  const sent = await fetch(`${polling}&sid=${sid}`, { method: 'POST', headers, body: '40' })
+  assert.equal(await sent.text(), 'ok')
+  assert.equal(sent.headers.get('access-control-allow-origin'), ORIGIN)
+  // A preflight, which a browser sends first when a request has headers of its own.
+  const ask = (origin: string) =>
+    fetch(polling, {
+      method: 'OPTIONS',
+      headers: { origin, 'access-control-request-method': 'POST' },
+    })
+  const allowed = await ask(ORIGIN)
+  assert.equal(allowed.status, 204)
+  assert.equal(allowed.headers.get('access-control-allow-origin'), ORIGIN)
+  // Another site's page, or a lookalike, gets no such header, and is refused as before.
+  for (const origin of [EVIL, `${ORIGIN}.evil.example`]) {
+    const refused = await fetch(polling, { headers: { origin } })
+    assert.equal(refused.status, 403, origin)
+    assert.equal(refused.headers.get('access-control-allow-origin'), null, origin)
+    assert.equal((await ask(origin)).headers.get('access-control-allow-origin'), null, origin)
+  }
+})
+
 test('a request with no Origin is refused, over polling and WebSocket', async (t) => {
   const { app, url } = await server(t)
   let opened = 0

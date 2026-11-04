@@ -63,6 +63,14 @@ export function sockets(
     // site without asking first, sending its page's origin, so the server must refuse that
     // origin itself. A request with no Origin is refused too, since a browser always sends one.
     allowRequest: (request, callback) => callback(null, options.allows(request.headers.origin)),
+    // Socket.IO answers every request under /socket.io/ itself, before Fastify's hooks, so the
+    // CORS headers of cors.ts never reach them. Polling's answers carry them here instead, for
+    // the same origins: a page on another site, as the web app is, reads an answer only if it
+    // names its origin. An origin not allowed gets none, and allowRequest refuses it.
+    cors: {
+      origin: (origin, callback) => callback(null, options.allows(origin)),
+      methods: ['GET', 'POST'],
+    },
   })
   app.decorate('io', io)
   // app.close() waits for every connection to end, and a socket's stays open, so they are closed
