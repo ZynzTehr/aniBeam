@@ -189,3 +189,34 @@ test("demo.js shows a message that is in the room's history and came live too on
   await page.live(message(4, OTHER_ROOM))
   assert.deepEqual(page.shown(), ['message 1', 'message 2', 'message 3'])
 })
+
+test('demo.js leaves its room only once another is joined, so a join refused leaves it where it was', async () => {
+  const page = demoScript((event, { roomKey }) =>
+    event === 'join' && roomKey === 'bad' ? { error: 'invalid' } : { ok: true },
+  )
+  await page.join(ROOM)
+  await page.history(message(1))
+  page.sent.length = 0
+  await page.join('bad')
+  // Still in the room, as the page says: it never left it.
+  assert.deepEqual(page.sent, [['join', { roomKey: 'bad' }]])
+  assert.match(page.text('error'), /a room key looks like/)
+  assert.equal(page.text('status'), `Connected over websocket, in ${ROOM}.`)
+  assert.deepEqual(page.shown(), ['message 1'])
+  await page.live(message(2))
+  assert.deepEqual(page.shown(), ['message 1', 'message 2'])
+  // Joined again, the room is not left; another is joined first, then the room left.
+  page.sent.length = 0
+  await page.join(ROOM)
+  await page.history(message(1), message(2))
+  await page.join(OTHER_ROOM)
+  assert.deepEqual(page.sent, [
+    ['join', { roomKey: ROOM }],
+    ['join', { roomKey: OTHER_ROOM }],
+    ['leave', { roomKey: ROOM }],
+  ])
+  assert.deepEqual(page.shown(), [])
+  await page.history(message(5, OTHER_ROOM))
+  assert.equal(page.text('status'), `Connected over websocket, in ${OTHER_ROOM}.`)
+  assert.deepEqual(page.shown(), ['message 5'])
+})

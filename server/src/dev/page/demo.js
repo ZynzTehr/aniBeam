@@ -74,22 +74,25 @@ const ERRORS = {
 const explain = (code) => ERRORS[code] ?? code
 
 /**
- * Joins `key`, leaving the room before it, then reads the room's history. The join's ack comes
- * once the socket is in the room, so history read after it misses nothing sent since; a message
- * that arrives live while history loads, or is in both, shows once.
+ * Joins `key`, then leaves the room before it, then reads the room's history. The join's ack
+ * comes once the socket is in the room, so history read after it misses nothing sent since; a
+ * message that arrives live while history loads, or is in both, shows once. The room before is
+ * left only once the join is done, so that a join refused, as of a bad key, leaves the page in
+ * it still, as it says.
  */
 async function join(key) {
-  if (room !== undefined && room !== key)
-    await socket.timeout(5000).emitWithAck('leave', { roomKey: room })
   const answer = await socket.timeout(5000).emitWithAck('join', { roomKey: key })
   if (answer.error) {
     say('error', explain(answer.error))
     return
   }
-  if (room !== key) shown.clear()
+  const before = room
+  if (before !== key) shown.clear()
   room = key
   say('error', '')
   render()
+  // No answer is needed: the room's messages show no more once `room` is another (add).
+  if (before !== undefined && before !== key) socket.emit('leave', { roomKey: before })
   const response = await fetch(`/rooms/${encodeURIComponent(key)}/messages`)
   const page = await response.json()
   // A join of another room meanwhile wins.
