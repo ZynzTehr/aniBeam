@@ -1,5 +1,7 @@
-// The one list of error codes the chat server answers with, over REST and in socket acks, so
-// that web/ can tell each refusal apart. Each code joins the list in the PR that first uses it.
+// The one list of error codes the chat server answers with, over REST, in socket acks and as a
+// socket's connect error, so that web/ can tell each refusal apart. REST and acks answer
+// { error: code }; a refused socket's connect_error has the code as its message. Each code joins
+// the list in the PR that first uses it.
 export const ERROR_CODES = [
   // The request itself is wrong: a bad room key, cursor or payload. REST answers it with 400.
   'invalid',
@@ -9,7 +11,7 @@ export const ERROR_CODES = [
   // socket. REST answers it with 401.
   'sign-in-required',
   // A token that proves nothing: forged, expired, for another project, or not a Bearer token.
-  // REST answers it with 401.
+  // REST answers it with 401, and a socket that sent one gets it as its connect error.
   'bad-token',
   // Someone has this handle already, written in any case. REST answers it with 409.
   'handle-taken',
@@ -23,8 +25,10 @@ export const ERROR_CODES = [
   // A message sent to a room the socket hasn't joined.
   'not-joined',
   // A failure of the server's own, such as the database being down, and not the request's.
-  // REST answers it with 500, and a socket ack for a message that failed to save says it too,
-  // with no stack, SQL or message, which can hold a user's uid or the SQL that failed.
+  // REST answers it with 500, an ack says it for any event whose handling failed (a message that
+  // failed to save among them), and a socket gets it as its connect error when its token
+  // couldn't be checked. It comes with no stack, SQL or message, which can hold a user's uid or
+  // the SQL that failed.
   'server-error',
 ] as const
 

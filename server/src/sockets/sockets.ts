@@ -33,8 +33,9 @@ declare module 'fastify' {
 
 /**
  * The largest packet a client may send, 16 KB: a polling client can send several messages in
- * one request, and five of 500 emoji are about 10 KB (fixed choice 4). A larger one closes the
- * socket. Each message still has its own limit of 500 code points.
+ * one request, and five of 500 emoji are about 10 KB (fixed choice 4). A larger one closes a
+ * WebSocket; over polling, the request is refused with 413, and Socket.IO's client then closes
+ * the socket itself. Each message still has its own limit of 500 code points.
  */
 export const MAX_PACKET = 16 * 1024
 
@@ -61,7 +62,10 @@ export function sockets(
     // The request that opens a connection, over polling or as a WebSocket upgrade, is checked
     // here before Socket.IO reads it. CORS covers none of a WebSocket: a browser opens one to any
     // site without asking first, sending its page's origin, so the server must refuse that
-    // origin itself. A request with no Origin is refused too, since a browser always sends one.
+    // origin itself. A request with no Origin is refused too. A browser sends one with every
+    // WebSocket and every request to another site, but not with a GET to its page's own server,
+    // which polling's first request is: a page this server serves, as the dev entry's demo page,
+    // connects over WebSocket alone.
     allowRequest: (request, callback) => callback(null, options.allows(request.headers.origin)),
     // Socket.IO answers every request under /socket.io/ itself, before Fastify's hooks, so the
     // CORS headers of cors.ts never reach them. Polling's answers carry them here instead, for
