@@ -45,7 +45,19 @@ try {
   const given = process.env.DATABASE_URL
   const cluster = given ? undefined : await startCluster()
   const pool = new pg.Pool({ connectionString: given || cluster?.url })
-  app = buildApp({ logger: true, pool, verify: devVerifier })
+  // PORT is for the tests, which ask for a free one with 0. The host is fixed.
+  const port = Number(process.env.PORT ?? 3001)
+  // Its own pages, under either name of this computer, may open sockets and read its answers, and
+  // no other website's. With port 0 the port isn't known until it listens, so no page's may.
+  const origins = port === 0 ? [] : [`http://127.0.0.1:${port}`, `http://localhost:${port}`]
+  // Its pages load Socket.IO's browser file from it.
+  app = buildApp({
+    corsOrigins: origins,
+    logger: true,
+    pool,
+    serveClient: true,
+    verify: devVerifier,
+  })
   app.addHook('onClose', () => pool.end())
   // As in src/index.ts: an idle connection Postgres ends must not end the process.
   const log = app.log
@@ -64,8 +76,7 @@ try {
       ? `Database: a throwaway Postgres in ${cluster.dir}, deleted when this stops`
       : 'Database: DATABASE_URL',
   )
-  // PORT is for the tests, which ask for a free one with 0. The host is fixed.
-  await app.listen({ port: Number(process.env.PORT ?? 3001), host: '127.0.0.1' })
+  await app.listen({ port, host: '127.0.0.1' })
   log.info('Dev sign-in: send Authorization: Bearer dev:<name>. Ctrl-C stops the server.')
 } catch (err) {
   console.error(err)

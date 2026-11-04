@@ -2,12 +2,13 @@ import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs'
-import { connect } from 'node:net'
+import { connect, createServer, type AddressInfo } from 'node:net'
 import { networkInterfaces, tmpdir } from 'node:os'
 import path from 'node:path'
 import { after, before, test, type TestContext } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { testDatabase, type TestDatabase } from '../testing/database.ts'
+import { client, connected, within } from '../testing/sockets.ts'
 
 let db: TestDatabase
 before(async () => {
@@ -123,4 +124,31 @@ test('closing the terminal (SIGHUP) stops it too, and deletes the throwaway Post
   const [code, signal] = await exited
   assert.deepEqual({ code, signal }, { code: 0, signal: null }, output())
   assert.deepEqual(clusters(), [], 'the throwaway Postgres is deleted')
+})
+
+/** A port nothing listens on now, for a dev entry that must know its port before it listens. */
+async function freePort() {
+  const server = createServer()
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address() as AddressInfo
+  await new Promise((resolve) => server.close(resolve))
+  return port
+}
+
+test("the dev entry's own pages open sockets, and load Socket.IO's browser file", async (t) => {
+  const port = await freePort()
+  const { listening, output } = demo(t, { DATABASE_URL: db.url, PORT: String(port) })
+  const address = await listening
+  const file = await fetch(`${address}/socket.io/socket.io.min.js`)
+  assert.equal(file.status, 200, output())
+  assert.match(file.headers.get('content-type') ?? '', /javascript/)
+  for (const origin of [`http://127.0.0.1:${port}`, `http://localhost:${port}`])
+    await within(connected(client(t, address, { origin })), origin)
+  // Any other page, the web dev server's too, is refused.
+  for (const origin of [
+    'http://localhost:5173',
+    'https://evil.example',
+    `http://127.0.0.1:${port + 1}`,
+  ])
+    await assert.rejects(within(connected(client(t, address, { origin })), origin), origin)
 })

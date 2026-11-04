@@ -46,6 +46,13 @@ test('the server listens, and on SIGTERM closes and exits with 0', async (t) => 
   assert.deepEqual({ code, signal }, { code: 0, signal: null }, output())
 })
 
+test("the server doesn't serve Socket.IO's browser file, which only the dev entry's page loads", async (t) => {
+  const { address } = await start(t)
+  const file = await fetch(`${address}/socket.io/socket.io.min.js`)
+  assert.notEqual(file.status, 200)
+  assert.doesNotMatch(file.headers.get('content-type') ?? '', /javascript/)
+})
+
 test('in production, the server refuses to start without its settings, and says why', async (t) => {
   const env: NodeJS.ProcessEnv = { ...process.env, PORT: '0', NODE_ENV: 'production' }
   for (const name of ['CORS_ORIGIN', 'FIREBASE_PROJECT_ID', 'FIREBASE_AUTH_EMULATOR_HOST'])
