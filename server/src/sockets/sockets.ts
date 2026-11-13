@@ -51,7 +51,8 @@ export const MAX_PACKET = 16 * 1024
  * routes that read it, sockets may join and leave rooms but have neither event. `serveClient` serves Socket.IO's browser file at
  * /socket.io/socket.io.min.js, for the dev entry's page. `now` is the clock the limits read, in
  * ms. `maxConnectionsPerIp` is the most connections one IP address may have open at once, the
- * address read by app.clientIp (client-ip.ts).
+ * address read by app.clientIp (client-ip.ts), and `refusalGraceMs` how long one past it stays
+ * open for its refusal.
  */
 export function sockets(
   app: FastifyInstance,
@@ -60,6 +61,7 @@ export function sockets(
     db: NodePgDatabase | undefined
     maxConnectionsPerIp: number
     now: () => number
+    refusalGraceMs: number
     serveClient: boolean
     verify: Verify | undefined
   },
@@ -94,7 +96,11 @@ export function sockets(
 
   // First, the connections per IP address (moderation/connections.ts), so that a connection
   // past its address's max costs no token check.
-  connectionCap(io, { max: options.maxConnectionsPerIp, ipOf: (request) => app.clientIp(request) })
+  connectionCap(io, {
+    max: options.maxConnectionsPerIp,
+    ipOf: (request) => app.clientIp(request),
+    graceMs: options.refusalGraceMs,
+  })
 
   // The sign-in, as a socket opens: the token is read from the handshake's auth alone, which a
   // client sets as io(url, { auth: { token } }), and checked by the verifier REST uses. A token
