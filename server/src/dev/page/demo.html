@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AniBeam chat demo</title>
+    <link rel="stylesheet" href="/demo/demo.css" />
+    <script src="/socket.io/socket.io.min.js" defer></script>
+    <script src="/demo/demo.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <h1>AniBeam chat demo</h1>
+      <p class="note">
+        The dev entry's page: anyone can sign in as anyone here. Open it in two tabs, pick a name in
+        each, join the same room and send.
+      </p>
+
+      <form id="name-form">
+        <label for="name">Name</label>
+        <input
+          id="name"
+          required
+          pattern="[A-Za-z0-9_]{3,20}"
+          title="3 to 20 of A to Z, a to z, 0 to 9 and _"
+          autocomplete="off"
+        />
+        <button>Sign in and set handle</button>
+      </form>
+      <p id="who">Signed out: you can read, but not send.</p>
+
+      <form id="room-form">
+        <label for="room">Room</label>
+        <input id="room" required value="anime:154587:ep:5" autocomplete="off" />
+        <button>Join</button>
+      </form>
+      <p id="status" role="status">Connecting...</p>
+
+      <ol id="messages" aria-live="polite"></ol>
+
+      <form id="send-form">
+        <label for="body">Message</label>
+        <input id="body" required autocomplete="off" />
+        <label class="check"><input id="spoiler" type="checkbox" /> Spoiler</label>
+        <span id="count">0 / 500</span>
+        <button>Send</button>
+      </form>
+      <p id="error" role="alert"></p>
+    </main>
+  </body>
+</html>

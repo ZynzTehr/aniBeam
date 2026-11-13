@@ -1,13 +1,15 @@
 // npm run demo:chat: the chat server for trying it on this computer, with the dev sign-in
 // (verify.ts), where the token dev:<name> signs in as that name. Its database is a throwaway
 // Postgres of its own (src/db/cluster.ts), deleted when it stops, or DATABASE_URL's if one is
-// given; either way it runs the migrations first. Since anyone can sign in as anyone, it listens
-// on 127.0.0.1 only, which no other computer reaches, refuses NODE_ENV=production, and is left
-// out of dist/. Ctrl-C (SIGINT), SIGTERM or closing its terminal (SIGHUP) stops it.
+// given; either way it runs the migrations first. It serves the two-tab demo's page at /demo
+// (page.ts). Since anyone can sign in as anyone, it listens on 127.0.0.1 only, which no other
+// computer reaches, refuses NODE_ENV=production, and is left out of dist/. Ctrl-C (SIGINT),
+// SIGTERM or closing its terminal (SIGHUP) stops it.
 import pg from 'pg'
 import { buildApp } from '../app.ts'
 import { startCluster } from '../db/cluster.ts'
 import { migrate } from '../db/migrate.ts'
+import { demoPage } from './page.ts'
 import { devVerifier } from './verify.ts'
 
 if (process.env.NODE_ENV === 'production') {
@@ -45,7 +47,21 @@ try {
   const given = process.env.DATABASE_URL
   const cluster = given ? undefined : await startCluster()
   const pool = new pg.Pool({ connectionString: given || cluster?.url })
-  app = buildApp({ logger: true, pool, verify: devVerifier })
+  // PORT is for the tests, which ask for a free one with 0. The host is fixed.
+  const port = Number(process.env.PORT ?? 3001)
+  // Its own pages, under either name of this computer, may open sockets and read its answers, and
+  // no other website's. With port 0 the port isn't known until it listens, so no page's may.
+  const origins = port === 0 ? [] : [`http://127.0.0.1:${port}`, `http://localhost:${port}`]
+  // Its pages load Socket.IO's browser file from it.
+  app = buildApp({
+    corsOrigins: origins,
+    logger: true,
+    pool,
+    serveClient: true,
+    verify: devVerifier,
+  })
+  // The two-tab demo's page, at /demo.
+  demoPage(app)
   app.addHook('onClose', () => pool.end())
   // As in src/index.ts: an idle connection Postgres ends must not end the process.
   const log = app.log
@@ -64,9 +80,10 @@ try {
       ? `Database: a throwaway Postgres in ${cluster.dir}, deleted when this stops`
       : 'Database: DATABASE_URL',
   )
-  // PORT is for the tests, which ask for a free one with 0. The host is fixed.
-  await app.listen({ port: Number(process.env.PORT ?? 3001), host: '127.0.0.1' })
-  log.info('Dev sign-in: send Authorization: Bearer dev:<name>. Ctrl-C stops the server.')
+  await app.listen({ port, host: '127.0.0.1' })
+  log.info(
+    `The two-tab demo: http://127.0.0.1:${port}/demo. Dev sign-in: send Authorization: Bearer dev:<name>. Ctrl-C stops the server.`,
+  )
 } catch (err) {
   console.error(err)
   await stop(1)

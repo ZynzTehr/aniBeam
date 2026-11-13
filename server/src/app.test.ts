@@ -79,12 +79,23 @@ test('a request Node cannot read as HTTP answers the code invalid too', async (t
     assert.equal(answer.split('\r\n\r\n')[1], '{"error":"invalid"}')
 })
 
-test('a failure answers 500 without its message, which can hold the SQL that failed', async (t) => {
+test('a failure answers 500 server-error without its message, which can hold the SQL that failed', async (t) => {
   // Nothing listens on port 1, so the query fails.
   const pool = new pg.Pool({ connectionString: 'postgres://nobody@127.0.0.1:1/none' })
   const app = buildApp({ pool })
   t.after(() => pool.end())
   const response = await app.inject({ method: 'GET', url: '/rooms/anime:1:all/messages' })
   assert.equal(response.statusCode, 500)
-  assert.deepEqual(response.json(), { statusCode: 500, error: 'Internal Server Error' })
+  assert.equal(response.body, '{"error":"server-error"}')
+})
+
+test('a route that throws answers 500 server-error, with no stack, SQL or message', async () => {
+  const app = buildApp()
+  app.get('/throws', async () => {
+    throw new Error('select handle from users where auth_uid = uid-secret')
+  })
+  const response = await app.inject({ method: 'GET', url: '/throws' })
+  assert.equal(response.statusCode, 500)
+  // The body whole, so nothing rides along beside the code.
+  assert.equal(response.body, '{"error":"server-error"}')
 })

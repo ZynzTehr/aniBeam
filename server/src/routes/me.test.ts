@@ -109,7 +109,7 @@ test('a token the verifier refuses answers 401 bad-token', async () => {
 test('when the verifier itself fails, as when Google keys do not load, it is 500, not 401', async () => {
   const response = await me({ authorization: `Bearer ${KEYS_FAIL}` })
   assert.equal(response.statusCode, 500)
-  assert.deepEqual(response.json(), { statusCode: 500, error: 'Internal Server Error' })
+  assert.deepEqual(response.json(), { error: 'server-error' })
 })
 
 test('a signed-in user with no handle yet gets handle null, not banned', async () => {
@@ -416,7 +416,11 @@ test("when the database fails, the log keeps the query and its code, not the use
       payload: { handle: 'SecretHandle' },
     }),
   ]
-  for (const response of asked) assert.equal(response.statusCode, 500, response.body)
+  // Each answers the code alone: no SQL, and none of the values the query was given.
+  for (const response of asked) {
+    assert.equal(response.statusCode, 500, response.body)
+    assert.equal(response.body, '{"error":"server-error"}')
+  }
   assert.doesNotMatch(log, /uid-secret|SecretHandle/)
   // What the log does keep: which query failed, and why.
   assert.match(log, /"msg":"A database query failed"/)

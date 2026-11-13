@@ -18,17 +18,19 @@ const MAX_AGE = '600'
  * The CORS headers for `origins`: `headers` sets them on any answer, and `hook`, an onRequest
  * hook, sets them and answers the preflight. A browser sends a preflight (OPTIONS with
  * Access-Control-Request-Method) before a request with Authorization or a JSON body, to ask
- * whether it may send it.
+ * whether it may send it. `allows` says whether an origin is one of them, for the sockets'
+ * check (sockets/sockets.ts).
  */
 export function cors(origins: readonly string[]) {
   const allowed = new Set(origins)
+  const allows = (origin: string | undefined) => origin !== undefined && allowed.has(origin)
   /** Sets the headers, and says whether the request's origin is allowed. */
   const headers = (request: FastifyRequest, reply: FastifyReply) => {
     // Always, since the answer depends on the Origin: a cache must not give one origin's answer
     // to another.
     reply.header('vary', 'Origin')
     const { origin } = request.headers
-    if (origin === undefined || !allowed.has(origin)) return false
+    if (origin === undefined || !allows(origin)) return false
     reply.header('access-control-allow-origin', origin)
     return true
   }
@@ -44,5 +46,5 @@ export function cors(origins: readonly string[]) {
         .header('access-control-max-age', MAX_AGE)
     return reply.code(204).send()
   }
-  return { headers, hook }
+  return { allows, headers, hook }
 }

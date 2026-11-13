@@ -12,3 +12,6 @@ export const roomKeySchema = z
   .check(z.regex(/^anime:[1-9]\d{0,9}:(?:ep:[1-9]\d{0,4}|all)$/))
 
 export type RoomKey = z.infer<typeof roomKeySchema>
+
+/** What join and leave send: { roomKey }, with no other key. */
+export const roomPayloadSchema = z.strictObject({ roomKey: roomKeySchema })

@@ -8,6 +8,8 @@ import path from 'node:path'
 import { after, before, test, type TestContext } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { testDatabase, type TestDatabase } from '../testing/database.ts'
+import { client, connected, onFreePort, within } from '../testing/sockets.ts'
+import { CSP } from './page.ts'
 
 let db: TestDatabase
 before(async () => {
@@ -123,4 +125,31 @@ test('closing the terminal (SIGHUP) stops it too, and deletes the throwaway Post
   const [code, signal] = await exited
   assert.deepEqual({ code, signal }, { code: 0, signal: null }, output())
   assert.deepEqual(clusters(), [], 'the throwaway Postgres is deleted')
+})
+
+test("the dev entry serves the demo page, whose origin opens sockets, and Socket.IO's browser file", async (t) => {
+  const {
+    port,
+    started: { address, output },
+  } = await onFreePort(async (port) => {
+    const { listening, output } = demo(t, { DATABASE_URL: db.url, PORT: String(port) })
+    return { address: await listening, output }
+  })
+  for (const path of ['/demo', '/demo/demo.js']) {
+    const page = await fetch(`${address}${path}`)
+    assert.equal(page.status, 200, output())
+    assert.equal(page.headers.get('content-security-policy'), CSP, path)
+  }
+  const file = await fetch(`${address}/socket.io/socket.io.min.js`)
+  assert.equal(file.status, 200, output())
+  assert.match(file.headers.get('content-type') ?? '', /javascript/)
+  for (const origin of [`http://127.0.0.1:${port}`, `http://localhost:${port}`])
+    await within(connected(client(t, address, { origin })), origin)
+  // Any other page, the web dev server's too, is refused.
+  for (const origin of [
+    'http://localhost:5173',
+    'https://evil.example',
+    `http://127.0.0.1:${port + 1}`,
+  ])
+    await assert.rejects(within(connected(client(t, address, { origin })), origin), origin)
 })
