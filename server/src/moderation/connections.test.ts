@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
+import { EventEmitter } from 'node:events'
 import { test, type TestContext } from 'node:test'
 import { buildApp } from '../app.ts'
 import { BadToken, type Verify } from '../auth/verify.ts'
 import type { TrustProxy } from '../client-ip.ts'
-import type { ChatSocket } from '../sockets/sockets.ts'
+import type { ChatServer, ChatSocket } from '../sockets/sockets.ts'
 import { client, connected, listen, next, ORIGIN, within } from '../testing/sockets.ts'
-import { countedAs } from './connections.ts'
+import { connectionCap, countedAs } from './connections.ts'
 
 // The connections per IP address, with a max of 2 so that the tests stay small. Every client
 // here comes from 127.0.0.1, and those with a proxy trusted send X-Forwarded-For as one would.
@@ -262,6 +263,31 @@ test('a connection has one socket: asked for again at once, it gets too-many-con
   ])
   assert.equal(app.io.of('/').sockets.size, 1)
   assert.equal(verified - checked, 1)
+})
+
+test('an address is forgotten once its last connection closes, so that the count keeps only open ones', () => {
+  const cap = connectionCap({
+    max: 2,
+    ipOf: (request) => request.socket.remoteAddress,
+    graceMs: 60_000,
+  })
+  // Socket.IO's server, as far as the count reads it: its engine's connections, each closing.
+  const engine = new EventEmitter()
+  cap.attach({ engine, use: () => {} } as unknown as ChatServer)
+  const connections = ['10.0.0.1', '10.0.0.1', '10.0.0.2'].map((address) => {
+    const connection = Object.assign(new EventEmitter(), {
+      request: { socket: { remoteAddress: address }, headers: {} },
+    })
+    engine.emit('connection', connection)
+    return connection
+  })
+  assert.equal(cap.size, 2)
+  connections[0].emit('close')
+  assert.equal(cap.size, 2)
+  connections[1].emit('close')
+  assert.equal(cap.size, 1)
+  connections[2].emit('close')
+  assert.equal(cap.size, 0)
 })
 
 /** A client's options with `forwarded` as its X-Forwarded-For. */

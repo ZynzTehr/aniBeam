@@ -124,5 +124,9 @@ export function connectionCap({
         next()
       })
     },
+    /** How many addresses it counts now, for the tests. */
+    get size() {
+      return open.size
+    },
   }
 }
