@@ -7,6 +7,7 @@ import type { Verify } from './auth/verify.ts'
 import { clientIp, proxyTrust, type TrustProxy } from './client-ip.ts'
 import { cors } from './cors.ts'
 import { logFailure } from './failure.ts'
+import { MAX_CONNECTIONS_PER_IP } from './moderation/connections.ts'
 import { historyRoutes } from './routes/history.ts'
 import { meRoutes } from './routes/me.ts'
 import { sockets } from './sockets/sockets.ts'
@@ -37,11 +38,13 @@ declare module 'fastify' {
 // none, no website's may. `serveClient` serves Socket.IO's browser file, which only the dev
 // entry's page loads. `logger` is true to log to stdout, or a stream for a test to read.
 // `trustProxy` is the proxies trusted to say each client's IP (TRUST_PROXY), none if unset.
-// `now` is the clock the limits read, in ms, for tests to set by hand.
+// `now` is the clock the limits read, in ms, for tests to set by hand. `maxConnectionsPerIp` is
+// the most sockets' connections one IP address may have open at once, 10 unless a test sets it.
 export function buildApp(
   options: {
     corsOrigins?: readonly string[]
     logger?: boolean | { stream: { write(line: string): void } }
+    maxConnectionsPerIp?: number
     now?: () => number
     pool?: pg.Pool
     serveClient?: boolean
@@ -119,6 +122,7 @@ export function buildApp(
   sockets(app, {
     allows,
     db,
+    maxConnectionsPerIp: options.maxConnectionsPerIp ?? MAX_CONNECTIONS_PER_IP,
     // A clock that never goes back, as the computer's can when it is set.
     now: options.now ?? (() => performance.now()),
     serveClient: options.serveClient ?? false,

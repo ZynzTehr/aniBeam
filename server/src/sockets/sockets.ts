@@ -7,6 +7,7 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import type { FastifyInstance } from 'fastify'
 import { Server, type DefaultEventsMap, type Socket } from 'socket.io'
 import { BadToken, type Verify } from '../auth/verify.ts'
+import { connectionCap } from '../moderation/connections.ts'
 import { rateLimit } from '../moderation/rate-limit.ts'
 import { messageEvents, SEND_LIMIT } from './messages.ts'
 import { roomEvents } from './rooms.ts'
@@ -47,13 +48,15 @@ export const MAX_PACKET = 16 * 1024
  * message:send saves messages; without one, as for the routes that read it, sockets may join
  * and leave rooms but have no message:send. `serveClient` serves Socket.IO's browser file at
  * /socket.io/socket.io.min.js, for the dev entry's page. `now` is the clock the limits read, in
- * ms.
+ * ms. `maxConnectionsPerIp` is the most connections one IP address may have open at once, the
+ * address read by app.clientIp (client-ip.ts).
  */
 export function sockets(
   app: FastifyInstance,
   options: {
     allows: (origin: string | undefined) => boolean
     db: NodePgDatabase | undefined
+    maxConnectionsPerIp: number
     now: () => number
     serveClient: boolean
     verify: Verify | undefined
@@ -86,6 +89,10 @@ export function sockets(
   app.addHook('preClose', async () => {
     io.engine.close()
   })
+
+  // First, the connections per IP address (moderation/connections.ts), so that a connection
+  // past its address's max costs no token check.
+  connectionCap(io, { max: options.maxConnectionsPerIp, ipOf: (request) => app.clientIp(request) })
 
   // The sign-in, as a socket opens: the token is read from the handshake's auth alone, which a
   // client sets as io(url, { auth: { token } }), and checked by the verifier REST uses. A token
