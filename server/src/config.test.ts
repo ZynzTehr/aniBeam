@@ -16,6 +16,7 @@ test('a production environment with every setting loads', () => {
     {
       corsOrigins: ['https://anibeam.app', 'https://www.anibeam.app:8443'],
       firebaseProjectId: 'anibeam',
+      trustProxy: undefined,
     },
   )
 })
@@ -99,11 +100,66 @@ test('every problem is named at once, one per line', () => {
 })
 
 test('outside production, CORS_ORIGIN means the dev server, and no project is needed', () => {
-  assert.deepEqual(loadConfig({}), { corsOrigins: [DEV_ORIGIN], firebaseProjectId: undefined })
+  const devServer = {
+    corsOrigins: [DEV_ORIGIN],
+    firebaseProjectId: undefined,
+    trustProxy: undefined,
+  }
+  assert.deepEqual(loadConfig({}), devServer)
   assert.deepEqual(
     loadConfig({ NODE_ENV: 'development', FIREBASE_AUTH_EMULATOR_HOST: 'localhost:9099' }),
-    { corsOrigins: [DEV_ORIGIN], firebaseProjectId: undefined },
+    devServer,
   )
   // A typo is still a typo.
   assert.throws(() => loadConfig({ CORS_ORIGIN: 'localhost:5173' }), /isn't an origin/)
+})
+
+test("an unset TRUST_PROXY trusts no proxy, so each address is its connection's", () => {
+  for (const value of [undefined, '', '  ']) {
+    assert.equal(loadConfig(production({ TRUST_PROXY: value })).trustProxy, undefined)
+    assert.equal(loadConfig({ TRUST_PROXY: value }).trustProxy, undefined)
+  }
+})
+
+test("TRUST_PROXY is the hop count 1, or the proxies' addresses", () => {
+  assert.equal(loadConfig(production({ TRUST_PROXY: '1' })).trustProxy, 1)
+  assert.equal(loadConfig({ TRUST_PROXY: ' 1 ' }).trustProxy, 1)
+  assert.deepEqual(loadConfig(production({ TRUST_PROXY: '10.0.0.2' })).trustProxy, ['10.0.0.2'])
+  assert.deepEqual(loadConfig(production({ TRUST_PROXY: '10.0.0.2, fd00::2' })).trustProxy, [
+    '10.0.0.2',
+    'fd00::2',
+  ])
+})
+
+test('TRUST_PROXY=true stops the start, in production or not, since it trusts every hop', () => {
+  for (const value of ['true', 'TRUE', ' true ']) {
+    assert.throws(
+      () => loadConfig(production({ TRUST_PROXY: value })),
+      /TRUST_PROXY is true, which trusts every hop/,
+      value,
+    )
+    assert.throws(() => loadConfig({ TRUST_PROXY: value }), /TRUST_PROXY is true/, value)
+  }
+})
+
+test('a TRUST_PROXY that is neither 1 nor addresses stops the start', () => {
+  for (const value of [
+    '2',
+    '0',
+    '01',
+    'false',
+    'yes',
+    'proxy.internal',
+    '10.0.0.0/8',
+    // An empty entry, and a bad one after a good one.
+    '10.0.0.2,',
+    '10.0.0.2, 10.0.0',
+  ]) {
+    assert.throws(
+      () => loadConfig(production({ TRUST_PROXY: value })),
+      /TRUST_PROXY has ".*", which is neither 1 nor an IP address/,
+      value,
+    )
+    assert.throws(() => loadConfig({ TRUST_PROXY: value }), /neither 1 nor an IP address/, value)
+  }
 })

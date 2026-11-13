@@ -2,6 +2,8 @@
 // them). In production a missing or unsafe one stops the start, before the server listens, with
 // every problem named at once: a server started without them would let the wrong websites call
 // it, or take sign-ins it has no project to check against.
+import { isIP } from 'node:net'
+import type { TrustProxy } from './client-ip.ts'
 
 /** The web dev server's origin, which an unset CORS_ORIGIN means outside production. */
 export const DEV_ORIGIN = 'http://localhost:5173'
@@ -11,6 +13,8 @@ export interface Config {
   corsOrigins: string[]
   /** The Firebase project whose sign-ins the server takes (FIREBASE_PROJECT_ID), if one is set. */
   firebaseProjectId: string | undefined
+  /** The proxies trusted to say each client's IP address (TRUST_PROXY, client-ip.ts). */
+  trustProxy: TrustProxy
 }
 
 /** Reads the settings from `env`, or throws an error that names each problem, one per line. */
@@ -56,9 +60,31 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
       'FIREBASE_AUTH_EMULATOR_HOST is set: unset it, since it is for the emulator only.',
     )
 
+  // Unset, no proxy is trusted, and each client's IP is its connection's. Then the hop count 1,
+  // or the proxies' addresses, so that only the X-Forwarded-For entries they added are read
+  // (fixed choice 3). This holds outside production too, since a wrong one only shows as limits
+  // that count the wrong address. true, as Express and Fastify take it, trusts every hop, so
+  // the leftmost entry, which any client can write, would be taken as its address.
+  const trust = env.TRUST_PROXY?.trim()
+  let trustProxy: TrustProxy
+  if (trust === '1') trustProxy = 1
+  else if (trust?.toLowerCase() === 'true')
+    problems.push(
+      "TRUST_PROXY is true, which trusts every hop, so a client could write its own address at the start of X-Forwarded-For: set it to the proxy's address, or to 1 for the one proxy in front of the server.",
+    )
+  else if (trust) {
+    const entries = trust.split(',').map((entry) => entry.trim())
+    const bad = entries.find((entry) => isIP(entry) === 0)
+    if (bad === undefined) trustProxy = entries
+    else
+      problems.push(
+        `TRUST_PROXY has ${JSON.stringify(bad)}, which is neither 1 nor an IP address: set it to the proxy's address (several comma-separated), or to 1 for the one proxy in front of the server, or leave it unset for none.`,
+      )
+  }
+
   if (problems.length > 0)
     throw new Error(`The chat server can't start:\n${problems.map((p) => `- ${p}`).join('\n')}`)
-  return { corsOrigins, firebaseProjectId }
+  return { corsOrigins, firebaseProjectId, trustProxy }
 }
 
 /** This computer's host names, as URL writes them. */
