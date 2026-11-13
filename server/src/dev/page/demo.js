@@ -142,7 +142,11 @@ socket.on('connect', async () => {
   status()
 })
 socket.on('disconnect', status)
-socket.on('connect_error', (err) => say('status', `Refused: ${explain({ error: err.message })}`))
+/** What a refused connection's codes mean, where a refusal's text says less. */
+const REFUSED = { 'server-error': 'the server could not check the sign-in. Try again.' }
+socket.on('connect_error', (err) =>
+  say('status', `Refused: ${REFUSED[err.message] ?? explain({ error: err.message })}`),
+)
 socket.on('message:new', (message) => add(message))
 // Three people reported a message: it goes from the page, in every tab in the room.
 socket.on('message:hidden', ({ id }) => {
@@ -172,8 +176,11 @@ $('name-form').addEventListener('submit', async (event) => {
   event.preventDefault()
   const name = $('name').value.trim()
   token = `dev:${name}`
-  // Connect again, so that the socket signs in with the new token.
+  // Connect again, so that the socket signs in with the new token. What the last name reported
+  // is that name's: this one may report the same messages.
   socket.disconnect().connect()
+  reported.clear()
+  render()
   const response = await fetch('/me/handle', {
     method: 'POST',
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },

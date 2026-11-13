@@ -131,6 +131,9 @@ function demoScript(answer: (event: string, payload: { roomKey: string }) => unk
     on: (event: string, listener: (...args: unknown[]) => unknown) =>
       listeners.set(event, listener),
     emit: (event: string, payload: unknown) => void keep(event, payload),
+    // The name form connects again, so that the socket signs in with the new token.
+    disconnect: () => socket,
+    connect: () => socket,
     timeout: () => ({
       emitWithAck: async (event: string, payload: { roomKey: string }) => {
         keep(event, payload)
@@ -177,6 +180,12 @@ function demoScript(answer: (event: string, payload: { roomKey: string }) => unk
     /** A socket event from the server, other than message:new. */
     event: async (event: string, ...args: unknown[]) => {
       listeners.get(event)!(...args)
+      await settled()
+    },
+    /** Types `name` in the name box and presses Sign in and set handle. */
+    signIn: async (name: string) => {
+      element('name').value = name
+      void element('name-form').listeners.get('submit')!({ preventDefault() {} })
       await settled()
     },
     /** Types `key` in the room box and presses Join. */
@@ -308,4 +317,21 @@ test('demo.js reports a message for the reason picked, and says each refusal as 
     page.text('status'),
     'Refused: this computer has too many chat tabs open. Close one, then reload.',
   )
+})
+
+test('demo.js forgets what it reported once signed in as another name, and says each refusal of a connection', async () => {
+  const page = demoScript(() => ({ ok: true }))
+  await page.join(ROOM)
+  await page.history(message(1))
+  await page.report(0)
+  assert.equal(page.button(0).textContent, 'Reported')
+  // Another name may report it too.
+  await page.signIn('kiri')
+  assert.equal(page.button(0).textContent, 'Report')
+  assert.equal(page.button(0).disabled, false)
+  // A token the server couldn't check is the sign-in's trouble, not a post's or a report's.
+  await page.event('connect_error', new Error('server-error'))
+  assert.equal(page.text('status'), 'Refused: the server could not check the sign-in. Try again.')
+  // Signed out, the page says what is left: reading.
+  assert.match(read('demo.html'), /Signed out: you can read, but not send or report\./)
 })
