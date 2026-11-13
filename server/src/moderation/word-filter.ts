@@ -6,7 +6,8 @@
 // - NFKC, so letters Unicode counts as the same, such as full-width ｆｕｃｋ, become plain ones;
 // - lowercase;
 // - accents dropped: NFD splits ü into u and its accent, and the accent goes, so fück is fuck;
-// - characters that show nothing, such as a zero-width space, dropped, so they can't split a word;
+// - characters that show nothing, such as a zero-width space, dropped, so they can't split a word,
+//   and the Hangul fillers too, which show nothing either though Unicode counts them as letters;
 // - leetspeak read as letters: 0 o, 1 i or l, 3 e, 4 a, 5 s, @ a and $ s, so sh1t is shit,
 //   but only in a word with as many letters as digits or more, so that a number such as
 //   episode 455, 45s or the phone A55 stays a number;
@@ -59,7 +60,7 @@ function words(text: string, leet: Record<string, string> | undefined) {
     .normalize('NFKC')
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\p{M}\p{Cf}]/gu, '')
+    .replace(/[\p{M}\p{Cf}\u115f\u1160\u3164\uffa0]/gu, '')
   // With leetspeak, each run of letters, digits and stand-ins is read on its own first, and its
   // stand-ins become letters only if it is wordy.
   const tokens = leet

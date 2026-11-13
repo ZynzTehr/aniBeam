@@ -54,6 +54,11 @@ test('leetspeak, stretched, accented and full-width forms are refused', () => {
       // Characters that show nothing, inside the word.
       'fu​ck',
       'sh­it',
+      // Hangul fillers, which show nothing but Unicode counts as letters.
+      'fu\u3164ck',
+      'sh\uffa0it',
+      'fu\u115fck',
+      'fu\u1160ck',
     ]),
     [],
   )
