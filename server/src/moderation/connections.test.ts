@@ -5,6 +5,7 @@ import { BadToken, type Verify } from '../auth/verify.ts'
 import type { TrustProxy } from '../client-ip.ts'
 import type { ChatSocket } from '../sockets/sockets.ts'
 import { client, connected, listen, next, ORIGIN, within } from '../testing/sockets.ts'
+import { countedAs } from './connections.ts'
 
 // The connections per IP address, with a max of 2 so that the tests stay small. Every client
 // here comes from 127.0.0.1, and those with a proxy trusted send X-Forwarded-For as one would.
@@ -279,6 +280,28 @@ test('a faked leftmost forwarded address is ignored on sockets: they count by th
   )
   // Another client of the proxy's has places of its own, whatever it writes first.
   assert.equal((await open(t, app, url, from('198.51.100.4, 203.0.113.9'))).outcome, true)
+})
+
+test('an IPv6 address counts by its /64, and an IPv4 one by itself, however it is written', () => {
+  for (const [address, counted] of [
+    ['2001:db8:1:2::5', '2001:db8:1:2::/64'],
+    ['2001:0DB8:0001:0002:aaaa:bbbb:cccc:dddd', '2001:db8:1:2::/64'],
+    ['2001:db8::1', '2001:db8:0:0::/64'],
+    ['::1', '0:0:0:0::/64'],
+    ['a::b:c:d:1.2.3.4', 'a:0:0:b::/64'],
+    ['fe80::1%en0', 'fe80:0:0:0::/64'],
+    ['::ffff:10.0.0.2', '10.0.0.2'],
+    ['10.0.0.2', '10.0.0.2'],
+  ])
+    assert.equal(countedAs(address), counted, address)
+})
+
+test('addresses of one IPv6 /64 share its places, and another /64 has its own', async (t) => {
+  const { app, url } = await server(t, { trustProxy: 1 })
+  assert.equal((await open(t, app, url, from('2001:db8:1:2::5'))).outcome, true)
+  assert.equal((await open(t, app, url, from('2001:db8:1:2:ffff::9'))).outcome, true)
+  assert.equal((await open(t, app, url, from('2001:db8:1:2::77'))).outcome, 'too-many-connections')
+  assert.equal((await open(t, app, url, from('2001:db8:1:3::5'))).outcome, true)
 })
 
 test('a faked leftmost forwarded address is ignored on REST too', async () => {
