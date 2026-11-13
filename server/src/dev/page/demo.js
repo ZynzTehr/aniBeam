@@ -69,6 +69,8 @@ const ERRORS = {
   'handle-required': 'Set a handle first.',
   'not-joined': 'Join the room first.',
   'too-many-rooms': 'This socket is in too many rooms.',
+  'message-blocked': 'That message has a word the chat refuses. Nothing was posted.',
+  'handle-blocked': 'that name has a word the chat refuses.',
   'server-error': 'The server failed to save it. Nothing was posted.',
 }
 const explain = (code) => ERRORS[code] ?? code

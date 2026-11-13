@@ -254,6 +254,24 @@ test('a handle with a character outside A to Z, a to z, 0 to 9 and _, or not 3 t
   })
 })
 
+test('a handle with a blocked word answers 400 handle-blocked, read in parts between _ and digits, and makes no row', async () => {
+  const user = newUser()
+  const before = await everyone()
+  for (const handle of ['fuck', 'SHIT', 'fuck_you', 'Shit99', 'b1tch', 'fuck1', 'x_fuuuck_x']) {
+    const response = await pick(user.token, { handle })
+    assert.equal(response.statusCode, 400, handle)
+    assert.deepEqual(response.json(), { error: 'handle-blocked' }, handle)
+  }
+  assert.deepEqual(await everyone(), before)
+  // The handle is checked as a handle first: one that isn't one is invalid, blocked word or not.
+  assert.deepEqual((await pick(user.token, { handle: 'fuck!' })).json(), { error: 'invalid' })
+})
+
+test('a handle that only holds a blocked word, inside a longer word, is set', async () => {
+  for (const handle of ['Scunthorpe', 'class_act', 'assassin7', 'Matsushita', 'as_if'])
+    assert.equal((await pick(newUser().token, { handle })).statusCode, 201, handle)
+})
+
 test('a body that is not { handle } answers 400 invalid', async () => {
   const user = newUser()
   const json = { 'content-type': 'application/json' }

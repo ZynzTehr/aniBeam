@@ -1,0 +1,68 @@
+// The word filter (D11): whether a message's body or a handle holds a word of BLOCKED_WORDS
+// (blocked-words.ts). A message with one is refused with message-blocked, and a handle with one
+// with handle-blocked, rather than posted with the word masked. Only whole words match, so the
+// words inside "Scunthorpe", "class" and "assassin" never count. The text is first read as a
+// reader would see it, undoing the usual tricks:
+// - NFKC, so letters Unicode counts as the same, such as full-width ｆｕｃｋ, become plain ones;
+// - lowercase;
+// - accents dropped: NFD splits ü into u and its accent, and the accent goes, so fück is fuck;
+// - characters that show nothing, such as a zero-width space, dropped, so they can't split a word;
+// - leetspeak read as letters: 0 o, 1 i, 3 e, 4 a, 5 s, @ a and $ s, so sh1t is shit;
+// - then it is split into words at anything that is not a letter;
+// - and a letter repeated counts once, so fuuuuck is fuck. A listed word's own repeats must
+//   still be there, as many or more: "ass" matches asssss but not "as", and the slur with gg
+//   not "Niger".
+// The text is also read a second time with its digits as gaps, not letters, so that fuck1 or
+// Shit_99, as handles are often written, is caught as well as sh1t.
+import { BLOCKED_WORDS } from './blocked-words.ts'
+
+/** Leetspeak's stand-ins for letters. */
+const LEET: Record<string, string> = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', '@': 'a', $: 's' }
+
+/** A word's letters as runs of one letter, each [letter, how many times]: ass is a 1, s 2. */
+type Runs = [string, number][]
+
+function runs(word: string) {
+  const out: Runs = []
+  for (const letter of word) {
+    const last = out.at(-1)
+    if (last?.[0] === letter) last[1]++
+    else out.push([letter, 1])
+  }
+  return out
+}
+
+/** The word with each run as one letter: fuuuck is fuck, and ass is as. */
+const collapsed = (word: Runs) => word.map(([letter]) => letter).join('')
+
+/** The listed words' runs, by their collapsed form. */
+const LISTED = new Map<string, Runs[]>()
+for (const word of BLOCKED_WORDS) {
+  const listed = runs(word)
+  const key = collapsed(listed)
+  LISTED.set(key, [...(LISTED.get(key) ?? []), listed])
+}
+
+/** The words of `text` as the filter reads them, with leetspeak as letters if `leet`. */
+function words(text: string, leet: boolean) {
+  let read = text
+    .normalize('NFKC')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\p{M}\p{Cf}]/gu, '')
+  if (leet) read = read.replace(/[01345@$]/g, (stand) => LEET[stand])
+  return read.split(/\P{L}+/u).filter((word) => word !== '')
+}
+
+/** Whether `text` holds a listed word, as a whole word. */
+export function hasBlockedWord(text: string) {
+  for (const leet of [true, false])
+    for (const word of words(text, leet)) {
+      const found = runs(word)
+      // The same letters in the same runs, each run of the text's as long as the listed word's
+      // or longer.
+      const listed = LISTED.get(collapsed(found)) ?? []
+      if (listed.some((runs) => runs.every(([, times], i) => found[i][1] >= times))) return true
+    }
+  return false
+}

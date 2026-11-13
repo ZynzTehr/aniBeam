@@ -265,6 +265,29 @@ test('a 6th message within 10 s answers rate-limited with the wait, and nothing 
   assert.equal((await send(a.socket, 'aki again')).ok, true)
 })
 
+test('a message with a blocked word answers message-blocked, reaches no one, and counts toward the limit', async (t) => {
+  const clock = { now: 0 }
+  const { app, url } = await server(t, { now: () => clock.now })
+  const a = await member(t, app, url, 'token-kiri')
+  const b = await member(t, app, url, 'token-rei')
+  const heardByB = hearing(b.socket, b.server)
+  const send = (body: string) =>
+    ask(a.socket, 'message:send', { roomKey: ROOM, body, spoiler: false })
+  const blocked = ['what the fuck', 'sh1t.', 'FUUUUCK!', 'ｓｈｉｔ', 'fück that']
+  for (const body of blocked) assert.deepEqual(await send(body), { error: 'message-blocked' }, body)
+  for (const body of blocked) assert.equal(await saved(body), 0, body)
+  // The 5 refused count, so a 6th within 10 s waits, whatever it says.
+  assert.deepEqual(await send('a clean one'), { error: 'rate-limited', retryAfterMs: 10_000 })
+  assert.deepEqual(await heardByB(), [])
+  // Words that only hold a listed one pass.
+  clock.now = 10_000
+  const arrived = next<ChatMessage>(b.socket, 'message:new')
+  const body = 'Scunthorpe has class, said the assassin'
+  const answer = (await send(body)) as { message: ChatMessage }
+  assert.equal(answer.message.body, body)
+  assert.deepEqual(await arrived, answer.message)
+})
+
 test('a user with no handle yet gets handle-required, and can send once they pick one', async (t) => {
   const { app, url } = await server(t)
   const newcomer = await member(t, app, url, 'token-new')

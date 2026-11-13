@@ -7,6 +7,7 @@ import { sql } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import type { FastifyBaseLogger } from 'fastify'
 import type { RateLimit } from '../moderation/rate-limit.ts'
+import { hasBlockedWord } from '../moderation/word-filter.ts'
 import { acked } from './acked.ts'
 import type { ChatSocket } from './sockets.ts'
 
@@ -75,10 +76,11 @@ export function messageEvents(
   // { roomKey, body, spoiler }: {ok: true, message} once the message is saved. Each check comes
   // in this order, and the first that fails answers: the payload (invalid), the sign-in
   // (sign-in-required), the room (not-joined), the user's sends in the last 10 s (rate-limited,
-  // with retryAfterMs, the ms until another may be sent), then the user's handle
-  // (handle-required). A send that gets as far as the limit counts toward it, even if a later
-  // check refuses it. A failure to save answers server-error (acked.ts), and the room gets
-  // nothing.
+  // with retryAfterMs, the ms until another may be sent), the body's words (message-blocked, by
+  // the word filter, moderation/word-filter.ts), then the user's handle (handle-required). A
+  // send that gets as far as the limit counts toward it, even if a later check refuses it, so a
+  // blocked word can't be tried over and over. A failure to save answers server-error
+  // (acked.ts), and the room gets nothing.
   socket.on(
     'message:send',
     acked(
@@ -93,6 +95,8 @@ export function messageEvents(
         const retryAfterMs = sends.take(uid)
         if (retryAfterMs !== undefined)
           return { error: 'rate-limited' satisfies ErrorCode, retryAfterMs }
+        if (hasBlockedWord(parsed.data.body))
+          return { error: 'message-blocked' satisfies ErrorCode }
         const message = await save(db, uid, parsed.data)
         if (message === undefined) return { error: 'handle-required' satisfies ErrorCode }
         return { ok: true, message }

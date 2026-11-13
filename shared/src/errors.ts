@@ -30,6 +30,12 @@ export const ERROR_CODES = [
   // A socket from an IP address with 10 connections open already gets it as its connect error.
   // Each connection that closes frees its place.
   'too-many-connections',
+  // A message holding a word of the word filter's list, as a whole word, written plainly or
+  // with the usual tricks (server/src/moderation/word-filter.ts). Nothing is posted.
+  'message-blocked',
+  // A handle holding a word of the same list, its parts between _ and digits each read as a
+  // word. REST answers it with 400, and the handle is not set.
+  'handle-blocked',
   // A failure of the server's own, such as the database being down, and not the request's.
   // REST answers it with 500, an ack says it for any event whose handling failed (a message that
   // failed to save among them), and a socket gets it as its connect error when its token
