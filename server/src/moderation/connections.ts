@@ -29,7 +29,8 @@ type Connection = ChatSocket['conn']
  * that opened it (app.clientIp, client-ip.ts). attach(io) counts `io`'s: a socket on a connection
  * opened while its IP had `max` open already is refused with the connect error
  * too-many-connections, and the connection closed once the refusal is sent, or `graceMs` after it
- * opened. Call it before any other io.use(), so that a refused socket costs no token check.
+ * opened. A connection's second socket is refused with it too. Call it before any other
+ * io.use(), so that a refused socket costs no token check.
  * admits(request) is for Socket.IO's allowRequest: false once the request's IP has `max` open and
  * `max` more past it, so that a flood of them never becomes connections.
  */
@@ -46,6 +47,8 @@ export function connectionCap({
   const open = new Map<string, number>()
   /** The connections opened past their address's max, whose sockets are refused. */
   const over = new WeakSet<Connection>()
+  /** The connections that have asked for their socket. */
+  const asked = new WeakSet<Connection>()
   return {
     // A request refused here gets no code: Socket.IO's client says "websocket error" or "xhr
     // poll error". A client that heeds its refusal closes on it, so only one that ignores them
@@ -77,10 +80,19 @@ export function connectionCap({
       // Socket.IO client does but a script needn't. close(true) drops it at once: over polling, a
       // plain close() would wait up to 30 s for the client's next request, to send the close in.
       io.use((socket, next) => {
-        if (!over.has(socket.conn)) return next()
         const connection = socket.conn
-        connection.once('drain', () => connection.close(true))
-        next(new Error('too-many-connections' satisfies ErrorCode))
+        const refuse = () => next(new Error('too-many-connections' satisfies ErrorCode))
+        if (over.has(connection)) {
+          connection.once('drain', () => connection.close(true))
+          return refuse()
+        }
+        // One socket to a connection: a Socket.IO client asks for its socket once on each, and
+        // opens a new connection to ask again. Asked twice at once, Socket.IO would make a second
+        // before the first is done, and a script asking thousands of times would have thousands
+        // of sockets on one connection of its 10. The others are refused before their token check.
+        if (asked.has(connection)) return refuse()
+        asked.add(connection)
+        next()
       })
     },
   }

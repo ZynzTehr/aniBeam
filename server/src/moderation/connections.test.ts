@@ -9,7 +9,10 @@ import { client, connected, listen, next, ORIGIN, within } from '../testing/sock
 // The connections per IP address, with a max of 2 so that the tests stay small. Every client
 // here comes from 127.0.0.1, and those with a proxy trusted send X-Forwarded-For as one would.
 
+/** How many tokens the tests' verifier has checked so far. */
+let verified = 0
 const verify: Verify = async (token) => {
+  verified++
   if (token !== 'token-aki') throw new BadToken('unknown test token')
   return { uid: 'uid-aki' }
 }
@@ -95,9 +98,20 @@ function raw(t: TestContext, url: string) {
     socket.addEventListener('open', () => resolve(true))
     socket.addEventListener('error', () => resolve(false))
   })
+  /** Resolves once `count` packets have come, Engine.IO's open packet (0) among them. */
+  const received = (count: number) =>
+    within(
+      new Promise<void>((resolve) => {
+        const check = () => packets.length >= count && resolve()
+        socket.addEventListener('message', check)
+        check()
+      }),
+      `no ${count} packets`,
+    )
   return {
     socket,
     packets,
+    received,
     opened: () => within(opened, 'no open or error'),
     closed: () => within(closed, 'no close'),
   }
@@ -227,6 +241,26 @@ test('past the max and as many again waiting for their refusals, a connection is
   // 2 in the count, 2 past it waiting for the grace, and the rest refused.
   assert.deepEqual(outcomes, [true, true, true, true, false, false, false, false, false, false])
   assert.equal(app.io.engine.clientsCount, 4)
+})
+
+test('a connection has one socket: asked for again at once, it gets too-many-connections, and no token check', async (t) => {
+  const { app, url } = await server(t)
+  const script = raw(t, url)
+  await script.received(1)
+  const checked = verified
+  // Three CONNECTs in one go, each with a token, before the first socket is made.
+  for (let asks = 1; asks <= 3; asks++) script.socket.send('40{"token":"token-aki"}')
+  await script.received(4)
+  const answers = script.packets
+    .slice(1)
+    .map((packet) => (packet.startsWith('40{') ? '40' : packet))
+  assert.deepEqual(answers.sort(), [
+    '40',
+    '44{"message":"too-many-connections"}',
+    '44{"message":"too-many-connections"}',
+  ])
+  assert.equal(app.io.of('/').sockets.size, 1)
+  assert.equal(verified - checked, 1)
 })
 
 /** A client's options with `forwarded` as its X-Forwarded-For. */
