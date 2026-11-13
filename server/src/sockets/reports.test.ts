@@ -338,6 +338,58 @@ test("reports by users banned since don't count: a message they hid, shown again
   assert.deepEqual(await toKiri(), [])
 })
 
+test('message:hidden goes to the room only once the hide has committed', async (t) => {
+  // The database through a pool of the test's own, whose connections stop at a COMMIT while the
+  // test holds them: a room told before the commit would be told of a hide that could still
+  // fail, and a history read then would still have the message.
+  const pool = new pg.Pool({ connectionString: db.url })
+  t.after(() => pool.end())
+  let holding: { reached: () => void; go: Promise<void> } | undefined
+  const held = new WeakSet<pg.PoolClient>()
+  pool.on('acquire', (client) => {
+    if (held.has(client)) return
+    held.add(client)
+    const query = client.query.bind(client) as (...args: unknown[]) => Promise<unknown>
+    ;(client as { query: unknown }).query = async (...args: unknown[]) => {
+      if (args[0] === 'commit' && holding) {
+        holding.reached()
+        await holding.go
+      }
+      return query(...args)
+    }
+  })
+  const { app, url } = await server(t, { pool })
+  const reporters = [
+    await member(t, app, url, 'token-rei'),
+    await member(t, app, url, 'token-kiri'),
+    await member(t, app, url, 'token-hoshi'),
+  ]
+  const reader = await member(t, app, url)
+  const id = await posted('hidden once committed')
+  for (const { socket } of reporters.slice(0, 2))
+    assert.deepEqual(await reportOf(socket, id), { ok: true })
+  // The third report, which hides the message, stops at its COMMIT.
+  let reached = () => {}
+  const atCommit = new Promise<void>((resolve) => (reached = resolve))
+  let go = () => {}
+  holding = { reached, go: new Promise<void>((resolve) => (go = resolve)) }
+  const heard = hearing(reader.socket, reader.server)
+  const answer = reportOf(reporters[2].socket, id)
+  await within(atCommit, 'no commit')
+  let hidden
+  try {
+    // Nothing has gone to the room while the hide waits to commit.
+    assert.deepEqual(await heard(), [])
+    hidden = next(reader.socket, 'message:hidden')
+  } finally {
+    holding = undefined
+    go()
+  }
+  assert.deepEqual(await hidden, { id, roomKey: ROOM })
+  assert.deepEqual(await answer, { ok: true })
+  assert.deepEqual(await state(id), { hidden: true, reports: 3 })
+})
+
 test('an app without a database has no message:report', async (t) => {
   const app = buildApp({ corsOrigins: [ORIGIN], verify })
   const url = await listen(t, app)
