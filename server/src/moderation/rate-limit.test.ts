@@ -28,6 +28,17 @@ test('5 tries pass and the 6th is refused, until the oldest has left the window'
   assert.equal(sends.take('uid-aki'), undefined)
 })
 
+test('the wait is rounded up, so that it is 1 ms or more while a try is refused', () => {
+  // The app's clock, performance.now(), has fractions of a ms.
+  const { clock, sends } = limit()
+  clock.now = 0.3
+  assert.deepEqual(tries(sends, 'uid-aki', 5), PASSED)
+  clock.now = 10_000
+  assert.equal(sends.take('uid-aki'), 1)
+  clock.now = 10_000.3
+  assert.equal(sends.take('uid-aki'), undefined)
+})
+
 test('the wait is until the oldest try in the window leaves it', () => {
   const { clock, sends } = limit()
   for (const at of [0, 1_000, 2_000, 3_000, 4_000]) {

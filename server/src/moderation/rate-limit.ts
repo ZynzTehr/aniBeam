@@ -42,6 +42,8 @@ export function rateLimit({
       const times = tries.get(key) ?? []
       // A try made windowMs ago or more has left the window.
       while (times.length > 0 && at - times[0] >= windowMs) times.shift()
+      // Rounded up, since the app's clock has fractions of a ms: rounded down, a try just before
+      // the oldest leaves could be told to wait 0 ms, and be refused again when it came back.
       if (times.length >= limit) return Math.ceil(times[0] + windowMs - at)
       times.push(at)
       tries.set(key, times)
