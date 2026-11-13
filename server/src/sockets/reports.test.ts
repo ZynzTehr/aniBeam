@@ -241,10 +241,12 @@ test("a user's own message answers cannot-report-own, one with no handle handle-
   assert.deepEqual(await reportOf(aki.socket, Number(rows[0].id) + 1000), { error: 'not-found' })
 })
 
-test('an 11th report within a minute answers rate-limited with the wait, and is not recorded', async (t) => {
+test("an 11th report within a minute answers rate-limited with the wait, from any of the user's sockets, and is not recorded", async (t) => {
   const clock = { now: 0 }
   const { app, url } = await server(t, { now: () => clock.now })
   const kiri = await member(t, app, url, 'token-kiri')
+  // Another of kiri's sockets, as another tab would be: the limit is the user's, not a socket's.
+  const tab2 = await member(t, app, url, 'token-kiri')
   const hoshi = await member(t, app, url, 'token-hoshi')
   const ids = []
   for (let i = 0; i < 11; i++) ids.push(await posted(`limited ${i}`))
@@ -254,7 +256,7 @@ test('an 11th report within a minute answers rate-limited with the wait, and is 
   }
   // The wait is until the first, made at 0, is a minute old.
   clock.now = 30_000
-  assert.deepEqual(await reportOf(kiri.socket, ids[10]), {
+  assert.deepEqual(await reportOf(tab2.socket, ids[10]), {
     error: 'rate-limited',
     retryAfterMs: 30_000,
   })
