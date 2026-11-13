@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict'
 import { after, before, test } from 'node:test'
-import { drizzle } from 'drizzle-orm/node-postgres'
 import type pg from 'pg'
 import { testDatabase, type TestDatabase } from '../testing/database.ts'
 import { HIDE_AT, report } from './reports.ts'
@@ -37,14 +36,13 @@ test(`${HIDE_AT} reporters at the same moment hide the message every time, and e
   const opened = await Promise.all(REPORTERS.map(() => pool.connect()))
   for (const connection of opened) connection.release()
   assert.ok(pool.totalCount >= REPORTERS.length)
-  const orm = drizzle({ client: pool })
   const ROUNDS = 50
   const missed: number[] = []
   const started = performance.now()
   for (let round = 1; round <= ROUNDS; round++) {
     const id = await posted(pool, `round ${round}`)
     const answers = await Promise.all(
-      REPORTERS.map((uid) => report(orm, uid, { id, reason: 'spam' })),
+      REPORTERS.map((uid) => report(pool, uid, { id, reason: 'spam' })),
     )
     const said = answers.filter((answer) => typeof answer !== 'string' && answer.hidden)
     const { rows } = await pool.query<{ hidden: boolean; reports: number }>(

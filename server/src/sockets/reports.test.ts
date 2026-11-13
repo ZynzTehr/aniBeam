@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, test, type TestContext } from 'node:test'
+import pg from 'pg'
 import type { Socket } from 'socket.io-client'
 import { buildApp } from '../app.ts'
 import { BadToken, type Verify } from '../auth/verify.ts'
@@ -13,6 +14,7 @@ import {
   listen,
   next,
   ORIGIN,
+  WAIT,
   within,
 } from '../testing/sockets.ts'
 import type { ChatMessage } from './messages.ts'
@@ -94,6 +96,19 @@ async function state(id: number) {
     [id],
   )
   return rows[0]
+}
+
+/** The pid of a query waiting on a row lock in this file's database, once one is. */
+async function lockWaiter() {
+  const until = performance.now() + WAIT
+  while (performance.now() < until) {
+    const { rows } = await db.pool.query<{ pid: number }>(
+      `select pid from pg_stat_activity
+       where datname = current_database() and wait_event_type = 'Lock'`,
+    )
+    if (rows.length > 0) return rows[0].pid
+  }
+  throw new Error(`no query waiting on a lock within ${WAIT} ms`)
 }
 
 const reportOf = (socket: Socket, id: number, reason = 'spam') =>
@@ -238,6 +253,29 @@ test('an 11th report within a minute answers rate-limited with the wait, and is 
   clock.now = 60_000
   assert.deepEqual(await reportOf(kiri.socket, ids[10]), { ok: true })
   assert.deepEqual(await state(ids[10]), { hidden: false, reports: 2 })
+})
+
+test('a report whose database connection ends mid-transaction answers server-error, and the server goes on', async (t) => {
+  // A pool of the app's own, so that its connections can be counted.
+  const pool = new pg.Pool({ connectionString: db.url })
+  t.after(() => pool.end())
+  const { app, url } = await server(t, { pool })
+  const rei = await member(t, app, url, 'token-rei')
+  const id = await posted('locked while reported')
+  // Another connection holds the message's row, so that the report waits in its transaction.
+  const holder = await db.pool.connect()
+  await holder.query('begin')
+  await holder.query('select id from messages where id = $1 for update', [id])
+  const answer = reportOf(rei.socket, id)
+  // Postgres ends the report's connection, as a restart or a host cutting connections would.
+  await db.pool.query('select pg_terminate_backend($1)', [await lockWaiter()])
+  assert.deepEqual(await answer, { error: 'server-error' })
+  await holder.query('rollback')
+  holder.release()
+  // The broken connection was dropped, not kept in the pool, nor lost to it.
+  assert.equal(pool.totalCount, 0)
+  assert.deepEqual(await reportOf(rei.socket, id), { ok: true })
+  assert.deepEqual(await state(id), { hidden: false, reports: 1 })
 })
 
 test('an app without a database has no message:report', async (t) => {

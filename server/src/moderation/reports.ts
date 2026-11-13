@@ -3,7 +3,8 @@
 // with the time it was hidden, and history leaves it out (routes/history.ts).
 import type { ErrorCode, MessageReport } from '@anibeam/shared'
 import { sql } from 'drizzle-orm'
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
+import type pg from 'pg'
+import { transaction } from '../db/transaction.ts'
 
 /** How many people's reports hide a message. */
 export const HIDE_AT = 3
@@ -26,22 +27,23 @@ export interface Hidden {
  * says why it was refused. A second report of a message by the same user counts once, and keeps
  * the first's reason.
  *
- * One transaction, which first locks the message's row (FOR UPDATE), so that reports of one
- * message are counted one after another. Without the lock, three people reporting at the same
- * moment would each insert their own report, and each count before the others had committed:
- * each would see 1, and none would hide the message. With it, the second waits for the first to
- * commit, then counts 2, and the third counts 3. Only the transaction that sets hidden_at gives
- * the message back, so the room is told once.
+ * One transaction, on a connection of `pool`'s (db/transaction.ts), which first locks the
+ * message's row (FOR UPDATE), so that reports of one message are counted one after another.
+ * Without the lock, three people reporting at the same moment would each insert their own
+ * report, and each count before the others had committed: each would see 1, and none would hide
+ * the message. With it, the second waits for the first to commit, then counts 2, and the third
+ * counts 3. Only the transaction that sets hidden_at gives the message back, so the room is told
+ * once.
  */
 export async function report(
-  db: NodePgDatabase,
+  pool: pg.Pool,
   uid: string,
   { id, reason }: MessageReport,
 ): Promise<
   | { hidden: Hidden | undefined }
   | Extract<ErrorCode, 'banned' | 'cannot-report-own' | 'handle-required' | 'not-found'>
 > {
-  return db.transaction(async (tx) => {
+  return transaction(pool, async (tx) => {
     // A user with no row has no handle yet. The ban is read here, at each report, as for a send.
     const { rows: users } = await tx.execute<{ id: string; banned: boolean }>(
       sql`select id, banned_at is not null as banned from users where auth_uid = ${uid}`,

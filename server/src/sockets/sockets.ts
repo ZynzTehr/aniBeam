@@ -5,6 +5,7 @@
 import type { ErrorCode } from '@anibeam/shared'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import type { FastifyInstance } from 'fastify'
+import type pg from 'pg'
 import { Server, type DefaultEventsMap, type Socket } from 'socket.io'
 import { BadToken, type Verify } from '../auth/verify.ts'
 import { connectionCap } from '../moderation/connections.ts'
@@ -58,7 +59,7 @@ export function sockets(
   app: FastifyInstance,
   options: {
     allows: (origin: string | undefined) => boolean
-    db: NodePgDatabase | undefined
+    db: (NodePgDatabase & { $client: pg.Pool }) | undefined
     maxConnectionsPerIp: number
     now: () => number
     refusalGraceMs: number
@@ -136,7 +137,8 @@ export function sockets(
     roomEvents(socket, app.log)
     if (db) {
       messageEvents(socket, db, app.log, sends)
-      reportEvents(socket, io, db, app.log, reports)
+      // A report is a transaction, on a connection of the pool's own.
+      reportEvents(socket, io, db.$client, app.log, reports)
     }
   })
   return io

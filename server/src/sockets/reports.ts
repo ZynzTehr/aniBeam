@@ -2,21 +2,22 @@
 // person's report hides it (moderation/reports.ts). The message's room, the reporter in it
 // too, is then told with message:hidden { id, roomKey }, once.
 import { messageReportSchema, type ErrorCode } from '@anibeam/shared'
-import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import type { FastifyBaseLogger } from 'fastify'
+import type pg from 'pg'
 import type { RateLimit } from '../moderation/rate-limit.ts'
 import { report } from '../moderation/reports.ts'
 import { acked } from './acked.ts'
 import type { ChatServer, ChatSocket } from './sockets.ts'
 
 /**
- * Listens for message:report on `socket`, recording to `db`, and tells rooms through `io`.
+ * Listens for message:report on `socket`, recording to `pool`'s database, and tells rooms through
+ * `io`.
  * `reports` is the app's limit of REPORT_LIMIT, one for all its sockets, as for sends.
  */
 export function reportEvents(
   socket: ChatSocket,
   io: ChatServer,
-  db: NodePgDatabase,
+  pool: pg.Pool,
   log: FastifyBaseLogger,
   reports: RateLimit,
 ) {
@@ -38,7 +39,7 @@ export function reportEvents(
       const retryAfterMs = reports.take(uid)
       if (retryAfterMs !== undefined)
         return { error: 'rate-limited' satisfies ErrorCode, retryAfterMs }
-      const answer = await report(db, uid, parsed.data)
+      const answer = await report(pool, uid, parsed.data)
       if (typeof answer === 'string') return { error: answer }
       // The transaction has committed, so history leaves the message out by now. io.to, not
       // socket.to: the reporter's socket, if it is in the room, takes the message down too.
