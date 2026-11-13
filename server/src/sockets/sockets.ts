@@ -9,14 +9,16 @@ import { Server, type DefaultEventsMap, type Socket } from 'socket.io'
 import { BadToken, type Verify } from '../auth/verify.ts'
 import { connectionCap } from '../moderation/connections.ts'
 import { rateLimit } from '../moderation/rate-limit.ts'
+import { REPORT_LIMIT } from '../moderation/reports.ts'
 import { messageEvents, SEND_LIMIT } from './messages.ts'
+import { reportEvents } from './reports.ts'
 import { roomEvents } from './rooms.ts'
 
 /** What the server keeps on each socket. */
 export interface SocketData {
   /**
    * The uid the handshake's token proved, or undefined on a signed-out socket, which may join
-   * rooms and read but not send.
+   * rooms and read but not send or report.
    */
   uid?: string
 }
@@ -45,8 +47,8 @@ export const MAX_PACKET = 16 * 1024
  * Attaches Socket.IO to `app`'s HTTP server, as app.io. `allows` is the CORS hook's check of an
  * origin (cors.ts), so that sockets take the same websites' pages as REST. `verify` checks the
  * sign-in tokens, as it does for REST; without one, every token is refused. `db` is where
- * message:send saves messages; without one, as for the routes that read it, sockets may join
- * and leave rooms but have no message:send. `serveClient` serves Socket.IO's browser file at
+ * message:send saves messages and message:report records reports; without one, as for the
+ * routes that read it, sockets may join and leave rooms but have neither event. `serveClient` serves Socket.IO's browser file at
  * /socket.io/socket.io.min.js, for the dev entry's page. `now` is the clock the limits read, in
  * ms. `maxConnectionsPerIp` is the most connections one IP address may have open at once, the
  * address read by app.clientIp (client-ip.ts).
@@ -117,12 +119,16 @@ export function sockets(
   })
 
   const { db } = options
-  // One limit for all the app's sockets, so that a user's sends from each of their tabs count
-  // together.
+  // One limit of each for all the app's sockets, so that a user's sends and reports from each of
+  // their tabs count together.
   const sends = rateLimit({ ...SEND_LIMIT, now: options.now })
+  const reports = rateLimit({ ...REPORT_LIMIT, now: options.now })
   io.on('connection', (socket) => {
     roomEvents(socket, app.log)
-    if (db) messageEvents(socket, db, app.log, sends)
+    if (db) {
+      messageEvents(socket, db, app.log, sends)
+      reportEvents(socket, io, db, app.log, reports)
+    }
   })
   return io
 }

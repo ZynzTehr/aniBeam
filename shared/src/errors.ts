@@ -5,10 +5,11 @@
 export const ERROR_CODES = [
   // The request itself is wrong: a bad room key, cursor or payload. REST answers it with 400.
   'invalid',
-  // Nothing is there: an address no REST route has.
+  // Nothing is there: an address no REST route has, or a message:report of a message that
+  // isn't, or is hidden already.
   'not-found',
-  // A route for a signed-in user, asked with no token, or a message sent from a signed-out
-  // socket. REST answers it with 401.
+  // A route for a signed-in user, asked with no token, or a message sent or reported from a
+  // signed-out socket. REST answers it with 401.
   'sign-in-required',
   // A token that proves nothing: forged, expired, for another project, or not a Bearer token.
   // REST answers it with 401, and a socket that sent one gets it as its connect error.
@@ -19,13 +20,14 @@ export const ERROR_CODES = [
   'handle-already-set',
   // A socket in the most rooms it may be in at once (5) asked to join another. Its ack says it.
   'too-many-rooms',
-  // A signed-in user with no handle yet sent a message: a message shows its handle, so the user
-  // picks one first (POST /me/handle).
+  // A signed-in user with no handle yet sent or reported a message: a message shows its handle,
+  // so the user picks one first (POST /me/handle).
   'handle-required',
   // A message sent to a room the socket hasn't joined.
   'not-joined',
-  // A user sent more than 5 messages in 10 s, from all their sockets together. The ack comes
-  // with retryAfterMs, the ms until the oldest of them is 10 s old and another may be sent.
+  // A user sent more than 5 messages in 10 s, or more than 10 reports in a minute, from all
+  // their sockets together. The ack comes with retryAfterMs, the ms until the oldest of them
+  // leaves the window and another may be sent.
   'rate-limited',
   // A socket from an IP address with 10 connections open already gets it as its connect error.
   // Each connection that closes frees its place.
@@ -36,9 +38,11 @@ export const ERROR_CODES = [
   // A handle holding a word of the same list, its parts between _ and digits each read as a
   // word. REST answers it with 400, and the handle is not set.
   'handle-blocked',
-  // A banned user sent a message. A ban is set by hand in the database (the README says how),
-  // and counts from the user's very next message, on every socket they have open.
+  // A banned user sent or reported a message. A ban is set by hand in the database (the README
+  // says how), and counts from the user's very next message, on every socket they have open.
   'banned',
+  // A message:report of the user's own message. A report is for someone else's.
+  'cannot-report-own',
   // A failure of the server's own, such as the database being down, and not the request's.
   // REST answers it with 500, an ack says it for any event whose handling failed (a message that
   // failed to save among them), and a socket gets it as its connect error when its token
