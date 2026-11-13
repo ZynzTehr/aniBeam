@@ -5,16 +5,21 @@
 import type { ErrorCode } from '@anibeam/shared'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import type { FastifyInstance } from 'fastify'
+import type pg from 'pg'
 import { Server, type DefaultEventsMap, type Socket } from 'socket.io'
 import { BadToken, type Verify } from '../auth/verify.ts'
-import { messageEvents } from './messages.ts'
+import { connectionCap } from '../moderation/connections.ts'
+import { rateLimit } from '../moderation/rate-limit.ts'
+import { REPORT_LIMIT } from '../moderation/reports.ts'
+import { messageEvents, SEND_LIMIT } from './messages.ts'
+import { reportEvents } from './reports.ts'
 import { roomEvents } from './rooms.ts'
 
 /** What the server keeps on each socket. */
 export interface SocketData {
   /**
    * The uid the handshake's token proved, or undefined on a signed-out socket, which may join
-   * rooms and read but not send.
+   * rooms and read but not send or report.
    */
   uid?: string
 }
@@ -43,19 +48,31 @@ export const MAX_PACKET = 16 * 1024
  * Attaches Socket.IO to `app`'s HTTP server, as app.io. `allows` is the CORS hook's check of an
  * origin (cors.ts), so that sockets take the same websites' pages as REST. `verify` checks the
  * sign-in tokens, as it does for REST; without one, every token is refused. `db` is where
- * message:send saves messages; without one, as for the routes that read it, sockets may join
- * and leave rooms but have no message:send. `serveClient` serves Socket.IO's browser file at
- * /socket.io/socket.io.min.js, for the dev entry's page.
+ * message:send saves messages and message:report records reports; without one, as for the
+ * routes that read it, sockets may join and leave rooms but have neither event. `serveClient`
+ * serves Socket.IO's browser file at /socket.io/socket.io.min.js, for the dev entry's page.
+ * `now` is the clock the limits read, in ms. `maxConnectionsPerIp` is the most connections one
+ * IP address may have open at once, the address read by app.clientIp (client-ip.ts), and
+ * `refusalGraceMs` how long one past it stays open for its refusal.
  */
 export function sockets(
   app: FastifyInstance,
   options: {
     allows: (origin: string | undefined) => boolean
-    db: NodePgDatabase | undefined
+    db: (NodePgDatabase & { $client: pg.Pool }) | undefined
+    maxConnectionsPerIp: number
+    now: () => number
+    refusalGraceMs: number
     serveClient: boolean
     verify: Verify | undefined
   },
 ) {
+  // The connections per IP address (moderation/connections.ts).
+  const cap = connectionCap({
+    max: options.maxConnectionsPerIp,
+    ipOf: (request) => app.clientIp(request),
+    graceMs: options.refusalGraceMs,
+  })
   const io: ChatServer = new Server(app.server, {
     serveClient: options.serveClient,
     maxHttpBufferSize: MAX_PACKET,
@@ -65,8 +82,9 @@ export function sockets(
     // origin itself. A request with no Origin is refused too. A browser sends one with every
     // WebSocket and every request to another site, but not with a GET to its page's own server,
     // which polling's first request is: a page this server serves, as the dev entry's demo page,
-    // connects over WebSocket alone.
-    allowRequest: (request, callback) => callback(null, options.allows(request.headers.origin)),
+    // connects over WebSocket alone. An address far past its connections is refused here too.
+    allowRequest: (request, callback) =>
+      callback(null, options.allows(request.headers.origin) && cap.admits(request)),
     // Socket.IO answers every request under /socket.io/ itself, before Fastify's hooks, so the
     // CORS headers of cors.ts never reach them. Polling's answers carry them here instead, for
     // the same origins: a page on another site, as the web app is, reads an answer only if it
@@ -83,6 +101,10 @@ export function sockets(
   app.addHook('preClose', async () => {
     io.engine.close()
   })
+
+  // First, the connections per IP address, so that a connection past its address's max costs no
+  // token check.
+  cap.attach(io)
 
   // The sign-in, as a socket opens: the token is read from the handshake's auth alone, which a
   // client sets as io(url, { auth: { token } }), and checked by the verifier REST uses. A token
@@ -107,9 +129,17 @@ export function sockets(
   })
 
   const { db } = options
+  // One limit of each for all the app's sockets, so that a user's sends and reports from each of
+  // their tabs count together.
+  const sends = rateLimit({ ...SEND_LIMIT, now: options.now })
+  const reports = rateLimit({ ...REPORT_LIMIT, now: options.now })
   io.on('connection', (socket) => {
     roomEvents(socket, app.log)
-    if (db) messageEvents(socket, db, app.log)
+    if (db) {
+      messageEvents(socket, db, app.log, sends)
+      // A report is a transaction, on a connection of the pool's own.
+      reportEvents(socket, io, db.$client, app.log, reports)
+    }
   })
   return io
 }

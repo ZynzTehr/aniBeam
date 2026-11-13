@@ -2,6 +2,7 @@
 // functions a bundle takes one by one, so web/ pays only for the ones it uses.
 export { ERROR_CODES, type ErrorCode } from './errors.ts'
 export { messageSendSchema, type MessageSend } from './message.ts'
+export { messageReportSchema, REPORT_REASONS, type MessageReport } from './report.ts'
 export { roomKeySchema, roomPayloadSchema, type RoomKey } from './room-key.ts'
 
 /** An AniList media ID. */

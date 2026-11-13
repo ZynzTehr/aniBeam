@@ -1,12 +1,21 @@
-// message:send: a signed-in user with a handle posts to a room its socket is in. The message is
-// saved first; the sender's ack then carries it, and the room's other sockets get it as
-// message:new. The sender gets it from its ack alone, never from message:new as well.
+// message:send: a signed-in user with a handle posts to a room its socket is in, at most 5
+// messages in any 10 s. The message is saved first; the sender's ack then carries it, and the
+// room's other sockets get it as message:new. The sender gets it from its ack alone, never from
+// message:new as well.
 import { messageSendSchema, type ErrorCode, type MessageSend } from '@anibeam/shared'
 import { sql } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import type { FastifyBaseLogger } from 'fastify'
+import type { RateLimit } from '../moderation/rate-limit.ts'
+import { hasBlockedWord } from '../moderation/word-filter.ts'
 import { acked } from './acked.ts'
 import type { ChatSocket } from './sockets.ts'
+
+/**
+ * How many messages one user may send in any 10 s, from all their sockets together (spec section
+ * 7), for rateLimit() (moderation/rate-limit.ts).
+ */
+export const SEND_LIMIT = { limit: 5, windowMs: 10_000 }
 
 /** A saved message as clients get it, the shape of history's (routes/history.ts): a handle, never a user id. */
 export interface ChatMessage {
@@ -21,12 +30,18 @@ export interface ChatMessage {
 
 /**
  * Saves `message` as the user whose sign-in is `uid`, and gives it back as clients get it, or
- * undefined if the user has no row, and so no handle, yet. One statement: the insert takes the
- * user's id and handle from their row, which a handle and a user id in the payload could never
- * stand in for, and inserts nothing without one. Drizzle sends each value as a parameter, apart
- * from the SQL.
+ * the code that says why it wasn't: banned for a user who is, and handle-required for one with no
+ * row, and so no handle, yet. One statement: the insert takes the user's id and handle from their
+ * row, which a handle and a user id in the payload could never stand in for, and only from a row
+ * that isn't banned. So a ban counts from the very next send, read in the statement that would
+ * save it: a look first and an insert after would let through a message sent as a ban landed
+ * between the two. Drizzle sends each value as a parameter, apart from the SQL.
  */
-async function save(db: NodePgDatabase, uid: string, message: MessageSend) {
+async function save(
+  db: NodePgDatabase,
+  uid: string,
+  message: MessageSend,
+): Promise<ChatMessage | Extract<ErrorCode, 'banned' | 'handle-required'>> {
   const { rows } = await db.execute<{
     id: string
     room_key: string
@@ -37,11 +52,17 @@ async function save(db: NodePgDatabase, uid: string, message: MessageSend) {
   }>(sql`
     insert into messages (room_key, user_id, body, spoiler)
     select ${message.roomKey}, users.id, ${message.body}, ${message.spoiler}
-    from users where users.auth_uid = ${uid}
+    from users where users.auth_uid = ${uid} and users.banned_at is null
     returning id, room_key, (select handle from users where users.id = messages.user_id),
       body, spoiler, created_at`)
   const [row] = rows
-  if (row === undefined) return undefined
+  if (row === undefined) {
+    // Nothing was saved, and one more query says why, for the ack.
+    const { rows: users } = await db.execute<{ banned: boolean }>(
+      sql`select banned_at is not null as banned from users where auth_uid = ${uid}`,
+    )
+    return users[0]?.banned ? 'banned' : 'handle-required'
+  }
   return {
     id: Number(row.id),
     roomKey: row.room_key,
@@ -54,12 +75,25 @@ async function save(db: NodePgDatabase, uid: string, message: MessageSend) {
   } satisfies ChatMessage
 }
 
-/** Listens for message:send on `socket`, saving to `db`. */
-export function messageEvents(socket: ChatSocket, db: NodePgDatabase, log: FastifyBaseLogger) {
+/**
+ * Listens for message:send on `socket`, saving to `db`. `sends` is the app's limit of SEND_LIMIT,
+ * one for all its sockets, so that a user's tabs share theirs.
+ */
+export function messageEvents(
+  socket: ChatSocket,
+  db: NodePgDatabase,
+  log: FastifyBaseLogger,
+  sends: RateLimit,
+) {
   // { roomKey, body, spoiler }: {ok: true, message} once the message is saved. Each check comes
   // in this order, and the first that fails answers: the payload (invalid), the sign-in
-  // (sign-in-required), the room (not-joined), then the user's handle (handle-required). A
-  // failure to save answers server-error (acked.ts), and the room gets nothing.
+  // (sign-in-required), the room (not-joined), the user's sends in the last 10 s (rate-limited,
+  // with retryAfterMs, the ms until another may be sent), the body's words (message-blocked, by
+  // the word filter, moderation/word-filter.ts), then the insert itself, which takes a user who
+  // isn't banned (banned) and has a handle (handle-required). The ban is read from the user's
+  // row at each send, never kept on the socket. A send that gets as far as the limit counts
+  // toward it, even if a later check refuses it, so a blocked word can't be tried over and over.
+  // A failure to save answers server-error (acked.ts), and the room gets nothing.
   socket.on(
     'message:send',
     acked(
@@ -71,8 +105,13 @@ export function messageEvents(socket: ChatSocket, db: NodePgDatabase, log: Fasti
         if (uid === undefined) return { error: 'sign-in-required' satisfies ErrorCode }
         if (!socket.rooms.has(parsed.data.roomKey))
           return { error: 'not-joined' satisfies ErrorCode }
+        const retryAfterMs = sends.take(uid)
+        if (retryAfterMs !== undefined)
+          return { error: 'rate-limited' satisfies ErrorCode, retryAfterMs }
+        if (hasBlockedWord(parsed.data.body))
+          return { error: 'message-blocked' satisfies ErrorCode }
         const message = await save(db, uid, parsed.data)
-        if (message === undefined) return { error: 'handle-required' satisfies ErrorCode }
+        if (typeof message === 'string') return { error: message }
         return { ok: true, message }
       },
       // After the ack, the room's other sockets: socket.to leaves the sender out, where io.to

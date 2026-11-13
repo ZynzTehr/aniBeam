@@ -83,6 +83,8 @@ class Element {
   checked = false
   className = ''
   title = ''
+  type = ''
+  disabled = false
   children: Element[] = []
   listeners = new Map<string, (event: { preventDefault(): void }) => unknown>()
   classList = { remove: () => {} }
@@ -129,6 +131,9 @@ function demoScript(answer: (event: string, payload: { roomKey: string }) => unk
     on: (event: string, listener: (...args: unknown[]) => unknown) =>
       listeners.set(event, listener),
     emit: (event: string, payload: unknown) => void keep(event, payload),
+    // The name form connects again, so that the socket signs in with the new token.
+    disconnect: () => socket,
+    connect: () => socket,
     timeout: () => ({
       emitWithAck: async (event: string, payload: { roomKey: string }) => {
         keep(event, payload)
@@ -151,11 +156,38 @@ function demoScript(answer: (event: string, payload: { roomKey: string }) => unk
   })
   /** Lets every promise demo.js is waiting on settle: the stand-ins answer at once. */
   const settled = () => new Promise((resolve) => setImmediate(resolve))
+  const items = () => element('messages').children
   return {
     sent,
     text: (id: string) => element(id).textContent,
+    /** Sets the box `id`'s value, as typing or picking in it would. */
+    set: (id: string, value: string) => void (element(id).value = value),
     /** The bodies on the page, in order. */
-    shown: () => element('messages').children.map((item) => item.children[2].textContent),
+    shown: () => items().map((item) => item.children[2].textContent),
+    /** The Report button of the `index`th message on the page. */
+    button: (index: number) => items()[index].children[3],
+    /** Presses the Report button of the `index`th message on the page. */
+    report: async (index: number) => {
+      void items()[index].children[3].listeners.get('click')!({ preventDefault() {} })
+      await settled()
+    },
+    /** Types `body` in the message box and presses Send. */
+    send: async (body: string) => {
+      element('body').value = body
+      void element('send-form').listeners.get('submit')!({ preventDefault() {} })
+      await settled()
+    },
+    /** A socket event from the server, other than message:new. */
+    event: async (event: string, ...args: unknown[]) => {
+      listeners.get(event)!(...args)
+      await settled()
+    },
+    /** Types `name` in the name box and presses Sign in and set handle. */
+    signIn: async (name: string) => {
+      element('name').value = name
+      void element('name-form').listeners.get('submit')!({ preventDefault() {} })
+      await settled()
+    },
     /** Types `key` in the room box and presses Join. */
     join: async (key: string) => {
       element('room').value = key
@@ -219,4 +251,87 @@ test('demo.js leaves its room only once another is joined, so a join refused lea
   await page.history(message(5, OTHER_ROOM))
   assert.equal(page.text('status'), `Connected over websocket, in ${OTHER_ROOM}.`)
   assert.deepEqual(page.shown(), ['message 5'])
+})
+
+test('demo.js takes a message hidden by reports off the page, and a history read or a live copy that still has it never brings it back', async () => {
+  const page = demoScript(() => ({ ok: true }))
+  await page.join(ROOM)
+  // Hidden while history loads: the history read began before the hide, and still has it.
+  await page.live(message(2))
+  await page.event('message:hidden', { id: 2, roomKey: ROOM })
+  await page.history(message(3), message(2), message(1))
+  assert.deepEqual(page.shown(), ['message 1', 'message 3'])
+  await page.live(message(2), message(4))
+  assert.deepEqual(page.shown(), ['message 1', 'message 3', 'message 4'])
+  // Hidden once shown, it goes, and the rest keep their order, each once.
+  await page.event('message:hidden', { id: 3, roomKey: ROOM })
+  await page.live(message(4))
+  assert.deepEqual(page.shown(), ['message 1', 'message 4'])
+  // Joined again, as after a reconnect, the room's history merges by id as before.
+  await page.join(ROOM)
+  await page.history(message(4), message(3), message(2), message(1))
+  assert.deepEqual(page.shown(), ['message 1', 'message 4'])
+})
+
+test('demo.js reports a message for the reason picked, and says each refusal as text, with the wait in seconds', async () => {
+  let reply: unknown = { ok: true }
+  const page = demoScript(() => reply)
+  await page.join(ROOM)
+  await page.history(message(1), message(2))
+  page.sent.length = 0
+  page.set('reason', 'spoiler')
+  await page.report(0)
+  assert.deepEqual(page.sent, [['message:report', { id: 1, reason: 'spoiler' }]])
+  assert.equal(page.text('error'), '')
+  assert.equal(page.button(0).textContent, 'Reported')
+  assert.equal(page.button(0).disabled, true)
+  assert.equal(page.button(1).textContent, 'Report')
+  for (const [answer, text] of [
+    [{ error: 'rate-limited', retryAfterMs: 5_500 }, 'Too many at once: wait 6 s, then try again.'],
+    [{ error: 'cannot-report-own' }, "That message is yours: a report is for someone else's."],
+    [{ error: 'banned' }, 'This user is banned, so it can read but not send or report.'],
+    [{ error: 'not-found' }, 'That message is gone: hidden already, or never there.'],
+  ] as const) {
+    reply = answer
+    await page.report(1)
+    assert.equal(page.text('error'), text, answer.error)
+    assert.equal(page.button(1).textContent, 'Report', answer.error)
+  }
+  // A send's refusals, the same way.
+  for (const [answer, text] of [
+    [{ error: 'rate-limited', retryAfterMs: 1 }, 'Too many at once: wait 1 s, then try again.'],
+    [
+      { error: 'rate-limited', retryAfterMs: 10_000 },
+      'Too many at once: wait 10 s, then try again.',
+    ],
+    [{ error: 'message-blocked' }, 'That message has a word the chat refuses. Nothing was posted.'],
+    [{ error: 'banned' }, 'This user is banned, so it can read but not send or report.'],
+  ] as const) {
+    reply = answer
+    await page.send('hello')
+    assert.equal(page.text('error'), text, answer.error)
+  }
+  // And a connection the server refused, in the status line.
+  await page.event('connect_error', new Error('too-many-connections'))
+  assert.equal(
+    page.text('status'),
+    'Refused: this computer has too many chat tabs open. Close one, then reload.',
+  )
+})
+
+test('demo.js forgets what it reported once signed in as another name, and says each refusal of a connection', async () => {
+  const page = demoScript(() => ({ ok: true }))
+  await page.join(ROOM)
+  await page.history(message(1))
+  await page.report(0)
+  assert.equal(page.button(0).textContent, 'Reported')
+  // Another name may report it too.
+  await page.signIn('kiri')
+  assert.equal(page.button(0).textContent, 'Report')
+  assert.equal(page.button(0).disabled, false)
+  // A token the server couldn't check is the sign-in's trouble, not a post's or a report's.
+  await page.event('connect_error', new Error('server-error'))
+  assert.equal(page.text('status'), 'Refused: the server could not check the sign-in. Try again.')
+  // Signed out, the page says what is left: reading.
+  assert.match(read('demo.html'), /Signed out: you can read, but not send or report\./)
 })

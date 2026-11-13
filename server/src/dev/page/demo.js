@@ -15,6 +15,13 @@ let token
 let room
 /** The room's messages by id, from history and live alike, so that one shows once. */
 const shown = new Map()
+/**
+ * The ids of messages reports have hidden, so that a history read begun before the hide, or the
+ * message coming live as well, never brings one back.
+ */
+const gone = new Set()
+/** The ids of messages this page has reported. */
+const reported = new Set()
 
 // auth is a function, so that each connect, a reconnect too, sends the token of the moment.
 // WebSocket alone, never polling: a browser sends no Origin with a GET to its page's own server,
@@ -50,28 +57,50 @@ function render() {
         body.title = 'Spoiler: click to show'
         body.addEventListener('click', () => body.classList.remove('spoiler'), { once: true })
       }
-      item.append(time, handle, body)
+      const report = document.createElement('button')
+      report.type = 'button'
+      report.className = 'report'
+      report.textContent = reported.has(message.id) ? 'Reported' : 'Report'
+      report.disabled = reported.has(message.id)
+      report.addEventListener('click', () => reportMessage(message.id))
+      item.append(time, handle, body, report)
       return item
     })
   $('messages').replaceChildren(...items)
 }
 
-/** Adds messages of this page's room, dropping any it shows already. */
+/** Adds messages of this page's room, dropping any it shows already, or that reports hid. */
 function add(...messages) {
   for (const message of messages)
-    if (message.roomKey === room && !shown.has(message.id)) shown.set(message.id, message)
+    if (message.roomKey === room && !shown.has(message.id) && !gone.has(message.id))
+      shown.set(message.id, message)
   render()
 }
 
+/** What each refusal's code means, as text, or a function of the answer that says it. */
 const ERRORS = {
   invalid: 'A message is 1 to 500 characters, and a room key looks like anime:154587:ep:5.',
-  'sign-in-required': 'Sign in with a name first: signed out, you can read but not send.',
+  'not-found': 'That message is gone: hidden already, or never there.',
+  'sign-in-required': 'Sign in with a name first: signed out, you can read but not send or report.',
+  'bad-token': 'the sign-in token proves nothing. Sign in again.',
   'handle-required': 'Set a handle first.',
   'not-joined': 'Join the room first.',
   'too-many-rooms': 'This socket is in too many rooms.',
-  'server-error': 'The server failed to save it. Nothing was posted.',
+  // The wait in whole seconds, rounded up, so that the next try after it is let through.
+  'rate-limited': ({ retryAfterMs }) =>
+    `Too many at once: wait ${Math.ceil(retryAfterMs / 1000)} s, then try again.`,
+  'too-many-connections': 'this computer has too many chat tabs open. Close one, then reload.',
+  'message-blocked': 'That message has a word the chat refuses. Nothing was posted.',
+  'handle-blocked': 'that name has a word the chat refuses.',
+  banned: 'This user is banned, so it can read but not send or report.',
+  'cannot-report-own': "That message is yours: a report is for someone else's.",
+  'server-error': 'The server failed, so nothing was posted or reported.',
 }
-const explain = (code) => ERRORS[code] ?? code
+/** The text for a refusal, { error } with what came with it, or its code if it has none. */
+function explain(answer) {
+  const text = ERRORS[answer.error]
+  return typeof text === 'function' ? text(answer) : (text ?? answer.error)
+}
 
 /**
  * Joins `key`, then leaves the room before it, then reads the room's history. The join's ack
@@ -83,7 +112,7 @@ const explain = (code) => ERRORS[code] ?? code
 async function join(key) {
   const answer = await socket.timeout(5000).emitWithAck('join', { roomKey: key })
   if (answer.error) {
-    say('error', explain(answer.error))
+    say('error', explain(answer))
     return
   }
   const before = room
@@ -113,15 +142,45 @@ socket.on('connect', async () => {
   status()
 })
 socket.on('disconnect', status)
-socket.on('connect_error', (err) => say('status', `Refused: ${err.message}.`))
+/** What a refused connection's codes mean, where a refusal's text says less. */
+const REFUSED = { 'server-error': 'the server could not check the sign-in. Try again.' }
+socket.on('connect_error', (err) =>
+  say('status', `Refused: ${REFUSED[err.message] ?? explain({ error: err.message })}`),
+)
 socket.on('message:new', (message) => add(message))
+// Three people reported a message: it goes from the page, in every tab in the room.
+socket.on('message:hidden', ({ id }) => {
+  gone.add(id)
+  shown.delete(id)
+  render()
+})
+
+/**
+ * Reports the message `id` for the reason in the Report reason box. The server counts one report
+ * per person, and the third person's hides the message, for every tab, through message:hidden.
+ */
+async function reportMessage(id) {
+  const reason = $('reason').value
+  try {
+    const answer = await socket.timeout(5000).emitWithAck('message:report', { id, reason })
+    if (answer.error) return say('error', explain(answer))
+    say('error', '')
+    reported.add(id)
+    render()
+  } catch {
+    say('error', 'No answer from the server in 5 s. The report may not have counted.')
+  }
+}
 
 $('name-form').addEventListener('submit', async (event) => {
   event.preventDefault()
   const name = $('name').value.trim()
   token = `dev:${name}`
-  // Connect again, so that the socket signs in with the new token.
+  // Connect again, so that the socket signs in with the new token. What the last name reported
+  // is that name's: this one may report the same messages.
   socket.disconnect().connect()
+  reported.clear()
+  render()
   const response = await fetch('/me/handle', {
     method: 'POST',
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
@@ -133,7 +192,7 @@ $('name-form').addEventListener('submit', async (event) => {
     say('who', `Signed in as ${token}, with the handle ${me.handle}.`)
   } else if (answer.error === 'handle-taken')
     say('who', `Signed in as ${token}, but someone else has the handle ${name}.`)
-  else say('who', `Signed in as ${token}, with no handle: ${explain(answer.error)}`)
+  else say('who', `Signed in as ${token}, with no handle: ${explain(answer)}`)
 })
 
 $('room-form').addEventListener('submit', (event) => {
@@ -149,11 +208,11 @@ $('body').addEventListener('input', () => say('count', `${count()} / ${MAX}`))
 
 $('send-form').addEventListener('submit', async (event) => {
   event.preventDefault()
-  if (room === undefined) return say('error', explain('not-joined'))
+  if (room === undefined) return say('error', explain({ error: 'not-joined' }))
   const payload = { roomKey: room, body: $('body').value, spoiler: $('spoiler').checked }
   try {
     const answer = await socket.timeout(5000).emitWithAck('message:send', payload)
-    if (answer.error) return say('error', explain(answer.error))
+    if (answer.error) return say('error', explain(answer))
     say('error', '')
     $('body').value = ''
     say('count', `0 / ${MAX}`)

@@ -21,6 +21,7 @@ const app = buildApp({
   pool,
   // Socket.IO's browser file is for the dev entry's page; the web app brings its own client.
   serveClient: false,
+  trustProxy: config.trustProxy,
   verify: firebaseVerifier(config.firebaseProjectId),
 })
 app.addHook('onClose', () => pool.end())

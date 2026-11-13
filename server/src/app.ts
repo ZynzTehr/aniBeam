@@ -1,11 +1,13 @@
 import type { ErrorCode } from '@anibeam/shared'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import Fastify, { type FastifyError, type FastifyReply, type FastifyRequest } from 'fastify'
-import { STATUS_CODES } from 'node:http'
+import { STATUS_CODES, type IncomingMessage } from 'node:http'
 import type pg from 'pg'
 import type { Verify } from './auth/verify.ts'
+import { clientIp, proxyTrust, type TrustProxy } from './client-ip.ts'
 import { cors } from './cors.ts'
 import { logFailure } from './failure.ts'
+import { MAX_CONNECTIONS_PER_IP, REFUSAL_GRACE_MS } from './moderation/connections.ts'
 import { historyRoutes } from './routes/history.ts'
 import { meRoutes } from './routes/me.ts'
 import { sockets } from './sockets/sockets.ts'
@@ -17,6 +19,16 @@ import { sockets } from './sockets/sockets.ts'
  */
 export const REDACT = ['headers.authorization', '*.headers.authorization']
 
+declare module 'fastify' {
+  interface FastifyInstance {
+    /**
+     * The IP address `request` comes from, by the app's trustProxy (client-ip.ts): what
+     * request.ip says on REST, for a request Fastify never sees, as a socket's.
+     */
+    clientIp(request: IncomingMessage): string | undefined
+  }
+}
+
 // The chat server's routes, without listening, so that tests can call them through app.inject.
 // The routes that read the database, and message:send, come with a pool of connections to it;
 // the pool belongs to the caller, who closes it. `verify` checks sign-in tokens: the production
@@ -25,22 +37,35 @@ export const REDACT = ['headers.authorization', '*.headers.authorization']
 // app's origins, whose pages may read the answers (CORS_ORIGIN, cors.ts), and open sockets; with
 // none, no website's may. `serveClient` serves Socket.IO's browser file, which only the dev
 // entry's page loads. `logger` is true to log to stdout, or a stream for a test to read.
+// `trustProxy` is the proxies trusted to say each client's IP (TRUST_PROXY), none if unset.
+// `now` is the clock the limits read, in ms, for tests to set by hand. `maxConnectionsPerIp` is
+// the most sockets' connections one IP address may have open at once, 10 unless a test sets it,
+// and `refusalGraceMs` how long one past it stays open for its refusal, 2 s unless a test sets it.
 export function buildApp(
   options: {
     corsOrigins?: readonly string[]
     logger?: boolean | { stream: { write(line: string): void } }
+    maxConnectionsPerIp?: number
+    now?: () => number
     pool?: pg.Pool
+    refusalGraceMs?: number
     serveClient?: boolean
+    trustProxy?: TrustProxy
     verify?: Verify
   } = {},
 ) {
   const { logger = false } = options
+  const trusts = proxyTrust(options.trustProxy)
   const { allows, headers, hook } = cors(options.corsOrigins ?? [])
   // 4 KB holds any request the chat makes (a message is at most 500 code points), and a body
   // larger than that is refused with 413 before it is read.
   const app = Fastify({
     logger: logger && { ...(logger === true ? {} : logger), redact: REDACT },
     bodyLimit: 4096,
+    // request.ip by the same check of each hop as clientIp() (client-ip.ts), or the connection's
+    // address with no proxy trusted. Never true, which takes the leftmost forwarded address, and
+    // never a number, which Fastify takes as trusting no hop at all.
+    trustProxy: trusts ?? false,
     // An address Fastify refuses before any route sees it, a bad %-escape or a part over 100
     // characters (such as a room key), gets the answer of any other bad request of ours. No hook
     // runs for it, so it gets the CORS headers here.
@@ -71,6 +96,8 @@ export function buildApp(
     },
   })
 
+  app.decorate('clientIp', (request: IncomingMessage) => clientIp(request, trusts))
+
   // First, before any route: the CORS headers on every answer, and the preflight's answer.
   app.addHook('onRequest', hook)
 
@@ -94,7 +121,16 @@ export function buildApp(
 
   const db = options.pool && drizzle({ client: options.pool })
   // The sockets, on the server Fastify made, which listens when the app does.
-  sockets(app, { allows, db, serveClient: options.serveClient ?? false, verify: options.verify })
+  sockets(app, {
+    allows,
+    db,
+    maxConnectionsPerIp: options.maxConnectionsPerIp ?? MAX_CONNECTIONS_PER_IP,
+    // A clock that never goes back, as the computer's can when it is set.
+    now: options.now ?? (() => performance.now()),
+    refusalGraceMs: options.refusalGraceMs ?? REFUSAL_GRACE_MS,
+    serveClient: options.serveClient ?? false,
+    verify: options.verify,
+  })
 
   app.get('/health', async () => ({ ok: true }))
   if (db) {

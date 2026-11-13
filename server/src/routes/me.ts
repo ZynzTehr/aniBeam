@@ -8,6 +8,7 @@ import type { FastifyInstance } from 'fastify'
 import { signIn } from '../auth/sign-in.ts'
 import type { Verify } from '../auth/verify.ts'
 import { users } from '../db/schema.ts'
+import { hasBlockedWord } from '../moderation/word-filter.ts'
 
 /**
  * A handle (D12): 3 to 20 of A to Z, a to z, 0 to 9 and _. Only ASCII, because lower() folds
@@ -39,10 +40,15 @@ export function meRoutes(app: FastifyInstance, db: NodePgDatabase, verify: Verif
   })
 
   // { handle }: makes the user's row with it, which answers 201 and what GET /me would. A handle
-  // is set once. The row holds the uid and the handle, never an email (spec section 5).
+  // is set once, and holds no word of the word filter's (handle-blocked). The row holds the uid
+  // and the handle, never an email (spec section 5).
   app.post('/me/handle', { onRequest: signedIn }, async (request, reply) => {
     const handle = handleIn(request.body)
     if (handle === undefined) return reply.code(400).send({ error: 'invalid' satisfies ErrorCode })
+    // A handle shows on every message, so the word filter reads it as it reads one: its parts
+    // between _ and digits each a word, and its digits as leetspeak too (word-filter.ts).
+    if (hasBlockedWord(handle))
+      return reply.code(400).send({ error: 'handle-blocked' satisfies ErrorCode })
     // The unique indexes decide, not a look first: two requests at once could both find a handle
     // free. A row that clashes with one, on the uid or the handle in any case, is left unmade,
     // and an insert that meets a row another request hasn't saved yet waits to see if it is.
