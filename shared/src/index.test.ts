@@ -20,6 +20,7 @@ test('the package exports the room and message schemas and the error codes', () 
     'too-many-rooms',
     'handle-required',
     'not-joined',
+    'rate-limited',
     'server-error',
   ])
   assert.equal(shared.roomKeySchema.safeParse('anime:1:all').success, true)

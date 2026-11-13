@@ -24,6 +24,9 @@ export const ERROR_CODES = [
   'handle-required',
   // A message sent to a room the socket hasn't joined.
   'not-joined',
+  // A user sent more than 5 messages in 10 s, from all their sockets together. The ack comes
+  // with retryAfterMs, the ms until the oldest of them is 10 s old and another may be sent.
+  'rate-limited',
   // A failure of the server's own, such as the database being down, and not the request's.
   // REST answers it with 500, an ack says it for any event whose handling failed (a message that
   // failed to save among them), and a socket gets it as its connect error when its token

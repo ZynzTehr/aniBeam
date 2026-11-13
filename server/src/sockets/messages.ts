@@ -1,12 +1,20 @@
-// message:send: a signed-in user with a handle posts to a room its socket is in. The message is
-// saved first; the sender's ack then carries it, and the room's other sockets get it as
-// message:new. The sender gets it from its ack alone, never from message:new as well.
+// message:send: a signed-in user with a handle posts to a room its socket is in, at most 5
+// messages in any 10 s. The message is saved first; the sender's ack then carries it, and the
+// room's other sockets get it as message:new. The sender gets it from its ack alone, never from
+// message:new as well.
 import { messageSendSchema, type ErrorCode, type MessageSend } from '@anibeam/shared'
 import { sql } from 'drizzle-orm'
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import type { FastifyBaseLogger } from 'fastify'
+import type { RateLimit } from '../moderation/rate-limit.ts'
 import { acked } from './acked.ts'
 import type { ChatSocket } from './sockets.ts'
+
+/**
+ * How many messages one user may send in any 10 s, from all their sockets together (spec section
+ * 7), for rateLimit() (moderation/rate-limit.ts).
+ */
+export const SEND_LIMIT = { limit: 5, windowMs: 10_000 }
 
 /** A saved message as clients get it, the shape of history's (routes/history.ts): a handle, never a user id. */
 export interface ChatMessage {
@@ -54,12 +62,23 @@ async function save(db: NodePgDatabase, uid: string, message: MessageSend) {
   } satisfies ChatMessage
 }
 
-/** Listens for message:send on `socket`, saving to `db`. */
-export function messageEvents(socket: ChatSocket, db: NodePgDatabase, log: FastifyBaseLogger) {
+/**
+ * Listens for message:send on `socket`, saving to `db`. `sends` is the app's limit of SEND_LIMIT,
+ * one for all its sockets, so that a user's tabs share theirs.
+ */
+export function messageEvents(
+  socket: ChatSocket,
+  db: NodePgDatabase,
+  log: FastifyBaseLogger,
+  sends: RateLimit,
+) {
   // { roomKey, body, spoiler }: {ok: true, message} once the message is saved. Each check comes
   // in this order, and the first that fails answers: the payload (invalid), the sign-in
-  // (sign-in-required), the room (not-joined), then the user's handle (handle-required). A
-  // failure to save answers server-error (acked.ts), and the room gets nothing.
+  // (sign-in-required), the room (not-joined), the user's sends in the last 10 s (rate-limited,
+  // with retryAfterMs, the ms until another may be sent), then the user's handle
+  // (handle-required). A send that gets as far as the limit counts toward it, even if a later
+  // check refuses it. A failure to save answers server-error (acked.ts), and the room gets
+  // nothing.
   socket.on(
     'message:send',
     acked(
@@ -71,6 +90,9 @@ export function messageEvents(socket: ChatSocket, db: NodePgDatabase, log: Fasti
         if (uid === undefined) return { error: 'sign-in-required' satisfies ErrorCode }
         if (!socket.rooms.has(parsed.data.roomKey))
           return { error: 'not-joined' satisfies ErrorCode }
+        const retryAfterMs = sends.take(uid)
+        if (retryAfterMs !== undefined)
+          return { error: 'rate-limited' satisfies ErrorCode, retryAfterMs }
         const message = await save(db, uid, parsed.data)
         if (message === undefined) return { error: 'handle-required' satisfies ErrorCode }
         return { ok: true, message }

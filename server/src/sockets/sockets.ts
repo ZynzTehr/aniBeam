@@ -7,7 +7,8 @@ import type { NodePgDatabase } from 'drizzle-orm/node-postgres'
 import type { FastifyInstance } from 'fastify'
 import { Server, type DefaultEventsMap, type Socket } from 'socket.io'
 import { BadToken, type Verify } from '../auth/verify.ts'
-import { messageEvents } from './messages.ts'
+import { rateLimit } from '../moderation/rate-limit.ts'
+import { messageEvents, SEND_LIMIT } from './messages.ts'
 import { roomEvents } from './rooms.ts'
 
 /** What the server keeps on each socket. */
@@ -45,13 +46,15 @@ export const MAX_PACKET = 16 * 1024
  * sign-in tokens, as it does for REST; without one, every token is refused. `db` is where
  * message:send saves messages; without one, as for the routes that read it, sockets may join
  * and leave rooms but have no message:send. `serveClient` serves Socket.IO's browser file at
- * /socket.io/socket.io.min.js, for the dev entry's page.
+ * /socket.io/socket.io.min.js, for the dev entry's page. `now` is the clock the limits read, in
+ * ms.
  */
 export function sockets(
   app: FastifyInstance,
   options: {
     allows: (origin: string | undefined) => boolean
     db: NodePgDatabase | undefined
+    now: () => number
     serveClient: boolean
     verify: Verify | undefined
   },
@@ -107,9 +110,12 @@ export function sockets(
   })
 
   const { db } = options
+  // One limit for all the app's sockets, so that a user's sends from each of their tabs count
+  // together.
+  const sends = rateLimit({ ...SEND_LIMIT, now: options.now })
   io.on('connection', (socket) => {
     roomEvents(socket, app.log)
-    if (db) messageEvents(socket, db, app.log)
+    if (db) messageEvents(socket, db, app.log, sends)
   })
   return io
 }

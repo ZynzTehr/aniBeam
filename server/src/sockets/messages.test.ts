@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { after, before, test, type TestContext } from 'node:test'
 import pg from 'pg'
+import type { Socket } from 'socket.io-client'
 import { buildApp } from '../app.ts'
 import { BadToken, type Verify } from '../auth/verify.ts'
 import { testDatabase, type TestDatabase } from '../testing/database.ts'
@@ -228,6 +229,40 @@ test("a send to a room the socket isn't in answers not-joined, and after a leave
   assert.deepEqual(await ask(a.socket, 'message:send', send), { error: 'not-joined' })
   assert.equal(await saved('not in the room'), 0)
   assert.deepEqual(await heardByB(), [])
+})
+
+test('a 6th message within 10 s answers rate-limited with the wait, and nothing is saved or sent', async (t) => {
+  const clock = { now: 0 }
+  const { app, url } = await server(t, { now: () => clock.now })
+  const a = await member(t, app, url, 'token-aki')
+  const b = await member(t, app, url, 'token-rei')
+  const send = (socket: Socket, body: string) =>
+    ask(socket, 'message:send', { roomKey: ROOM, body, spoiler: false }) as Promise<{
+      ok?: true
+      error?: string
+    }>
+  for (const at of [0, 1_000, 2_000, 3_000, 4_000]) {
+    clock.now = at
+    const arrived = next(b.socket, 'message:new')
+    assert.equal((await send(a.socket, `at ${at}`)).ok, true, String(at))
+    await arrived
+  }
+  const heardByB = hearing(b.socket, b.server)
+  // The wait is until the first, sent at 0, is 10 s old.
+  clock.now = 4_500
+  const refused = { error: 'rate-limited', retryAfterMs: 5_500 }
+  assert.deepEqual(await send(a.socket, 'one too many'), refused)
+  // The limit is the user's, so another of aki's sockets is refused too.
+  const again = await member(t, app, url, 'token-aki')
+  assert.deepEqual(await send(again.socket, 'one too many'), refused)
+  assert.equal(await saved('one too many'), 0)
+  assert.deepEqual(await heardByB(), [])
+  // rei's sends are rei's own.
+  assert.equal((await send(b.socket, 'rei is let through')).ok, true)
+  clock.now = 9_999
+  assert.deepEqual(await send(a.socket, 'one too many'), { ...refused, retryAfterMs: 1 })
+  clock.now = 10_000
+  assert.equal((await send(a.socket, 'aki again')).ok, true)
 })
 
 test('a user with no handle yet gets handle-required, and can send once they pick one', async (t) => {

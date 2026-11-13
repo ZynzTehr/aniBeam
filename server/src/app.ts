@@ -37,10 +37,12 @@ declare module 'fastify' {
 // none, no website's may. `serveClient` serves Socket.IO's browser file, which only the dev
 // entry's page loads. `logger` is true to log to stdout, or a stream for a test to read.
 // `trustProxy` is the proxies trusted to say each client's IP (TRUST_PROXY), none if unset.
+// `now` is the clock the limits read, in ms, for tests to set by hand.
 export function buildApp(
   options: {
     corsOrigins?: readonly string[]
     logger?: boolean | { stream: { write(line: string): void } }
+    now?: () => number
     pool?: pg.Pool
     serveClient?: boolean
     trustProxy?: TrustProxy
@@ -114,7 +116,14 @@ export function buildApp(
 
   const db = options.pool && drizzle({ client: options.pool })
   // The sockets, on the server Fastify made, which listens when the app does.
-  sockets(app, { allows, db, serveClient: options.serveClient ?? false, verify: options.verify })
+  sockets(app, {
+    allows,
+    db,
+    // A clock that never goes back, as the computer's can when it is set.
+    now: options.now ?? (() => performance.now()),
+    serveClient: options.serveClient ?? false,
+    verify: options.verify,
+  })
 
   app.get('/health', async () => ({ ok: true }))
   if (db) {
