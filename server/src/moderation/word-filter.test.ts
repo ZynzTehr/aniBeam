@@ -21,7 +21,7 @@ test('every listed word is refused, in any case', () => {
 test('leetspeak, stretched, accented and full-width forms are refused', () => {
   assert.deepEqual(
     passed([
-      // Leetspeak: 0 o, 1 i, 3 e, 4 a, 5 s, @ a, $ s.
+      // Leetspeak: 0 o, 1 i or l, 3 e, 4 a, 5 s, @ a, $ s.
       'sh1t',
       'b1tch',
       'wh0re',
@@ -31,6 +31,10 @@ test('leetspeak, stretched, accented and full-width forms are refused', () => {
       '@$$',
       '5h1t',
       'r3tard',
+      // 1 stands for l as often as for i.
+      's1ut',
+      'assho1e',
+      'a55ho1e',
       // Letters repeated.
       'fuuuuck',
       'FFFUUUCCCKKK',

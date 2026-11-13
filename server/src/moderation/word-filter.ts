@@ -7,19 +7,21 @@
 // - lowercase;
 // - accents dropped: NFD splits ü into u and its accent, and the accent goes, so fück is fuck;
 // - characters that show nothing, such as a zero-width space, dropped, so they can't split a word;
-// - leetspeak read as letters: 0 o, 1 i, 3 e, 4 a, 5 s, @ a and $ s, so sh1t is shit, but only
-//   in a word with as many letters as digits or more, so that a number such as episode 455, 45s
-//   or the phone A55 stays a number;
+// - leetspeak read as letters: 0 o, 1 i or l, 3 e, 4 a, 5 s, @ a and $ s, so sh1t is shit,
+//   but only in a word with as many letters as digits or more, so that a number such as
+//   episode 455, 45s or the phone A55 stays a number;
 // - then it is split into words at anything that is not a letter;
 // - and a letter repeated counts once, so fuuuuck is fuck. A listed word's own repeats must
 //   still be there, as many or more: "ass" matches asssss but not "as", and the slur with gg
 //   not "Niger".
-// The text is also read a second time with its digits as gaps, not letters, so that fuck1 or
-// Shit_99, as handles are often written, is caught as well as sh1t.
+// The text is read with 1 as l too, so that s1ut is caught as well as sh1t, and a third time with
+// its digits as gaps, not letters, so that fuck1 or Shit_99, as handles are often written, is.
 import { BLOCKED_WORDS } from './blocked-words.ts'
 
-/** Leetspeak's stand-ins for letters. */
+/** Leetspeak's stand-ins for letters, with 1 as i. */
 const LEET: Record<string, string> = { 0: 'o', 1: 'i', 3: 'e', 4: 'a', 5: 's', '@': 'a', $: 's' }
+/** The readings of a text: leetspeak with 1 as i, then as l, and digits as gaps (none). */
+const READINGS = [LEET, { ...LEET, 1: 'l' }, undefined]
 
 /** A word's letters as runs of one letter, each [letter, how many times]: ass is a 1, s 2. */
 type Runs = [string, number][]
@@ -51,8 +53,8 @@ function wordy(token: string) {
   return count(/\p{L}/gu) >= count(/\p{N}/gu)
 }
 
-/** The words of `text` as the filter reads them, with leetspeak as letters if `leet`. */
-function words(text: string, leet: boolean) {
+/** The words of `text` as the filter reads them, with `leet`'s stand-ins as letters if given. */
+function words(text: string, leet: Record<string, string> | undefined) {
   const read = text
     .normalize('NFKC')
     .toLowerCase()
@@ -64,7 +66,7 @@ function words(text: string, leet: boolean) {
     ? read
         .split(/[^\p{L}\p{N}@$]+/u)
         .map((token) =>
-          wordy(token) ? token.replace(/[01345@$]/g, (stand) => LEET[stand]) : token,
+          wordy(token) ? token.replace(/[01345@$]/g, (stand) => leet[stand]) : token,
         )
     : [read]
   return tokens.flatMap((token) => token.split(/\P{L}+/u)).filter((word) => word !== '')
@@ -72,7 +74,7 @@ function words(text: string, leet: boolean) {
 
 /** Whether `text` holds a listed word, as a whole word. */
 export function hasBlockedWord(text: string) {
-  for (const leet of [true, false])
+  for (const leet of READINGS)
     for (const word of words(text, leet)) {
       const found = runs(word)
       // The same letters in the same runs, each run of the text's as long as the listed word's
