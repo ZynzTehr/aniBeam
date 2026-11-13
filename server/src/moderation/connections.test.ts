@@ -90,7 +90,28 @@ function raw(t: TestContext, url: string) {
   const packets: string[] = []
   socket.addEventListener('message', (event) => packets.push(String(event.data)))
   const closed = new Promise<void>((resolve) => socket.addEventListener('close', () => resolve()))
-  return { socket, packets, closed: () => within(closed, 'no close') }
+  // Whether the server took it (true), or refused it before it opened (false).
+  const opened = new Promise<boolean>((resolve) => {
+    socket.addEventListener('open', () => resolve(true))
+    socket.addEventListener('error', () => resolve(false))
+  })
+  return {
+    socket,
+    packets,
+    opened: () => within(opened, 'no open or error'),
+    closed: () => within(closed, 'no close'),
+  }
+}
+
+/** A polling request to `url`'s Socket.IO, as a script would send it, and its answer's text. */
+async function poll(url: string, query: string, body?: string) {
+  const response = await fetch(`${url}/socket.io/?EIO=4&transport=polling${query}`, {
+    method: body === undefined ? 'GET' : 'POST',
+    headers: { origin: ORIGIN },
+    body,
+  })
+  assert.equal(response.status, 200, query)
+  return response.text()
 }
 
 /** Closes `socket`, and resolves once the server has seen its connection close. */
@@ -170,6 +191,42 @@ test('a connection past the max that never asks to connect closes after the grac
   await script.closed()
   // The 2 within the max opened before it, and are open still: the grace is for those past it.
   assert.equal(app.io.engine.clientsCount, 2)
+})
+
+test('over polling, a connection past the max that never asks to connect closes after the grace', async (t) => {
+  const { app, url } = await server(t, { refusalGraceMs: 50 })
+  await open(t, app, url)
+  await open(t, app, url)
+  const opened = nextConnection(app)
+  // The handshake alone: its answer is the one request, and nothing asks again.
+  await poll(url, '')
+  // So no request waits to carry a close, and the server drops it without one.
+  await (await opened).closed()
+  assert.equal(app.io.engine.clientsCount, 2)
+})
+
+test('over polling, a client that ignores the refusal is closed once it has read the code', async (t) => {
+  const { app, url } = await server(t)
+  await open(t, app, url)
+  await open(t, app, url)
+  const opened = nextConnection(app)
+  const { sid } = JSON.parse((await poll(url, '')).slice(1)) as { sid: string }
+  const { closed } = await opened
+  assert.equal(await poll(url, `&sid=${sid}`, '40'), 'ok')
+  assert.equal(await poll(url, `&sid=${sid}`), '44{"message":"too-many-connections"}')
+  // It never polls again, and the server doesn't wait for it to.
+  await closed()
+  assert.equal(app.io.engine.clientsCount, 2)
+})
+
+test('past the max and as many again waiting for their refusals, a connection is refused before it opens', async (t) => {
+  const { app, url } = await server(t)
+  // Scripts that never ask for a socket, one after another, as a flood would open them.
+  const outcomes = []
+  for (let tries = 1; tries <= 10; tries++) outcomes.push(await raw(t, url).opened())
+  // 2 in the count, 2 past it waiting for the grace, and the rest refused.
+  assert.deepEqual(outcomes, [true, true, true, true, false, false, false, false, false, false])
+  assert.equal(app.io.engine.clientsCount, 4)
 })
 
 /** A client's options with `forwarded` as its X-Forwarded-For. */

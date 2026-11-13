@@ -66,6 +66,12 @@ export function sockets(
     verify: Verify | undefined
   },
 ) {
+  // The connections per IP address (moderation/connections.ts).
+  const cap = connectionCap({
+    max: options.maxConnectionsPerIp,
+    ipOf: (request) => app.clientIp(request),
+    graceMs: options.refusalGraceMs,
+  })
   const io: ChatServer = new Server(app.server, {
     serveClient: options.serveClient,
     maxHttpBufferSize: MAX_PACKET,
@@ -75,8 +81,9 @@ export function sockets(
     // origin itself. A request with no Origin is refused too. A browser sends one with every
     // WebSocket and every request to another site, but not with a GET to its page's own server,
     // which polling's first request is: a page this server serves, as the dev entry's demo page,
-    // connects over WebSocket alone.
-    allowRequest: (request, callback) => callback(null, options.allows(request.headers.origin)),
+    // connects over WebSocket alone. An address far past its connections is refused here too.
+    allowRequest: (request, callback) =>
+      callback(null, options.allows(request.headers.origin) && cap.admits(request)),
     // Socket.IO answers every request under /socket.io/ itself, before Fastify's hooks, so the
     // CORS headers of cors.ts never reach them. Polling's answers carry them here instead, for
     // the same origins: a page on another site, as the web app is, reads an answer only if it
@@ -94,13 +101,9 @@ export function sockets(
     io.engine.close()
   })
 
-  // First, the connections per IP address (moderation/connections.ts), so that a connection
-  // past its address's max costs no token check.
-  connectionCap(io, {
-    max: options.maxConnectionsPerIp,
-    ipOf: (request) => app.clientIp(request),
-    graceMs: options.refusalGraceMs,
-  })
+  // First, the connections per IP address, so that a connection past its address's max costs no
+  // token check.
+  cap.attach(io)
 
   // The sign-in, as a socket opens: the token is read from the handshake's auth alone, which a
   // client sets as io(url, { auth: { token } }), and checked by the verifier REST uses. A token
