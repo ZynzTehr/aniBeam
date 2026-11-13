@@ -49,11 +49,11 @@ export const MAX_PACKET = 16 * 1024
  * origin (cors.ts), so that sockets take the same websites' pages as REST. `verify` checks the
  * sign-in tokens, as it does for REST; without one, every token is refused. `db` is where
  * message:send saves messages and message:report records reports; without one, as for the
- * routes that read it, sockets may join and leave rooms but have neither event. `serveClient` serves Socket.IO's browser file at
- * /socket.io/socket.io.min.js, for the dev entry's page. `now` is the clock the limits read, in
- * ms. `maxConnectionsPerIp` is the most connections one IP address may have open at once, the
- * address read by app.clientIp (client-ip.ts), and `refusalGraceMs` how long one past it stays
- * open for its refusal.
+ * routes that read it, sockets may join and leave rooms but have neither event. `serveClient`
+ * serves Socket.IO's browser file at /socket.io/socket.io.min.js, for the dev entry's page.
+ * `now` is the clock the limits read, in ms. `maxConnectionsPerIp` is the most connections one
+ * IP address may have open at once, the address read by app.clientIp (client-ip.ts), and
+ * `refusalGraceMs` how long one past it stays open for its refusal.
  */
 export function sockets(
   app: FastifyInstance,

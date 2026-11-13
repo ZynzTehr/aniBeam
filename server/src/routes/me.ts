@@ -40,7 +40,8 @@ export function meRoutes(app: FastifyInstance, db: NodePgDatabase, verify: Verif
   })
 
   // { handle }: makes the user's row with it, which answers 201 and what GET /me would. A handle
-  // is set once, and holds no word of the word filter's (handle-blocked). The row holds the uid and the handle, never an email (spec section 5).
+  // is set once, and holds no word of the word filter's (handle-blocked). The row holds the uid
+  // and the handle, never an email (spec section 5).
   app.post('/me/handle', { onRequest: signedIn }, async (request, reply) => {
     const handle = handleIn(request.body)
     if (handle === undefined) return reply.code(400).send({ error: 'invalid' satisfies ErrorCode })

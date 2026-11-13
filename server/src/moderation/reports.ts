@@ -75,7 +75,8 @@ export async function report(
     )
     if (counted[0].count < HIDE_AT) return { hidden: undefined }
     const { rows: hid } = await tx.execute(
-      sql`update messages set hidden_at = now() where id = ${id} and hidden_at is null returning id`,
+      sql`update messages set hidden_at = now()
+        where id = ${id} and hidden_at is null returning id`,
     )
     return { hidden: hid.length === 1 ? { id, roomKey: message.room_key } : undefined }
   })
