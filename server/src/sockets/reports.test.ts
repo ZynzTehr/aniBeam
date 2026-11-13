@@ -27,8 +27,8 @@ const ROOM = 'anime:154587:ep:5'
 const OTHER_ROOM = 'anime:154587:ep:6'
 
 /**
- * The tests' sign-ins: aki, rei, kiri, hoshi, mio and sora have handles, and new has signed in
- * but has none yet. mio is banned by the test that needs it.
+ * The tests' sign-ins: aki, rei, kiri, hoshi, mio, sora and yuki have handles, and new has signed
+ * in but has none yet. mio and yuki are banned by the tests that need it.
  */
 const UIDS: Record<string, string> = {
   'token-aki': 'uid-aki',
@@ -37,6 +37,7 @@ const UIDS: Record<string, string> = {
   'token-hoshi': 'uid-hoshi',
   'token-mio': 'uid-mio',
   'token-sora': 'uid-sora',
+  'token-yuki': 'uid-yuki',
   'token-new': 'uid-new',
 }
 const verify: Verify = async (token) => {
@@ -50,7 +51,8 @@ before(async () => {
   db = await testDatabase()
   await db.pool.query(
     `insert into users (auth_uid, handle) values ('uid-aki', 'aki'), ('uid-rei', 'rei'),
-       ('uid-kiri', 'kiri'), ('uid-hoshi', 'hoshi'), ('uid-mio', 'mio'), ('uid-sora', 'sora')`,
+       ('uid-kiri', 'kiri'), ('uid-hoshi', 'hoshi'), ('uid-mio', 'mio'), ('uid-sora', 'sora'),
+       ('uid-yuki', 'yuki')`,
   )
 })
 after(() => db?.close())
@@ -98,13 +100,18 @@ async function state(id: number) {
   return rows[0]
 }
 
-/** The pid of a query waiting on a row lock in this file's database, once one is. */
-async function lockWaiter() {
+/**
+ * The pid of a query waiting on a row lock in this file's database, once one is: the one of the
+ * connection whose pid is `pid` if given, or any.
+ */
+async function lockWaiter(pid?: number) {
   const until = performance.now() + WAIT
   while (performance.now() < until) {
     const { rows } = await db.pool.query<{ pid: number }>(
       `select pid from pg_stat_activity
-       where datname = current_database() and wait_event_type = 'Lock'`,
+       where datname = current_database() and wait_event_type = 'Lock'
+         and ($1::int is null or pid = $1)`,
+      [pid ?? null],
     )
     if (rows.length > 0) return rows[0].pid
   }
@@ -276,6 +283,35 @@ test('a report whose database connection ends mid-transaction answers server-err
   assert.equal(pool.totalCount, 0)
   assert.deepEqual(await reportOf(rei.socket, id), { ok: true })
   assert.deepEqual(await state(id), { hidden: false, reports: 1 })
+})
+
+test('a ban made while a report waits on its message waits for the report, so it is the ban that comes after', async (t) => {
+  const { app, url } = await server(t)
+  const yuki = await member(t, app, url, 'token-yuki')
+  const id = await posted('reported as the ban is made')
+  const holder = await db.pool.connect()
+  t.after(() => holder.release())
+  await holder.query('begin')
+  await holder.query('select id from messages where id = $1 for update', [id])
+  const answer = reportOf(yuki.socket, id)
+  await lockWaiter()
+  // The ban, on a connection of its own, while the report has read yuki's row and waits.
+  const banner = await db.pool.connect()
+  t.after(() => banner.release())
+  const { rows } = await banner.query<{ pid: number }>('select pg_backend_pid() as pid')
+  const banned = banner.query(
+    "UPDATE users SET banned_at = now() WHERE lower(handle) = lower('yuki')",
+  )
+  const first = await Promise.race([
+    banned.then(() => 'the ban'),
+    lockWaiter(rows[0].pid).then(() => 'the report'),
+  ])
+  assert.equal(first, 'the report')
+  await holder.query('rollback')
+  assert.deepEqual(await answer, { ok: true })
+  await banned
+  assert.deepEqual(await state(id), { hidden: false, reports: 1 })
+  assert.deepEqual(await reportOf(yuki.socket, await posted('after the ban')), { error: 'banned' })
 })
 
 test('an app without a database has no message:report', async (t) => {

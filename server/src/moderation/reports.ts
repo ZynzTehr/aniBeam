@@ -44,9 +44,13 @@ export async function report(
   | Extract<ErrorCode, 'banned' | 'cannot-report-own' | 'handle-required' | 'not-found'>
 > {
   return transaction(pool, async (tx) => {
-    // A user with no row has no handle yet. The ban is read here, at each report, as for a send.
+    // A user with no row has no handle yet. The ban is read at each report, and the user's row
+    // held (FOR SHARE) until the report commits: a ban made meanwhile, as while the report waits
+    // on the message's lock below, waits for it. So a report is recorded only if its user isn't
+    // banned when it commits, and a ban made first is seen. A row held FOR SHARE can still be
+    // read, and the same user's other reports may hold it too.
     const { rows: users } = await tx.execute<{ id: string; banned: boolean }>(
-      sql`select id, banned_at is not null as banned from users where auth_uid = ${uid}`,
+      sql`select id, banned_at is not null as banned from users where auth_uid = ${uid} for share`,
     )
     const [user] = users
     if (user === undefined) return 'handle-required'
