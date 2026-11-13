@@ -25,7 +25,7 @@ export interface Hidden {
  * Records the report `report` by the user whose sign-in is `uid`, and gives back the message if
  * this report hid it, undefined if it was counted and the message still shows, or the code that
  * says why it was refused. A second report of a message by the same user counts once, and keeps
- * the first's reason.
+ * the first's reason, and a report by a user banned since counts no more.
  *
  * One transaction, on a connection of `pool`'s (db/transaction.ts), which first locks the
  * message's row (FOR UPDATE), so that reports of one message are counted one after another.
@@ -67,8 +67,11 @@ export async function report(
     await tx.execute(sql`
       insert into reports (message_id, reporter_id, reason) values (${id}, ${user.id}, ${reason})
       on conflict (message_id, reporter_id) do nothing`)
+    // Only the reports of users who aren't banned count. So once a moderator bans the accounts
+    // that hid a message together, and shows it again, it stays up until others report it.
     const { rows: counted } = await tx.execute<{ count: number }>(
-      sql`select count(*)::int as count from reports where message_id = ${id}`,
+      sql`select count(*)::int as count from reports join users on users.id = reports.reporter_id
+        where reports.message_id = ${id} and users.banned_at is null`,
     )
     if (counted[0].count < HIDE_AT) return { hidden: undefined }
     const { rows: hid } = await tx.execute(

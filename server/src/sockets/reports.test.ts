@@ -27,8 +27,9 @@ const ROOM = 'anime:154587:ep:5'
 const OTHER_ROOM = 'anime:154587:ep:6'
 
 /**
- * The tests' sign-ins: aki, rei, kiri, hoshi, mio, sora and yuki have handles, and new has signed
- * in but has none yet. mio and yuki are banned by the tests that need it.
+ * The tests' sign-ins: aki, rei, kiri, hoshi, mio, sora, yuki, ren, nao and sumi have handles,
+ * and new has signed in but has none yet. mio, yuki, ren, nao and sumi are banned by the tests
+ * that need it.
  */
 const UIDS: Record<string, string> = {
   'token-aki': 'uid-aki',
@@ -38,6 +39,9 @@ const UIDS: Record<string, string> = {
   'token-mio': 'uid-mio',
   'token-sora': 'uid-sora',
   'token-yuki': 'uid-yuki',
+  'token-ren': 'uid-ren',
+  'token-nao': 'uid-nao',
+  'token-sumi': 'uid-sumi',
   'token-new': 'uid-new',
 }
 const verify: Verify = async (token) => {
@@ -52,7 +56,7 @@ before(async () => {
   await db.pool.query(
     `insert into users (auth_uid, handle) values ('uid-aki', 'aki'), ('uid-rei', 'rei'),
        ('uid-kiri', 'kiri'), ('uid-hoshi', 'hoshi'), ('uid-mio', 'mio'), ('uid-sora', 'sora'),
-       ('uid-yuki', 'yuki')`,
+       ('uid-yuki', 'yuki'), ('uid-ren', 'ren'), ('uid-nao', 'nao'), ('uid-sumi', 'sumi')`,
   )
 })
 after(() => db?.close())
@@ -312,6 +316,26 @@ test('a ban made while a report waits on its message waits for the report, so it
   await banned
   assert.deepEqual(await state(id), { hidden: false, reports: 1 })
   assert.deepEqual(await reportOf(yuki.socket, await posted('after the ban')), { error: 'banned' })
+})
+
+test("reports by users banned since don't count: a message they hid, shown again, stays shown at the next report", async (t) => {
+  const { app, url } = await server(t)
+  const trolls = [
+    await member(t, app, url, 'token-ren'),
+    await member(t, app, url, 'token-nao'),
+    await member(t, app, url, 'token-sumi'),
+  ]
+  const kiri = await member(t, app, url, 'token-kiri')
+  const id = await posted('an honest message')
+  for (const { socket } of trolls) assert.deepEqual(await reportOf(socket, id), { ok: true })
+  assert.deepEqual(await state(id), { hidden: true, reports: 3 })
+  // The three are banned, and the message shown again, as the README says.
+  await db.pool.query("UPDATE users SET banned_at = now() WHERE handle in ('ren', 'nao', 'sumi')")
+  await db.pool.query('UPDATE messages SET hidden_at = NULL WHERE id = $1', [id])
+  const toKiri = hiddenTo(kiri)
+  assert.deepEqual(await reportOf(kiri.socket, id), { ok: true })
+  assert.deepEqual(await state(id), { hidden: false, reports: 4 })
+  assert.deepEqual(await toKiri(), [])
 })
 
 test('an app without a database has no message:report', async (t) => {
