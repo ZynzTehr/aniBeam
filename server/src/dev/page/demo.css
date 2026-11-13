@@ -49,6 +49,13 @@ input:not([type='checkbox']) {
   font-size: 0.8rem;
   margin-right: 0.5rem;
 }
+.report {
+  margin-left: 0.5rem;
+  font-size: 0.8rem;
+}
+.reason {
+  color: #a9a9b8;
+}
 .spoiler {
   filter: blur(4px);
   cursor: pointer;
