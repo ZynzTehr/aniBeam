@@ -28,7 +28,8 @@ test('leetspeak, stretched, accented and full-width forms are refused', () => {
       '@ss',
       'a$$',
       '4ss',
-      '455',
+      '@$$',
+      '5h1t',
       'r3tard',
       // Letters repeated.
       'fuuuuck',
@@ -114,4 +115,28 @@ test('words and names that hold a listed word inside them pass, as do ones that 
     ]),
     [],
   )
+})
+
+test('numbers are not read as leetspeak: episodes, times, prices and model names pass', () => {
+  assert.deepEqual(
+    refused([
+      'One Piece episode 455 was great',
+      'Detective Conan ep 455',
+      'room 455',
+      'wait 45s',
+      'skip to 1:45s',
+      'it costs 45$',
+      "it's 245$ on the store",
+      'I scored 2455 points',
+      'my id is 84557',
+      '4552',
+      'watching on my Galaxy A55',
+      'neo_455',
+      'Kai_45s',
+      'A55_fan',
+    ]),
+    [],
+  )
+  const numbers = Array.from({ length: 100_000 }, (_, number) => String(number))
+  assert.deepEqual(refused(numbers), [])
 })

@@ -7,7 +7,9 @@
 // - lowercase;
 // - accents dropped: NFD splits ü into u and its accent, and the accent goes, so fück is fuck;
 // - characters that show nothing, such as a zero-width space, dropped, so they can't split a word;
-// - leetspeak read as letters: 0 o, 1 i, 3 e, 4 a, 5 s, @ a and $ s, so sh1t is shit;
+// - leetspeak read as letters: 0 o, 1 i, 3 e, 4 a, 5 s, @ a and $ s, so sh1t is shit, but only
+//   in a word with as many letters as digits or more, so that a number such as episode 455, 45s
+//   or the phone A55 stays a number;
 // - then it is split into words at anything that is not a letter;
 // - and a letter repeated counts once, so fuuuuck is fuck. A listed word's own repeats must
 //   still be there, as many or more: "ass" matches asssss but not "as", and the slur with gg
@@ -43,15 +45,29 @@ for (const word of BLOCKED_WORDS) {
   LISTED.set(key, [...(LISTED.get(key) ?? []), listed])
 }
 
+/** Whether `token` has as many letters as digits, or more: a word, not a number. */
+function wordy(token: string) {
+  const count = (kind: RegExp) => token.match(kind)?.length ?? 0
+  return count(/\p{L}/gu) >= count(/\p{N}/gu)
+}
+
 /** The words of `text` as the filter reads them, with leetspeak as letters if `leet`. */
 function words(text: string, leet: boolean) {
-  let read = text
+  const read = text
     .normalize('NFKC')
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\p{M}\p{Cf}]/gu, '')
-  if (leet) read = read.replace(/[01345@$]/g, (stand) => LEET[stand])
-  return read.split(/\P{L}+/u).filter((word) => word !== '')
+  // With leetspeak, each run of letters, digits and stand-ins is read on its own first, and its
+  // stand-ins become letters only if it is wordy.
+  const tokens = leet
+    ? read
+        .split(/[^\p{L}\p{N}@$]+/u)
+        .map((token) =>
+          wordy(token) ? token.replace(/[01345@$]/g, (stand) => LEET[stand]) : token,
+        )
+    : [read]
+  return tokens.flatMap((token) => token.split(/\P{L}+/u)).filter((word) => word !== '')
 }
 
 /** Whether `text` holds a listed word, as a whole word. */
