@@ -545,11 +545,11 @@ HTTP answers only what it is asked, so a page would have to keep asking for new 
 
 Each event a client sends carries its payload and an ack, a function Socket.IO calls with the server's answer:
 
-| Event          | Payload                      | Ack                                                                                                                                                                                                                                            |
-| -------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `join`         | `{ roomKey }`                | `{ ok: true }` once the socket is in the room, so history read next misses nothing; `invalid`, or `too-many-rooms` past 5 rooms                                                                                                                |
-| `leave`        | `{ roomKey }`                | `{ ok: true }`, in the room or not; `invalid`                                                                                                                                                                                                  |
-| `message:send` | `{ roomKey, body, spoiler }` | `{ ok: true, message }` once the message is saved; else the first that applies of `invalid`, `sign-in-required`, `not-joined`, `rate-limited` (with `retryAfterMs`), `message-blocked`, `handle-required`, and `server-error` if saving failed |
+| Event          | Payload                      | Ack                                                                                                                                                                                                                                                      |
+| -------------- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `join`         | `{ roomKey }`                | `{ ok: true }` once the socket is in the room, so history read next misses nothing; `invalid`, or `too-many-rooms` past 5 rooms                                                                                                                          |
+| `leave`        | `{ roomKey }`                | `{ ok: true }`, in the room or not; `invalid`                                                                                                                                                                                                            |
+| `message:send` | `{ roomKey, body, spoiler }` | `{ ok: true, message }` once the message is saved; else the first that applies of `invalid`, `sign-in-required`, `not-joined`, `rate-limited` (with `retryAfterMs`), `message-blocked`, `banned`, `handle-required`, and `server-error` if saving failed |
 
 Every other key in a payload is refused (`invalid`), a handle or a user id among them: who sends comes from the token alone. `body` is trimmed, then must be 1 to 500 code points, one of them at least a character that shows (`shared/src/message.ts`): a body of nothing but zero-width spaces, direction marks, control characters or blank fillers is refused, as one of spaces is. `spoiler` is `true` or `false`. A saved message has history's shape, `{ id, roomKey, handle, body, spoiler, createdAt }`, with the handle from the sender's account, never a user id. The server then sends it to the room's other sockets as `message:new`; the sender has it from its ack alone, so it never shows twice. Socket.IO sends each event at most once, so a client that reconnects joins its room again, then reads the history again and merges it with what it has by `id`. There are no automatic send retries, so a message is never posted twice. One server instance is supported for now, since rooms live in its memory.
 
@@ -570,9 +570,26 @@ Every refusal answers `{ "error": "<code>" }` over REST and in an ack, and a ref
 - `too-many-connections`: a socket from an IP address with 10 connections open already, as its connect error, so that one computer can't open thousands. The count is kept on the raw connection beneath each socket (Engine.IO's), up when it opens and down when it closes, so a connection refused for a bad token frees its place once its client closes it, and a few bad tries never lock anyone out. The address is read by `TRUST_PROXY`'s rule (`server/src/client-ip.ts`), so a client can't buy more places by writing addresses into `X-Forwarded-For` (`server/src/moderation/connections.ts`).
 - `message-blocked`: a `message:send` whose body holds a word of the word filter's short list (`server/src/moderation/blocked-words.ts`). Nothing is posted, and the message isn't shown with the word masked either (D11). Only whole words count, so Scunthorpe, class and assassin pass. Before matching, the filter reads the text as a person would (`server/src/moderation/word-filter.ts`): NFKC, so full-width letters are plain ones; lowercase; accents dropped; characters that show nothing dropped; leetspeak read as letters (0 o, 1 i, 3 e, 4 a, 5 s, @ a, $ s); split into words at anything else that isn't a letter; and a letter repeated counts once, so fuuuck is fuck, though a listed word's own doubled letters must be there, so "as" passes where "ass" doesn't. It reads the text a second time with digits as gaps between words, so `fuck1` is caught as well as `sh1t`. The list is public and never complete: a word spelled out with spaces or dots between its letters, or run into another word, gets through. A refused send still counts toward `rate-limited`.
 - `handle-blocked`: `POST /me/handle` with a handle that holds a word of the same list. REST answers 400. A handle is read as the filter reads a message: its parts between `_` and digits are each a word, so `fuck_you` and `Shit99` are refused, and `Scunthorpe` and `class_act` are set.
+- `banned`: `message:send` from a banned user (see [Banning](#banning)). Nothing is saved or sent.
 - `server-error`: a failure of the server's own, such as the database being down. REST answers 500, an ack says it for any event whose handling failed (a `message:send` whose message failed to save among them, and then the room gets nothing), and a socket gets it as its connect error when its token couldn't be checked. It comes with nothing else: no stack, SQL or message, which can hold the SQL that failed or a user's uid, and the log keeps a failed query without its values.
 
 Fastify's own refusals, such as bad JSON or an address no route has, answer the same way.
+
+#### Banning
+
+There is no moderator page yet, so a user is banned by hand, in the database, with psql. It comes with Postgres 18 (`brew install postgresql@18`, then `/opt/homebrew/opt/postgresql@18/bin/psql`). Give it the server's database address, `DATABASE_URL`, and the handle the user's messages show:
+
+```bash
+psql "<DATABASE_URL>" -c "UPDATE users SET banned_at = now() WHERE lower(handle) = lower('name');"
+```
+
+`lower()` on both sides finds the handle in any case, as the unique index compares them. psql answers `UPDATE 1`, or `UPDATE 0` if no one has that handle. The ban counts from the user's very next `message:send`, on every socket they have open, with no reconnect: the insert that saves a message only takes a sender whose `banned_at` is empty, in the same SQL statement (`server/src/sockets/messages.ts`), and the server keeps no copy of it on the socket. A check first and an insert after would let through a message sent just as the ban landed. A banned user's send answers `banned`, and `GET /me` answers `"banned": true`. They can still sign in and read, and their messages from before stay. To lift the ban:
+
+```bash
+psql "<DATABASE_URL>" -c "UPDATE users SET banned_at = NULL WHERE lower(handle) = lower('name');"
+```
+
+`npm run demo:chat`'s throwaway Postgres has a password made for it that it never shows, so to try a ban in the demo, start it with `DATABASE_URL` set to a database of your own, which it migrates.
 
 #### Which websites may call it (CORS)
 

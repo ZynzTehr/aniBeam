@@ -36,6 +36,9 @@ export const ERROR_CODES = [
   // A handle holding a word of the same list, its parts between _ and digits each read as a
   // word. REST answers it with 400, and the handle is not set.
   'handle-blocked',
+  // A banned user sent a message. A ban is set by hand in the database (the README says how),
+  // and counts from the user's very next message, on every socket they have open.
+  'banned',
   // A failure of the server's own, such as the database being down, and not the request's.
   // REST answers it with 500, an ack says it for any event whose handling failed (a message that
   // failed to save among them), and a socket gets it as its connect error when its token

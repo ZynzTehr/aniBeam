@@ -24,12 +24,17 @@ import type { ChatSocket } from './sockets.ts'
 const ROOM = 'anime:154587:ep:5'
 const OTHER_ROOM = 'anime:154587:ep:6'
 
-/** The tests' sign-ins: aki, rei and kiri have handles, and new has signed in but has none yet. */
+/**
+ * The tests' sign-ins: aki, rei and kiri have handles, and new has signed in but has none yet.
+ * hoshi and mio have handles too, for the tests that ban them.
+ */
 const UIDS: Record<string, string> = {
   'token-aki': 'uid-aki',
   'token-rei': 'uid-rei',
   'token-kiri': 'uid-kiri',
   'token-new': 'uid-new',
+  'token-hoshi': 'uid-hoshi',
+  'token-mio': 'uid-mio',
 }
 const verify: Verify = async (token) => {
   const uid = UIDS[token]
@@ -41,7 +46,8 @@ let db: TestDatabase
 before(async () => {
   db = await testDatabase()
   await db.pool.query(
-    "insert into users (auth_uid, handle) values ('uid-aki', 'Aki'), ('uid-rei', 'rei'), ('uid-kiri', 'kiri')",
+    `insert into users (auth_uid, handle) values ('uid-aki', 'Aki'), ('uid-rei', 'rei'),
+       ('uid-kiri', 'kiri'), ('uid-hoshi', 'Hoshi'), ('uid-mio', 'mio')`,
   )
 })
 after(() => db?.close())
@@ -306,6 +312,64 @@ test('a user with no handle yet gets handle-required, and can send once they pic
   assert.equal(picked.statusCode, 201, picked.body)
   const answer = (await ask(newcomer.socket, 'message:send', send)) as { message: ChatMessage }
   assert.equal(answer.message.handle, 'newbie')
+})
+
+test('a user banned while connected gets banned on the very next send, on every socket, and nothing is stored or sent', async (t) => {
+  const { app, url } = await server(t)
+  const a = await member(t, app, url, 'token-hoshi')
+  const tab2 = await member(t, app, url, 'token-hoshi')
+  const b = await member(t, app, url, 'token-rei')
+  const send = (socket: Socket, body: string) =>
+    ask(socket, 'message:send', { roomKey: ROOM, body, spoiler: false })
+  const arrived = next(b.socket, 'message:new')
+  assert.equal(((await send(a.socket, 'before the ban')) as { ok?: true }).ok, true)
+  await arrived
+  // The README's command, as a moderator would run it in psql.
+  await db.pool.query("UPDATE users SET banned_at = now() WHERE lower(handle) = lower('hoshi')")
+  const heardByB = hearing(b.socket, b.server)
+  assert.deepEqual(await send(a.socket, 'after the ban'), { error: 'banned' })
+  assert.deepEqual(await send(tab2.socket, 'after the ban'), { error: 'banned' })
+  assert.equal(await saved('after the ban'), 0)
+  assert.deepEqual(await heardByB(), [])
+  // Nothing about the ban is kept on the socket: lifted, it is gone from the next send too.
+  await db.pool.query("UPDATE users SET banned_at = NULL WHERE lower(handle) = lower('hoshi')")
+  const unbanned = next<ChatMessage>(b.socket, 'message:new')
+  assert.equal(((await send(a.socket, 'after the unban')) as { ok?: true }).ok, true)
+  assert.equal((await unbanned).body, 'after the unban')
+})
+
+test('the ban is read in the insert itself: a ban that lands just before it still refuses the message', async (t) => {
+  // The database through a pool of the test's own, which bans mio just before running any
+  // insert into messages, as a moderator's ban landing between the send's checks and its insert
+  // would. A ban checked by a query of its own before the insert would be passed by then.
+  const pool = new pg.Pool({ connectionString: db.url })
+  t.after(() => pool.end())
+  const query = pool.query.bind(pool) as (...args: unknown[]) => Promise<unknown>
+  let bans = 0
+  ;(pool as { query: unknown }).query = async (...args: unknown[]) => {
+    const [config] = args
+    const text = typeof config === 'string' ? config : (config as { text: string }).text
+    if (/^\s*insert into messages/i.test(text)) {
+      bans++
+      await query("UPDATE users SET banned_at = now() WHERE lower(handle) = lower('mio')")
+    }
+    return query(...args)
+  }
+  const { app, url } = await server(t, { pool })
+  const a = await member(t, app, url, 'token-mio')
+  const b = await member(t, app, url, 'token-rei')
+  const heardByB = hearing(b.socket, b.server)
+  assert.deepEqual(
+    await ask(a.socket, 'message:send', {
+      roomKey: ROOM,
+      body: 'as the ban lands',
+      spoiler: false,
+    }),
+    { error: 'banned' },
+  )
+  assert.equal(bans, 1, 'the send tried its insert once')
+  assert.equal(await saved('as the ban lands'), 0)
+  assert.deepEqual(await heardByB(), [])
 })
 
 test('when the database fails, the ack is server-error, the room gets nothing, and the log keeps neither the uid nor the body', async (t) => {

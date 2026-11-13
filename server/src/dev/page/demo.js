@@ -71,6 +71,7 @@ const ERRORS = {
   'too-many-rooms': 'This socket is in too many rooms.',
   'message-blocked': 'That message has a word the chat refuses. Nothing was posted.',
   'handle-blocked': 'that name has a word the chat refuses.',
+  banned: 'This user is banned, so it can read but not send.',
   'server-error': 'The server failed to save it. Nothing was posted.',
 }
 const explain = (code) => ERRORS[code] ?? code
